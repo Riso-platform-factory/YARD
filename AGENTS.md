@@ -1,5 +1,19 @@
 # AGENTS.md
 
+## risoapp
+
+- risoapp is a platform, not an application. It holds strong engines on which other software is built. Applications and their features are built on it, and are not part of it.
+- It is written in Rust, with [GPUI](https://gpui.rs/) for the user interface, and follows Zed's design. Read how Zed solves a problem before designing a solution.
+
+## Stages: dev and production
+
+- Code is in one of two stages. **Production**: the user reviewed it and approved it. **Dev**: everything else. New code is dev.
+- Only the user moves code to production, after reviewing it.
+- Production code uses only production code.
+- The user reviews every commit.
+
+---
+
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.

@@ -23,11 +23,37 @@
 
 - `cargo run` runs production code only.
 - `cargo run dev` runs production code and the one part under review, and nothing else. `UNDER_REVIEW` in `app/riso/src/dev/review.rs` names that part, and the same file adds only what it does. With nothing under review, it opens one empty window.
+- A test extension, in `examples/`, exercises the parts under review through the running app, with cases chosen by its own parameters. Only the list of extensions in `review.rs` names it; the app knows nothing else of it, so removing it from that list and from riso's dependencies leaves the app as it should be. A crate in `examples/` has no stage and is never in production.
+- An integration test in `tests/` of a part that is not in production starts with `#![cfg(feature = "dev")]`. When the part is promoted, its tests lose that line, and `cargo test --workspace --no-default-features` runs the production parts' tests alone and must pass.
 
 ## The product
 
 - An engine never hardcodes what belongs to the application built on it: its name, its version, the names of its files, the names of its environment variables. The application passes them to the engine at runtime, and an engine derives its own names from them (for example `<name>.log` and `<NAME>_LIFECYCLE`).
 - An application reads its product from a build config at build time: `app/riso/product.toml`, or the file named by `PRODUCT_CONFIG=<path>` when it is packaged. `build.rs` gives the values to the code as `PRODUCT_NAME` and `PRODUCT_VERSION`.
+
+## Logging
+
+Every crate logs from the start, not as a later addition. No crate and no part is exempt, and an agent never proposes an exemption. There are two logs, both in `riso_log`:
+
+- **Diagnostic log (`log` macros)**: anything that helps diagnose a problem later, kept on disk in `<name>.log`. Use `log::error!` for bugs and failures, `log::warn!` for problems that were handled.
+- **Lifecycle trace (`tracing`)**: shows developers what the code is doing, to check it against the design. Never stored beyond the current run.
+
+Rules:
+
+- Wrap each main operation of a crate in a lifecycle group: `tracing::info_span!("<slug>", fields…)`, entered for the duration of the work. The name is a slug that describes the work (such as `layout-resolve`), and instance data goes in fields, not in the name.
+- Log the steps inside a group with `tracing::debug!`, and high-frequency work (per frame, per keystroke) only with `tracing::trace!`.
+- Log an `ERROR` only for real failures. A handled problem is a `WARN`, and an expected refusal (such as a user action that breaks a rule) is a `tracing::info!`, because every `ERROR` marks its group as failed.
+- Async work that belongs to a group is spawned with `.instrument(span)` so its lines stay in that group.
+- A group surrounds the work it names while that work runs. Never write a group afterwards to describe work that already ran. `riso_log::start` runs first of all, before the logs directory is known, and keeps what is logged until `riso_log::open_files` can write it, so even the earliest work logs as it runs.
+- Quieter is not silent: high-frequency work still logs at `trace`, and a problem logged once in the diagnostic log still appears in the lifecycle trace every time it happens.
+
+Testing logs:
+
+- Logging is part of the behavior, so test that the main operations open their groups and log at the right levels.
+- Tests that capture `tracing` output use `tracing::subscriber::with_default`. Do not install a process-wide subscriber in a test that shares its binary with other tests: tests run in parallel in one process, and a global subscriber makes them flaky. Only a test of work that runs on other threads may install one, and it is alone in its own integration test file.
+- A test that captures `tracing` output must not run in parallel with another test that reaches the same log lines, even one that captures nothing. `tracing` caches, per log line, whether anyone listens, and a thread without a subscriber that reaches the line first caches "nobody". Either put the test alone in its own integration test file, `tests/<name>.rs`, or make every test of the binary take one shared lock.
+- A test that installs a process-wide `log` logger (`log::set_logger`) goes in its own integration test file, `tests/<name>.rs`, which Cargo builds as a separate binary.
+- Run new logging tests repeatedly (for example 20 times) before calling them done, to catch flakiness.
 
 ---
 

@@ -1,0 +1,28 @@
+[package]
+name = "riso_log"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/riso_log.rs"
+
+[features]
+default = ["dev"]
+# Compiles the parts that are not in production.
+dev = []
+
+[dependencies]
+gpui.workspace = true
+zlog.workspace = true
+log.workspace = true
+tracing.workspace = true
+tracing-log.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

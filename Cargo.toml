@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["app/*"]
+members = ["crates/*", "app/*", "examples/*"]
 default-members = ["app/riso"]
 
 [workspace.package]
@@ -11,5 +11,14 @@ license = "GPL-3.0-or-later"
 [workspace.dependencies]
 gpui = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37", default-features = false }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37", default-features = false, features = ["font-kit", "wayland", "x11"] }
-serde_json = "1"
+zlog = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
+riso_log = { path = "crates/riso_log", default-features = false }
+log = "0.4.35"
+tracing = "0.1.44"
+tracing-log = { version = "0.2", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "registry", "env-filter"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+libc = "0.2"
+tempfile = "3"
 toml = "0.9"

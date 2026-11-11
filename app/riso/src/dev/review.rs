@@ -1,47 +1,32 @@
-use gpui::{
-    App, Context, IntoElement, Render, TitlebarOptions, Window, WindowOptions, div, prelude::*,
-};
-
-/// Names the one part under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &[];
-
-struct Review;
-
-impl Render for Review {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div().size_full()
-    }
-}
+/// Names the parts under review, as `<crate>/<part>`.
+pub(crate) const UNDER_REVIEW: &[&str] = &["riso_log/lifecycle_trace", "riso_log/diagnostic_log"];
 
 pub(crate) fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
         return false;
     }
-    let names = if UNDER_REVIEW.is_empty() {
-        "nothing".to_owned()
-    } else {
-        UNDER_REVIEW.join(", ")
+    let product = riso_log::Product {
+        name: env!("PRODUCT_NAME"),
+        version: env!("PRODUCT_VERSION"),
     };
-    println!("{} dev: under review: {names}", env!("PRODUCT_NAME"));
-    gpui_platform::application().run(|cx: &mut App| {
-        cx.on_window_closed(|cx, _| {
-            if cx.windows().is_empty() {
-                cx.quit();
-            }
-        })
-        .detach();
-        cx.open_window(
-            WindowOptions {
-                titlebar: Some(TitlebarOptions {
-                    title: Some(format!("{} dev", env!("PRODUCT_NAME")).into()),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            },
-            |_, cx| cx.new(|_| Review),
-        )
-        .unwrap_or_else(|error| panic!("{} dev window opens: {error}", env!("PRODUCT_NAME")));
-        cx.activate(true);
-    });
+    let variable = product.lifecycle_variable();
+    if std::env::var_os(&variable).is_none() {
+        let crates: std::collections::BTreeSet<_> = UNDER_REVIEW
+            .iter()
+            .filter_map(|part| part.split('/').next())
+            .collect();
+        let mut filter = String::from("info");
+        for name in crates {
+            filter.push_str(&format!(",{name}=debug"));
+        }
+        // SAFETY: the logger and GPUI have not started any threads yet.
+        unsafe { std::env::set_var(variable, filter) };
+    }
+    super::startup::run(
+        product,
+        &[
+            log_tour::init, // Exercises the parts under review.
+        ],
+    );
     true
 }

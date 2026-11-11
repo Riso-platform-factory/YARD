@@ -54,6 +54,7 @@ fn staged_crates() -> Vec<(String, PathBuf)> {
                     .to_path_buf(),
             )
         })
+        .filter(|(_, folder)| !folder.starts_with(repository().join("examples")))
         .collect()
 }
 
@@ -413,6 +414,8 @@ fn every_crate_passes_the_dev_feature_on() {
                 .as_array()
                 .unwrap()
                 .contains(&package["id"])
+                && !Path::new(package["manifest_path"].as_str().unwrap())
+                    .starts_with(repository().join("examples"))
         })
         .collect();
     for package in &packages {

@@ -11,6 +11,18 @@
 - Only the user moves code to production, after reviewing it.
 - Production code uses only production code.
 - The user reviews every commit.
+- A part is the unit of review and of promotion: one top-level module of a crate, `src/<name>.rs` and the folder `src/<name>/` with everything in it. Its name is `<crate>/<name>`.
+- Dev parts are in `src/dev/`, declared in `src/dev.rs`. Production parts are in `src/`. New code goes into `src/dev/`.
+- The root file of a crate and `src/dev.rs` hold no code of their own: only module declarations, re-exports, attributes, and `fn main` in a binary. `feature = "dev"` is written only in these files.
+- Every crate has a feature `dev`, on by default. Workspace crates depend on each other with `default-features = false`, and a crate's `dev` turns on `<dep>/dev`. So `cargo check -p riso --no-default-features` builds riso without any dev code, and must succeed.
+- `production.json` holds a fingerprint of every file of every production part. `cargo test -p riso` fails when a part outside `dev/` is not listed, a listed file differs, or a listed part is gone. When a change needs a production part to change, show the user what changes and why, and stamp the part again only when the user approves.
+- To promote a part, after the user approves it: move its module out of `dev/`, then stamp it with `RISO_PROMOTE=<crate>/<part>[,<crate>/<part>…] cargo test -p riso --test stages what_is_outside_dev_is_in_production`.
+- Test files have no stage: `tests.rs`, `*_tests.rs`, `testing.rs`, and everything in `tests/`.
+
+## Running
+
+- `cargo run` runs production code only.
+- `cargo run dev` runs production code and the one part under review, and nothing else. `UNDER_REVIEW` in `app/riso/src/dev/review.rs` names that part, and the same file adds only what it does. With nothing under review, it opens one empty window.
 
 ---
 

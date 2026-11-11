@@ -1,0 +1,16 @@
+[package]
+name = "riso_layout"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/riso_layout.rs"
+
+[features]
+default = ["dev"]
+dev = []
+
+[dependencies]
+tracing.workspace = true

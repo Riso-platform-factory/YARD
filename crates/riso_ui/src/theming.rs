@@ -65,10 +65,12 @@ pub fn ui_font_size() -> Pixels {
 /// A color is added when something draws with it.
 pub struct Palette {
     pub background: Hsla,
+    pub text: Hsla,
 }
 
 pub fn palette(cx: &App) -> Palette {
     Palette {
         background: cx.theme().colors().background,
+        text: cx.theme().colors().text,
     }
 }

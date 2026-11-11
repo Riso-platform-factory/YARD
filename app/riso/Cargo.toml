@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["riso_log/dev", "riso_paths/dev"]
+dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev"]
 
 [dependencies]
 gpui.workspace = true
@@ -15,6 +15,7 @@ gpui_platform.workspace = true
 
 riso_log = { workspace = true, default-features = false }
 riso_paths = { workspace = true, default-features = false }
+riso_ui = { workspace = true, default-features = false }
 tracing = { workspace = true }
 
 [dev-dependencies]

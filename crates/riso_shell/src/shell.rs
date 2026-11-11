@@ -73,10 +73,18 @@ pub struct Shell {
 /// Creates the root's component once, when the window opens.
 pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     let registry = cx.default_global::<Registry>();
+    let _group = tracing::info_span!(
+        "shell-create",
+        root = %registry.tree.root().map_or("none", |node| node.id.as_str())
+    )
+    .entered();
     let root = registry.tree.root().cloned().map(|node| {
         let factory = registry.components.get(&node.component).cloned();
         (node, factory)
     });
+    if root.is_none() {
+        tracing::info!("no root placed; the window shows the background");
+    }
     let root = root.and_then(|(node, factory)| {
         let _group =
             tracing::info_span!("component-create", node = %node.id, component = %node.component)

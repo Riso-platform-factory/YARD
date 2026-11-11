@@ -174,6 +174,9 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
         }
         assert!(renders.get() >= 2);
         assert_eq!(creates.get(), 1);
+        let empty = cx.new_app();
+        empty.update(riso_ui::init);
+        let _window = open(&empty);
         let mut missing = cx.new_app();
         missing.update(riso_ui::init);
         missing.update(|cx| riso_shell::place_root(cx, "missing", "tour.missing"));
@@ -207,11 +210,15 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
             "  root-place: DEBUG message=root placed node=root component=tour.card",
             r#"INFO root-place node="second" component="tour.card""#,
             "  root-place: INFO message=a root is already placed node=second component=tour.card root=root",
+            "INFO shell-create root=root",
             "INFO component-create node=root component=tour.card",
             r#"INFO component-register component="tour.extra""#,
             "  component-register: DEBUG message=registered",
+            "INFO shell-create root=none",
+            "  shell-create: INFO message=no root placed; the window shows the background",
             r#"INFO root-place node="missing" component="tour.missing""#,
             "  root-place: DEBUG message=root placed node=missing component=tour.missing",
+            "INFO shell-create root=missing",
             "INFO component-create node=missing component=tour.missing",
             "  component-create: ERROR message=node missing names unregistered component tour.missing",
         ]

@@ -1,7 +1,13 @@
 {
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "b99f22efe3e8068d"
+      "app/riso/src/startup.rs": "a886716570b56e84"
+    },
+    "promoted": "2026-11-11"
+  },
+  "riso_layout/tree": {
+    "files": {
+      "crates/riso_layout/src/tree.rs": "4ce6518431fba7cc"
     },
     "promoted": "2026-11-11"
   },
@@ -24,6 +30,12 @@
   "riso_paths/directories": {
     "files": {
       "crates/riso_paths/src/directories.rs": "2314892fb97bc559"
+    },
+    "promoted": "2026-11-11"
+  },
+  "riso_shell/shell": {
+    "files": {
+      "crates/riso_shell/src/shell.rs": "748a23b1e0c38b9d"
     },
     "promoted": "2026-11-11"
   },

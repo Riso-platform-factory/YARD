@@ -4,8 +4,6 @@
 //! `LAYOUT_TOUR=twice cargo run dev`: the second root is refused; the first remains.
 //! `LAYOUT_TOUR=bad-id cargo run dev`: invalid component IDs are refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 

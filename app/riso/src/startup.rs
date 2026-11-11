@@ -1,7 +1,4 @@
-use gpui::{
-    App, AppContext, Context, IntoElement, Render, Styled, TitlebarOptions, Window, WindowOptions,
-    div,
-};
+use gpui::{App, TitlebarOptions, WindowOptions};
 
 pub(crate) fn run(product: riso_log::Product, extensions: &[fn(&mut App)]) {
     riso_log::start(product);
@@ -24,6 +21,12 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[fn(&mut App)]) {
             .detach();
         }
         {
+            let _group = tracing::info_span!("extensions-load", count = extensions.len()).entered();
+            for init in extensions {
+                init(cx);
+            }
+        }
+        {
             let _group = tracing::info_span!("window-open").entered();
             cx.open_window(
                 WindowOptions {
@@ -33,29 +36,11 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[fn(&mut App)]) {
                     }),
                     ..Default::default()
                 },
-                |_, cx| cx.new(|_| MainWindow),
+                riso_shell::new_shell,
             )
             .unwrap_or_else(|error| panic!("{} main window opens: {error}", product.name));
             cx.activate(true);
         }
-        {
-            let _group = tracing::info_span!("extensions-load", count = extensions.len()).entered();
-            for init in extensions {
-                init(cx);
-            }
-        }
         riso_log::startup_finished();
     });
-}
-
-struct MainWindow;
-
-impl Render for MainWindow {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        window.set_rem_size(riso_ui::ui_font_size());
-        div()
-            .size_full()
-            .bg(riso_ui::palette(cx).background)
-            .font(riso_ui::ui_font())
-    }
 }

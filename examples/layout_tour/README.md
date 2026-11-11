@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app.
+A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through `riso_shell`, as any extension would.
 

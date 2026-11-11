@@ -33,7 +33,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 1 | `component-registry` | An extension registers a component type: an ID and a way to create its view. The window shows one root node | One test card fills the window | `gpui` | foundations 4 and 5 | planned |
+| 1 | `component-registry` | An extension registers a component type: an ID and a way to create its view. The window shows one root node | One test card fills the window | `gpui` | foundations 4 and 5 | production |
 | 2 | `slots` | A component declares named slots. A layout places nodes in slots. Rules: IDs are unique, the component and the slot exist, there is no cycle | A card inside a card. A layout that breaks a rule is refused, and the log says why | `gpui` | 1 | planned |
 | 3 | `extension-contribution` | An extension places a node in a slot of a component it does not own | A second extension's card appears inside the first one's slot. Without that extension, the slot is empty | `gpui` | 2 | planned |
 

@@ -6,7 +6,7 @@ fn main() {
     if dev::run() {
         return;
     }
-    println!("riso: nothing is in production yet.");
+    println!("{}: nothing is in production yet.", env!("PRODUCT_NAME"));
     #[cfg(feature = "dev")]
     println!("  cargo run dev    production, with the one part under review");
 }

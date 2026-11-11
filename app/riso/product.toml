@@ -1,0 +1,4 @@
+# What the riso application is called and which version it is. Packaging may give
+# another file with PRODUCT_CONFIG=<path> at build time.
+name = "riso"
+version = "0.1.0"

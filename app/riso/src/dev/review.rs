@@ -22,7 +22,7 @@ pub(crate) fn run() -> bool {
     } else {
         UNDER_REVIEW.join(", ")
     };
-    println!("riso dev: under review: {names}");
+    println!("{} dev: under review: {names}", env!("PRODUCT_NAME"));
     gpui_platform::application().run(|cx: &mut App| {
         cx.on_window_closed(|cx, _| {
             if cx.windows().is_empty() {
@@ -33,14 +33,14 @@ pub(crate) fn run() -> bool {
         cx.open_window(
             WindowOptions {
                 titlebar: Some(TitlebarOptions {
-                    title: Some("riso dev".into()),
+                    title: Some(format!("{} dev", env!("PRODUCT_NAME")).into()),
                     ..Default::default()
                 }),
                 ..Default::default()
             },
             |_, cx| cx.new(|_| Review),
         )
-        .expect("riso dev window opens");
+        .unwrap_or_else(|error| panic!("{} dev window opens: {error}", env!("PRODUCT_NAME")));
         cx.activate(true);
     });
     true

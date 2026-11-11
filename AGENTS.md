@@ -24,6 +24,11 @@
 - `cargo run` runs production code only.
 - `cargo run dev` runs production code and the one part under review, and nothing else. `UNDER_REVIEW` in `app/riso/src/dev/review.rs` names that part, and the same file adds only what it does. With nothing under review, it opens one empty window.
 
+## The product
+
+- An engine never hardcodes what belongs to the application built on it: its name, its version, the names of its files, the names of its environment variables. The application passes them to the engine at runtime, and an engine derives its own names from them (for example `<name>.log` and `<NAME>_LIFECYCLE`).
+- An application reads its product from a build config at build time: `app/riso/product.toml`, or the file named by `PRODUCT_CONFIG=<path>` when it is packaged. `build.rs` gives the values to the code as `PRODUCT_NAME` and `PRODUCT_VERSION`.
+
 ---
 
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.

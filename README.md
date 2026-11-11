@@ -16,8 +16,8 @@ In production:
 - the log engine, `riso_log`;
 - the application's directories, `riso_paths`: config, data, and logs, under `<NAME>_HOME` when it is set (for example `RISO_HOME`), otherwise in the platform's directories named by the product;
 - the UI boundary and theme, `riso_ui`: the only crate that uses Zed's GPL crates; it bundles IBM Plex Sans and Zed's One themes, and gives the UI font and the theme's colors by name, with One Dark as the fixed default;
-- the layout model, `riso_layout`, without GPUI: component and node IDs, and a tree with one root;
-- the shell, `riso_shell`: extensions register component types and place the root node; the main window's root view shows that node on the theme's background;
+- the layout model, `riso_layout`, without GPUI: component, node, and slot IDs, and a tree of nodes placed in the named slots of other nodes, under one root;
+- the shell, `riso_shell`: extensions register component types with their slots and place nodes; the main window's root view creates the view of every node, and each view shows the views of its slots;
 - the application's startup, which starts the log first, writes the logs into the logs directory, loads the extensions, and opens the main window with the shell as its root view.
 
 ## Running

@@ -10,8 +10,6 @@
 //! `LAYOUT_TOUR=missing-child cargo run dev`: an unknown child hides its subtree, not siblings.
 //! `LAYOUT_TOUR=duplicate-slot cargo run dev`: duplicate slot declarations are refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 

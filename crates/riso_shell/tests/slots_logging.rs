@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 use gpui::{AppContext, TestAppContext};
 use std::cell::RefCell;
 use std::{

@@ -1,4 +1,4 @@
-//! Component and node IDs, and the window's single root.
+//! Component and node IDs, and the window's tree of named slots.
 
 use std::{error::Error, fmt};
 
@@ -84,6 +84,27 @@ impl fmt::Display for NodeId {
     }
 }
 
+/// The slug naming a component's slot.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotName(String);
+
+impl SlotName {
+    pub fn parse(value: &str) -> Result<Self, IdError> {
+        validate_slug(value)?;
+        Ok(Self(value.into()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for SlotName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// One placed component.
 #[derive(Clone, Debug)]
 pub struct Node {
@@ -95,6 +116,7 @@ pub struct Node {
 #[derive(Default)]
 pub struct Tree {
     root: Option<Node>,
+    slots: Vec<(NodeId, SlotName, Vec<Node>)>,
 }
 
 impl Tree {
@@ -102,27 +124,98 @@ impl Tree {
         self.root.as_ref()
     }
 
-    pub fn place_root(&mut self, node: Node) -> Result<(), RootTaken> {
+    pub fn place_root(&mut self, node: Node) -> Result<(), PlaceError> {
         if let Some(root) = &self.root {
-            tracing::info!(node = %node.id, component = %node.component, root = %root.id, "a root is already placed");
-            return Err(RootTaken);
+            tracing::info!(
+                node = %node.id,
+                component = %node.component,
+                root = %root.id,
+                "a root is already placed",
+            );
+            return Err(PlaceError::RootTaken);
         }
         tracing::debug!(node = %node.id, component = %node.component, "root placed");
         self.root = Some(node);
         Ok(())
     }
-}
 
-/// Refusal to replace the root already placed.
-#[derive(Debug)]
-pub struct RootTaken;
+    pub fn place(&mut self, node: Node, parent: &NodeId, slot: SlotName) -> Result<(), PlaceError> {
+        if self.contains(&node.id) {
+            tracing::info!(
+                node = %node.id,
+                component = %node.component,
+                parent = %parent,
+                slot = %slot,
+                "the node ID is already in the tree",
+            );
+            return Err(PlaceError::DuplicateId);
+        }
+        if !self.contains(parent) {
+            tracing::info!(
+                node = %node.id,
+                component = %node.component,
+                parent = %parent,
+                slot = %slot,
+                "the parent is not in the tree",
+            );
+            return Err(PlaceError::MissingParent);
+        }
+        tracing::debug!(
+            node = %node.id,
+            component = %node.component,
+            parent = %parent,
+            slot = %slot,
+            "node placed",
+        );
+        if let Some((_, _, nodes)) = self
+            .slots
+            .iter_mut()
+            .find(|(p, s, _)| p == parent && s == &slot)
+        {
+            nodes.push(node);
+        } else {
+            self.slots.push((parent.clone(), slot, vec![node]));
+        }
+        Ok(())
+    }
 
-impl fmt::Display for RootTaken {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a root is already placed")
+    pub fn slots<'a>(
+        &'a self,
+        node: &'a NodeId,
+    ) -> impl Iterator<Item = (&'a SlotName, &'a [Node])> {
+        self.slots
+            .iter()
+            .filter(move |(parent, _, _)| parent == node)
+            .map(|(_, slot, nodes)| (slot, nodes.as_slice()))
+    }
+
+    fn contains(&self, id: &NodeId) -> bool {
+        self.root.as_ref().is_some_and(|node| &node.id == id)
+            || self
+                .slots
+                .iter()
+                .any(|(_, _, nodes)| nodes.iter().any(|node| &node.id == id))
     }
 }
-impl Error for RootTaken {}
+
+/// A placement refused without changing the tree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PlaceError {
+    RootTaken,
+    DuplicateId,
+    MissingParent,
+}
+
+impl fmt::Display for PlaceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::RootTaken => "a root is already placed",
+            Self::DuplicateId => "the node ID is already in the tree",
+            Self::MissingParent => "the parent is not in the tree",
+        })
+    }
+}
+impl Error for PlaceError {}
 
 #[cfg(test)]
 mod tests {
@@ -221,5 +314,132 @@ mod tests {
         assert_eq!(tree.root().unwrap().id.as_str(), "root");
         assert!(error.to_string().contains("root"));
         let _: &dyn std::error::Error = &error;
+    }
+
+    fn node(id: &str) -> Node {
+        Node {
+            id: NodeId::parse(id).unwrap(),
+            component: ComponentId::parse("tour.card").unwrap(),
+        }
+    }
+
+    #[test]
+    fn slot_names_use_the_slug_rule() {
+        for value in [
+            "a",
+            "body",
+            "a0123456789",
+            "abcdefghijklmnopqrstuvwxyz",
+            "a-_b",
+        ] {
+            let slot = SlotName::parse(value).unwrap();
+            assert_eq!(slot.as_str(), value);
+            assert_eq!(slot.to_string(), value);
+        }
+        for value in [
+            "",
+            "0body",
+            "-body",
+            "_body",
+            "Body",
+            "bOdy",
+            "body.slot",
+            "body slot",
+            "body/",
+            "bødy",
+            "body\n",
+        ] {
+            assert!(SlotName::parse(value).is_err(), "{value:?}");
+        }
+    }
+
+    #[test]
+    fn placement_preserves_slot_and_child_order_and_walks_nested_nodes() {
+        let mut tree = Tree::default();
+        let root = NodeId::parse("root").unwrap();
+        assert_eq!(tree.slots(&root).count(), 0);
+        tree.place_root(node("root")).unwrap();
+        tree.place(node("left"), &root, SlotName::parse("body").unwrap())
+            .unwrap();
+        tree.place(node("aside"), &root, SlotName::parse("side").unwrap())
+            .unwrap();
+        tree.place(node("right"), &root, SlotName::parse("body").unwrap())
+            .unwrap();
+        tree.place(
+            node("inner"),
+            &NodeId::parse("left").unwrap(),
+            SlotName::parse("body").unwrap(),
+        )
+        .unwrap();
+        let slots: Vec<_> = tree
+            .slots(&root)
+            .map(|(slot, nodes)| {
+                (
+                    slot.as_str(),
+                    nodes.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            slots,
+            [("body", vec!["left", "right"]), ("side", vec!["aside"])]
+        );
+        let mut walk = Vec::new();
+        fn visit<'a>(tree: &'a Tree, node: &'a Node, walk: &mut Vec<&'a str>) {
+            walk.push(node.id.as_str());
+            for (_, nodes) in tree.slots(&node.id) {
+                for child in nodes {
+                    visit(tree, child, walk);
+                }
+            }
+        }
+        visit(&tree, tree.root().unwrap(), &mut walk);
+        assert_eq!(walk, ["root", "left", "inner", "right", "aside"]);
+        assert_eq!(tree.slots(&NodeId::parse("right").unwrap()).count(), 0);
+    }
+
+    #[test]
+    fn refused_placements_leave_the_tree_unchanged_and_ids_are_global() {
+        let mut tree = Tree::default();
+        let root = NodeId::parse("root").unwrap();
+        let slot = SlotName::parse("body").unwrap();
+        assert_eq!(
+            tree.place(node("lost"), &root, slot.clone()),
+            Err(PlaceError::MissingParent)
+        );
+        assert!(tree.root().is_none());
+        tree.place_root(node("root")).unwrap();
+        tree.place(node("left"), &root, slot.clone()).unwrap();
+        for (id, parent, name) in [
+            ("root", "root", "body"),
+            ("left", "root", "body"),
+            ("left", "left", "other"),
+        ] {
+            assert_eq!(
+                tree.place(
+                    node(id),
+                    &NodeId::parse(parent).unwrap(),
+                    SlotName::parse(name).unwrap()
+                ),
+                Err(PlaceError::DuplicateId)
+            );
+        }
+        assert_eq!(
+            tree.place(node("lost"), &NodeId::parse("missing").unwrap(), slot),
+            Err(PlaceError::MissingParent)
+        );
+        assert_eq!(tree.place_root(node("left")), Err(PlaceError::RootTaken));
+        assert_eq!(tree.place_root(node("root")), Err(PlaceError::RootTaken));
+        assert_eq!(tree.slots(&root).count(), 1);
+        assert_eq!(tree.slots(&root).next().unwrap().1.len(), 1);
+        assert_eq!(tree.slots(&NodeId::parse("left").unwrap()).count(), 0);
+        for error in [
+            PlaceError::RootTaken,
+            PlaceError::DuplicateId,
+            PlaceError::MissingParent,
+        ] {
+            assert!(!error.to_string().is_empty());
+            let _: &dyn std::error::Error = &error;
+        }
     }
 }

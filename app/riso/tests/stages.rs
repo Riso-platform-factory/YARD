@@ -151,6 +151,7 @@ fn ledger() -> BTreeMap<String, BTreeMap<String, Value>> {
 }
 
 fn today() -> String {
+    // TODO(stamp-date-portable): Stamping uses the Unix date command and fails on Windows. Replace it with a portable date source when making stamping work on Windows.
     let output = std::process::Command::new("date")
         .arg("+%F")
         .output()

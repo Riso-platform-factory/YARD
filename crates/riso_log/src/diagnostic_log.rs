@@ -182,6 +182,7 @@ pub fn start(product: Product) {
 
     let start_thread = std::thread::current().id();
     let previous = std::panic::take_hook();
+    // TODO(panic-before-open-files): A run ending in a panic before open_files leaves kept lines only on stderr because no logs directory is known. Persist them when the paths engine can supply a directory to the panic hook.
     std::panic::set_hook(Box::new(move |panic| {
         log::error!("{panic}\n{}", Backtrace::force_capture());
         if !OPENED.load(Ordering::Acquire) && LIFECYCLE.get().is_none() {
@@ -237,6 +238,7 @@ pub fn open_files(logs: &Path) {
         }
         // With the trace off, a file from an earlier run would look like
         // this one's.
+        // TODO(trace-off-test): No test covers this trace-off branch. Add a test with debug assertions disabled and no lifecycle filter to verify removal of an old lifecycle file.
         None => match fs::remove_file(lifecycle_path) {
             Err(error) if error.kind() != std::io::ErrorKind::NotFound => {
                 problems.push(format!("could not remove an old lifecycle log: {error}"))

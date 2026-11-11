@@ -181,6 +181,7 @@ struct GroupData {
 
 pub(crate) struct LifecycleLayer(pub(crate) Arc<Lifecycle>);
 
+// TODO(lifecycle-recorded-fields): Fields set with Span::record after span creation never reach the trace because this layer has no on_record. Add on_record handling and trace records for field updates when supporting recorded fields.
 impl<S> Layer<S> for LifecycleLayer
 where
     S: Subscriber + for<'a> LookupSpan<'a>,

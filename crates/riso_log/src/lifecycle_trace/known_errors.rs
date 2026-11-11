@@ -23,6 +23,7 @@ pub(crate) struct KnownError {
     pub tracking: Option<&'static str>,
 }
 
+// TODO(gpui-key-status-after-close): This entry tolerates GPUI callbacks for an already closed window. Remove it when GPUI is bumped to a revision with the upstream key-status fix.
 pub(crate) const KNOWN_ERRORS: &[KnownError] = &[KnownError {
     slug: "gpui-macos-key-status-after-close",
     target: "gpui::window",

@@ -4,6 +4,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[fn(&mut App)]) {
     riso_log::start(product);
     {
         let _group = tracing::info_span!("logs-prepare").entered();
+        // TODO(paths-engine): Each run writes logs to a new temporary folder and prints its path. Take the logs directory from the paths engine and stop printing it when that engine exists.
         let folder = tempfile::Builder::new()
             .prefix(&format!("{}-logs-", product.name))
             .tempdir()

@@ -1,7 +1,7 @@
 {
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "9dacc4d130e86fe5"
+      "app/riso/src/startup.rs": "b313db00d0b706cf"
     },
     "promoted": "2026-11-11"
   },
@@ -18,6 +18,12 @@
       "crates/riso_log/src/lifecycle_trace/lifecycle.rs": "8b80e7293f6f7948",
       "crates/riso_log/src/lifecycle_trace/record.rs": "622dd1da1eab8843",
       "crates/riso_log/src/lifecycle_trace/writer.rs": "cccdfbf10cb74256"
+    },
+    "promoted": "2026-11-11"
+  },
+  "riso_paths/directories": {
+    "files": {
+      "crates/riso_paths/src/directories.rs": "2314892fb97bc559"
     },
     "promoted": "2026-11-11"
   }

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! The log of working out the application's directories: the work runs inside its
 //! group, which names where the directories come from and each of them.
 //!

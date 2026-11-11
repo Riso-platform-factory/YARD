@@ -11,7 +11,11 @@ Code is in one of two stages:
 
 Production code uses only production code. `production.json` holds a fingerprint of every production file, and the tests fail when production code differs from what was approved.
 
-In production: the log engine, `riso_log`, and the application's startup, which starts the log first and opens one empty window. There is no paths engine yet, so each run writes its logs into a new temporary folder and prints where.
+In production:
+
+- the log engine, `riso_log`;
+- the application's directories, `riso_paths`: config, data, and logs, under `<NAME>_HOME` when it is set (for example `RISO_HOME`), otherwise in the platform's directories named by the product;
+- the application's startup, which starts the log first, writes the logs into the logs directory, and opens one empty window.
 
 ## Running
 

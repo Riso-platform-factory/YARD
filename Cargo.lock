@@ -4108,7 +4108,6 @@ dependencies = [
  "riso_log",
  "riso_paths",
  "serde_json",
- "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
 ]

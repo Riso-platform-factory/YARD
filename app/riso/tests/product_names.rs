@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 #[test]
 fn engines_derive_the_same_environment_prefix() {
     for name in ["riso", "my-app 2", "Ünï"] {

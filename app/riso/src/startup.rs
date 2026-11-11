@@ -2,17 +2,10 @@ use gpui::{App, AppContext, TitlebarOptions, WindowOptions};
 
 pub(crate) fn run(product: riso_log::Product, extensions: &[fn(&mut App)]) {
     riso_log::start(product);
+    let paths = riso_paths::Paths::from_env(product.name);
     {
         let _group = tracing::info_span!("logs-prepare").entered();
-        // TODO(paths-engine): Each run writes logs to a new temporary folder and prints its path. Take the logs directory from the paths engine and stop printing it when that engine exists.
-        let folder = tempfile::Builder::new()
-            .prefix(&format!("{}-logs-", product.name))
-            .tempdir()
-            .expect("create the logs folder")
-            .keep();
-        println!("Logs folder: {}", folder.display());
-        std::io::Write::flush(&mut std::io::stdout()).expect("print logs folder");
-        riso_log::open_files(&folder);
+        riso_log::open_files(paths.logs_dir());
     }
     let extensions = extensions.to_vec();
     gpui_platform::application().run(move |cx: &mut App| {

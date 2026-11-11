@@ -9,7 +9,7 @@ A foundation that nothing uses yet cannot be seen in the application. So the one
 | 1 | Product build config | The application's name and version, read from `product.toml` when it is built | every engine | production |
 | 2 | Log engine, `riso_log` | The lifecycle trace and the diagnostic log | every engine | production |
 | 3 | Startup, `riso/startup` | The log first, then the log files, the GPUI app, the main window, the extensions | the application | production |
-| 4 | Directories, `riso_paths` | The config, data, and logs directories of the application, from the platform or from `<NAME>_HOME` | the log files now; saved layouts later | planned |
+| 4 | Directories, `riso_paths` | The config, data, and logs directories of the application, from the platform or from `<NAME>_HOME` | the log files now; saved layouts later | production |
 | 5 | UI boundary and theme, `riso_ui` | The one crate that may use Zed's GPL crates. First content: the theme's colors and fonts, with fixed defaults | the first layout feature, which draws with the theme | planned |
 | 6 | Atomic file write, in `riso_paths` | Writing a file in one step, so a crash never leaves half a file | with its first user: saving the user's layout | planned |
 | 7 | Tab widgets, in `riso_ui` | `Tab` and `TabBar`, wrapped from Zed's `ui` | with its first user: the tabs container | planned |

@@ -5,6 +5,58 @@
 - risoapp is a platform, not an application. It holds strong engines on which other software is built. Applications and their features are built on it, and are not part of it.
 - It is written in Rust, with [GPUI](https://gpui.rs/) for the user interface, and follows Zed's design. Read how Zed solves a problem before designing a solution.
 
+## Workflow
+
+Every change follows this workflow. No step is skipped, and no step starts before the one before it is done.
+
+### Who does what
+
+- **The user** decides, reviews, and approves. Only the user's word commits a change or promotes a part.
+- **The lead agent** is the agent that talks with the user. It designs, writes the prompts for the coding agent and runs it, reviews, runs the application, writes the documents (`.md` files), and commits. It does not write code.
+- **The coding agent** writes all the code, which is every file that is not a `.md` file, from a prompt of the lead agent. It never commits, never pushes, and never edits a `.md` file.
+
+### Before any work
+
+1. Do what was asked, and only that. A request for the log engine is not a request for the paths engine it used elsewhere. When the work needs something that was not asked for, say so and wait.
+2. Do not ask again what was already decided. Look in this file, in the repository, and in what the user said before.
+3. Change no file that the task does not need, an instruction file least of all.
+
+### The steps of one piece of work
+
+1. **Foundation.** The coding agent builds the part in `src/dev/`, with its tests and its logging. Nothing is committed.
+2. **In the application.** The real application uses the part, in the place where it belongs in production, not in a harness beside the application.
+3. **Test extension.** A crate in `examples/` exercises the part through the running application, with a `README.md` that gives each case, its command, and what to look for.
+   - Cases are chosen by the extension's own parameters. Without a parameter it does nothing, so a plain `cargo run dev` shows what the application really does.
+   - Nothing is staged to look like something else. Every group surrounds work that runs, and every error is one that really happens.
+4. **The lead agent's review.** It does not rely on the coding agent's report. Passing tests do not show that the code does the right thing.
+   - It reads the whole diff.
+   - It runs every check itself: the tests with and without `dev`, the build without `dev`, clippy, the formatter, and new logging tests repeatedly.
+   - It runs the application itself, with every case of the test extension, and reads what the application logs and shows.
+   - It tries to break what the change must guarantee.
+   - It sends every finding to the coding agent in a new prompt, and reviews the result again.
+5. **The user's review.** The lead agent reports what changed, how to run each case, what it saw when it ran them, what differs from what was asked, what it did not verify, and what is deferred. Then it waits.
+6. **Commit**, only after the user approves. A commit holds one concern; a concern the user names for a commit of its own gets one. Never push unless the user asks.
+7. **Promotion**, only when the user says to promote that part, in this order:
+   - move the part out of `dev/`, and drop the `dev` line from its tests;
+   - leave nothing under review, and take the test extension out of `review.rs`;
+   - run the tests once before stamping, to see them refuse the part, then stamp it;
+   - check that the moved files are byte for byte what the user approved;
+   - run `cargo run` and `cargo run dev`;
+   - commit the promotion on its own.
+8. **What is deferred** gets a comment at its place: `// TODO(<slug>): <what is missing>. <what unblocks it>.` The slug names the work.
+
+### A prompt for the coding agent
+
+A prompt has, in this order: the goal; the context, with the files to read and the decisions already made; the steps; the constraints; the commands that must pass; and the handoff, one JSON block with `task`, `kind`, `status`, `summary`, `files_changed`, `verification`, `deviations`, and `open_questions`.
+
+- The constraints always say: do not commit, do not push, do not edit a `.md` file, add no dependency that the prompt does not name.
+- The coding agent cannot open a window. The prompt tells it not to run the application, and the lead agent runs it.
+
+### Reporting
+
+- Say what is true: a failure with its output, a step that was skipped, a thing that was not verified.
+- A rule goes into this file only when it is not here already and the code cannot say it.
+
 ## Stages: dev and production
 
 - Code is in one of two stages. **Production**: the user reviewed it and approved it. **Dev**: everything else. New code is dev.

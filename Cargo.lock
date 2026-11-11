@@ -4106,6 +4106,7 @@ dependencies = [
  "gpui",
  "gpui_platform",
  "riso_log",
+ "riso_paths",
  "serde_json",
  "tempfile",
  "toml 0.9.12+spec-1.1.0",
@@ -4126,6 +4127,15 @@ dependencies = [
  "tracing-log",
  "tracing-subscriber",
  "zlog",
+]
+
+[[package]]
+name = "riso_paths"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]

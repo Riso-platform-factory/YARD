@@ -1,0 +1,21 @@
+[package]
+name = "riso_paths"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/riso_paths.rs"
+
+[features]
+default = ["dev"]
+# Compiles the parts that are not in production.
+dev = []
+
+[dependencies]
+dirs.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

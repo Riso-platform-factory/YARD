@@ -1,15 +1,17 @@
 #[cfg(feature = "dev")]
 mod dev;
+mod startup;
 
 fn main() {
     #[cfg(feature = "dev")]
     if dev::run() {
         return;
     }
-    println!(
-        "{}: no part that opens a window is in production yet.",
-        env!("PRODUCT_NAME")
+    startup::run(
+        riso_log::Product {
+            name: env!("PRODUCT_NAME"),
+            version: env!("PRODUCT_VERSION"),
+        },
+        &[],
     );
-    #[cfg(feature = "dev")]
-    println!("  cargo run dev    production, with the one part under review");
 }

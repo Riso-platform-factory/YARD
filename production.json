@@ -1,4 +1,10 @@
 {
+  "riso/startup": {
+    "files": {
+      "app/riso/src/startup.rs": "8d8f925109bd8ace"
+    },
+    "promoted": "2026-11-11"
+  },
   "riso_log/diagnostic_log": {
     "files": {
       "crates/riso_log/src/diagnostic_log.rs": "2dbedc4746967106"

@@ -7,15 +7,15 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["riso_log/dev", "dep:tracing", "dep:tempfile"]
+dev = ["riso_log/dev"]
 
 [dependencies]
 gpui.workspace = true
 gpui_platform.workspace = true
 
-riso_log = { workspace = true, default-features = false, optional = true }
-tracing = { workspace = true, optional = true }
-tempfile = { workspace = true, optional = true }
+riso_log = { workspace = true, default-features = false }
+tracing = { workspace = true }
+tempfile = { workspace = true }
 
 [dev-dependencies]
 serde_json.workspace = true

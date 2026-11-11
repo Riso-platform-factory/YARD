@@ -22,6 +22,15 @@ pub(crate) fn run() -> bool {
         // SAFETY: the logger and GPUI have not started any threads yet.
         unsafe { std::env::set_var(variable, filter) };
     }
-    super::startup::run(product, &[]);
+    crate::startup::run(product, &[announce]);
     true
+}
+
+fn announce(_: &mut gpui::App) {
+    let under_review = if UNDER_REVIEW.is_empty() {
+        String::from("nothing")
+    } else {
+        UNDER_REVIEW.join(", ")
+    };
+    tracing::info!(under_review, "dev build");
 }

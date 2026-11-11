@@ -4569,6 +4569,7 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
+ "layout_tour",
  "riso_layout",
  "riso_log",
  "riso_paths",

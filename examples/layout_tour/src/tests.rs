@@ -47,18 +47,24 @@ fn the_card_renders_each_measured_size_and_settles(cx: &mut gpui::TestAppContext
     tracing::subscriber::with_default(trace.clone(), || {
         let window = cx.update(|cx| {
             let notifications = notifications.clone();
-            riso_shell::register(cx, "layout_tour.card", move |node, _, cx| {
-                let card = cx.new(|_| Card {
-                    node: node.to_string(),
-                    size: Size::default(),
-                });
-                let notifications = notifications.clone();
-                cx.observe(&card, move |_, _| {
-                    notifications.set(notifications.get() + 1)
-                })
-                .detach();
-                card.into()
-            });
+            riso_shell::register(
+                cx,
+                "layout_tour.card",
+                &["body"],
+                move |node, slots, _, cx| {
+                    let card = cx.new(|_| Card {
+                        node: node.to_string(),
+                        size: Size::default(),
+                        slots,
+                    });
+                    let notifications = notifications.clone();
+                    cx.observe(&card, move |_, _| {
+                        notifications.set(notifications.get() + 1)
+                    })
+                    .detach();
+                    card.into()
+                },
+            );
             riso_shell::place_root(cx, "root", "layout_tour.card");
             cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()

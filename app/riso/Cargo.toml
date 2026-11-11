@@ -7,12 +7,13 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev"]
+dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "dep:layout_tour"]
 
 [dependencies]
 gpui.workspace = true
 gpui_platform.workspace = true
 
+layout_tour = { path = "../../examples/layout_tour", optional = true }
 riso_layout = { workspace = true, default-features = false }
 riso_shell = { workspace = true, default-features = false }
 riso_log = { workspace = true, default-features = false }

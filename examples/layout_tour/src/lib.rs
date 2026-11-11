@@ -3,6 +3,14 @@
 //! `LAYOUT_TOUR=missing cargo run dev`: an unregistered root component, logged once.
 //! `LAYOUT_TOUR=twice cargo run dev`: the second root is refused; the first remains.
 //! `LAYOUT_TOUR=bad-id cargo run dev`: invalid component IDs are refused.
+//! `LAYOUT_TOUR=nested cargo run dev`: children in body slots, with a nested card.
+//! `LAYOUT_TOUR=duplicate-id cargo run dev`: a repeated child ID is refused.
+//! `LAYOUT_TOUR=missing-parent cargo run dev`: a child of an absent parent is refused.
+//! `LAYOUT_TOUR=missing-slot cargo run dev`: an undeclared slot hides its subtree.
+//! `LAYOUT_TOUR=missing-child cargo run dev`: an unknown child hides its subtree, not siblings.
+//! `LAYOUT_TOUR=duplicate-slot cargo run dev`: duplicate slot declarations are refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -19,28 +27,57 @@ pub fn init(cx: &mut App) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
-        "card" | "twice" => {
-            riso_shell::register(cx, "layout_tour.card", |node, _, cx| {
+        "card" | "twice" | "nested" | "duplicate-id" | "missing-parent" | "missing-slot"
+        | "missing-child" | "duplicate-slot" => {
+            riso_shell::register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
                     size: Size::default(),
+                    slots,
                 })
                 .into()
             });
             riso_shell::place_root(cx, "root", "layout_tour.card");
-            if case == "twice" {
-                riso_shell::place_root(cx, "second", "layout_tour.card");
+            match case.as_str() {
+                "twice" => riso_shell::place_root(cx, "second", "layout_tour.card"),
+                "nested" => {
+                    riso_shell::place(cx, "left", "layout_tour.card", "root", "body");
+                    riso_shell::place(cx, "right", "layout_tour.card", "root", "body");
+                    riso_shell::place(cx, "inner", "layout_tour.card", "left", "body");
+                }
+                "duplicate-id" => {
+                    riso_shell::place(cx, "left", "layout_tour.card", "root", "body");
+                    riso_shell::place(cx, "left", "layout_tour.card", "root", "body");
+                }
+                "missing-parent" => {
+                    riso_shell::place(cx, "lost", "layout_tour.card", "nowhere", "body")
+                }
+                "missing-slot" => {
+                    riso_shell::place(cx, "aside", "layout_tour.card", "root", "side")
+                }
+                "missing-child" => {
+                    riso_shell::place(cx, "left", "layout_tour.missing", "root", "body");
+                    riso_shell::place(cx, "inner", "layout_tour.card", "left", "body");
+                    riso_shell::place(cx, "right", "layout_tour.card", "root", "body");
+                }
+                "duplicate-slot" => riso_shell::register(
+                    cx,
+                    "layout_tour.double",
+                    &["body", "body"],
+                    |_, _, _, cx| cx.new(|_| gpui::Empty).into(),
+                ),
+                _ => {}
             }
         }
         "missing" => riso_shell::place_root(cx, "root", "layout_tour.missing"),
         "bad-id" => {
-            riso_shell::register(cx, "Layout Tour.Card", |_, _, cx| {
+            riso_shell::register(cx, "Layout Tour.Card", &[], |_, _, _, cx| {
                 cx.new(|_| gpui::Empty).into()
             });
             riso_shell::place_root(cx, "root", "Layout Tour.Card");
         }
         _ => log::warn!(
-            "unknown LAYOUT_TOUR case {case:?}; known cases: card, missing, twice, bad-id"
+            "unknown LAYOUT_TOUR case {case:?}; known cases: card, missing, twice, bad-id, nested, duplicate-id, missing-parent, missing-slot, missing-child, duplicate-slot"
         ),
     }
 }
@@ -48,6 +85,7 @@ pub fn init(cx: &mut App) {
 struct Card {
     node: String,
     size: Size<Pixels>,
+    slots: riso_shell::Slots,
 }
 
 impl Card {
@@ -92,12 +130,29 @@ impl Render for Card {
             .size_full()
             .flex()
             .flex_col()
-            .items_center()
-            .justify_center()
+            .p_2()
+            .gap_1()
             .text_color(palette.text)
             .bg(palette.background)
+            .child(
+                div()
+                    .absolute()
+                    .size_full()
+                    .top_0()
+                    .left_0()
+                    .border_1()
+                    .border_color(palette.border),
+            )
             .child(self.node.clone())
             .child(size)
+            .child(
+                div().flex().flex_col().flex_1().min_h_0().gap_1().children(
+                    self.slots
+                        .views("body")
+                        .into_iter()
+                        .map(|view| div().flex_1().min_h_0().child(view)),
+                ),
+            )
             .child(
                 canvas(
                     move |bounds, window, cx| Self::prepaint(entity, bounds, window, cx),

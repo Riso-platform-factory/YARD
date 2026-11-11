@@ -1,3 +1,4 @@
+#![cfg(not(feature = "dev"))]
 use gpui::{AppContext, TestAppContext};
 use std::{
     cell::Cell,

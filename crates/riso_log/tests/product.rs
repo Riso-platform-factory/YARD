@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 #[test]
 fn lifecycle_variable_uses_the_product_environment_prefix() {
     for (name, expected) in [("riso", "RISO_LIFECYCLE"), ("my-app", "MY_APP_LIFECYCLE")] {

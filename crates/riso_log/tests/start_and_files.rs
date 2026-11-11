@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Both logs from start to end: what is logged before the application's directories are
 //! known reaches both files in order, `tracing` stays out of `sample.log`, the
 //! files open once, and a panic is logged.

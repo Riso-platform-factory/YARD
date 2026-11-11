@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! One test: installs the process-wide logger and subscriber across threads.
 
 #[test]

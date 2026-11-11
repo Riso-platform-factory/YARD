@@ -6,7 +6,10 @@ fn main() {
     if dev::run() {
         return;
     }
-    println!("{}: nothing is in production yet.", env!("PRODUCT_NAME"));
+    println!(
+        "{}: no part that opens a window is in production yet.",
+        env!("PRODUCT_NAME")
+    );
     #[cfg(feature = "dev")]
     println!("  cargo run dev    production, with the one part under review");
 }

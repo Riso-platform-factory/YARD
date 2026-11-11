@@ -11,7 +11,7 @@ Code is in one of two stages:
 
 Production code uses only production code. `production.json` holds a fingerprint of every production file, and the tests fail when production code differs from what was approved.
 
-Nothing is in production yet.
+In production: the log engine, `riso_log`. The application's startup is still dev, so `cargo run` opens no window yet.
 
 ## Running
 

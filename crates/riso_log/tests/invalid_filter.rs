@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! An invalid `SAMPLE_LIFECYCLE` filter is a warning in the diagnostic log, and
 //! the trace uses `info`.
 //!

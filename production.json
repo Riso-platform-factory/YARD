@@ -1,1 +1,18 @@
-{}
+{
+  "riso_log/diagnostic_log": {
+    "files": {
+      "crates/riso_log/src/diagnostic_log.rs": "2dbedc4746967106"
+    },
+    "promoted": "2026-11-11"
+  },
+  "riso_log/lifecycle_trace": {
+    "files": {
+      "crates/riso_log/src/lifecycle_trace.rs": "b4c19d1735171ed0",
+      "crates/riso_log/src/lifecycle_trace/known_errors.rs": "26637b80f0b802ae",
+      "crates/riso_log/src/lifecycle_trace/lifecycle.rs": "33e32008461b3b6f",
+      "crates/riso_log/src/lifecycle_trace/record.rs": "622dd1da1eab8843",
+      "crates/riso_log/src/lifecycle_trace/writer.rs": "cccdfbf10cb74256"
+    },
+    "promoted": "2026-11-11"
+  }
+}

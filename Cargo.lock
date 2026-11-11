@@ -4105,7 +4105,6 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
- "log_tour",
  "riso_log",
  "serde_json",
  "tempfile",

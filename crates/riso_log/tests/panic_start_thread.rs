@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! One test: installs the process-wide logger and subscriber.
 
 use serde_json::Value;

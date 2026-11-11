@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! One test owns the process-wide logger and lifecycle writer.
 
 use serde_json::Value;

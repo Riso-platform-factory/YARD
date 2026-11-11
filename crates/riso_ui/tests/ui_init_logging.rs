@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},

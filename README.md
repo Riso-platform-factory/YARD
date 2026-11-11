@@ -15,7 +15,8 @@ In production:
 
 - the log engine, `riso_log`;
 - the application's directories, `riso_paths`: config, data, and logs, under `<NAME>_HOME` when it is set (for example `RISO_HOME`), otherwise in the platform's directories named by the product;
-- the application's startup, which starts the log first, writes the logs into the logs directory, and opens one empty window.
+- the UI boundary and theme, `riso_ui`: the only crate that uses Zed's GPL crates; it bundles IBM Plex Sans and Zed's One themes, and gives the UI font and the theme's colors by name, with One Dark as the fixed default;
+- the application's startup, which starts the log first, writes the logs into the logs directory, and opens one window drawn with the theme.
 
 ## Running
 

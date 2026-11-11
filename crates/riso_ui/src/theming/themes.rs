@@ -6,7 +6,7 @@
 //! theme's color tables name them with underscores, so a file is read into
 //! them directly.
 
-const ONE: &[u8] = include_bytes!("../../../assets/themes/one/one.json");
+const ONE: &[u8] = include_bytes!("../../assets/themes/one/one.json");
 use gpui::{App, FontStyle, FontWeight, HighlightStyle, Hsla, Refineable, Rgba};
 use serde_json::{Map, Value};
 use std::sync::Arc;

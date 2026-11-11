@@ -18,16 +18,16 @@ pub fn init(cx: &mut App) {
     let _span = tracing::info_span!("ui-init").entered();
     let fonts: Vec<Cow<'static, [u8]>> = vec![
         Cow::Borrowed(include_bytes!(
-            "../../assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf"
+            "../assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf"
         )),
         Cow::Borrowed(include_bytes!(
-            "../../assets/fonts/ibm-plex-sans/IBMPlexSans-Italic.ttf"
+            "../assets/fonts/ibm-plex-sans/IBMPlexSans-Italic.ttf"
         )),
         Cow::Borrowed(include_bytes!(
-            "../../assets/fonts/ibm-plex-sans/IBMPlexSans-SemiBold.ttf"
+            "../assets/fonts/ibm-plex-sans/IBMPlexSans-SemiBold.ttf"
         )),
         Cow::Borrowed(include_bytes!(
-            "../../assets/fonts/ibm-plex-sans/IBMPlexSans-SemiBoldItalic.ttf"
+            "../assets/fonts/ibm-plex-sans/IBMPlexSans-SemiBoldItalic.ttf"
         )),
     ];
     match cx.text_system().add_fonts(fonts) {

@@ -1,5 +1,7 @@
+#![cfg(feature = "dev")]
+
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
-use riso_settings::{Settings, get, register};
+use riso_settings::dev::{Settings, get, register};
 
 #[derive(serde::Deserialize)]
 #[serde(default)]
@@ -33,7 +35,16 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
         "card" | "twice" => {
             register::<TourSettings>(cx);
             ext.register(cx, "settings_tour.card", &[], |_, _, _, cx| {
-                cx.new(|_| Card).into()
+                cx.new(|cx| {
+                    let card = cx.weak_entity();
+                    let subscription = riso_settings::dev::observe::<TourSettings>(cx, move |cx| {
+                        let _ = card.update(cx, |_, cx| cx.notify());
+                    });
+                    Card {
+                        _subscription: subscription,
+                    }
+                })
+                .into()
             });
             if case == "twice" {
                 register::<TourSettings>(cx);
@@ -44,7 +55,9 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
 }
 
-struct Card;
+struct Card {
+    _subscription: gpui::Subscription,
+}
 
 impl Render for Card {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {

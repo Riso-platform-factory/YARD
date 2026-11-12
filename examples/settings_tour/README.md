@@ -1,6 +1,6 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings feature is under review.
+A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own and places one card that shows the section's values, read from the engine while the card draws.
 
@@ -36,6 +36,20 @@ The tour writes no file: write `config/settings.json` under the fresh home yours
 | `{"other": 1, "settings_tour": {"enabled": false}}` | `enabled: false`, and nothing about `other`. |
 
 For example: `mkdir -p /tmp/riso-settings/config && echo '{"settings_tour": {"greeting": "hi", "size": 20}}' > /tmp/riso-settings/config/settings.json`.
+
+## Feature 3: live-reload
+
+The card observes its section, and draws again when the engine says it changed. Start `SETTINGS_TOUR=card cargo run dev` with no file, then edit `config/settings.json` under the fresh home while it runs:
+
+| Edit | What to look for |
+|---|---|
+| Write `{"settings_tour": {"greeting": "hi"}}` | Within a second, `greeting: hi`. `changed {section=settings_tour}` in `settings-reload`, inside `settings-watch`. |
+| Change it to `{"settings_tour": {"greeting": "hi"}, "other": 1}` | Nothing changes on the card. `reloaded {changed=0}`. |
+| Write `not json` | The card keeps `hi`. One `WARN` that the file cannot be read. |
+| Write `{"settings_tour": {"greeting": "hi", "size": "big"}}`, then change `other` in it twice | The card keeps its values. The `WARN` that the section cannot be read appears once. |
+| Delete the file | The defaults. `changed {section=settings_tour}`. |
+
+The trace gets no line for the checks themselves; they are at `trace`.
 
 ## Removing it
 

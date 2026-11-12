@@ -10,9 +10,10 @@ path = "src/riso_settings.rs"
 
 [features]
 default = ["dev"]
-dev = []
+dev = ["riso_paths/dev"]
 
 [dependencies]
+riso_paths = { workspace = true, default-features = false }
 gpui.workspace = true
 serde.workspace = true
 serde_json.workspace = true

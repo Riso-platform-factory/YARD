@@ -92,7 +92,7 @@ The card observes its section and draws again when told. Use a fresh home: `RISO
 | Write `{"settings_tour": {"greeting": "hi"}}` | Within a second, `greeting: hi`. `changed {section=settings_tour}` in `settings-reload`. |
 | Change it to `{"settings_tour": {"greeting": "hi"}, "other": 1}` | Nothing changes on the card, and no `changed`. `reloaded {changed=0}`. |
 | Write `not json` | The card keeps `hi`. A `WARN` that the file cannot be read, once. |
-| Write `{"settings_tour": {"size": "big"}}` | The card keeps `hi`. A `WARN` that the section cannot be read. |
+| Write `{"settings_tour": {"greeting": "hi", "size": "big"}}`, then change a key `other` in it twice | The card keeps `hi`. The `WARN` that the section cannot be read appears once. |
 | Delete the file | The defaults. `changed {section=settings_tour}`. |
 
 ## Under review

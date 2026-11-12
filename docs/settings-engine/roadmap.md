@@ -41,7 +41,7 @@ Status is one of: planned, dev, production.
 |---|---|---|---|---|---|---|
 | 1 | `sections` | A crate declares a section: a key, a type, and its defaults. Any code reads the section's value. Without a file, every section has its defaults | A card shows the values of the tour's section: the defaults | `gpui` globals | none | production |
 | 2 | `user-file` | `settings.json` is read at startup, and its values replace the defaults. A broken section, a broken file, and a missing file behave as decided above | With a file, the card shows the file's values. A section with a value of the wrong type keeps its defaults, and the log says why | none | 1 | production |
-| 3 | `live-reload` | The file is checked once a second while the application runs. A changed file is read again, and the users of each changed section are told. The check is written so that the keymap file and the themes folder can use it later | Editing the file changes the card at once. A broken edit keeps the last good values | none | 2 | planned |
+| 3 | `live-reload` | The file is checked once a second while the application runs. A changed file is read again, and the users of each changed section are told. The check is written so that the keymap file and the themes folder can use it later | Editing the file changes the card at once. A broken edit keeps the last good values | none | 2 | dev |
 
 ### Declared by extensions
 

@@ -35,13 +35,13 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "8b96da271eee62a0"
+      "crates/riso_shell/src/shell.rs": "dc2521c68e53dd88"
     },
     "promoted": "2026-11-12"
   },
   "riso_ui/axis": {
     "files": {
-      "crates/riso_ui/src/axis.rs": "e039ff351e94e674"
+      "crates/riso_ui/src/axis.rs": "9f35f69dce12aa7b"
     },
     "promoted": "2026-11-12"
   },

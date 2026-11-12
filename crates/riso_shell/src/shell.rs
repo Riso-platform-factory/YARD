@@ -53,8 +53,14 @@ impl Default for Registry {
                 ComponentId::parse(name).unwrap(),
                 Component {
                     slots: vec![SlotName::parse("children").unwrap()],
-                    create: Rc::new(move |_, slots, _, cx| {
-                        cx.new(|_| Split { axis, slots }).into()
+                    create: Rc::new(move |node, slots, _, cx| {
+                        cx.new(|_| Split {
+                            node: node.clone(),
+                            axis,
+                            slots,
+                            shares: Rc::new(RefCell::new(Vec::new())),
+                        })
+                        .into()
                     }),
                 },
             )
@@ -70,6 +76,8 @@ impl Default for Registry {
 impl Global for Registry {}
 
 struct Split {
+    node: NodeId,
+    shares: Rc<RefCell<Vec<f32>>>,
     axis: Axis,
     slots: Slots,
 }
@@ -77,7 +85,9 @@ struct Split {
 impl Render for Split {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         riso_ui::axis(
+            gpui::SharedString::from(self.node.to_string()),
             self.axis,
+            self.shares.clone(),
             self.slots
                 .views("children")
                 .into_iter()

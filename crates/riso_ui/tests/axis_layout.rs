@@ -56,9 +56,12 @@ impl gpui::Render for Probe {
                 .into_any_element()
             })
             .collect();
-        gpui::div()
-            .size_full()
-            .child(riso_ui::axis(self.axis, children))
+        gpui::div().size_full().child(riso_ui::axis(
+            "probe",
+            self.axis,
+            Rc::new(RefCell::new(Vec::new())),
+            children,
+        ))
     }
 }
 
@@ -124,7 +127,7 @@ fn equal_shares_and_dividers(cx: &mut gpui::TestAppContext) {
         let expected: Vec<_> = (0..count)
             .map(|index| {
                 format!(
-                    "TRACE message=axis child size index={index} width={} height={}",
+                    "TRACE message=axis child size id=probe index={index} width={} height={}",
                     child_size.width, child_size.height
                 )
             })

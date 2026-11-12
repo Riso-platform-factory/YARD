@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, TestAppContext};
 use std::cell::RefCell;
 use std::{
@@ -133,9 +131,9 @@ impl gpui::Render for Probe {
     }
 }
 
-fn open(cx: &TestAppContext) -> gpui::WindowHandle<riso_shell::dev::Shell> {
+fn open(cx: &TestAppContext) -> gpui::WindowHandle<riso_shell::Shell> {
     cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     })
 }
@@ -151,7 +149,7 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
     let renders = Rc::new(Cell::new(0));
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             let factory_ext = ext.clone();
             let creates = creates.clone();
             let bounds = bounds.clone();
@@ -198,7 +196,7 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
         let mut missing = cx.new_app();
         missing.update(riso_ui::init);
         missing.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.place_root(cx, "missing", "tour.missing");
         });
         let window = open(&missing);
@@ -273,7 +271,7 @@ fn slots_contract(cx: &mut TestAppContext) {
         let mut app = cx.new_app();
         app.update(riso_ui::init);
         app.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             let handles = handles.clone();
             let created = created.clone();
             let weak_views = weak_views.clone();
@@ -437,18 +435,17 @@ fn extensions_contract(cx: &mut TestAppContext) {
     let trace = Trace::default();
     let created = Rc::new(RefCell::new(Vec::new()));
     let handles = Rc::new(RefCell::new(BTreeMap::new()));
-    let production_creates = Rc::new(Cell::new(0));
     tracing::subscriber::with_default(trace.clone(), || {
         let mut app = cx.new_app();
         app.update(riso_ui::init);
         app.update(|cx| {
             let _group = tracing::info_span!("extension-init", extension = "tour").entered();
-            let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let host = riso_shell::Extension::new(cx, "tour").unwrap();
             for invalid in ["", "Tour", "0tour", "tour.bad", "tour name", "tøur"] {
-                assert!(riso_shell::dev::Extension::new(cx, invalid).is_none());
+                assert!(riso_shell::Extension::new(cx, invalid).is_none());
             }
-            assert!(riso_shell::dev::Extension::new(cx, "tour").is_none());
-            let guest = riso_shell::dev::Extension::new(cx, "tour_extra").unwrap();
+            assert!(riso_shell::Extension::new(cx, "tour").is_none());
+            let guest = riso_shell::Extension::new(cx, "tour_extra").unwrap();
             host.register(cx, "tour_extra.card", &[], |_, _, _, _| {
                 panic!("foreign registration accepted")
             });
@@ -488,23 +485,11 @@ fn extensions_contract(cx: &mut TestAppContext) {
             // Node IDs remain global across extensions.
             guest.place(cx, "own", "tour_extra.card", "root", "body");
             host.place(cx, "guest", "tour.card", "root", "body");
-            let production_creates = production_creates.clone();
-            riso_shell::register(cx, "tour.card", &[], move |_, _, _, cx| {
-                production_creates.set(production_creates.get() + 1);
-                cx.new(|_| gpui::Empty).into()
-            });
-            riso_shell::place_root(cx, "production", "tour.card");
         });
         let window = open(&app);
         assert_eq!(*created.borrow(), ["root", "guest", "own"]);
-        assert_eq!(production_creates.get(), 0);
         assert_eq!(handles.borrow()["root"].views("body").len(), 1);
         assert_eq!(handles.borrow()["guest"].views("body").len(), 1);
-        app.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
-                .unwrap();
-        });
-        assert_eq!(production_creates.get(), 1);
         for _ in 0..2 {
             gpui::AnyWindowHandle::from(window)
                 .update(&mut app, |_, window, cx| {
@@ -518,7 +503,7 @@ fn extensions_contract(cx: &mut TestAppContext) {
         let early = cx.new_app();
         early.update(riso_ui::init);
         early.update(|cx| {
-            let guest = riso_shell::dev::Extension::new(cx, "tour_extra").unwrap();
+            let guest = riso_shell::Extension::new(cx, "tour_extra").unwrap();
             guest.register(cx, "tour_extra.card", &[], |_, _, _, cx| {
                 cx.new(|_| gpui::Empty).into()
             });

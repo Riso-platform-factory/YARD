@@ -1,6 +1,8 @@
 use gpui::{App, TitlebarOptions, WindowOptions};
 
-pub(crate) fn run(product: riso_log::Product, extensions: &[fn(&mut App)]) {
+type Init = fn(&mut App, &riso_shell::Extension);
+
+pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)]) {
     riso_log::start(product);
     let paths = riso_paths::Paths::from_env(product.name);
     {
@@ -22,8 +24,11 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[fn(&mut App)]) {
         }
         {
             let _group = tracing::info_span!("extensions-load", count = extensions.len()).entered();
-            for init in extensions {
-                init(cx);
+            for (name, init) in extensions {
+                let _group = tracing::info_span!("extension-init", extension = name).entered();
+                if let Some(extension) = riso_shell::Extension::new(cx, name) {
+                    init(cx, &extension);
+                }
             }
         }
         {

@@ -7,7 +7,7 @@ use gpui::{
 use riso_layout::{ComponentId, Node, NodeId, SlotName, Tree};
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, btree_map::Entry},
+    collections::{BTreeMap, BTreeSet, btree_map::Entry},
     rc::Rc,
 };
 
@@ -38,112 +38,157 @@ impl Slots {
 
 #[derive(Default)]
 struct Registry {
+    extensions: BTreeSet<String>,
     components: BTreeMap<ComponentId, Component>,
     tree: Tree,
 }
 impl Global for Registry {}
 
-/// Registers the first factory for a valid component ID.
-pub fn register(
-    cx: &mut App,
-    component: &str,
-    slots: &[&str],
-    create: impl Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView + 'static,
-) {
-    let _group =
-        tracing::info_span!("component-register", component, slots = slots.join(",")).entered();
-    let component = match ComponentId::parse(component) {
-        Ok(component) => component,
-        Err(error) => {
-            log::error!("invalid component ID {component:?}: {error}");
+/// The application-assigned namespace for an extension's contributions.
+#[derive(Clone)]
+pub struct Extension {
+    name: String,
+}
+
+impl Extension {
+    /// Creates an extension handle. Called only by the startup.
+    pub fn new(cx: &mut App, name: &str) -> Option<Extension> {
+        // An extension name follows the same slug rule as a node ID.
+        if let Err(error) = NodeId::parse(name) {
+            log::error!("invalid extension name {name:?}: {error}");
+            return None;
+        }
+        if !cx
+            .default_global::<Registry>()
+            .extensions
+            .insert(name.into())
+        {
+            log::error!("extension {name} is already initialized");
+            return None;
+        }
+        Some(Self { name: name.into() })
+    }
+
+    /// Registers the first factory for a valid component ID.
+    pub fn register(
+        &self,
+        cx: &mut App,
+        component: &str,
+        slots: &[&str],
+        create: impl Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView + 'static,
+    ) {
+        let _group =
+            tracing::info_span!("component-register", component, slots = slots.join(",")).entered();
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot register component {component}",
+                self.name
+            );
             return;
         }
-    };
-    let mut names = Vec::new();
-    for slot in slots {
-        let name = match SlotName::parse(slot) {
-            Ok(name) => name,
+        let mut names = Vec::new();
+        for slot in slots {
+            let name = match SlotName::parse(slot) {
+                Ok(name) => name,
+                Err(error) => {
+                    log::error!("invalid slot name {slot:?}: {error}");
+                    return;
+                }
+            };
+            if names.contains(&name) {
+                log::error!("component {component} declares slot {name} twice");
+                return;
+            }
+            names.push(name);
+        }
+        match cx.default_global::<Registry>().components.entry(component) {
+            Entry::Vacant(entry) => {
+                entry.insert(Component {
+                    slots: names,
+                    create: Rc::new(create),
+                });
+                tracing::debug!("registered");
+            }
+            Entry::Occupied(entry) => {
+                log::error!("component {} is already registered", entry.key())
+            }
+        }
+    }
+
+    /// Places a valid root, whether or not its component is registered yet.
+    pub fn place_root(&self, cx: &mut App, node: &str, component: &str) {
+        let _group = tracing::info_span!("root-place", node, component).entered();
+        let id = match NodeId::parse(node) {
+            Ok(id) => id,
+            Err(error) => {
+                log::error!("invalid node ID {node:?}: {error}");
+                return;
+            }
+        };
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!("extension {} cannot place component {component}", self.name);
+            return;
+        }
+        let _ = cx
+            .default_global::<Registry>()
+            .tree
+            .place_root(Node { id, component });
+    }
+
+    /// Places a node under an already placed parent.
+    pub fn place(&self, cx: &mut App, node: &str, component: &str, parent: &str, slot: &str) {
+        let _group = tracing::info_span!("node-place", node, component, parent, slot).entered();
+        let id = match NodeId::parse(node) {
+            Ok(id) => id,
+            Err(error) => {
+                log::error!("invalid node ID {node:?}: {error}");
+                return;
+            }
+        };
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!("extension {} cannot place component {component}", self.name);
+            return;
+        }
+        let parent = match NodeId::parse(parent) {
+            Ok(parent) => parent,
+            Err(error) => {
+                log::error!("invalid parent ID {parent:?}: {error}");
+                return;
+            }
+        };
+        let slot = match SlotName::parse(slot) {
+            Ok(slot) => slot,
             Err(error) => {
                 log::error!("invalid slot name {slot:?}: {error}");
                 return;
             }
         };
-        if names.contains(&name) {
-            log::error!("component {component} declares slot {name} twice");
-            return;
-        }
-        names.push(name);
+        let _ = cx
+            .default_global::<Registry>()
+            .tree
+            .place(Node { id, component }, &parent, slot);
     }
-    match cx.default_global::<Registry>().components.entry(component) {
-        Entry::Vacant(entry) => {
-            entry.insert(Component {
-                slots: names,
-                create: Rc::new(create),
-            });
-            tracing::debug!("registered");
-        }
-        Entry::Occupied(entry) => log::error!("component {} is already registered", entry.key()),
-    }
-}
-
-/// Places a valid root, whether or not its component is registered yet.
-pub fn place_root(cx: &mut App, node: &str, component: &str) {
-    let _group = tracing::info_span!("root-place", node, component).entered();
-    let id = match NodeId::parse(node) {
-        Ok(id) => id,
-        Err(error) => {
-            log::error!("invalid node ID {node:?}: {error}");
-            return;
-        }
-    };
-    let component = match ComponentId::parse(component) {
-        Ok(component) => component,
-        Err(error) => {
-            log::error!("invalid component ID {component:?}: {error}");
-            return;
-        }
-    };
-    let _ = cx
-        .default_global::<Registry>()
-        .tree
-        .place_root(Node { id, component });
-}
-
-/// Places a node under an already placed parent.
-pub fn place(cx: &mut App, node: &str, component: &str, parent: &str, slot: &str) {
-    let _group = tracing::info_span!("node-place", node, component, parent, slot).entered();
-    let id = match NodeId::parse(node) {
-        Ok(id) => id,
-        Err(error) => {
-            log::error!("invalid node ID {node:?}: {error}");
-            return;
-        }
-    };
-    let component = match ComponentId::parse(component) {
-        Ok(component) => component,
-        Err(error) => {
-            log::error!("invalid component ID {component:?}: {error}");
-            return;
-        }
-    };
-    let parent = match NodeId::parse(parent) {
-        Ok(parent) => parent,
-        Err(error) => {
-            log::error!("invalid parent ID {parent:?}: {error}");
-            return;
-        }
-    };
-    let slot = match SlotName::parse(slot) {
-        Ok(slot) => slot,
-        Err(error) => {
-            log::error!("invalid slot name {slot:?}: {error}");
-            return;
-        }
-    };
-    let _ = cx
-        .default_global::<Registry>()
-        .tree
-        .place(Node { id, component }, &parent, slot);
 }
 
 /// The window's root and all created views, retained for its lifetime.
@@ -178,9 +223,14 @@ fn create_view(
     cx: &mut App,
     views: &mut Vec<AnyView>,
 ) -> Option<AnyView> {
-    let _group =
-        tracing::info_span!("component-create", node = %node.id, component = %node.component)
-            .entered();
+    let extension = node.component.as_str().split('.').next().unwrap();
+    let _group = tracing::info_span!(
+        "component-create",
+        node = %node.id,
+        component = %node.component,
+        extension = %extension,
+    )
+    .entered();
     if let Some((component, declared, slot)) = parent
         && !declared.contains(slot)
     {

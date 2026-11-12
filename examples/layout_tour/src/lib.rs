@@ -12,8 +12,6 @@
 //! `LAYOUT_TOUR=missing-child cargo run dev`: an unknown child hides its subtree, not siblings.
 //! `LAYOUT_TOUR=duplicate-slot cargo run dev`: duplicate slot declarations are refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -22,7 +20,7 @@ use gpui::{
     WeakEntity, Window, canvas, div,
 };
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -85,7 +83,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
 struct Card {
     node: String,
     size: Size<Pixels>,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 
 impl Card {

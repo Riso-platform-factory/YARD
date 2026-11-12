@@ -1,9 +1,9 @@
 {
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "a886716570b56e84"
+      "app/riso/src/startup.rs": "53f6d05cc7f31373"
     },
-    "promoted": "2026-11-11"
+    "promoted": "2026-11-12"
   },
   "riso_layout/tree": {
     "files": {
@@ -35,9 +35,9 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "dcf96d73e983178b"
+      "crates/riso_shell/src/shell.rs": "83d01127373a8e72"
     },
-    "promoted": "2026-11-11"
+    "promoted": "2026-11-12"
   },
   "riso_ui/theming": {
     "files": {

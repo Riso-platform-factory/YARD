@@ -19,29 +19,71 @@
 //! `LAYOUT_TOUR=tabs cargo run dev`: three cards in tabs.
 //! `LAYOUT_TOUR=tabs-in-split cargo run dev`: tabs inside a row.
 //! `LAYOUT_TOUR=empty-tabs cargo run dev`: an empty tab bar.
+//! `LAYOUT_TOUR=hide-show cargo run dev`: hide and show a counted card in a row.
+//! `LAYOUT_TOUR=hide-tab cargo run dev`: hide the selected tab, then show it again.
+//! `LAYOUT_TOUR=hide-root cargo run dev`: hiding the root is refused.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
 
 use gpui::{
-    App, AppContext, Bounds, Context, IntoElement, ParentElement, Pixels, Render, Size, Styled,
-    WeakEntity, Window, canvas, div,
+    App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
+    Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "hide-show" | "hide-tab" | "hide-root" => {
+            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
+                cx.new(|_| Card {
+                    node: node.to_string(),
+                    size: Size::default(),
+                    count: 0,
+                    slots,
+                })
+                .into()
+            });
+            if case == "hide-root" {
+                ext.place_root(cx, "root", "layout_tour.card");
+                ext.set_hidden(cx, "root", true);
+                return;
+            }
+            let controlled = vec![String::from("b")];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    nodes: controlled.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.row");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            let parent = if case == "hide-tab" {
+                ext.place(cx, "right", "riso.tabs", "root", "children");
+                "right"
+            } else {
+                "root"
+            };
+            for node in ["a", "b"] {
+                ext.place(cx, node, "layout_tour.card", parent, "children");
+            }
+        }
         "row" | "column" | "nested-split" | "one" | "empty-split" | "reserved" | "tabs"
         | "tabs-in-split" | "empty-tabs" => {
             ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
                     size: Size::default(),
+                    count: 0,
                     slots,
                 })
                 .into()
@@ -95,6 +137,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 cx.new(|_| Card {
                     node: node.to_string(),
                     size: Size::default(),
+                    count: 0,
                     slots,
                 })
                 .into()
@@ -138,7 +181,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root"
         ),
     }
 }
@@ -146,7 +189,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
 struct Card {
     node: String,
     size: Size<Pixels>,
-    slots: riso_shell::Slots,
+    count: usize,
+    slots: riso_shell::dev::Slots,
 }
 
 impl Card {
@@ -207,6 +251,18 @@ impl Render for Card {
             .child(self.node.clone())
             .child(size)
             .child(
+                div()
+                    .id("count")
+                    .debug_selector(|| format!("COUNT-{}", self.node))
+                    .cursor_pointer()
+                    .child(format!("count: {}", self.count))
+                    .on_click(cx.listener(|card, _, _, cx| {
+                        card.count += 1;
+                        tracing::debug!(node = %card.node, count = card.count, "counted");
+                        cx.notify();
+                    })),
+            )
+            .child(
                 div().flex().flex_col().flex_1().min_h_0().gap_1().children(
                     self.slots
                         .views("body")
@@ -222,5 +278,36 @@ impl Render for Card {
                 .absolute()
                 .size_full(),
             )
+    }
+}
+
+struct Controls {
+    nodes: Vec<String>,
+    ext: riso_shell::dev::Extension,
+}
+
+impl Render for Controls {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!("rendering visibility controls");
+        let palette = riso_ui::palette(cx);
+        div()
+            .size_full()
+            .flex()
+            .flex_col()
+            .p_2()
+            .gap_1()
+            .text_color(palette.text)
+            .bg(palette.background)
+            .children(self.nodes.iter().map(|node| {
+                let hidden = riso_shell::dev::is_hidden(cx, node);
+                let id = node.clone();
+                let ext = self.ext.clone();
+                div()
+                    .id(gpui::SharedString::from(node.clone()))
+                    .debug_selector(|| format!("VISIBILITY-{node}"))
+                    .cursor_pointer()
+                    .child(format!("{} {node}", if hidden { "show" } else { "hide" }))
+                    .on_click(move |_, _, cx| ext.set_hidden(cx, &id, !hidden))
+            }))
     }
 }

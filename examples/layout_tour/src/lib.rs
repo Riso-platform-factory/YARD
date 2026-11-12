@@ -1,4 +1,6 @@
-//! `cargo run dev`: an empty window unless `LAYOUT_TOUR` chooses a case.
+//! The layout host, loaded as `layout_tour` in `cargo run dev`.
+//! Without `LAYOUT_TOUR`, it contributes nothing.
+//! `LAYOUT_TOUR=host cargo run dev`: a root card with an empty body slot.
 //! `LAYOUT_TOUR=card cargo run dev`: a card showing its node ID and measured size.
 //! `LAYOUT_TOUR=missing cargo run dev`: an unregistered root component, logged once.
 //! `LAYOUT_TOUR=twice cargo run dev`: the second root is refused; the first remains.
@@ -10,6 +12,8 @@
 //! `LAYOUT_TOUR=missing-child cargo run dev`: an unknown child hides its subtree, not siblings.
 //! `LAYOUT_TOUR=duplicate-slot cargo run dev`: duplicate slot declarations are refused.
 
+#![cfg(feature = "dev")]
+
 #[cfg(test)]
 mod tests;
 
@@ -18,16 +22,16 @@ use gpui::{
     WeakEntity, Window, canvas, div,
 };
 
-pub fn init(cx: &mut App) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
-        "card" | "twice" | "nested" | "duplicate-id" | "missing-parent" | "missing-slot"
-        | "missing-child" | "duplicate-slot" => {
-            riso_shell::register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
+        "host" | "card" | "twice" | "nested" | "duplicate-id" | "missing-parent"
+        | "missing-slot" | "missing-child" | "duplicate-slot" => {
+            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
                     size: Size::default(),
@@ -35,30 +39,26 @@ pub fn init(cx: &mut App) {
                 })
                 .into()
             });
-            riso_shell::place_root(cx, "root", "layout_tour.card");
+            ext.place_root(cx, "root", "layout_tour.card");
             match case.as_str() {
-                "twice" => riso_shell::place_root(cx, "second", "layout_tour.card"),
+                "twice" => ext.place_root(cx, "second", "layout_tour.card"),
                 "nested" => {
-                    riso_shell::place(cx, "left", "layout_tour.card", "root", "body");
-                    riso_shell::place(cx, "right", "layout_tour.card", "root", "body");
-                    riso_shell::place(cx, "inner", "layout_tour.card", "left", "body");
+                    ext.place(cx, "left", "layout_tour.card", "root", "body");
+                    ext.place(cx, "right", "layout_tour.card", "root", "body");
+                    ext.place(cx, "inner", "layout_tour.card", "left", "body");
                 }
                 "duplicate-id" => {
-                    riso_shell::place(cx, "left", "layout_tour.card", "root", "body");
-                    riso_shell::place(cx, "left", "layout_tour.card", "root", "body");
+                    ext.place(cx, "left", "layout_tour.card", "root", "body");
+                    ext.place(cx, "left", "layout_tour.card", "root", "body");
                 }
-                "missing-parent" => {
-                    riso_shell::place(cx, "lost", "layout_tour.card", "nowhere", "body")
-                }
-                "missing-slot" => {
-                    riso_shell::place(cx, "aside", "layout_tour.card", "root", "side")
-                }
+                "missing-parent" => ext.place(cx, "lost", "layout_tour.card", "nowhere", "body"),
+                "missing-slot" => ext.place(cx, "aside", "layout_tour.card", "root", "side"),
                 "missing-child" => {
-                    riso_shell::place(cx, "left", "layout_tour.missing", "root", "body");
-                    riso_shell::place(cx, "inner", "layout_tour.card", "left", "body");
-                    riso_shell::place(cx, "right", "layout_tour.card", "root", "body");
+                    ext.place(cx, "left", "layout_tour.missing", "root", "body");
+                    ext.place(cx, "inner", "layout_tour.card", "left", "body");
+                    ext.place(cx, "right", "layout_tour.card", "root", "body");
                 }
-                "duplicate-slot" => riso_shell::register(
+                "duplicate-slot" => ext.register(
                     cx,
                     "layout_tour.double",
                     &["body", "body"],
@@ -67,15 +67,17 @@ pub fn init(cx: &mut App) {
                 _ => {}
             }
         }
-        "missing" => riso_shell::place_root(cx, "root", "layout_tour.missing"),
+        "missing" => ext.place_root(cx, "root", "layout_tour.missing"),
         "bad-id" => {
-            riso_shell::register(cx, "Layout Tour.Card", &[], |_, _, _, cx| {
+            ext.register(cx, "Layout Tour.Card", &[], |_, _, _, cx| {
                 cx.new(|_| gpui::Empty).into()
             });
-            riso_shell::place_root(cx, "root", "Layout Tour.Card");
+            ext.place_root(cx, "root", "Layout Tour.Card");
         }
         _ => log::warn!(
-            "unknown LAYOUT_TOUR case {case:?}; known cases: card, missing, twice, bad-id, nested, duplicate-id, missing-parent, missing-slot, missing-child, duplicate-slot"
+            "unknown LAYOUT_TOUR case {case:?}; known cases: host, card, missing, twice, \
+             bad-id, nested, duplicate-id, missing-parent, missing-slot, \
+             missing-child, duplicate-slot"
         ),
     }
 }
@@ -83,7 +85,7 @@ pub fn init(cx: &mut App) {
 struct Card {
     node: String,
     size: Size<Pixels>,
-    slots: riso_shell::Slots,
+    slots: riso_shell::dev::Slots,
 }
 
 impl Card {

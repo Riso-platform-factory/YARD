@@ -1,0 +1,17 @@
+[package]
+name = "layout_guest"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = ["dev"]
+dev = ["riso_shell/dev", "riso_ui/dev"]
+
+[dependencies]
+gpui = { workspace = true, default-features = false }
+riso_shell = { workspace = true, default-features = false }
+riso_ui = { workspace = true, default-features = false }
+log.workspace = true
+tracing.workspace = true

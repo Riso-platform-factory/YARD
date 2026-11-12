@@ -46,8 +46,9 @@ fn the_card_renders_each_measured_size_and_settles(cx: &mut gpui::TestAppContext
     let notifications = Rc::new(Cell::new(0));
     tracing::subscriber::with_default(trace.clone(), || {
         let window = cx.update(|cx| {
+            let ext = riso_shell::dev::Extension::new(cx, "layout_tour").unwrap();
             let notifications = notifications.clone();
-            riso_shell::register(
+            ext.register(
                 cx,
                 "layout_tour.card",
                 &["body"],
@@ -65,8 +66,8 @@ fn the_card_renders_each_measured_size_and_settles(cx: &mut gpui::TestAppContext
                     card.into()
                 },
             );
-            riso_shell::place_root(cx, "root", "layout_tour.card");
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
+            ext.place_root(cx, "root", "layout_tour.card");
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
                 .unwrap()
         });
         for dimensions in [(640., 480.), (900., 600.), (400., 300.)] {

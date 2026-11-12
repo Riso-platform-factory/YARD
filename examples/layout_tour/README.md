@@ -1,8 +1,8 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
+A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app. When every feature it covers is in production, it is taken out of both until the next feature is under review.
 
-Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through `riso_shell`, as any extension would.
+Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
 It grows with the layout engine, one case per feature. Its components are test cards: a card shows its node ID and its own size, and stands for no feature.
 
@@ -35,6 +35,14 @@ The card has one slot, `body`. It draws a border, its ID and size at the top, an
 | `LAYOUT_TOUR=duplicate-slot cargo run dev` | `layout_tour.double` declares `body` twice. Its `component-register` fails (✗) with an ERROR. The `root` card is shown. |
 
 An ERROR fails its group and every group around it, up to `app-startup`.
+
+### Feature 3: extension-contribution
+
+`layout_tour` is the host; `examples/layout_guest` is the guest, and its README gives the cases where both take part.
+
+| Command | What to look for |
+|---|---|
+| `LAYOUT_TOUR=host cargo run dev` | The `root` card with an empty `body`. Each extension runs inside its own `extension-init{extension=…}` group, and `component-create` shows `extension=layout_tour`. |
 
 ## Removing it
 

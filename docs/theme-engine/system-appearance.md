@@ -44,12 +44,12 @@ So a user without a section now gets One Light on a light Mac, where before the 
 
 ## Tests
 
-- GPUI tests with a test window, through its `simulate_appearance_change`:
-  - `system` at startup follows the window appearance;
-  - a change from light to dark switches the theme;
-  - with `mode: dark`, a change does not switch;
-  - a section edit to `system` picks the current appearance;
-  - the same appearance twice does nothing.
+- GPUI tests. GPUI keeps a test window's `simulate_appearance_change` private, and its test windows always report light. So a test records an appearance in `SystemAppearance` first, then opens a window with `follow_appearance`: GPUI then reports the window's light appearance through the same observer an OS change goes through. The tests cover:
+  - `system` at startup, with a light and with a dark recorded appearance;
+  - a reported change while the mode is `system` switches the theme;
+  - with `mode: dark`, a reported change does not switch;
+  - a section edit to `system` picks the recorded appearance;
+  - the same appearance reported twice does nothing.
 - A logging test alone in its file: every row, with its level and its group.
 
 ## Test extension: `examples/theme_tour`

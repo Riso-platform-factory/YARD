@@ -16,6 +16,7 @@ This follows Zed's `dock.rs` and workspace.
   - `set_zoomed(node)` zooms a node;
   - `zoom_out()` brings the layout back.
 - Any extension may zoom any node, as any panel of Zed may ask to zoom in.
+- `zoomed()` tells which node is zoomed, if any, as `is_hidden` tells whether a node is hidden, so that a component can show the right control.
 
 ## Rules
 
@@ -26,7 +27,8 @@ This follows Zed's `dock.rs` and workspace.
 | The node is hidden, or under a hidden node | Refused: it is not shown | `INFO` |
 | Another node is zoomed | It is replaced | `debug`: which node was zoomed before |
 | `zoom_out` when nothing is zoomed | Nothing changes | `debug` |
-| The zoomed node is removed or hidden by an operation | The window zooms out | `debug`: `zoom cleared`, inside that operation's `layout-op` group |
+| After any operation, the zoomed node is no longer shown (removed, hidden, or moved under a hidden node) | The window zooms out | `debug`: `zoom cleared`, inside that operation's `layout-op` group |
+| The node has no view, because its component or slot was refused when the window opened | Refused, or cleared when the window opens | `INFO` when refused, `debug` when cleared |
 | An ID breaks the slug rule | Refused | `ERROR` |
 
 ## How the window looks

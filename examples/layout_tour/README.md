@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
+A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app. When every feature it covers is in production, it is taken out of both until the next feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -124,6 +124,19 @@ Any tab can be dragged. A drop moves its node as the shell, in `layout-op{op=mov
 | Drag tab `c` onto the right edge of `left` | The right half of `left` is highlighted; the row becomes `left`, `c`, `right`, each a third. |
 | Drag a tab onto the middle of a card | No highlight; `drop ignored`. |
 | Drag a tab and drop it on its own place | Nothing moves; `drop ignored`. |
+
+### Feature 10: zoom
+
+The card has a line `zoom`, or `zoom out` while it is zoomed. Zooming runs in `zoom{node, extension}`, zooming out in `zoom-out{extension}`.
+
+| Command and action | What to look for |
+|---|---|
+| `LAYOUT_TOUR=zoom cargo run dev` | A row: card `a`, and tabs `right` with `b` and `c`. |
+| Count `a` to 2, drag the row's line, select tab `c`, click `zoom` on `c` | `c` fills the window; `zoomed {node=c}`. |
+| Click `zoom out` | The row is back: the line where it was, `c` selected, `a` at `count: 2`. |
+| `LAYOUT_TOUR=zoom-root cargo run dev` | Zooming `root` is refused with an INFO, `the root already fills the window`. |
+
+After a zoom, wait for the window to redraw before clicking `zoom out`: the card is laid out again at its new size first.
 
 ## Removing it
 

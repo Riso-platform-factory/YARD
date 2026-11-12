@@ -24,7 +24,11 @@
 //! `LAYOUT_TOUR=hide-root cargo run dev`: hiding the root is refused.
 //! `LAYOUT_TOUR=operations cargo run dev`: add, move, and remove cards, and refuse broken rules.
 //! `LAYOUT_TOUR=two-tabs cargo run dev`: two tab bars in a row, for dragging tabs between them.
+//! `LAYOUT_TOUR=zoom cargo run dev`: zoom a counted card and restore shares and selection.
+//! `LAYOUT_TOUR=zoom-root cargo run dev`: zooming the root is refused.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -35,23 +39,20 @@ use gpui::{
 };
 use std::rc::Rc;
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "zoom-root" => {
+            register_card(cx, ext);
+            ext.place_root(cx, "root", "layout_tour.card");
+            ext.set_zoomed(cx, "root");
+        }
         "two-tabs" => {
-            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
-                cx.new(|_| Card {
-                    node: node.to_string(),
-                    size: Size::default(),
-                    count: 0,
-                    slots,
-                })
-                .into()
-            });
+            register_card(cx, ext);
             ext.place_root(cx, "root", "riso.row");
             ext.place(cx, "left", "riso.tabs", "root", "children");
             ext.place(cx, "right", "riso.tabs", "root", "children");
@@ -61,15 +62,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.place(cx, "d", "layout_tour.card", "right", "children");
         }
         "operations" => {
-            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
-                cx.new(|_| Card {
-                    node: node.to_string(),
-                    size: Size::default(),
-                    count: 0,
-                    slots,
-                })
-                .into()
-            });
+            register_card(cx, ext);
             let buttons = operations_buttons();
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
@@ -87,15 +80,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.place(cx, "c", "layout_tour.card", "right", "children");
         }
         "hide-show" | "hide-tab" | "hide-root" => {
-            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
-                cx.new(|_| Card {
-                    node: node.to_string(),
-                    size: Size::default(),
-                    count: 0,
-                    slots,
-                })
-                .into()
-            });
+            register_card(cx, ext);
             if case == "hide-root" {
                 ext.place_root(cx, "root", "layout_tour.card");
                 ext.set_hidden(cx, "root", true);
@@ -123,16 +108,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             }
         }
         "row" | "column" | "nested-split" | "one" | "empty-split" | "reserved" | "tabs"
-        | "tabs-in-split" | "empty-tabs" => {
-            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
-                cx.new(|_| Card {
-                    node: node.to_string(),
-                    size: Size::default(),
-                    count: 0,
-                    slots,
-                })
-                .into()
-            });
+        | "tabs-in-split" | "empty-tabs" | "zoom" => {
+            register_card(cx, ext);
             if case == "reserved" {
                 ext.register(cx, "riso.badge", &[], |_, _, _, cx| {
                     cx.new(|_| gpui::Empty).into()
@@ -158,11 +135,11 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                     ext.place(cx, "b", "layout_tour.card", "root", "children");
                     ext.place(cx, "c", "layout_tour.card", "root", "children");
                 }
-                "nested-split" | "tabs-in-split" => {
+                "nested-split" | "tabs-in-split" | "zoom" => {
                     ext.place(
                         cx,
                         "right",
-                        if case == "tabs-in-split" {
+                        if case == "tabs-in-split" || case == "zoom" {
                             "riso.tabs"
                         } else {
                             "riso.column"
@@ -178,15 +155,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
         }
         "host" | "card" | "twice" | "nested" | "duplicate-id" | "missing-parent"
         | "missing-slot" | "missing-child" | "duplicate-slot" => {
-            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
-                cx.new(|_| Card {
-                    node: node.to_string(),
-                    size: Size::default(),
-                    count: 0,
-                    slots,
-                })
-                .into()
-            });
+            register_card(cx, ext);
             ext.place_root(cx, "root", "layout_tour.card");
             match case.as_str() {
                 "twice" => ext.place_root(cx, "second", "layout_tour.card"),
@@ -226,9 +195,37 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root"
         ),
     }
+}
+
+fn register_card(cx: &mut App, ext: &riso_shell::dev::Extension) {
+    let ext_for_factory = ext.clone();
+    ext.register(
+        cx,
+        "layout_tour.card",
+        &["body"],
+        move |node, slots, _, cx| {
+            let card = cx.new(|_| Card {
+                node: node.to_string(),
+                size: Size::default(),
+                count: 0,
+                slots,
+            });
+            let ext = ext_for_factory.clone();
+            cx.subscribe(&card, move |card, _: &ToggleZoom, cx| {
+                let node = card.read(cx).node.clone();
+                if riso_shell::dev::zoomed(cx).as_deref() == Some(node.as_str()) {
+                    ext.zoom_out(cx);
+                } else {
+                    ext.set_zoomed(cx, &node);
+                }
+            })
+            .detach();
+            card.into()
+        },
+    );
 }
 
 fn operations_buttons() -> Vec<Button> {
@@ -258,8 +255,12 @@ struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::Slots,
+    slots: riso_shell::dev::Slots,
 }
+
+struct ToggleZoom;
+
+impl gpui::EventEmitter<ToggleZoom> for Card {}
 
 impl Card {
     fn prepaint(
@@ -298,7 +299,9 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = riso_ui::palette(cx);
         let entity = cx.entity().downgrade();
+        let zoomed = riso_shell::dev::zoomed(cx).as_deref() == Some(self.node.as_str());
         div()
+            .debug_selector(|| format!("CARD-{}", self.node))
             .relative()
             .size_full()
             .flex()
@@ -323,12 +326,26 @@ impl Render for Card {
                     .id("count")
                     .debug_selector(|| format!("COUNT-{}", self.node))
                     .cursor_pointer()
-                    .child(format!("count: {}", self.count))
+                    .child(
+                        div()
+                            .debug_selector(|| format!("COUNT-{}-{}", self.node, self.count))
+                            .child(format!("count: {}", self.count)),
+                    )
                     .on_click(cx.listener(|card, _, _, cx| {
                         card.count += 1;
                         tracing::debug!(node = %card.node, count = card.count, "counted");
                         cx.notify();
                     })),
+            )
+            .child(
+                div()
+                    .id("zoom")
+                    .debug_selector(|| {
+                        format!("ZOOM{}-{}", if zoomed { "-OUT" } else { "" }, self.node)
+                    })
+                    .cursor_pointer()
+                    .child(if zoomed { "zoom out" } else { "zoom" })
+                    .on_click(cx.listener(|_, _, _, cx| cx.emit(ToggleZoom))),
             )
             .child(
                 div().flex().flex_col().flex_1().min_h_0().gap_1().children(
@@ -350,7 +367,7 @@ impl Render for Card {
 }
 
 type Label = Rc<dyn Fn(&App) -> String>;
-type Action = Rc<dyn Fn(&riso_shell::Extension, &mut Window, &mut App)>;
+type Action = Rc<dyn Fn(&riso_shell::dev::Extension, &mut Window, &mut App)>;
 
 #[derive(Clone)]
 struct Button {
@@ -361,7 +378,7 @@ struct Button {
 impl Button {
     fn action(
         label: &'static str,
-        action: impl Fn(&riso_shell::Extension, &mut Window, &mut App) + 'static,
+        action: impl Fn(&riso_shell::dev::Extension, &mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
             label: Rc::new(move |_| label.into()),
@@ -372,7 +389,7 @@ impl Button {
     fn visibility(node: &'static str) -> Self {
         Self {
             label: Rc::new(move |cx| {
-                let verb = if riso_shell::is_hidden(cx, node) {
+                let verb = if riso_shell::dev::is_hidden(cx, node) {
                     "show"
                 } else {
                     "hide"
@@ -380,7 +397,7 @@ impl Button {
                 format!("{verb} {node}")
             }),
             action: Rc::new(move |ext, _, cx| {
-                let hidden = riso_shell::is_hidden(cx, node);
+                let hidden = riso_shell::dev::is_hidden(cx, node);
                 ext.set_hidden(cx, node, !hidden);
             }),
         }
@@ -389,7 +406,7 @@ impl Button {
 
 struct Controls {
     buttons: Vec<Button>,
-    ext: riso_shell::Extension,
+    ext: riso_shell::dev::Extension,
 }
 
 impl Render for Controls {

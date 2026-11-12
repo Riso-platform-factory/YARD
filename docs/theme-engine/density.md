@@ -40,7 +40,8 @@ Applying the density runs in a group, `density-apply{density}`, at startup insid
 |---|---|
 | `riso_ui/theming` | Dev version beside production. The global holds the density, and the provider returns it |
 | `riso_ui/theme_setting` | Dev version beside production. The value, its group, and its rules |
-| `riso/startup` | Dev copy, with the dev functions |
+| `riso_shell/shell` | Dev version beside production, with only its paths changed: the shell reads the UI font from `riso_ui`'s global, whose type the dev version of `theming` holds |
+| `riso/startup` | Dev copy, with the dev functions and the dev shell |
 
 ## Tests
 
@@ -64,7 +65,7 @@ The card's tab bar shows the density. Use a fresh home: `RISO_HOME=/tmp/riso-the
 
 ## Under review
 
-- `riso_ui/theming`, `riso_ui/theme_setting`, and `riso/startup`, in their dev versions
+- `riso_ui/theming`, `riso_ui/theme_setting`, `riso_shell/shell`, and `riso/startup`, in their dev versions
 
 ## Not in this feature
 

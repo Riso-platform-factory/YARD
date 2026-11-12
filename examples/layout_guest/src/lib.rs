@@ -3,25 +3,34 @@
 //! `LAYOUT_TOUR=host LAYOUT_GUEST=card cargo run dev`: a guest card in the host's body.
 //! `LAYOUT_TOUR=host LAYOUT_GUEST=foreign cargo run dev`: a foreign component is refused.
 //! `LAYOUT_TOUR=host LAYOUT_GUEST=namespace cargo run dev`: foreign registration is refused.
+//! `LAYOUT_TOUR=row LAYOUT_GUEST=split cargo run dev`: a fourth card in the host row.
 //! `LAYOUT_GUEST=card cargo run dev`: the absent host's parent is refused.
+
+#![cfg(feature = "dev")]
 
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_GUEST").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-guest", case).entered();
     match case.as_str() {
-        "card" => {
+        "card" | "split" => {
             ext.register(cx, "layout_guest.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
                 })
                 .into()
             });
-            ext.place(cx, "guest", "layout_guest.card", "root", "body");
+            ext.place(
+                cx,
+                "guest",
+                "layout_guest.card",
+                "root",
+                if case == "split" { "children" } else { "body" },
+            );
         }
         "foreign" => ext.place(cx, "guest", "layout_tour.card", "root", "body"),
         "namespace" => {
@@ -30,7 +39,9 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             });
         }
         _ => {
-            log::warn!("unknown LAYOUT_GUEST case {case:?}; known cases: card, foreign, namespace")
+            log::warn!(
+                "unknown LAYOUT_GUEST case {case:?}; known cases: card, foreign, namespace, split"
+            )
         }
     }
 }

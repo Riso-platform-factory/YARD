@@ -39,9 +39,14 @@ impl riso_settings::Settings for ThemeSettings {
     const KEY: &'static str = "theme";
 }
 
-/// Registers the `theme` section and applies the chosen theme once at startup.
+/// Registers the `theme` section, applies the chosen theme, and switches on changes.
 pub fn apply_theme_setting(cx: &mut App) {
     riso_settings::register::<ThemeSettings>(cx);
+    apply(cx, false);
+    riso_settings::observe::<ThemeSettings>(cx, |cx| apply(cx, true)).detach();
+}
+
+fn apply(cx: &mut App, switch: bool) {
     let settings = riso_settings::get::<ThemeSettings>(cx);
     let mode = settings.mode;
     let name = match mode {
@@ -49,9 +54,16 @@ pub fn apply_theme_setting(cx: &mut App) {
         Mode::Light => settings.light.clone(),
     };
     let _group = tracing::info_span!("theme-apply", mode = %mode, theme = %name).entered();
+    if switch && name == active_theme(cx) {
+        tracing::debug!("unchanged");
+        return;
+    }
     match ThemeRegistry::global(cx).get(&name) {
         Ok(theme) => {
             GlobalTheme::update_theme(cx, theme);
+            if switch {
+                cx.refresh_windows();
+            }
             tracing::debug!("applied");
         }
         Err(_) => log::warn!("theme {name} is not registered"),

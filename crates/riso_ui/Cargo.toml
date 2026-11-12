@@ -11,12 +11,14 @@ path = "src/riso_ui.rs"
 [features]
 default = ["dev"]
 # Compiles the parts that are not in production.
-dev = []
+dev = ["riso_settings/dev"]
 
 [dependencies]
+riso_settings = { workspace = true, default-features = false }
 gpui.workspace = true
 theme.workspace = true
 ui.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
 tracing.workspace = true

@@ -84,7 +84,7 @@ Use a fresh home: `RISO_HOME=/tmp/riso-theme`.
 | File `config/settings.json` | `THEME_TOUR=card cargo run dev` shows |
 |---|---|
 | none | One Dark: a dark card. `theme-apply{mode=dark, theme=One Dark}` with `applied`. |
-| `{"theme": {"mode": "light"}}` | One Light: a light card and light text. `theme=One Light`. |
+| `{"theme": {"mode": "light"}}` | One Light: a light card and dark text. `theme=One Light`. |
 | `{"theme": {"mode": "light", "light": "Solarized"}}` | One Dark, and the `WARN` `theme Solarized is not registered`. |
 | `{"theme": {"mode": "dim"}}` | One Dark, and the settings engine's `WARN` that the section `theme` cannot be read. |
 

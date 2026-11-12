@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
+A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app. When every feature it covers is in production, it is taken out of both until the next feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -97,6 +97,21 @@ The card has a counter: clicking `count: N` adds one. `layout_tour.controls` sho
 | Same, then `show b` | `b` is back with the width it had and `count: 3`. |
 | `LAYOUT_TOUR=hide-tab cargo run dev` | `controls` on the left, tabs `a` and `b` on the right. Select `b`, count to 2, `hide b`: tab `b` goes away and `a` is shown, without a `tab selected` line. `show b`: tab `b` is back, `a` stays selected; clicking `b` shows `count: 2`. |
 | `LAYOUT_TOUR=hide-root cargo run dev` | Hiding `root` is refused with an INFO, `the root cannot be hidden or shown`. |
+
+### Feature 8: operations
+
+`layout_tour.controls` shows the buttons of its case; each calls one operation through the extension's handle. Each operation runs in `layout-op{op, node, extension}`.
+
+| Command and action | What to look for |
+|---|---|
+| `LAYOUT_TOUR=operations cargo run dev` | A row: `controls`, card `a`, and a column `right` with cards `b` and `c`. |
+| Click `b`'s count twice, then `add d` | Card `d` is the last child of the row; `component-create{node=d}` sits inside `layout-op{op=add, node=d}`. |
+| `move b to root` | `b` leaves the column and is the last child of the row, still at `count: 2`. |
+| `remove a` | `a` goes away; `node removed {removed=1}` and `view dropped {node=a}`. |
+| `move right into c` | Refused with an INFO: moving a node into its own subtree would make a cycle. |
+| `move c to b.side` | Refused with an INFO: the card does not declare `side`. |
+| `remove root` | Refused with an INFO. |
+| `add d` again | Refused with an INFO: `d` is already in the tree. |
 
 ## Removing it
 

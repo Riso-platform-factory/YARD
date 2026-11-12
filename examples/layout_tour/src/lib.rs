@@ -22,7 +22,10 @@
 //! `LAYOUT_TOUR=hide-show cargo run dev`: hide and show a counted card in a row.
 //! `LAYOUT_TOUR=hide-tab cargo run dev`: hide the selected tab, then show it again.
 //! `LAYOUT_TOUR=hide-root cargo run dev`: hiding the root is refused.
+//! `LAYOUT_TOUR=operations cargo run dev`: add, move, and remove cards, and refuse broken rules.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -31,14 +34,41 @@ use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
+use std::rc::Rc;
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "operations" => {
+            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
+                cx.new(|_| Card {
+                    node: node.to_string(),
+                    size: Size::default(),
+                    count: 0,
+                    slots,
+                })
+                .into()
+            });
+            let buttons = operations_buttons();
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.row");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            ext.place(cx, "a", "layout_tour.card", "root", "children");
+            ext.place(cx, "right", "riso.column", "root", "children");
+            ext.place(cx, "b", "layout_tour.card", "right", "children");
+            ext.place(cx, "c", "layout_tour.card", "right", "children");
+        }
         "hide-show" | "hide-tab" | "hide-root" => {
             ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
                 cx.new(|_| Card {
@@ -54,11 +84,11 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 ext.set_hidden(cx, "root", true);
                 return;
             }
-            let controlled = vec![String::from("b")];
+            let buttons = vec![Button::visibility("b")];
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
-                    nodes: controlled.clone(),
+                    buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
                 .into()
@@ -179,16 +209,39 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations"
         ),
     }
+}
+
+fn operations_buttons() -> Vec<Button> {
+    vec![
+        Button::action("add d", |ext, window, cx| {
+            ext.add(window, cx, "d", "layout_tour.card", "root", "children");
+        }),
+        Button::action("move b to root", |ext, _, cx| {
+            ext.move_node(cx, "b", "root", "children", usize::MAX);
+        }),
+        Button::action("remove a", |ext, _, cx| {
+            ext.remove(cx, "a");
+        }),
+        Button::action("move right into c", |ext, _, cx| {
+            ext.move_node(cx, "right", "c", "body", 0);
+        }),
+        Button::action("move c to b.side", |ext, _, cx| {
+            ext.move_node(cx, "c", "b", "side", 0);
+        }),
+        Button::action("remove root", |ext, _, cx| {
+            ext.remove(cx, "root");
+        }),
+    ]
 }
 
 struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::Slots,
+    slots: riso_shell::dev::Slots,
 }
 
 impl Card {
@@ -279,14 +332,52 @@ impl Render for Card {
     }
 }
 
+type Label = Rc<dyn Fn(&App) -> String>;
+type Action = Rc<dyn Fn(&riso_shell::dev::Extension, &mut Window, &mut App)>;
+
+#[derive(Clone)]
+struct Button {
+    label: Label,
+    action: Action,
+}
+
+impl Button {
+    fn action(
+        label: &'static str,
+        action: impl Fn(&riso_shell::dev::Extension, &mut Window, &mut App) + 'static,
+    ) -> Self {
+        Self {
+            label: Rc::new(move |_| label.into()),
+            action: Rc::new(action),
+        }
+    }
+
+    fn visibility(node: &'static str) -> Self {
+        Self {
+            label: Rc::new(move |cx| {
+                let verb = if riso_shell::dev::is_hidden(cx, node) {
+                    "show"
+                } else {
+                    "hide"
+                };
+                format!("{verb} {node}")
+            }),
+            action: Rc::new(move |ext, _, cx| {
+                let hidden = riso_shell::dev::is_hidden(cx, node);
+                ext.set_hidden(cx, node, !hidden);
+            }),
+        }
+    }
+}
+
 struct Controls {
-    nodes: Vec<String>,
-    ext: riso_shell::Extension,
+    buttons: Vec<Button>,
+    ext: riso_shell::dev::Extension,
 }
 
 impl Render for Controls {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        tracing::trace!("rendering visibility controls");
+        tracing::trace!("rendering controls");
         let palette = riso_ui::palette(cx);
         div()
             .size_full()
@@ -296,16 +387,17 @@ impl Render for Controls {
             .gap_1()
             .text_color(palette.text)
             .bg(palette.background)
-            .children(self.nodes.iter().map(|node| {
-                let hidden = riso_shell::is_hidden(cx, node);
-                let id = node.clone();
+            .children(self.buttons.iter().enumerate().map(|(index, button)| {
+                let label = (button.label)(cx);
+                let selector = label.clone();
+                let action = button.action.clone();
                 let ext = self.ext.clone();
                 div()
-                    .id(gpui::SharedString::from(node.clone()))
-                    .debug_selector(|| format!("VISIBILITY-{node}"))
+                    .id(index)
+                    .debug_selector(move || format!("BUTTON-{selector}"))
                     .cursor_pointer()
-                    .child(format!("{} {node}", if hidden { "show" } else { "hide" }))
-                    .on_click(move |_, _, cx| ext.set_hidden(cx, &id, !hidden))
+                    .child(label)
+                    .on_click(move |_, window, cx| action(&ext, window, cx))
             }))
     }
 }

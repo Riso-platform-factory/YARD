@@ -77,9 +77,9 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "11bb44ed85c48a10"
+      "crates/riso_shell/src/shell.rs": "07bc3fa7633b3a53"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-13"
   },
   "riso_ui/axis": {
     "files": {
@@ -95,15 +95,15 @@
   },
   "riso_ui/theme_setting": {
     "files": {
-      "crates/riso_ui/src/theme_setting.rs": "63c334d99fcf574c"
+      "crates/riso_ui/src/theme_setting.rs": "0b79603eb285be5b"
     },
     "promoted": "2026-11-13"
   },
   "riso_ui/theming": {
     "files": {
-      "crates/riso_ui/src/theming.rs": "62b4c4b2624ac300",
+      "crates/riso_ui/src/theming.rs": "c00f8ce6ada6a57d",
       "crates/riso_ui/src/theming/themes.rs": "6e115181e4dbf18c"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-13"
   }
 }

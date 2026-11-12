@@ -487,7 +487,7 @@ fn diagnostics_since(captured: &Captured, cursor: usize, expected: usize) -> &[S
 }
 
 // The groups of one read that changed `theme`: settings-reload{path}, then
-// theme-apply{mode, theme}, both inside settings-watch.
+// theme-apply{mode, theme} and ui-font-apply{family, size}, inside settings-watch.
 fn reload_then_apply<'a>(
     captured: &'a Captured,
     cursor: usize,
@@ -495,16 +495,18 @@ fn reload_then_apply<'a>(
     watch_id: u64,
     mode: &str,
     theme: &str,
-) -> (&'a Group, &'a Group) {
-    let [reload, apply] = &captured.groups[cursor..] else {
+) -> (&'a Group, &'a Group, &'a Group) {
+    let [reload, apply, font] = &captured.groups[cursor..] else {
         panic!(
-            "expected settings-reload then theme-apply, got {:#?}",
+            "expected settings-reload, theme-apply, and ui-font-apply, got {:#?}",
             &captured.groups[cursor..]
         );
     };
     assert_reload_group(reload, &captured.entered_groups, path, watch_id);
     assert_apply_group(apply, &captured.entered_groups, watch_id, mode, theme);
-    (reload, apply)
+    assert_group(font, &captured.entered_groups, "ui-font-apply");
+    assert_eq!(font.parent, Some(watch_id));
+    (reload, apply, font)
 }
 
 // Alone in this binary: installs the process-wide diagnostic logger and captures every callsite.
@@ -520,15 +522,24 @@ fn system_appearance_opens_groups_and_logs_every_contract_line(cx: &mut TestAppC
         // 1. Startup while the OS is dark and no file: system mode applies the
         //    dark theme. Groups in order: settings-init, settings-load,
         //    settings-watch, ui-init, settings-register{section=theme},
-        //    theme-apply{mode=system, theme=One Dark}.
+        //    theme-apply{mode=system, theme=One Dark},
+        //    ui-font-apply{family, size}.
         let path = temp.path().join("settings.json");
         let app_init = cx.update(|cx| startup(cx, &path, theme::Appearance::Dark));
         cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         let (watch_id, mut groups_cursor, mut events_cursor) = {
             let captured = CAPTURED.lock().unwrap();
-            let [init_g, load_g, watch_g, ui_init_g, register_g, apply_g] = &captured.groups[..]
+            let [
+                init_g,
+                load_g,
+                watch_g,
+                ui_init_g,
+                register_g,
+                apply_g,
+                font_g,
+            ] = &captured.groups[..]
             else {
-                panic!("expected 6 startup groups, got {:#?}", captured.groups);
+                panic!("expected 7 startup groups, got {:#?}", captured.groups);
             };
             assert_group(init_g, &captured.entered_groups, "settings-init");
             assert!(
@@ -552,6 +563,8 @@ fn system_appearance_opens_groups_and_logs_every_contract_line(cx: &mut TestAppC
                 "system",
                 "One Dark",
             );
+            assert_group(font_g, &captured.entered_groups, "ui-font-apply");
+            assert_eq!(font_g.parent, Some(app_init));
             let started = events_in_group(&captured, 0, watch_g.id);
             assert_eq!(
                 started.len(),
@@ -623,7 +636,7 @@ fn system_appearance_opens_groups_and_logs_every_contract_line(cx: &mut TestAppC
         cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
-            let (reload, apply_g) = reload_then_apply(
+            let (reload, apply_g, font_g) = reload_then_apply(
                 &captured,
                 groups_cursor,
                 &path,
@@ -631,10 +644,11 @@ fn system_appearance_opens_groups_and_logs_every_contract_line(cx: &mut TestAppC
                 "dark",
                 "One Dark",
             );
-            let events = events_since(&captured, events_cursor, 3);
+            let events = events_since(&captured, events_cursor, 4);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
             assert_debug_event(events[1], reload.id, "reloaded", &[("changed", "1")]);
-            let applied = assert_apply_line(&events[2..], apply_g.id, "applied");
+            let applied = assert_apply_line(&events[2..3], apply_g.id, "applied");
+            assert_debug_event(events[3], font_g.id, "unchanged", &[]);
             assert!(
                 events[1].seq < applied.seq,
                 "the apply must run after the read that changed the section"
@@ -670,7 +684,7 @@ fn system_appearance_opens_groups_and_logs_every_contract_line(cx: &mut TestAppC
         cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
         {
             let captured = CAPTURED.lock().unwrap();
-            let (reload, apply_g) = reload_then_apply(
+            let (reload, apply_g, font_g) = reload_then_apply(
                 &captured,
                 groups_cursor,
                 &path,
@@ -678,10 +692,11 @@ fn system_appearance_opens_groups_and_logs_every_contract_line(cx: &mut TestAppC
                 "system",
                 "One Light",
             );
-            let events = events_since(&captured, events_cursor, 3);
+            let events = events_since(&captured, events_cursor, 4);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
             assert_debug_event(events[1], reload.id, "reloaded", &[("changed", "1")]);
-            let applied = assert_apply_line(&events[2..], apply_g.id, "applied");
+            let applied = assert_apply_line(&events[2..3], apply_g.id, "applied");
+            assert_debug_event(events[3], font_g.id, "unchanged", &[]);
             assert!(
                 events[1].seq < applied.seq,
                 "the apply must run after the read that changed the section"

@@ -7,26 +7,34 @@
 
 mod themes;
 
-use gpui::{App, Font, Hsla, Pixels, font, px};
+use gpui::{App, Font, Global, Hsla, Pixels, SharedString, font, px};
 use std::borrow::Cow;
 use theme::ActiveTheme;
 
-// TODO(theme-settings): The theme, the UI font, and its size are fixed. Read them from the settings engine when one exists.
+pub(crate) const DEFAULT_UI_FONT_FAMILY: &str = "IBM Plex Sans";
+pub(crate) const DEFAULT_UI_FONT_SIZE: f32 = 16.;
 
-struct Provider(Font);
+struct UiFont {
+    font: Font,
+    size: Pixels,
+}
+
+impl Global for UiFont {}
+
+struct Provider;
 
 impl theme::ThemeSettingsProvider for Provider {
-    fn ui_font<'a>(&'a self, _: &'a App) -> &'a Font {
-        &self.0
+    fn ui_font<'a>(&'a self, cx: &'a App) -> &'a Font {
+        &cx.global::<UiFont>().font
     }
 
-    fn buffer_font<'a>(&'a self, _: &'a App) -> &'a Font {
+    fn buffer_font<'a>(&'a self, cx: &'a App) -> &'a Font {
         // TODO(code-font): The code font is the UI font until a code font is bundled. Bundle Zed's Lilex when something shows code.
-        &self.0
+        &cx.global::<UiFont>().font
     }
 
-    fn ui_font_size(&self, _: &App) -> Pixels {
-        ui_font_size()
+    fn ui_font_size(&self, cx: &App) -> Pixels {
+        ui_font_size(cx)
     }
 
     fn buffer_font_size(&self, _: &App) -> Pixels {
@@ -61,7 +69,7 @@ pub fn init(cx: &mut App) {
                 .text_system()
                 .all_font_names()
                 .iter()
-                .any(|name| name == "IBM Plex Sans"),
+                .any(|name| name == DEFAULT_UI_FONT_FAMILY),
             "bundled fonts loaded"
         ),
         Err(error) => log::error!("could not load the bundled fonts: {error}"),
@@ -74,18 +82,29 @@ pub fn init(cx: &mut App) {
         Err(error) => log::error!("could not activate One Dark, keeping the fallback: {error}"),
     }
     tracing::debug!(theme = %cx.theme().name, "theme active");
-    theme::set_theme_settings_provider(Box::new(Provider(ui_font())), cx);
+    cx.set_global(UiFont {
+        font: font(DEFAULT_UI_FONT_FAMILY),
+        size: px(DEFAULT_UI_FONT_SIZE),
+    });
+    theme::set_theme_settings_provider(Box::new(Provider), cx);
     tracing::debug!("theme settings provider installed");
 }
 
+pub(crate) fn set_ui_font(cx: &mut App, family: impl Into<SharedString>, size: Pixels) {
+    cx.set_global(UiFont {
+        font: font(family),
+        size,
+    });
+}
+
 /// The font for UI text.
-pub fn ui_font() -> Font {
-    font("IBM Plex Sans")
+pub fn ui_font(cx: &App) -> Font {
+    cx.global::<UiFont>().font.clone()
 }
 
 /// The size of UI text, used as a window's rem size.
-pub fn ui_font_size() -> Pixels {
-    px(16.)
+pub fn ui_font_size(cx: &App) -> Pixels {
+    cx.global::<UiFont>().size
 }
 
 /// Colors by name, for components drawn with GPUI.

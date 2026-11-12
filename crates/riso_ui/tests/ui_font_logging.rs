@@ -1,4 +1,4 @@
-#![cfg(all(feature = "dev", target_os = "macos"))]
+#![cfg(target_os = "macos")]
 
 use gpui::TestAppContext;
 use std::{
@@ -308,8 +308,8 @@ fn startup(cx: &mut gpui::App, settings: &Path, content: Option<&str>) -> u64 {
         riso_settings::init(cx);
         riso_settings::load(cx, settings.to_path_buf());
         riso_settings::watch(cx);
-        riso_ui::dev::init(cx);
-        riso_ui::dev::apply_theme_setting(cx);
+        riso_ui::init(cx);
+        riso_ui::apply_theme_setting(cx);
     }
     app_init_id
 }
@@ -538,8 +538,8 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         let app = fonts_app(cx);
         let app_init = app.update(|cx| startup(cx, &missing, None));
         app.read(|cx| {
-            assert_eq!(riso_ui::dev::ui_font(cx).family, "IBM Plex Sans");
-            assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(16.));
+            assert_eq!(riso_ui::ui_font(cx).family, "IBM Plex Sans");
+            assert_eq!(riso_ui::ui_font_size(cx), gpui::px(16.));
         });
         assert!(!missing.exists());
         {
@@ -569,7 +569,7 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         let app = fonts_app(cx);
         let app_init =
             app.update(|cx| startup(cx, &sized, Some(r#"{"theme": {"ui_font_size": 20}}"#)));
-        app.read(|cx| assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(20.)));
+        app.read(|cx| assert_eq!(riso_ui::ui_font_size(cx), gpui::px(20.)));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, font_g) = scenario_groups(
@@ -597,7 +597,7 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         let app = fonts_app(cx);
         let app_init =
             app.update(|cx| startup(cx, &large, Some(r#"{"theme": {"ui_font_size": 200}}"#)));
-        app.read(|cx| assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(100.)));
+        app.read(|cx| assert_eq!(riso_ui::ui_font_size(cx), gpui::px(100.)));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, font_g) = scenario_groups(
@@ -632,7 +632,7 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         let app = fonts_app(cx);
         let app_init =
             app.update(|cx| startup(cx, &small, Some(r#"{"theme": {"ui_font_size": 2}}"#)));
-        app.read(|cx| assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(6.)));
+        app.read(|cx| assert_eq!(riso_ui::ui_font_size(cx), gpui::px(6.)));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, font_g) = scenario_groups(
@@ -672,7 +672,7 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
                 Some(r#"{"theme": {"ui_font_family": "Menlo"}}"#),
             )
         });
-        app.read(|cx| assert_eq!(riso_ui::dev::ui_font(cx).family, "Menlo"));
+        app.read(|cx| assert_eq!(riso_ui::ui_font(cx).family, "Menlo"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, font_g) = scenario_groups(
@@ -706,8 +706,8 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
             )
         });
         app.read(|cx| {
-            assert_eq!(riso_ui::dev::ui_font(cx).family, "IBM Plex Sans");
-            assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(20.));
+            assert_eq!(riso_ui::ui_font(cx).family, "IBM Plex Sans");
+            assert_eq!(riso_ui::ui_font_size(cx), gpui::px(20.));
         });
         {
             let captured = CAPTURED.lock().unwrap();
@@ -758,7 +758,7 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         fs::write(&edited, r#"{"theme": {"ui_font_size": 24}}"#).unwrap();
         app.executor().advance_clock(Duration::from_secs(1));
         app.run_until_parked();
-        app.read(|cx| assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(24.)));
+        app.read(|cx| assert_eq!(riso_ui::ui_font_size(cx), gpui::px(24.)));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, font_g) = change_groups(&captured, groups_cursor, &edited);
@@ -803,9 +803,9 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         app.executor().advance_clock(Duration::from_secs(1));
         app.run_until_parked();
         app.read(|cx| {
-            assert_eq!(riso_ui::dev::active_theme(cx), "One Dark");
-            assert_eq!(riso_ui::dev::ui_font(cx).family, "IBM Plex Sans");
-            assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(20.));
+            assert_eq!(riso_ui::active_theme(cx), "One Dark");
+            assert_eq!(riso_ui::ui_font(cx).family, "IBM Plex Sans");
+            assert_eq!(riso_ui::ui_font_size(cx), gpui::px(20.));
         });
         {
             let captured = CAPTURED.lock().unwrap();
@@ -828,7 +828,7 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         let app = fonts_app(cx);
         let app_init =
             app.update(|cx| startup(cx, &clamped, Some(r#"{"theme": {"ui_font_size": 200}}"#)));
-        app.read(|cx| assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(100.)));
+        app.read(|cx| assert_eq!(riso_ui::ui_font_size(cx), gpui::px(100.)));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, font_g) = scenario_groups(
@@ -864,8 +864,8 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         app.executor().advance_clock(Duration::from_secs(1));
         app.run_until_parked();
         app.read(|cx| {
-            assert_eq!(riso_ui::dev::active_theme(cx), "One Dark");
-            assert_eq!(riso_ui::dev::ui_font_size(cx), gpui::px(100.));
+            assert_eq!(riso_ui::active_theme(cx), "One Dark");
+            assert_eq!(riso_ui::ui_font_size(cx), gpui::px(100.));
         });
         {
             let captured = CAPTURED.lock().unwrap();
@@ -891,7 +891,7 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
                 Some(r#"{"theme": {"ui_font_family": "Nope Sans"}}"#),
             )
         });
-        app.read(|cx| assert_eq!(riso_ui::dev::ui_font(cx).family, "IBM Plex Sans"));
+        app.read(|cx| assert_eq!(riso_ui::ui_font(cx).family, "IBM Plex Sans"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, font_g) = scenario_groups(
@@ -919,8 +919,8 @@ fn ui_font_opens_ui_font_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         app.executor().advance_clock(Duration::from_secs(1));
         app.run_until_parked();
         app.read(|cx| {
-            assert_eq!(riso_ui::dev::active_theme(cx), "One Dark");
-            assert_eq!(riso_ui::dev::ui_font(cx).family, "IBM Plex Sans");
+            assert_eq!(riso_ui::active_theme(cx), "One Dark");
+            assert_eq!(riso_ui::ui_font(cx).family, "IBM Plex Sans");
         });
         {
             let captured = CAPTURED.lock().unwrap();

@@ -35,7 +35,7 @@ impl Render for DraggedNode {
             .border_1()
             .border_color(palette.border)
             .text_color(palette.text)
-            .font(riso_ui::ui_font())
+            .font(riso_ui::ui_font(cx))
             .child(self.label.clone())
     }
 }
@@ -1530,7 +1530,7 @@ fn create_view(
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering shell");
-        window.set_rem_size(riso_ui::ui_font_size());
+        window.set_rem_size(riso_ui::ui_font_size(cx));
         let view = cx
             .try_global::<Registry>()
             .and_then(|registry| {
@@ -1547,7 +1547,7 @@ impl Render for Shell {
             .grid_cols(1)
             .grid_rows(1)
             .bg(riso_ui::palette(cx).background)
-            .font(riso_ui::ui_font())
+            .font(riso_ui::ui_font(cx))
             .on_drop::<DraggedNode>(|dragged, _, cx| {
                 clear_drag_edges(cx);
                 tracing::debug!(node = %dragged.node, "drop ignored");

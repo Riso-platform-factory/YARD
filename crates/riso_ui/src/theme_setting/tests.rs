@@ -69,7 +69,7 @@ fn rgb(color: gpui::Hsla) -> (u8, u8, u8) {
 }
 
 // One second of the test clock runs the watch's next check.
-fn tick(cx: &mut gpui::TestAppContext) {
+fn tick(cx: &gpui::TestAppContext) {
     cx.executor()
         .advance_clock(std::time::Duration::from_secs(1));
     cx.run_until_parked();
@@ -354,4 +354,160 @@ fn the_same_appearance_reported_twice_changes_nothing(cx: &mut gpui::TestAppCont
 
     cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
     assert_eq!(switches.get(), 0);
+}
+
+// ----- ui-font -----
+
+// A test app backed by the machine's text system, so that installed families —
+// Menlo among them, and IBM Plex Sans once the bundled fonts register — are
+// known. The default test text system knows no font at all.
+#[cfg(target_os = "macos")]
+fn fonts_app(cx: &gpui::TestAppContext) -> gpui::TestAppContext {
+    gpui::TestAppContext::build_with_text_system(
+        cx.dispatcher.clone(),
+        None,
+        std::sync::Arc::new(gpui_apple::AppleTextSystem::new()),
+    )
+}
+
+// The font `ui_font` and `ui_font_size` give is the one the settings provider
+// gives Zed's components.
+#[cfg(target_os = "macos")]
+fn assert_ui_font(cx: &gpui::App, family: &str, size: f32) {
+    let font = crate::ui_font(cx);
+    let size = gpui::px(size);
+    assert_eq!(font.family, family);
+    assert_eq!(crate::ui_font_size(cx), size);
+    let provider = theme::theme_settings(cx);
+    assert_eq!(provider.ui_font(cx).family, font.family);
+    assert_eq!(provider.ui_font_size(cx), size);
+}
+
+// Without values the bundled font applies at 16px.
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn without_values_the_ui_font_is_ibm_plex_sans_at_16(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path.clone()));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 16.));
+    assert!(!path.exists());
+}
+
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn a_ui_font_size_in_the_section_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_font_size": 20}}"#);
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 20.));
+}
+
+// A size below 6 clamps to 6, as Zed does.
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn a_ui_font_size_below_6_is_clamped_to_6(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_font_size": 2}}"#);
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 6.));
+}
+
+// A size above 100 clamps to 100.
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn a_ui_font_size_above_100_is_clamped_to_100(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_font_size": 200}}"#);
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 100.));
+}
+
+// The size is a number of pixels, with or without decimals.
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn a_ui_font_size_with_decimals_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_font_size": 13.5}}"#);
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 13.5));
+}
+
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn an_installed_ui_font_family_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_font_family": "Menlo"}}"#);
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path));
+    app.read(|cx| assert_ui_font(cx, "Menlo", 16.));
+}
+
+// The default family applies instead, and the size still applies.
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn a_ui_font_family_that_is_not_installed_keeps_the_default(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(
+        &temp,
+        r#"{"theme": {"ui_font_family": "Nope Sans", "ui_font_size": 20}}"#,
+    );
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 20.));
+}
+
+// A change of the size while running applies at once, as a change of theme does.
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn an_edit_of_the_ui_font_size_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_font_size": 16}}"#);
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path.clone()));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 16.));
+
+    std::fs::write(&path, r#"{"theme": {"ui_font_size": 24}}"#).unwrap();
+    tick(&app);
+
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 24.));
+}
+
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn an_edit_of_the_ui_font_family_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path.clone()));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 16.));
+
+    std::fs::write(&path, r#"{"theme": {"ui_font_family": "Menlo"}}"#).unwrap();
+    tick(&app);
+
+    app.read(|cx| assert_ui_font(cx, "Menlo", 16.));
+}
+
+// Only the theme changed: the font is as it was.
+#[cfg(target_os = "macos")]
+#[gpui::test]
+fn an_edit_of_only_the_theme_leaves_the_ui_font_as_it_was(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_font_size": 20}}"#);
+    let app = fonts_app(cx);
+    app.update(|cx| startup(cx, path.clone()));
+    app.read(|cx| assert_ui_font(cx, "IBM Plex Sans", 20.));
+
+    std::fs::write(&path, r#"{"theme": {"mode": "dark", "ui_font_size": 20}}"#).unwrap();
+    tick(&app);
+
+    app.read(|cx| {
+        assert_eq!(active_theme(cx), "One Dark");
+        assert_ui_font(cx, "IBM Plex Sans", 20.);
+    });
 }

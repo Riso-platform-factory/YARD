@@ -10,7 +10,7 @@ The theme engine and the layout engine do not know each other. The layout decide
 
 In production, in `riso_ui/theming`, with fixed values, and the theme chosen in the settings by `riso_ui/theme_setting`:
 
-- IBM Plex Sans is bundled, and is the UI font at 16px.
+- IBM Plex Sans is bundled, and is the default UI font at 16px. The section `theme` chooses the UI font's family and size.
 - Zed's One Dark and One Light are loaded into Zed's theme registry. One Dark is active.
 - The palette gives four colors by name: `background`, `text`, `border`, and `drop_target`.
 - Zed's `ui` components read the fonts and the default density through a settings provider.
@@ -54,7 +54,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 4 | `ui-font` | The section holds the UI font's family and size. Text follows, and so does every size given in rems. A size outside sane limits is clamped, and a family that is not installed keeps the default with a `WARN` | A larger size in `settings.json` scales the card and the tab bar | `setup_ui_font`, as reference | 2 | dev |
+| 4 | `ui-font` | The section holds the UI font's family and size. Text follows, and so does every size given in rems. A size outside sane limits is clamped, and a family that is not installed keeps the default with a `WARN` | A larger size in `settings.json` scales the card and the tab bar | `setup_ui_font`, as reference | 2 | production |
 | 5 | `density` | The section holds the density: compact, default, or comfortable. It changes the spacing of the components that come from Zed | The tab bar gets lower and higher | `UiDensity` | 2 | planned |
 
 ### More themes

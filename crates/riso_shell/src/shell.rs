@@ -7,9 +7,12 @@ use gpui::{
 };
 use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, SlotName, Tree};
+use riso_layout::{decode, encode};
+use riso_paths::write_atomic;
 use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
+    path::PathBuf,
     rc::Rc,
 };
 
@@ -107,6 +110,7 @@ struct Registry {
     splits: Vec<WeakEntity<Split>>,
     tabs: Vec<WeakEntity<Tabs>>,
     zoomed: Option<NodeId>,
+    layout_file: Option<PathBuf>,
     views_created: bool,
     default_fixed: bool,
 }
@@ -167,6 +171,7 @@ impl Default for Registry {
             splits: Vec::new(),
             tabs: Vec::new(),
             zoomed: None,
+            layout_file: None,
             views_created: false,
             default_fixed: false,
         }
@@ -694,10 +699,34 @@ pub fn user_layer_len(cx: &App) -> usize {
         .map_or(0, |registry| registry.tree.borrow().user_layer().len())
 }
 
+/// Sets the file where the user layer is saved and from which it is restored.
+pub fn set_layout_file(cx: &mut App, path: PathBuf) {
+    tracing::debug!(path = %path.display(), "layout file set");
+    cx.default_global::<Registry>().layout_file = Some(path);
+}
+
 /// Returns the node currently filling the window for extension controls.
 pub fn zoomed(cx: &App) -> Option<String> {
     cx.try_global::<Registry>()
         .and_then(|registry| registry.zoomed.as_ref().map(ToString::to_string))
+}
+
+fn save(cx: &App) {
+    let Some((path, len, encoded)) = cx.try_global::<Registry>().and_then(|registry| {
+        if !registry.default_fixed {
+            return None;
+        }
+        let path = registry.layout_file.clone()?;
+        let layers = registry.tree.borrow();
+        let ops = layers.user_layer();
+        Some((path, ops.len(), encode(ops)))
+    }) else {
+        return;
+    };
+    let _group = tracing::info_span!("layout-save", operations = len).entered();
+    if write_atomic(&path, encoded.as_bytes()).is_ok() {
+        tracing::debug!("saved");
+    }
 }
 
 fn is_shown(tree: &Tree, node: &NodeId) -> bool {
@@ -810,6 +839,7 @@ fn run_op(
     }
     reconcile_containers(cx);
     cx.refresh_windows();
+    save(cx);
 }
 
 fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bool {
@@ -876,6 +906,50 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             true
         }
         Operation::Remove { .. } | Operation::SetHidden { .. } => true,
+    }
+}
+
+fn shell_rule_error(
+    extension: &str,
+    cx: &mut App,
+    operation: &Operation,
+) -> Result<(), &'static str> {
+    let registry = cx.default_global::<Registry>();
+    match operation {
+        Operation::Add { node, parent, slot } => {
+            let namespace = node.component.as_str().split('.').next();
+            if namespace != Some(extension) && namespace != Some("riso") {
+                return Err("component is not in the extension's namespace");
+            }
+            if !registry.components.contains_key(&node.component) {
+                return Err("component is not registered");
+            }
+            let layers = registry.tree.borrow();
+            let tree = layers.current();
+            if let Some(parent_component) = component_of(tree, parent)
+                && !registry
+                    .components
+                    .get(parent_component)
+                    .is_some_and(|component| component.slots.contains(slot))
+            {
+                return Err("parent component does not declare slot");
+            }
+            Ok(())
+        }
+        Operation::Move { parent, slot, .. } => {
+            let layers = registry.tree.borrow();
+            let tree = layers.current();
+            if let Some(parent_component) = component_of(tree, parent)
+                && !registry
+                    .components
+                    .get(parent_component)
+                    .is_some_and(|component| component.slots.contains(slot))
+            {
+                return Err("parent component does not declare slot");
+            }
+            Ok(())
+        }
+        Operation::Remove { .. } | Operation::SetHidden { .. } => Ok(()),
     }
 }
 
@@ -1088,6 +1162,7 @@ impl Extension {
             });
         }
         cx.refresh_windows();
+        save(cx);
     }
 
     /// Registers the first factory for a valid component ID.
@@ -1249,12 +1324,18 @@ pub struct Shell {
 
 /// Creates the initial nodes once, parent before children, when the window opens.
 pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
-    {
+    let should_restore = {
         let registry = cx.default_global::<Registry>();
         if !registry.default_fixed {
             registry.tree.borrow_mut().set_default();
             registry.default_fixed = true;
+            true
+        } else {
+            false
         }
+    };
+    if should_restore {
+        restore(cx);
     }
     let root = cx
         .default_global::<Registry>()
@@ -1274,15 +1355,81 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     let root = root.and_then(|node| create_view(&node, None, window, cx));
     let registry = cx.default_global::<Registry>();
     registry.views_created = true;
-    if registry
-        .zoomed
-        .as_ref()
-        .is_some_and(|node| !registry.views.borrow().contains_key(node))
-    {
+    if registry.zoomed.as_ref().is_some_and(|node| {
+        !registry.views.borrow().contains_key(node)
+            || !is_shown(registry.tree.borrow().current(), node)
+    }) {
         let node = registry.zoomed.take().unwrap();
         tracing::debug!(node = %node, "zoom cleared");
     }
     cx.new(|_| Shell { root })
+}
+
+fn restore(cx: &mut App) {
+    let Some(path) = cx.default_global::<Registry>().layout_file.clone() else {
+        return;
+    };
+    let _group = tracing::info_span!("layout-restore", file = %path.display()).entered();
+    let text = match std::fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            tracing::debug!("no saved layout");
+            return;
+        }
+        Err(error) => {
+            log::warn!("the saved layout cannot be read: {error}");
+            return;
+        }
+    };
+    let operations = match decode(&text) {
+        Ok(operations) => operations,
+        Err(error) => {
+            log::warn!("the saved layout cannot be read: {error}");
+            return;
+        }
+    };
+    let mut applied = 0usize;
+    let mut skipped = 0usize;
+    for operation in operations {
+        let (op, node) = match &operation {
+            Operation::Add { node, .. } => ("add", node.id.clone()),
+            Operation::Remove { node } => ("remove", node.clone()),
+            Operation::Move { node, .. } => ("move", node.clone()),
+            Operation::SetHidden { node, hidden: true } => ("hide", node.clone()),
+            Operation::SetHidden {
+                node,
+                hidden: false,
+            } => ("show", node.clone()),
+        };
+        let extension = match &operation {
+            Operation::Add { node, .. } => node.extension.as_str(),
+            _ => "riso",
+        };
+        if let Err(reason) = shell_rule_error(extension, cx, &operation) {
+            tracing::info!(op, node = node.as_str(), reason, "skipped");
+            skipped += 1;
+            continue;
+        }
+        let result = {
+            let tree = cx.default_global::<Registry>().tree.clone();
+            let mut tree = tree.borrow_mut();
+            tree.apply(operation)
+        };
+        match result {
+            Ok(_) => applied += 1,
+            Err(error) => {
+                let reason = error.to_string();
+                tracing::info!(
+                    op,
+                    node = node.as_str(),
+                    reason = reason.as_str(),
+                    "skipped"
+                );
+                skipped += 1;
+            }
+        }
+    }
+    tracing::debug!(applied, skipped, "restored");
 }
 
 fn create_view(

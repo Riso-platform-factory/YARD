@@ -15,6 +15,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
             let _group = tracing::info_span!("app-init").entered();
             riso_log::init_app(cx);
             riso_ui::init(cx);
+            riso_shell::set_layout_file(cx, paths.layout_file());
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {
                     cx.quit();

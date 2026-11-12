@@ -59,7 +59,7 @@ Status is one of: planned, dev, production.
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 11 | `user-layer` | What the user changed is kept apart from the default layout, as a list of operations. Resetting drops it | Rearranging, then resetting to the default | none | 9 | production |
-| 12 | `save-restore` | The user's changes are saved, and applied again at the next start. An operation whose node is gone is skipped and logged | Rearranging, quitting, starting again: the same layout | none | 11, foundation 6 | planned |
+| 12 | `save-restore` | The user's changes are saved, and applied again at the next start. An operation whose node is gone is skipped and logged | Rearranging, quitting, starting again: the same layout | none | 11, foundation 6 | production |
 
 ### Nodes with data
 

@@ -4,8 +4,6 @@
 //! This file installs a process-wide `log` logger, so it holds one test.
 //!
 //! `write_atomic` is not in production, so this test needs the feature `dev`.
-#![cfg(feature = "dev")]
-
 use std::sync::{Arc, Mutex};
 
 static RECORDS: Mutex<Vec<(log::Level, String)>> = Mutex::new(Vec::new());
@@ -86,8 +84,8 @@ fn a_write_opens_a_group_and_a_failed_write_is_a_warning() {
 
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
-        riso_paths::dev::write_atomic(&file, b"four").unwrap();
-        assert!(riso_paths::dev::write_atomic(&taken, b"x").is_err());
+        riso_paths::write_atomic(&file, b"four").unwrap();
+        assert!(riso_paths::write_atomic(&taken, b"x").is_err());
     });
 
     let lines = trace.0.lock().unwrap();

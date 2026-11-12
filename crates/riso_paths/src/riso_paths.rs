@@ -1,7 +1,7 @@
 //! The application's config, data, and logs directories.
 
 mod directories;
+mod layout_file;
+mod write_atomic;
 pub use directories::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;
+pub use write_atomic::*;

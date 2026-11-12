@@ -1,13 +1,19 @@
 {
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "53f6d05cc7f31373"
+      "app/riso/src/startup.rs": "0f24b2c8f9ced298"
     },
     "promoted": "2026-11-12"
   },
   "riso_layout/layers": {
     "files": {
       "crates/riso_layout/src/layers.rs": "cf35a30bda94e6b5"
+    },
+    "promoted": "2026-11-12"
+  },
+  "riso_layout/saved": {
+    "files": {
+      "crates/riso_layout/src/saved.rs": "211dad180041ef06"
     },
     "promoted": "2026-11-12"
   },
@@ -39,9 +45,21 @@
     },
     "promoted": "2026-11-11"
   },
+  "riso_paths/layout_file": {
+    "files": {
+      "crates/riso_paths/src/layout_file.rs": "948a8fe115eef463"
+    },
+    "promoted": "2026-11-12"
+  },
+  "riso_paths/write_atomic": {
+    "files": {
+      "crates/riso_paths/src/write_atomic.rs": "c1071920f441312d"
+    },
+    "promoted": "2026-11-12"
+  },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "c33dcde12f51050e"
+      "crates/riso_shell/src/shell.rs": "11bb44ed85c48a10"
     },
     "promoted": "2026-11-12"
   },

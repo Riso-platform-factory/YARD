@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, ParentElement, Styled, TestAppContext, px};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::{
     cell::RefCell,
     collections::BTreeMap,
@@ -309,7 +307,7 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
             assert_eq!(*shown.borrow(), ["c", "d", "extra", "nested"]);
 
             let saved_text = fs::read_to_string(&layout_path).unwrap();
-            let decoded = riso_layout::dev::decode(&saved_text).unwrap();
+            let decoded = riso_layout::decode(&saved_text).unwrap();
             assert_eq!(decoded.len(), 6);
             assert!(saved_text.contains(r#""version": 1"#));
             for op_name in ["add", "remove", "move", "hide", "show"] {
@@ -386,7 +384,7 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
             draw(window, &mut app, &shown);
             assert_eq!(*shown.borrow(), ["a", "inner", "b", "c"]);
             let after_reset = fs::read_to_string(&layout_path).unwrap();
-            assert_eq!(riso_layout::dev::decode(&after_reset), Ok(Vec::new()));
+            assert_eq!(riso_layout::decode(&after_reset), Ok(Vec::new()));
             assert!(
                 trace.0.lock().unwrap().span_stacks[stacks_before_reset..]
                     .iter()
@@ -516,7 +514,7 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
             app.update(|cx| guest.set_hidden(cx, "b", true));
             draw(window, &mut app, &shown);
             let rewritten = fs::read_to_string(&layout_path).unwrap();
-            let decoded = riso_layout::dev::decode(&rewritten).unwrap();
+            let decoded = riso_layout::decode(&rewritten).unwrap();
             assert_eq!(decoded.len(), 3);
             assert!(!rewritten.contains("bad_ns"));
             assert!(!rewritten.contains("orphan"));

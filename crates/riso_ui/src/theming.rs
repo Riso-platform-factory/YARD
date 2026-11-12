@@ -94,6 +94,7 @@ pub struct Palette {
     pub background: Hsla,
     pub text: Hsla,
     pub border: Hsla,
+    pub drop_target: Hsla,
 }
 
 pub fn palette(cx: &App) -> Palette {
@@ -101,5 +102,6 @@ pub fn palette(cx: &App) -> Palette {
         background: cx.theme().colors().background,
         text: cx.theme().colors().text,
         border: cx.theme().colors().border,
+        drop_target: cx.theme().colors().drop_target_background,
     }
 }

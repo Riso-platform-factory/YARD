@@ -23,7 +23,10 @@
 //! `LAYOUT_TOUR=hide-tab cargo run dev`: hide the selected tab, then show it again.
 //! `LAYOUT_TOUR=hide-root cargo run dev`: hiding the root is refused.
 //! `LAYOUT_TOUR=operations cargo run dev`: add, move, and remove cards, and refuse broken rules.
+//! `LAYOUT_TOUR=two-tabs cargo run dev`: two tab bars in a row, for dragging tabs between them.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -34,13 +37,31 @@ use gpui::{
 };
 use std::rc::Rc;
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "two-tabs" => {
+            ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
+                cx.new(|_| Card {
+                    node: node.to_string(),
+                    size: Size::default(),
+                    count: 0,
+                    slots,
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.row");
+            ext.place(cx, "left", "riso.tabs", "root", "children");
+            ext.place(cx, "right", "riso.tabs", "root", "children");
+            ext.place(cx, "a", "layout_tour.card", "left", "children");
+            ext.place(cx, "b", "layout_tour.card", "left", "children");
+            ext.place(cx, "c", "layout_tour.card", "right", "children");
+            ext.place(cx, "d", "layout_tour.card", "right", "children");
+        }
         "operations" => {
             ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
                 cx.new(|_| Card {
@@ -207,7 +228,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs"
         ),
     }
 }
@@ -239,7 +260,7 @@ struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::Slots,
+    slots: riso_shell::dev::Slots,
 }
 
 impl Card {
@@ -331,7 +352,7 @@ impl Render for Card {
 }
 
 type Label = Rc<dyn Fn(&App) -> String>;
-type Action = Rc<dyn Fn(&riso_shell::Extension, &mut Window, &mut App)>;
+type Action = Rc<dyn Fn(&riso_shell::dev::Extension, &mut Window, &mut App)>;
 
 #[derive(Clone)]
 struct Button {
@@ -342,7 +363,7 @@ struct Button {
 impl Button {
     fn action(
         label: &'static str,
-        action: impl Fn(&riso_shell::Extension, &mut Window, &mut App) + 'static,
+        action: impl Fn(&riso_shell::dev::Extension, &mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
             label: Rc::new(move |_| label.into()),
@@ -353,7 +374,7 @@ impl Button {
     fn visibility(node: &'static str) -> Self {
         Self {
             label: Rc::new(move |cx| {
-                let verb = if riso_shell::is_hidden(cx, node) {
+                let verb = if riso_shell::dev::is_hidden(cx, node) {
                     "show"
                 } else {
                     "hide"
@@ -361,7 +382,7 @@ impl Button {
                 format!("{verb} {node}")
             }),
             action: Rc::new(move |ext, _, cx| {
-                let hidden = riso_shell::is_hidden(cx, node);
+                let hidden = riso_shell::dev::is_hidden(cx, node);
                 ext.set_hidden(cx, node, !hidden);
             }),
         }
@@ -370,7 +391,7 @@ impl Button {
 
 struct Controls {
     buttons: Vec<Button>,
-    ext: riso_shell::Extension,
+    ext: riso_shell::dev::Extension,
 }
 
 impl Render for Controls {

@@ -27,7 +27,7 @@ This follows Zed's `pane.rs`: tabs are dragged, and tab bars and the edges of an
 A drop asks for `move(node, parent, slot, index)`, with the rules of feature 8. Two of them matter here:
 
 - **A cycle.** Dragging the tab of a tabs container's child onto that same container's own edge is a cycle when the node is the container's ancestor. It is refused with an `INFO`. The drag ends and nothing moves.
-- **Dropping where it already is.** Dropping a tab on its own position changes nothing, and is not logged as a move.
+- **Dropping where it already is.** Dropping a tab on its own position changes nothing. It is not a move, and is logged as `drop ignored`.
 
 ## Who asks for the move
 

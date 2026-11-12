@@ -53,7 +53,7 @@
   },
   "riso_ui/theming": {
     "files": {
-      "crates/riso_ui/src/theming.rs": "c67c0d2337383b5d",
+      "crates/riso_ui/src/theming.rs": "62b4c4b2624ac300",
       "crates/riso_ui/src/theming/themes.rs": "6e115181e4dbf18c"
     },
     "promoted": "2026-11-12"

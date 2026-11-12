@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
+A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app. When every feature it covers is in production, it is taken out of both until the next feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -112,6 +112,18 @@ The card has a counter: clicking `count: N` adds one. `layout_tour.controls` sho
 | `move c to b.side` | Refused with an INFO: the card does not declare `side`. |
 | `remove root` | Refused with an INFO. |
 | `add d` again | Refused with an INFO: `d` is already in the tree. |
+
+### Feature 9: drag-to-move
+
+Any tab can be dragged. A drop moves its node as the shell, in `layout-op{op=move, node, extension=riso}`. With `riso_shell` at `debug`, a drag logs `drag started` and a drop that moves nothing logs `drop ignored`.
+
+| Command and action | What to look for |
+|---|---|
+| `LAYOUT_TOUR=two-tabs cargo run dev` | A row of two tabs containers: `left` with `a`, `b`; `right` with `c`, `d`. |
+| Count `a` to 2, drag tab `a` onto the empty part of `right`'s bar | The bar is highlighted while over it; `right` becomes `c`, `d`, `a`, and `a` keeps `count: 2`. |
+| Drag tab `c` onto the right edge of `left` | The right half of `left` is highlighted; the row becomes `left`, `c`, `right`, each a third. |
+| Drag a tab onto the middle of a card | No highlight; `drop ignored`. |
+| Drag a tab and drop it on its own place | Nothing moves; `drop ignored`. |
 
 ## Removing it
 

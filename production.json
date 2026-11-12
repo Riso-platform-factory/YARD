@@ -1,7 +1,7 @@
 {
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "31d5c333a09cb7a8"
+      "app/riso/src/startup.rs": "508c1e62b1fea44f"
     },
     "promoted": "2026-11-12"
   },
@@ -51,6 +51,12 @@
     },
     "promoted": "2026-11-12"
   },
+  "riso_paths/settings_file": {
+    "files": {
+      "crates/riso_paths/src/settings_file.rs": "2a4eb2f8441264c6"
+    },
+    "promoted": "2026-11-12"
+  },
   "riso_paths/write_atomic": {
     "files": {
       "crates/riso_paths/src/write_atomic.rs": "c1071920f441312d"
@@ -59,7 +65,7 @@
   },
   "riso_settings/sections": {
     "files": {
-      "crates/riso_settings/src/sections.rs": "a6d197c684ba5d60"
+      "crates/riso_settings/src/sections.rs": "d57d41fc2f0bee4e"
     },
     "promoted": "2026-11-12"
   },

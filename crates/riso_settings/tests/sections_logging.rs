@@ -238,8 +238,14 @@ fn sections_operations_open_groups_and_log_every_contract_line(cx: &mut TestAppC
         captured.events,
         [
             (Some(init_id), "DEBUG message=store created".to_string()),
-            (Some(first_id), "DEBUG message=registered".to_string()),
-            (Some(second_id), "DEBUG message=registered".to_string()),
+            (
+                Some(first_id),
+                "DEBUG message=registered from=defaults".to_string()
+            ),
+            (
+                Some(second_id),
+                "DEBUG message=registered from=defaults".to_string()
+            ),
         ],
         "{:#?}",
         captured.events

@@ -1,6 +1,6 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
+A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own and places one card that shows the section's values, read from the engine while the card draws.
 

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, Styled, TestAppContext};
 use std::{
     cell::RefCell,
@@ -49,7 +47,7 @@ impl tracing::Subscriber for Trace {
     fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
     fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
     fn event(&self, event: &tracing::Event<'_>) {
-        if event.metadata().target() != "riso_shell::dev::shell"
+        if event.metadata().target() != "riso_shell::shell"
             || *event.metadata().level() == tracing::Level::TRACE
         {
             return;
@@ -91,7 +89,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -109,8 +107,8 @@ fn tabs_keep_their_views_and_log_only_selection_changes(cx: &mut TestAppContext)
     let views = Rc::new(RefCell::new(Vec::new()));
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
-            let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
-            let guest = riso_shell::dev::Extension::new(cx, "guest").unwrap();
+            let host = riso_shell::Extension::new(cx, "tour").unwrap();
+            let guest = riso_shell::Extension::new(cx, "guest").unwrap();
             let shown = shown.clone();
             let views = views.clone();
             host.register(cx, "tour.card", &[], move |node, slots, _, cx| {
@@ -134,7 +132,7 @@ fn tabs_keep_their_views_and_log_only_selection_changes(cx: &mut TestAppContext)
             }
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
@@ -169,7 +167,7 @@ fn tabs_keep_their_views_and_log_only_selection_changes(cx: &mut TestAppContext)
         let mut nested = cx.new_app();
         nested.update(riso_ui::init);
         nested.update(|cx| {
-            let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let host = riso_shell::Extension::new(cx, "tour").unwrap();
             let shown = shown.clone();
             host.register(cx, "tour.card", &[], move |node, _, _, cx| {
                 cx.new(|_| Card {
@@ -185,7 +183,7 @@ fn tabs_keep_their_views_and_log_only_selection_changes(cx: &mut TestAppContext)
             host.place(cx, "c", "tour.card", "right", "children");
         });
         let window = nested.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         let mut visual = gpui::VisualTestContext::from_window(window.into(), &nested);
@@ -216,12 +214,12 @@ fn tabs_keep_their_views_and_log_only_selection_changes(cx: &mut TestAppContext)
         let mut empty = cx.new_app();
         empty.update(riso_ui::init);
         empty.update(|cx| {
-            riso_shell::dev::Extension::new(cx, "guest")
+            riso_shell::Extension::new(cx, "guest")
                 .unwrap()
                 .place_root(cx, "empty", "riso.tabs");
         });
         let window = empty.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         draw(window, &mut empty);

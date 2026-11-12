@@ -19,19 +19,28 @@ struct Component {
     create: Factory,
 }
 
-type SlotViews = Vec<(SlotName, Vec<AnyView>)>;
+type SlotViews = Vec<(SlotName, Vec<(NodeId, AnyView)>)>;
 
 /// A node's shown children, filled before the first render.
 #[derive(Clone)]
 pub struct Slots(Rc<RefCell<SlotViews>>);
 
 impl Slots {
+    pub fn nodes(&self, slot: &str) -> Vec<NodeId> {
+        self.0
+            .borrow()
+            .iter()
+            .find(|(name, _)| name.as_str() == slot)
+            .map(|(_, views)| views.iter().map(|(node, _)| node.clone()).collect())
+            .unwrap_or_default()
+    }
+
     pub fn views(&self, slot: &str) -> Vec<AnyView> {
         self.0
             .borrow()
             .iter()
             .find(|(name, _)| name.as_str() == slot)
-            .map(|(_, views)| views.clone())
+            .map(|(_, views)| views.iter().map(|(_, view)| view.clone()).collect())
             .unwrap_or_default()
     }
 }
@@ -43,7 +52,7 @@ struct Registry {
 }
 impl Default for Registry {
     fn default() -> Self {
-        let components = [
+        let mut components: BTreeMap<_, _> = [
             ("riso.row", Axis::Horizontal),
             ("riso.column", Axis::Vertical),
         ]
@@ -66,6 +75,20 @@ impl Default for Registry {
             )
         })
         .collect();
+        components.insert(
+            ComponentId::parse("riso.tabs").unwrap(),
+            Component {
+                slots: vec![SlotName::parse("children").unwrap()],
+                create: Rc::new(|node, slots, _, cx| {
+                    cx.new(|_| Tabs {
+                        node: node.clone(),
+                        slots,
+                        selected: 0,
+                    })
+                    .into()
+                }),
+            },
+        );
         Self {
             extensions: BTreeSet::new(),
             components,
@@ -94,6 +117,56 @@ impl Render for Split {
                 .map(IntoElement::into_any_element)
                 .collect(),
         )
+    }
+}
+
+struct Tabs {
+    node: NodeId,
+    slots: Slots,
+    selected: usize,
+}
+
+impl Tabs {
+    fn select(&mut self, index: usize, cx: &mut Context<Self>) {
+        if index == self.selected {
+            return;
+        }
+        let child_id = &self.slots.nodes("children")[index];
+        self.selected = index;
+        cx.notify();
+        tracing::debug!(tabs = %self.node, tab = %child_id, "tab selected");
+    }
+}
+
+impl Render for Tabs {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let tabs = self
+            .slots
+            .nodes("children")
+            .into_iter()
+            .enumerate()
+            .map(|(index, node)| {
+                let entity = cx.entity().downgrade();
+                let id = gpui::SharedString::from(node.to_string());
+                riso_ui::Tab::new(id.clone(), id)
+                    .selected(index == self.selected)
+                    .on_click(move |_, cx| {
+                        let _ = entity.update(cx, |tabs, cx| tabs.select(index, cx));
+                    })
+            })
+            .collect();
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .child(riso_ui::TabBar::new(gpui::SharedString::from(self.node.to_string())).tabs(tabs))
+            .children(
+                self.slots
+                    .views("children")
+                    .get(self.selected)
+                    .cloned()
+                    .map(|view| div().flex_1().min_h_0().child(view)),
+            )
     }
 }
 
@@ -261,7 +334,7 @@ impl Extension {
 /// The window's root and all created views, retained for its lifetime.
 pub struct Shell {
     root: Option<AnyView>,
-    _views: Vec<AnyView>,
+    _views: Vec<(NodeId, AnyView)>,
 }
 
 /// Creates the shown nodes once, parent before children, when the window opens.
@@ -288,7 +361,7 @@ fn create_view(
     parent: Option<(&ComponentId, &[SlotName], &SlotName)>,
     window: &mut Window,
     cx: &mut App,
-    views: &mut Vec<AnyView>,
+    views: &mut Vec<(NodeId, AnyView)>,
 ) -> Option<AnyView> {
     let _group = tracing::info_span!(
         "component-create",
@@ -328,7 +401,7 @@ fn create_view(
     };
     let slots = Slots(Rc::new(RefCell::new(Vec::new())));
     let view = (component.create)(&node.id, slots.clone(), window, cx);
-    views.push(view.clone());
+    views.push((node.id.clone(), view.clone()));
     for (slot, nodes) in children {
         let children = nodes
             .iter()
@@ -340,6 +413,7 @@ fn create_view(
                     cx,
                     views,
                 )
+                .map(|view| (child.id.clone(), view))
             })
             .collect();
         slots.0.borrow_mut().push((slot, children));
@@ -354,6 +428,9 @@ fn create_view(
             children = slots.views("children").len(),
             "split created"
         );
+    }
+    if node.component.as_str() == "riso.tabs" {
+        tracing::debug!(tabs = slots.views("children").len(), "tabs created");
     }
     Some(view)
 }

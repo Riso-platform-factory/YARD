@@ -21,8 +21,6 @@
 //! `LAYOUT_TOUR=empty-tabs cargo run dev`: an empty tab bar.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -31,7 +29,7 @@ use gpui::{
     WeakEntity, Window, canvas, div,
 };
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -148,7 +146,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
 struct Card {
     node: String,
     size: Size<Pixels>,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 
 impl Card {

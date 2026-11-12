@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
-use riso_settings::dev::{Settings, get, register};
+use riso_settings::{Settings, get, register};
 
 #[derive(serde::Deserialize)]
 #[serde(default)]
@@ -37,7 +35,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.register(cx, "settings_tour.card", &[], |_, _, _, cx| {
                 cx.new(|cx| {
                     let card = cx.weak_entity();
-                    let subscription = riso_settings::dev::observe::<TourSettings>(cx, move |cx| {
+                    let subscription = riso_settings::observe::<TourSettings>(cx, move |cx| {
                         let _ = card.update(cx, |_, cx| cx.notify());
                     });
                     Card {

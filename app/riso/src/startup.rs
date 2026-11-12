@@ -17,6 +17,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
             riso_ui::init(cx);
             riso_settings::init(cx);
             riso_settings::load(cx, paths.settings_file());
+            riso_settings::watch(cx);
             riso_shell::set_layout_file(cx, paths.layout_file());
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {

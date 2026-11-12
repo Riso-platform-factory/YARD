@@ -591,3 +591,541 @@ fn second_load_panics(cx: &mut gpui::TestAppContext) {
         load(cx, path);
     });
 }
+
+fn json(raw: &str) -> serde_json::Value {
+    serde_json::from_str(raw).unwrap()
+}
+
+fn changed_map(
+    applied: &[(&'static str, Option<serde_json::Value>)],
+    content: &serde_json::Map<String, serde_json::Value>,
+) -> std::collections::BTreeMap<&'static str, Option<serde_json::Value>> {
+    changed_sections(applied, content).into_iter().collect()
+}
+
+fn observe_counter<T: Settings>(
+    cx: &mut gpui::App,
+) -> (std::rc::Rc<std::cell::Cell<usize>>, gpui::Subscription) {
+    let calls = std::rc::Rc::new(std::cell::Cell::new(0usize));
+    let counted = calls.clone();
+    let subscription = observe::<T>(cx, move |_| counted.set(counted.get() + 1));
+    (calls, subscription)
+}
+
+fn tick(cx: &mut gpui::TestAppContext) {
+    cx.executor()
+        .advance_clock(std::time::Duration::from_secs(1));
+    cx.run_until_parked();
+}
+
+#[test]
+fn parse_content_reads_a_json_object() {
+    assert_eq!(parse_content(b"{}"), Ok(serde_json::Map::new()));
+
+    let raw: &[u8] = br#"{"first": {"greeting": "hi"}, "undeclared": 1}"#;
+    assert_eq!(
+        parse_content(raw),
+        Ok(parse_object(
+            r#"{"first": {"greeting": "hi"}, "undeclared": 1}"#
+        ))
+    );
+}
+
+#[test]
+fn parse_content_rejects_invalid_json() {
+    for bad in ["not json", r#"{"first": "#] {
+        let reason = parse_content(bad.as_bytes()).expect_err("invalid JSON must fail");
+        assert!(!reason.is_empty(), "empty reason for {bad}");
+    }
+    let reason = parse_content(&b"\xff"[..]).expect_err("invalid UTF-8 must fail");
+    assert!(!reason.is_empty());
+}
+
+#[test]
+fn parse_content_rejects_json_that_is_not_an_object() {
+    for raw in ["[1, 2, 3]", "[]", "null", "42", r#""text""#, "true"] {
+        let reason = parse_content(raw.as_bytes()).expect_err("non-object JSON must fail");
+        assert!(!reason.is_empty(), "empty reason for {raw}");
+    }
+}
+
+#[test]
+fn changed_sections_reports_nothing_when_contents_match() {
+    let applied = [
+        ("first", Some(json(r#"{"greeting": "hi"}"#))),
+        ("second", None),
+    ];
+    let content = parse_object(r#"{"first": {"greeting": "hi"}}"#);
+    assert!(changed_sections(&applied, &content).is_empty());
+}
+
+#[test]
+fn changed_sections_reports_changed_and_new_content() {
+    let applied = [
+        ("first", Some(json(r#"{"greeting": "hi"}"#))),
+        ("second", None),
+    ];
+    let content = parse_object(r#"{"first": {"greeting": "yo"}, "second": {"label": "x"}}"#);
+    assert_eq!(
+        changed_map(&applied, &content),
+        std::collections::BTreeMap::from([
+            ("first", Some(json(r#"{"greeting": "yo"}"#))),
+            ("second", Some(json(r#"{"label": "x"}"#))),
+        ])
+    );
+}
+
+#[test]
+fn changed_sections_reports_a_removed_key_as_none() {
+    let applied = [("first", Some(json(r#"{"greeting": "hi"}"#)))];
+    let content = parse_object(r#"{"second": {"label": "x"}}"#);
+    assert_eq!(changed_sections(&applied, &content), vec![("first", None)]);
+}
+
+#[test]
+fn changed_sections_reports_a_section_that_became_unreadable() {
+    let applied = [("first", Some(json(r#"{"greeting": "hi"}"#)))];
+    let content = parse_object(r#"{"first": []}"#);
+    assert_eq!(
+        changed_sections(&applied, &content),
+        vec![("first", Some(json(r#"[]"#)))]
+    );
+}
+
+#[test]
+fn changed_sections_sees_through_spaces_and_key_order() {
+    let applied = [(
+        "first",
+        Some(json(r#"{"a": 1, "b": {"x": true, "y": [1, 2]}}"#)),
+    )];
+    let content = parse_object(r#"{"first": { "b" : { "y" : [ 1 , 2 ], "x" : true }, "a" : 1 }}"#);
+    assert!(changed_sections(&applied, &content).is_empty());
+}
+
+#[test]
+fn changed_sections_ignores_keys_that_no_section_declares() {
+    let applied = [("first", Some(json(r#"{"greeting": "hi"}"#)))];
+    let content = parse_object(r#"{"undeclared": {"new": true}, "first": {"greeting": "hi"}}"#);
+    assert!(changed_sections(&applied, &content).is_empty());
+}
+
+#[test]
+fn changed_sections_reports_only_the_sections_that_changed() {
+    let applied = [
+        ("first", Some(json(r#"{"greeting": "hi"}"#))),
+        ("second", Some(json(r#"{"label": "a"}"#))),
+    ];
+    let content = parse_object(r#"{"first": {"greeting": "hi"}, "second": {"label": "b"}}"#);
+    assert_eq!(
+        changed_sections(&applied, &content),
+        vec![("second", Some(json(r#"{"label": "b"}"#)))]
+    );
+}
+
+#[gpui::test]
+fn an_edit_reaches_get_and_calls_observe_once(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(&path, r#"{"first": {"greeting": "file", "size": 20}}"#).unwrap();
+    let (calls, _subscription) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        let observed = observe_counter::<First>(cx);
+        watch(cx);
+        observed
+    });
+    cx.read(|cx| {
+        assert_eq!(
+            get::<First>(cx),
+            &First {
+                greeting: "file".into(),
+                size: 20,
+                enabled: true,
+            }
+        );
+    });
+
+    tick(cx);
+    assert_eq!(calls.get(), 0);
+
+    std::fs::write(&path, r#"{"first": {"greeting": "hi", "size": 20}}"#).unwrap();
+    tick(cx);
+    cx.read(|cx| {
+        assert_eq!(
+            get::<First>(cx),
+            &First {
+                greeting: "hi".into(),
+                size: 20,
+                enabled: true,
+            }
+        );
+    });
+    assert_eq!(calls.get(), 1);
+
+    std::fs::write(&path, r#"{"first": {"greeting": "again", "size": 20}}"#).unwrap();
+    tick(cx);
+    cx.read(|cx| assert_eq!(get::<First>(cx).greeting, "again"));
+    assert_eq!(calls.get(), 2);
+}
+
+#[gpui::test]
+fn an_edit_of_another_key_does_not_call_observe(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "saved"}}"#,
+    )
+    .unwrap();
+    let ((first_calls, _first), (second_calls, _second)) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        register::<Second>(cx);
+        let first = observe_counter::<First>(cx);
+        let second = observe_counter::<Second>(cx);
+        watch(cx);
+        (first, second)
+    });
+
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "new"}}"#,
+    )
+    .unwrap();
+    tick(cx);
+
+    cx.read(|cx| {
+        assert_eq!(get::<First>(cx).greeting, "file");
+        assert_eq!(get::<Second>(cx).label, "new");
+    });
+    assert_eq!(first_calls.get(), 0);
+    assert_eq!(second_calls.get(), 1);
+}
+
+#[gpui::test]
+fn a_broken_file_keeps_the_values_and_calls_nothing(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "saved"}}"#,
+    )
+    .unwrap();
+    let ((first_calls, _first), (second_calls, _second)) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        register::<Second>(cx);
+        let first = observe_counter::<First>(cx);
+        let second = observe_counter::<Second>(cx);
+        watch(cx);
+        (first, second)
+    });
+
+    for broken in ["not json", "[1, 2, 3]"] {
+        std::fs::write(&path, broken).unwrap();
+        tick(cx);
+        cx.read(|cx| {
+            assert_eq!(get::<First>(cx).greeting, "file");
+            assert_eq!(get::<Second>(cx).label, "saved");
+        });
+        assert_eq!(first_calls.get(), 0);
+        assert_eq!(second_calls.get(), 0);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), broken);
+    }
+}
+
+#[gpui::test]
+fn a_broken_section_keeps_its_value_while_another_section_updates(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "saved"}}"#,
+    )
+    .unwrap();
+    let ((first_calls, _first), (second_calls, _second)) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        register::<Second>(cx);
+        let first = observe_counter::<First>(cx);
+        let second = observe_counter::<Second>(cx);
+        watch(cx);
+        (first, second)
+    });
+
+    std::fs::write(
+        &path,
+        r#"{"first": {"size": "big"}, "second": {"label": "new"}}"#,
+    )
+    .unwrap();
+    tick(cx);
+
+    cx.read(|cx| {
+        assert_eq!(
+            get::<First>(cx),
+            &First {
+                greeting: "file".into(),
+                size: 20,
+                enabled: true,
+            }
+        );
+        assert_eq!(
+            get::<Second>(cx),
+            &Second {
+                label: "new".into(),
+                limit: 3,
+            }
+        );
+    });
+    assert_eq!(first_calls.get(), 0);
+    assert_eq!(second_calls.get(), 1);
+}
+
+#[gpui::test]
+fn a_broken_section_counts_as_seen_until_its_content_changes(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "saved"}}"#,
+    )
+    .unwrap();
+    let ((first_calls, _first), (second_calls, _second)) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        register::<Second>(cx);
+        let first = observe_counter::<First>(cx);
+        let second = observe_counter::<Second>(cx);
+        watch(cx);
+        (first, second)
+    });
+
+    // The first section breaks; the second is valid.
+    std::fs::write(
+        &path,
+        r#"{"first": {"size": "big"}, "second": {"label": "new"}}"#,
+    )
+    .unwrap();
+    tick(cx);
+    cx.read(|cx| {
+        assert_eq!(
+            get::<First>(cx),
+            &First {
+                greeting: "file".into(),
+                size: 20,
+                enabled: true,
+            }
+        );
+        assert_eq!(get::<Second>(cx).label, "new");
+    });
+    assert_eq!(first_calls.get(), 0);
+    assert_eq!(second_calls.get(), 1);
+
+    // The same broken content counts as seen while the second keeps changing.
+    for label in ["newer", "newest"] {
+        std::fs::write(
+            &path,
+            format!(r#"{{"first": {{"size": "big"}}, "second": {{"label": "{label}"}}}}"#),
+        )
+        .unwrap();
+        tick(cx);
+        cx.read(|cx| {
+            assert_eq!(
+                get::<First>(cx),
+                &First {
+                    greeting: "file".into(),
+                    size: 20,
+                    enabled: true,
+                }
+            );
+            assert_eq!(get::<Second>(cx).label, label);
+        });
+        assert_eq!(first_calls.get(), 0);
+    }
+    assert_eq!(second_calls.get(), 3);
+
+    // Back to a readable value is a change: the broken content was seen.
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "newest"}}"#,
+    )
+    .unwrap();
+    tick(cx);
+    cx.read(|cx| {
+        assert_eq!(
+            get::<First>(cx),
+            &First {
+                greeting: "file".into(),
+                size: 20,
+                enabled: true,
+            }
+        );
+        assert_eq!(get::<Second>(cx).label, "newest");
+    });
+    assert_eq!(first_calls.get(), 1);
+    assert_eq!(second_calls.get(), 3);
+}
+
+#[gpui::test]
+fn a_deleted_file_gives_defaults_and_calls_observe(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(&path, r#"{"first": {"greeting": "file", "size": 20}}"#).unwrap();
+    let ((first_calls, _first), (second_calls, _second)) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        register::<Second>(cx);
+        let first = observe_counter::<First>(cx);
+        let second = observe_counter::<Second>(cx);
+        watch(cx);
+        (first, second)
+    });
+
+    std::fs::remove_file(&path).unwrap();
+    tick(cx);
+
+    cx.read(|cx| {
+        assert_eq!(get::<First>(cx), &First::default());
+        assert_eq!(get::<Second>(cx), &Second::default());
+    });
+    assert_eq!(first_calls.get(), 1);
+    assert_eq!(second_calls.get(), 0);
+}
+
+#[gpui::test]
+fn a_removed_key_gives_the_section_its_defaults(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "saved"}}"#,
+    )
+    .unwrap();
+    let ((first_calls, _first), (second_calls, _second)) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        register::<Second>(cx);
+        let first = observe_counter::<First>(cx);
+        let second = observe_counter::<Second>(cx);
+        watch(cx);
+        (first, second)
+    });
+
+    std::fs::write(&path, r#"{"second": {"label": "saved"}}"#).unwrap();
+    tick(cx);
+
+    cx.read(|cx| {
+        assert_eq!(get::<First>(cx), &First::default());
+        assert_eq!(get::<Second>(cx).label, "saved");
+    });
+    assert_eq!(first_calls.get(), 1);
+    assert_eq!(second_calls.get(), 0);
+}
+
+#[gpui::test]
+fn an_edit_with_the_same_content_calls_nothing(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(
+        &path,
+        r#"{"first": {"greeting": "file", "size": 20}, "second": {"label": "saved"}}"#,
+    )
+    .unwrap();
+    let ((first_calls, _first), (second_calls, _second)) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        register::<Second>(cx);
+        let first = observe_counter::<First>(cx);
+        let second = observe_counter::<Second>(cx);
+        watch(cx);
+        (first, second)
+    });
+
+    std::fs::write(
+        &path,
+        r#"{"second" : { "label" : "saved" }, "first" : { "size" : 20 , "greeting" : "file" }}"#,
+    )
+    .unwrap();
+    tick(cx);
+
+    cx.read(|cx| {
+        assert_eq!(get::<First>(cx).greeting, "file");
+        assert_eq!(get::<Second>(cx).label, "saved");
+    });
+    assert_eq!(first_calls.get(), 0);
+    assert_eq!(second_calls.get(), 0);
+}
+
+#[gpui::test]
+fn watch_twice_starts_one_check(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(&path, r#"{"first": {"greeting": "file"}}"#).unwrap();
+    let (calls, _subscription) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        let observed = observe_counter::<First>(cx);
+        watch(cx);
+        watch(cx);
+        observed
+    });
+
+    std::fs::write(&path, r#"{"first": {"greeting": "hi"}}"#).unwrap();
+    tick(cx);
+
+    cx.read(|cx| assert_eq!(get::<First>(cx).greeting, "hi"));
+    assert_eq!(calls.get(), 1);
+}
+
+#[gpui::test]
+fn dropping_the_subscription_stops_the_calls(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(&path, r#"{"first": {"greeting": "file"}}"#).unwrap();
+    let (calls, subscription) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        let observed = observe_counter::<First>(cx);
+        watch(cx);
+        observed
+    });
+    drop(subscription);
+
+    std::fs::write(&path, r#"{"first": {"greeting": "hi"}}"#).unwrap();
+    tick(cx);
+
+    cx.read(|cx| assert_eq!(get::<First>(cx).greeting, "hi"));
+    assert_eq!(calls.get(), 0);
+}
+
+#[gpui::test]
+fn watch_reads_the_file_as_load_left_it(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    std::fs::write(&path, r#"{"first": {"greeting": "file"}}"#).unwrap();
+    let (calls, _subscription) = cx.update(|cx| {
+        init(cx);
+        load(cx, path.clone());
+        register::<First>(cx);
+        // The file changes after `load`, before `watch`.
+        std::fs::write(&path, r#"{"first": {"greeting": "between"}}"#).unwrap();
+        let observed = observe_counter::<First>(cx);
+        watch(cx);
+        observed
+    });
+
+    tick(cx);
+
+    cx.read(|cx| assert_eq!(get::<First>(cx).greeting, "between"));
+    assert_eq!(calls.get(), 1);
+}

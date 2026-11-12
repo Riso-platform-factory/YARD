@@ -28,8 +28,6 @@
 //! `LAYOUT_TOUR=zoom-root cargo run dev`: zooming the root is refused.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -39,7 +37,7 @@ use gpui::{
 };
 use std::rc::Rc;
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -200,7 +198,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     }
 }
 
-fn register_card(cx: &mut App, ext: &riso_shell::dev::Extension) {
+fn register_card(cx: &mut App, ext: &riso_shell::Extension) {
     let ext_for_factory = ext.clone();
     ext.register(
         cx,
@@ -216,7 +214,7 @@ fn register_card(cx: &mut App, ext: &riso_shell::dev::Extension) {
             let ext = ext_for_factory.clone();
             cx.subscribe(&card, move |card, _: &ToggleZoom, cx| {
                 let node = card.read(cx).node.clone();
-                if riso_shell::dev::zoomed(cx).as_deref() == Some(node.as_str()) {
+                if riso_shell::zoomed(cx).as_deref() == Some(node.as_str()) {
                     ext.zoom_out(cx);
                 } else {
                     ext.set_zoomed(cx, &node);
@@ -255,7 +253,7 @@ struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 
 struct ToggleZoom;
@@ -299,7 +297,7 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = riso_ui::palette(cx);
         let entity = cx.entity().downgrade();
-        let zoomed = riso_shell::dev::zoomed(cx).as_deref() == Some(self.node.as_str());
+        let zoomed = riso_shell::zoomed(cx).as_deref() == Some(self.node.as_str());
         div()
             .debug_selector(|| format!("CARD-{}", self.node))
             .relative()
@@ -367,7 +365,7 @@ impl Render for Card {
 }
 
 type Label = Rc<dyn Fn(&App) -> String>;
-type Action = Rc<dyn Fn(&riso_shell::dev::Extension, &mut Window, &mut App)>;
+type Action = Rc<dyn Fn(&riso_shell::Extension, &mut Window, &mut App)>;
 
 #[derive(Clone)]
 struct Button {
@@ -378,7 +376,7 @@ struct Button {
 impl Button {
     fn action(
         label: &'static str,
-        action: impl Fn(&riso_shell::dev::Extension, &mut Window, &mut App) + 'static,
+        action: impl Fn(&riso_shell::Extension, &mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
             label: Rc::new(move |_| label.into()),
@@ -389,7 +387,7 @@ impl Button {
     fn visibility(node: &'static str) -> Self {
         Self {
             label: Rc::new(move |cx| {
-                let verb = if riso_shell::dev::is_hidden(cx, node) {
+                let verb = if riso_shell::is_hidden(cx, node) {
                     "show"
                 } else {
                     "hide"
@@ -397,7 +395,7 @@ impl Button {
                 format!("{verb} {node}")
             }),
             action: Rc::new(move |ext, _, cx| {
-                let hidden = riso_shell::dev::is_hidden(cx, node);
+                let hidden = riso_shell::is_hidden(cx, node);
                 ext.set_hidden(cx, node, !hidden);
             }),
         }
@@ -406,7 +404,7 @@ impl Button {
 
 struct Controls {
     buttons: Vec<Button>,
-    ext: riso_shell::dev::Extension,
+    ext: riso_shell::Extension,
 }
 
 impl Render for Controls {

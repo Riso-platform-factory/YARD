@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, TestAppContext};
 use std::{
     cell::RefCell,
@@ -109,11 +107,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
-    app: &mut TestAppContext,
-    shown: &Shown,
-) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, app: &mut TestAppContext, shown: &Shown) {
     shown.borrow_mut().clear();
     gpui::AnyWindowHandle::from(window)
         .update(app, |_, window, cx| {
@@ -132,7 +126,7 @@ fn nodes(shown: &Shown) -> Vec<String> {
 
 fn assert_zoomed(app: &TestAppContext, expected: Option<&str>) {
     assert_eq!(
-        app.update(|cx| riso_shell::dev::zoomed(cx)),
+        app.update(|cx| riso_shell::zoomed(cx)),
         expected.map(str::to_owned)
     );
 }
@@ -150,8 +144,8 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
         let shown = Shown::default();
         let views = Rc::new(RefCell::new(BTreeMap::new()));
         let (host, guest) = app.update(|cx| {
-            let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
-            let guest = riso_shell::dev::Extension::new(cx, "guest").unwrap();
+            let host = riso_shell::Extension::new(cx, "tour").unwrap();
+            let guest = riso_shell::Extension::new(cx, "guest").unwrap();
             let shown = shown.clone();
             let views = views.clone();
             host.register(cx, "tour.card", &[], move |node, _, _, cx| {
@@ -179,7 +173,7 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
         });
         assert_zoomed(&app, Some("a"));
         let window = app.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         app.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));
@@ -250,15 +244,15 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
         app.update(|cx| {
             for node in ["missing", "root", "Bad", "", "0bad", "bad.id"] {
                 guest.set_zoomed(cx, node);
-                assert_eq!(riso_shell::dev::zoomed(cx).as_deref(), Some("a"));
+                assert_eq!(riso_shell::zoomed(cx).as_deref(), Some("a"));
             }
             host.set_hidden(cx, "b", true);
             guest.set_zoomed(cx, "b");
-            assert_eq!(riso_shell::dev::zoomed(cx).as_deref(), Some("a"));
+            assert_eq!(riso_shell::zoomed(cx).as_deref(), Some("a"));
             host.set_hidden(cx, "b", false);
             host.set_hidden(cx, "right", true);
             guest.set_zoomed(cx, "c");
-            assert_eq!(riso_shell::dev::zoomed(cx).as_deref(), Some("a"));
+            assert_eq!(riso_shell::zoomed(cx).as_deref(), Some("a"));
             host.set_hidden(cx, "right", false);
             guest.zoom_out(cx);
         });
@@ -353,7 +347,7 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
             let app = cx.new_app();
             app.update(riso_ui::init);
             let host = app.update(|cx| {
-                let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+                let host = riso_shell::Extension::new(cx, "tour").unwrap();
                 host.place_root(cx, "root", "riso.row");
                 host.place(cx, node, component, "root", slot);
                 host.set_zoomed(cx, node);
@@ -361,7 +355,7 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
             });
             assert_zoomed(&app, Some(node));
             app.update(|cx| {
-                cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+                cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                     .unwrap();
             });
             assert_zoomed(&app, None);

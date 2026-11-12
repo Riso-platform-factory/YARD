@@ -102,6 +102,8 @@ struct Registry {
     views: Rc<RefCell<ViewMap>>,
     splits: Vec<WeakEntity<Split>>,
     tabs: Vec<WeakEntity<Tabs>>,
+    zoomed: Option<NodeId>,
+    views_created: bool,
 }
 
 impl Default for Registry {
@@ -159,6 +161,8 @@ impl Default for Registry {
             views: Rc::new(RefCell::new(BTreeMap::new())),
             splits: Vec::new(),
             tabs: Vec::new(),
+            zoomed: None,
+            views_created: false,
         }
     }
 }
@@ -674,6 +678,23 @@ pub fn is_hidden(cx: &App, node: &str) -> bool {
     })
 }
 
+/// Returns the node currently filling the window for extension controls.
+pub fn zoomed(cx: &App) -> Option<String> {
+    cx.try_global::<Registry>()
+        .and_then(|registry| registry.zoomed.as_ref().map(ToString::to_string))
+}
+
+fn is_shown(tree: &Tree, node: &NodeId) -> bool {
+    fn find(tree: &Tree, current: &NodeId, target: &NodeId) -> bool {
+        !tree.is_hidden(current)
+            && (current == target
+                || tree.slots(current).any(|(_, children)| {
+                    children.iter().any(|child| find(tree, &child.id, target))
+                }))
+    }
+    tree.root().is_some_and(|root| find(tree, &root.id, node))
+}
+
 fn component_of<'a>(tree: &'a Tree, id: &NodeId) -> Option<&'a ComponentId> {
     fn find<'a>(tree: &'a Tree, node: &'a Node, id: &NodeId) -> Option<&'a ComponentId> {
         if &node.id == id {
@@ -758,8 +779,18 @@ fn run_op(
                 }
             }
         }
-        Applied::Moved | Applied::SetHidden(true) => {}
-        Applied::SetHidden(false) => return,
+        Applied::Moved | Applied::SetHidden(_) => {}
+    }
+    {
+        let registry = cx.default_global::<Registry>();
+        if registry
+            .zoomed
+            .as_ref()
+            .is_some_and(|node| !is_shown(&registry.tree.borrow(), node))
+        {
+            let node = registry.zoomed.take().unwrap();
+            tracing::debug!(node = %node, "zoom cleared");
+        }
     }
     reconcile_containers(cx);
     cx.refresh_windows();
@@ -926,6 +957,56 @@ impl Extension {
         });
     }
 
+    /// Zooms any shown non-root node without changing the layout tree.
+    pub fn set_zoomed(&self, cx: &mut App, node: &str) {
+        let _group = tracing::info_span!("zoom", node, extension = self.name.as_str()).entered();
+        let id = match NodeId::parse(node) {
+            Ok(id) => id,
+            Err(error) => {
+                log::error!("invalid node ID {node:?}: {error}");
+                return;
+            }
+        };
+        let registry = cx.default_global::<Registry>();
+        {
+            let tree = registry.tree.borrow();
+            if component_of(&tree, &id).is_none() {
+                tracing::info!("the node is not in the tree");
+                return;
+            }
+            if tree.root().is_some_and(|root| root.id == id) {
+                tracing::info!("the root already fills the window");
+                return;
+            }
+            if !is_shown(&tree, &id) {
+                tracing::info!("the node is hidden or under a hidden node");
+                return;
+            }
+        }
+        if registry.views_created && !registry.views.borrow().contains_key(&id) {
+            tracing::info!("the node has no view");
+            return;
+        }
+        if let Some(previous) = registry.zoomed.replace(id.clone())
+            && previous != id
+        {
+            tracing::debug!(previous = %previous, "replaced");
+        }
+        tracing::debug!(node, "zoomed");
+        cx.refresh_windows();
+    }
+
+    /// Restores the tree with its existing views, shares, and tab selection.
+    pub fn zoom_out(&self, cx: &mut App) {
+        let _group = tracing::info_span!("zoom-out", extension = self.name.as_str()).entered();
+        let Some(node) = cx.default_global::<Registry>().zoomed.take() else {
+            tracing::debug!("nothing zoomed");
+            return;
+        };
+        tracing::debug!(node = %node, "zoomed out");
+        cx.refresh_windows();
+    }
+
     /// Registers the first factory for a valid component ID.
     pub fn register(
         &self,
@@ -1084,6 +1165,16 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
         tracing::info!("no root placed; the window shows the background");
     }
     let root = root.and_then(|node| create_view(&node, None, window, cx));
+    let registry = cx.default_global::<Registry>();
+    registry.views_created = true;
+    if registry
+        .zoomed
+        .as_ref()
+        .is_some_and(|node| !registry.views.borrow().contains_key(node))
+    {
+        let node = registry.zoomed.take().unwrap();
+        tracing::debug!(node = %node, "zoom cleared");
+    }
     cx.new(|_| Shell { root })
 }
 
@@ -1171,6 +1262,15 @@ impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering shell");
         window.set_rem_size(riso_ui::ui_font_size());
+        let view = cx
+            .try_global::<Registry>()
+            .and_then(|registry| {
+                registry
+                    .zoomed
+                    .as_ref()
+                    .and_then(|node| registry.views.borrow().get(node).cloned())
+            })
+            .or_else(|| self.root.clone());
         div()
             .id("shell")
             .size_full()
@@ -1183,6 +1283,6 @@ impl Render for Shell {
                 clear_drag_edges(cx);
                 tracing::debug!(node = %dragged.node, "drop ignored");
             })
-            .children(self.root.clone())
+            .children(view)
     }
 }

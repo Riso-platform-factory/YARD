@@ -5,3 +5,6 @@ mod layout_file;
 mod write_atomic;
 pub use directories::*;
 pub use write_atomic::*;
+
+#[cfg(feature = "dev")]
+pub mod dev;

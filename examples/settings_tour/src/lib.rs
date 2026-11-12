@@ -1,7 +1,10 @@
+#![cfg(feature = "dev")]
+
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
-use riso_settings::{Settings, get, register};
+use riso_settings::dev::{Settings, get, register};
 
 #[derive(serde::Deserialize)]
+#[serde(default)]
 struct TourSettings {
     greeting: String,
     size: u32,

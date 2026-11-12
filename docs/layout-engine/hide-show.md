@@ -37,7 +37,7 @@ The reference is how Zed's `dock.rs` toggles a panel: the panel's view stays ali
 
 ## Logging
 
-- A change runs in a group, `node-visibility{node, hidden}`, with the extension's name as a field. It is opened where the change is asked for, for example inside a click while the application runs.
+- A change runs in a group, `layout-op{op=hide|show, node, extension}`, the group of every operation (feature 8). It is opened where the change is asked for, for example inside a click while the application runs.
 - Inside the group, the tree logs `node hidden` or `node shown` at `debug`, or the refusal.
 
 ## Where the code changes
@@ -57,7 +57,7 @@ The reference is how Zed's `dock.rs` toggles a panel: the panel's view stays ali
 | Command and action | What to look for |
 |---|---|
 | `LAYOUT_TOUR=hide-show cargo run dev` | A row: `controls`, `a`, `b`, each a third. |
-| Same, click `b`'s count three times, then `hide b` | `b` goes away; `controls` and `a` share the row in halves. `node-visibility{node=b, hidden=true}`. |
+| Same, click `b`'s count three times, then `hide b` | `b` goes away; `controls` and `a` share the row in halves. `layout-op{op=hide, node=b}`. |
 | Same, then `show b` | `b` is back in its place, still at `count: 3`, and the row is in thirds again. |
 | Same, drag `b`'s line before hiding it, then hide and show `b` | `b` gets back the width it had. |
 | `LAYOUT_TOUR=hide-tab cargo run dev` | A row: `controls` on the left, and tabs `a`, `b` on the right. Select `b`, count to 2, then `hide b`: tab `b` goes away and `a` is selected. `show b`: tab `b` is back, and clicking it shows `count: 2`. |

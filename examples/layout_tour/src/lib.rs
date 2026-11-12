@@ -25,8 +25,6 @@
 //! `LAYOUT_TOUR=operations cargo run dev`: add, move, and remove cards, and refuse broken rules.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -36,7 +34,7 @@ use gpui::{
 };
 use std::rc::Rc;
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -241,7 +239,7 @@ struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 
 impl Card {
@@ -333,7 +331,7 @@ impl Render for Card {
 }
 
 type Label = Rc<dyn Fn(&App) -> String>;
-type Action = Rc<dyn Fn(&riso_shell::dev::Extension, &mut Window, &mut App)>;
+type Action = Rc<dyn Fn(&riso_shell::Extension, &mut Window, &mut App)>;
 
 #[derive(Clone)]
 struct Button {
@@ -344,7 +342,7 @@ struct Button {
 impl Button {
     fn action(
         label: &'static str,
-        action: impl Fn(&riso_shell::dev::Extension, &mut Window, &mut App) + 'static,
+        action: impl Fn(&riso_shell::Extension, &mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
             label: Rc::new(move |_| label.into()),
@@ -355,7 +353,7 @@ impl Button {
     fn visibility(node: &'static str) -> Self {
         Self {
             label: Rc::new(move |cx| {
-                let verb = if riso_shell::dev::is_hidden(cx, node) {
+                let verb = if riso_shell::is_hidden(cx, node) {
                     "show"
                 } else {
                     "hide"
@@ -363,7 +361,7 @@ impl Button {
                 format!("{verb} {node}")
             }),
             action: Rc::new(move |ext, _, cx| {
-                let hidden = riso_shell::dev::is_hidden(cx, node);
+                let hidden = riso_shell::is_hidden(cx, node);
                 ext.set_hidden(cx, node, !hidden);
             }),
         }
@@ -372,7 +370,7 @@ impl Button {
 
 struct Controls {
     buttons: Vec<Button>,
-    ext: riso_shell::dev::Extension,
+    ext: riso_shell::Extension,
 }
 
 impl Render for Controls {

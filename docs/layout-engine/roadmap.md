@@ -50,7 +50,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 8 | `operations` | The tree changes only through operations: add, remove, move, hide, show. The engine checks each against the rules; a refused one is logged, not applied | Buttons on a card that add, move, and remove cards; one that asks for a forbidden move | none | 7 | planned |
+| 8 | `operations` | The tree changes only through operations: add, remove, move, hide, show. The engine checks each against the rules; a refused one is logged, not applied | Buttons on a card that add, move, and remove cards; one that asks for a forbidden move | none | 7 | production |
 | 9 | `drag-to-move` | Dragging a node to another container or to an edge moves it. The place it would land is highlighted | Dragging a tab onto another tab bar, and onto the edge of a split | drag and drop of `gpui`; drop targets and split on drop of `pane.rs` | 8 | planned |
 | 10 | `zoom` | One node takes the whole window for a while, and goes back | A card zoomed and restored; the others kept their state | the zoom of `dock.rs` | 8 | planned |
 

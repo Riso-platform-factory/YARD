@@ -167,14 +167,14 @@ fn visibility_retains_views_shares_and_selection_and_logs_each_result(cx: &mut T
     let captured = trace.0.lock().unwrap();
     assert!(captured.entered.is_empty());
     for line in [
-        "node-visibility node=\"b\" hidden=true extension=\"guest\": DEBUG message=node hidden node=b",
-        "node-visibility node=\"b\" hidden=false extension=\"guest\": DEBUG message=node shown node=b",
-        "node-visibility node=\"b\" hidden=false extension=\"guest\": DEBUG message=already in that state node=b hidden=false",
-        "node-visibility node=\"root\" hidden=true extension=\"guest\": INFO message=the root cannot be hidden or shown node=root",
-        "node-visibility node=\"root\" hidden=false extension=\"guest\": INFO message=the root cannot be hidden or shown node=root",
-        "node-visibility node=\"missing\" hidden=true extension=\"guest\": INFO message=the node is not in the tree node=missing",
-        "node-visibility node=\"missing\" hidden=false extension=\"guest\": INFO message=the node is not in the tree node=missing",
-        "node-visibility node=\"Bad\" hidden=true extension=\"guest\": ERROR message=invalid node ID \"Bad\": a slug must start with a lowercase ASCII letter",
+        "layout-op op=\"hide\" node=\"b\" extension=\"guest\": DEBUG message=node hidden node=b",
+        "layout-op op=\"show\" node=\"b\" extension=\"guest\": DEBUG message=node shown node=b",
+        "layout-op op=\"show\" node=\"b\" extension=\"guest\": DEBUG message=already in that state node=b hidden=false",
+        "layout-op op=\"hide\" node=\"root\" extension=\"guest\": INFO message=the root cannot be hidden or shown node=root",
+        "layout-op op=\"show\" node=\"root\" extension=\"guest\": INFO message=the root cannot be hidden or shown node=root",
+        "layout-op op=\"hide\" node=\"missing\" extension=\"guest\": INFO message=the node is not in the tree node=missing",
+        "layout-op op=\"show\" node=\"missing\" extension=\"guest\": INFO message=the node is not in the tree node=missing",
+        "layout-op op=\"hide\" node=\"Bad\" extension=\"guest\": ERROR message=invalid node ID \"Bad\": a slug must start with a lowercase ASCII letter",
     ] {
         assert!(
             captured.lines.iter().any(|actual| actual == line),

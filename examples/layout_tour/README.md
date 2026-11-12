@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app. When every feature it covers is in production, it is taken out of both until the next feature is under review.
+A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -88,7 +88,7 @@ No new case: the splits of feature 4 are resized by hand. In the trace, with `ri
 
 ### Feature 7: hide-show
 
-The card has a counter: clicking `count: N` adds one. `layout_tour.controls` shows `hide <id>` or `show <id>` for each node it controls; clicking it hides or shows that node. Each change runs in `node-visibility{node, hidden, extension}`.
+The card has a counter: clicking `count: N` adds one. `layout_tour.controls` shows `hide <id>` or `show <id>` for each node it controls; clicking it hides or shows that node. Each change runs in `layout-op{op=hide|show, node, extension}`.
 
 | Command and action | What to look for |
 |---|---|

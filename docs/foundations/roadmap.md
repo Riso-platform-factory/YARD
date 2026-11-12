@@ -38,4 +38,4 @@ A foundation that nothing uses yet cannot be seen in the application. So the one
 
 ## Not in this roadmap
 
-A settings engine. The layout engine does not depend on it. It gets its own roadmap when something must be configurable.
+A settings engine. The layout engine does not depend on it. Its roadmap is `docs/settings-engine/roadmap.md`, and `docs/roadmap.md` lists every engine of the platform.

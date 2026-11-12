@@ -61,6 +61,59 @@ Status is one of: planned, dev, production.
 | 11 | `user-layer` | What the user changed is kept apart from the default layout, as a list of operations. Resetting drops it | Rearranging, then resetting to the default | none | 9 | production |
 | 12 | `save-restore` | The user's changes are saved, and applied again at the next start. An operation whose node is gone is skipped and logged | Rearranging, quitting, starting again: the same layout | none | 11, foundation 6 | planned |
 
+### Nodes with data
+
+Features 13 and later are the second part of the engine. Where the column `Needs` names a feature of another roadmap, the feature waits for it.
+
+| # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
+|---|---|---|---|---|---|---|
+| 13 | `props` | A node carries props: a small configuration given when it is placed, typed by its component, with a default for every value. Props that cannot be read are logged, and the defaults are used. A new operation changes some of a node's props while the application runs. The view is told, and the operation is recorded and saved like the others | A card's title and tint come from its props. A button changes them, and they survive a restart | none | 12 | planned |
+| 14 | `titles` | A node has a title, and optionally an icon, that its component gives. A tab shows the title instead of the node ID | Tabs named `Alpha` and `Beta`, one of them with an icon | the content of `ui`'s `Tab` | 13. UI kit: `icon` | planned |
+| 15 | `required-nodes` | A component can be declared required. Its nodes cannot be hidden or removed, and neither can a node above them | Hiding or removing the required card is refused with an `INFO` | none | 8 | planned |
+| 16 | `slot-count` | A slot says whether it holds one node or many. A second node in a slot for one is refused | A card with a slot for one: the second placement is refused with an `INFO` | none | 2 | planned |
+| 17 | `placement-order` | A placement or a move can say first, or before or after a named node, instead of a position by number | An item placed before the item of another extension | none | 8 | planned |
+| 18 | `contexts` | A component gives a model to everything under its node. A component below asks for it by its type and receives it. A node cannot be placed or moved to a place where a model it requires is missing. An extension can also give a model to a whole window | Two cards under one counter show the same count. Moving one of them out of the counter is refused | none | 13 | planned |
+
+### Sizes
+
+| # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
+|---|---|---|---|---|---|---|
+| 19 | `sizes-as-props` | The shares of a split are props of the split, so a resize is an operation: recorded, saved, restored, and dropped by a reset. The steps of one drag join into one operation | Drag a line, quit, start: the same shares. Reset: equal shares again | none | 13 | planned |
+| 20 | `fixed-sizes` | A child of a split is flexible, with a share, or fixed, with a size. When the split grows, only the flexible children grow. When it shrinks, they shrink first | A side card keeps its width while the window is resized | the resizing of `dock.rs`, as reference | 19 | planned |
+| 21 | `component-sizes` | A component declares a preferred and a minimum size, in rems, so that they follow the size of the UI font. The minimum of a container comes from its children. This replaces the fixed minimums of 80px and 100px | A card with a larger minimum stops the drag earlier, and a larger UI font moves the limit | none | 20. Theme engine: `ui-font` | planned |
+| 22 | `snap-hide` | Dragging a child below its minimum hides it, as a `hide` operation. Dragging the line back shows it | A side card dragged shut disappears, and comes back when the line is dragged out | none | 21 | planned |
+| 23 | `empty-nodes` | A component can say that it is empty now. A container gives an empty child no room, and is itself empty when nothing in its slots is shown | A column of two cards: one says it is empty, and the other takes its room | none | 7 | planned |
+
+### Tabs and drops, completed
+
+| # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
+|---|---|---|---|---|---|---|
+| 24 | `close-tab` | A tab has a close button. Closing removes the node. The tab of a required node has no button | Closing a tab removes its card, and `view dropped` is logged | the end slot of `ui`'s `Tab` | 15. UI kit: `icon`, `button`, `tooltip` | planned |
+| 25 | `tab-overflow` | A tab bar scrolls when its tabs do not fit, and selecting a tab scrolls it into view | Twenty tabs in a narrow window | the scrolling of `ui`'s `TabBar` | 6 | planned |
+| 26 | `split-on-drop` | Dropping a tab on any edge of a container puts a new split around that container, with the node in a new tabs container beside it. Dropping on the center of a container moves the node into it | A tab dropped on the top edge of a card becomes a row above the card | split on drop of `pane.rs` | 9, 13 | planned |
+| 27 | `toggle` | A component of the shell: a button that shows or hides the node that its props name. With `alone`, showing that node hides the others in its slot | Two buttons in the status bar show and hide two side cards, one at a time | the panel buttons of Zed's status bar, as reference | 13. UI kit: `button`, `icon`. Window engine: `status-bar` | planned |
+
+### Content that comes and goes
+
+| # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
+|---|---|---|---|---|---|---|
+| 28 | `item-slots` | A slot that makes one copy of its nodes for each item of a model, such as each open document. Each copy gets its item as a context. Items come and go without layout operations | A model with a list of names, and a button to add and remove one: there is one card per name | none | 18 | planned |
+| 29 | `item-tabs` | A component of the shell: a tab bar over an item slot, with one tab per item, a close button on each tab, and a button to add an item. The buttons tell the model | Tabs that follow the list of names | `pane.rs`, as reference | 24, 28 | planned |
+
+### Named layouts
+
+| # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
+|---|---|---|---|---|---|---|
+| 30 | `named-layouts` | An extension registers a named layout: a list of operations over the default layout. A window shows one named layout at a time and can switch to another. Nodes with the same ID keep their views, and each named layout has its own user layer and its own file | Switching between two arrangements of the same cards keeps their counts | none | 12 | planned |
+
+### Tools
+
+| # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
+|---|---|---|---|---|---|---|
+| 31 | `inspector` | A test extension that shows the tree: each node with its component, its extension, its props, whether it is hidden, and whether the default layout or the user layer put it there | The inspector beside any case of the layout tour | none | 13. UI kit: `list` | planned |
+
 ## Later
 
-These come after feature 12. Their order is decided when they are reached: named layouts to switch between, a model shared with a subtree, a slot that makes one copy per item (as a tab per open file needs), several windows, moving between nodes with the keyboard, and an inspector of the tree.
+These are not planned yet: undoing one operation, replacing a node's component, wrapping a node in another component, an edit mode that shows outlines and slots, a container that stacks its children as sections that open and close, limits on which extension may change which node, reading a saved layout of another version, a layout per project folder, dragging nodes that are not tabs, and animations.
+
+Three things that the contracts of features 1 to 12 left out are in other roadmaps: several windows are in the window engine's, moving the focus and zooming with the keyboard are in the keymap engine's, and saving the selected tab and the zoom is in the state engine's.

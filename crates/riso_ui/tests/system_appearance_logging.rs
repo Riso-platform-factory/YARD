@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
-use riso_ui::dev::{active_theme, apply_theme_setting, follow_appearance};
+use riso_ui::{active_theme, apply_theme_setting, follow_appearance};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,

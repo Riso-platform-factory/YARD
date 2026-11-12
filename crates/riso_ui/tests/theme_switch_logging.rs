@@ -515,7 +515,7 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         //    theme-apply{mode, theme}.
         let path = temp.path().join("settings.json");
         let app_init = cx.update(|cx| startup(cx, &path));
-        cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+        cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
         let (watch_id, mut groups_cursor, mut events_cursor) = {
             let captured = CAPTURED.lock().unwrap();
             let [init_g, load_g, watch_g, ui_init_g, register_g, apply_g] = &captured.groups[..]
@@ -541,8 +541,8 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 apply_g,
                 &captured.entered_groups,
                 app_init,
-                "dark",
-                "One Dark",
+                "system",
+                "One Light",
             );
             let started = events_in_group(&captured, 0, watch_g.id);
             assert_eq!(
@@ -562,11 +562,11 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         };
 
         // 2. An edit switches the theme: settings-reload that changed `theme`,
-        //    then theme-apply{mode=light, theme=One Light} with `applied`,
+        //    then theme-apply{mode=dark, theme=One Dark} with `applied`,
         //    both inside settings-watch.
-        fs::write(&path, r#"{"theme": {"mode": "light"}}"#).unwrap();
+        fs::write(&path, r#"{"theme": {"mode": "dark"}}"#).unwrap();
         tick(cx);
-        cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+        cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (reload, apply_g) = reload_then_apply(
@@ -574,8 +574,8 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 groups_cursor,
                 &path,
                 watch_id,
-                "light",
-                "One Light",
+                "dark",
+                "One Dark",
             );
             let events = events_since(&captured, events_cursor, 3);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
@@ -593,13 +593,9 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
 
         // 3. The section changed, but the chosen theme is the one already
         //    active: `unchanged` inside theme-apply.
-        fs::write(
-            &path,
-            r#"{"theme": {"mode": "light", "dark": "One Light"}}"#,
-        )
-        .unwrap();
+        fs::write(&path, r#"{"theme": {"mode": "dark", "light": "One Dark"}}"#).unwrap();
         tick(cx);
-        cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+        cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (reload, apply_g) = reload_then_apply(
@@ -607,8 +603,8 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 groups_cursor,
                 &path,
                 watch_id,
-                "light",
-                "One Light",
+                "dark",
+                "One Dark",
             );
             let events = events_since(&captured, events_cursor, 3);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
@@ -622,13 +618,9 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
 
         // 4. The chosen name is not registered: the active theme stays, and the
         //    WARN is logged inside theme-apply.
-        fs::write(
-            &path,
-            r#"{"theme": {"mode": "light", "light": "Solarized"}}"#,
-        )
-        .unwrap();
+        fs::write(&path, r#"{"theme": {"mode": "dark", "dark": "Solarized"}}"#).unwrap();
         tick(cx);
-        cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+        cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (reload, apply_g) = reload_then_apply(
@@ -636,7 +628,7 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 groups_cursor,
                 &path,
                 watch_id,
-                "light",
+                "dark",
                 "Solarized",
             );
             let events = events_since(&captured, events_cursor, 2);
@@ -659,7 +651,7 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         //    value and warns inside settings-reload; no theme-apply opens.
         fs::write(&path, r#"{"theme": {"mode": "dim"}}"#).unwrap();
         tick(cx);
-        cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+        cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
             let reload = &groups_since(&captured, groups_cursor, 1)[0];
@@ -683,10 +675,10 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         }
 
         // 6. The file was deleted: the defaults come back and `applied` switches
-        //    to One Dark.
+        //    to One Light.
         fs::remove_file(&path).unwrap();
         tick(cx);
-        cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+        cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (reload, apply_g) = reload_then_apply(
@@ -694,8 +686,8 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 groups_cursor,
                 &path,
                 watch_id,
-                "dark",
-                "One Dark",
+                "system",
+                "One Light",
             );
             let events = events_since(&captured, events_cursor, 3);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);

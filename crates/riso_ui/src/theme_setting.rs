@@ -1,9 +1,10 @@
-use gpui::App;
-use theme::{ActiveTheme, GlobalTheme, ThemeRegistry};
+use gpui::{App, Window};
+use theme::{ActiveTheme, Appearance, GlobalTheme, SystemAppearance, ThemeRegistry};
 
 #[derive(Clone, Copy, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum Mode {
+    System,
     Dark,
     Light,
 }
@@ -11,6 +12,7 @@ enum Mode {
 impl std::fmt::Display for Mode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::System => f.write_str("system"),
             Self::Dark => f.write_str("dark"),
             Self::Light => f.write_str("light"),
         }
@@ -28,7 +30,7 @@ struct ThemeSettings {
 impl Default for ThemeSettings {
     fn default() -> Self {
         Self {
-            mode: Mode::Dark,
+            mode: Mode::System,
             dark: "One Dark".into(),
             light: "One Light".into(),
         }
@@ -46,10 +48,39 @@ pub fn apply_theme_setting(cx: &mut App) {
     riso_settings::observe::<ThemeSettings>(cx, |cx| apply(cx, true)).detach();
 }
 
+/// Follows `window`'s appearance, recording it and switching the theme when `mode` is `system`.
+pub fn follow_appearance(window: &mut Window, _cx: &mut App) {
+    window
+        .observe_window_appearance(|window, cx| {
+            let appearance = Appearance::from(window.appearance());
+            let light_or_dark = match appearance {
+                Appearance::Light => "light",
+                Appearance::Dark => "dark",
+            };
+            let _group =
+                tracing::info_span!("appearance-change", appearance = %light_or_dark).entered();
+            if SystemAppearance::global(cx).0 == appearance {
+                tracing::debug!("unchanged");
+                return;
+            }
+            SystemAppearance::global_mut(cx).0 = appearance;
+            if matches!(riso_settings::get::<ThemeSettings>(cx).mode, Mode::System) {
+                apply(cx, true);
+            } else {
+                tracing::debug!("mode is not system");
+            }
+        })
+        .detach();
+}
+
 fn apply(cx: &mut App, switch: bool) {
     let settings = riso_settings::get::<ThemeSettings>(cx);
     let mode = settings.mode;
     let name = match mode {
+        Mode::System => match SystemAppearance::global(cx).0 {
+            Appearance::Light => settings.light.clone(),
+            Appearance::Dark => settings.dark.clone(),
+        },
         Mode::Dark => settings.dark.clone(),
         Mode::Light => settings.light.clone(),
     };

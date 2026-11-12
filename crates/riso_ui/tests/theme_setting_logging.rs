@@ -422,11 +422,11 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
         let mut events_cursor = 0;
         let mut diagnostics_cursor = 0;
 
-        // 1. No file: the defaults hold. theme-apply{mode=dark, theme=One Dark},
+        // 1. No file: the defaults hold. theme-apply{mode=system, theme=One Light},
         //    `applied` at DEBUG.
         let missing = temp.path().join("missing.json");
         let app_init = cx.update(|cx| startup(cx, &missing, None));
-        cx.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Dark"));
+        cx.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Light"));
         assert!(!missing.exists());
         {
             let captured = CAPTURED.lock().unwrap();
@@ -435,8 +435,8 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
                 groups_cursor,
                 &missing,
                 app_init,
-                "dark",
-                "One Dark",
+                "system",
+                "One Light",
             );
             assert_applied(&events_in_group(&captured, events_cursor, apply_g.id));
             diagnostics_since(&captured, diagnostics_cursor, 0);
@@ -533,17 +533,23 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
             diagnostics_cursor = captured.diagnostics.len();
         }
 
-        // 5. A `mode` that is neither dark nor light makes the section unreadable:
+        // 5. A `mode` that is not system, dark, or light makes the section unreadable:
         //    the settings engine's WARN inside settings-register{section=theme},
-        //    then `applied` for the defaults in theme-apply{mode=dark, theme=One Dark}.
+        //    then `applied` for the defaults in theme-apply{mode=system, theme=One Light}.
         let dim = temp.path().join("dim.json");
         let app = cx.new_app();
         let app_init = app.update(|cx| startup(cx, &dim, Some(r#"{"theme": {"mode": "dim"}}"#)));
-        app.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Dark"));
+        app.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Light"));
         {
             let captured = CAPTURED.lock().unwrap();
-            let (register_g, apply_g) =
-                scenario_groups(&captured, groups_cursor, &dim, app_init, "dark", "One Dark");
+            let (register_g, apply_g) = scenario_groups(
+                &captured,
+                groups_cursor,
+                &dim,
+                app_init,
+                "system",
+                "One Light",
+            );
             let applied = assert_applied(&events_in_group(&captured, events_cursor, apply_g.id));
             let warn = &diagnostics_since(&captured, diagnostics_cursor, 1)[0];
             assert_eq!(warn.level, log::Level::Warn);

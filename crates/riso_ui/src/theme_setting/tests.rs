@@ -43,6 +43,22 @@ fn startup(cx: &mut gpui::App, settings: std::path::PathBuf) {
     apply_theme_setting(cx);
 }
 
+// The same startup while the OS's appearance is dark: `init` records the test
+// platform's light, so dark is recorded again before the setting applies.
+fn startup_dark(cx: &mut gpui::App, settings: std::path::PathBuf) {
+    riso_settings::init(cx);
+    riso_settings::load(cx, settings);
+    riso_settings::watch(cx);
+    crate::init(cx);
+    record(cx, theme::Appearance::Dark);
+    apply_theme_setting(cx);
+}
+
+// The appearance the OS reports, recorded the way `init` and a window's report record it.
+fn record(cx: &mut gpui::App, appearance: theme::Appearance) {
+    theme::SystemAppearance::global_mut(cx).0 = appearance;
+}
+
 fn rgb(color: gpui::Hsla) -> (u8, u8, u8) {
     let rgba = gpui::Rgba::from(color);
     (
@@ -70,22 +86,43 @@ fn theme_switches(cx: &mut gpui::App) -> (std::rc::Rc<std::cell::Cell<usize>>, g
     (switches, subscription)
 }
 
+// A window the theme setting follows: opening it reports the OS's appearance.
+fn window(cx: &mut gpui::TestAppContext) {
+    cx.add_window(|window, cx| {
+        follow_appearance(window, cx);
+        gpui::EmptyView
+    });
+    cx.run_until_parked();
+}
+
+// Without a section the mode is now `system`: the test platform's light
+// appearance gives One Light.
 #[gpui::test]
-fn without_a_settings_file_one_dark_is_active(cx: &mut gpui::TestAppContext) {
+fn without_a_settings_file_one_light_is_active(cx: &mut gpui::TestAppContext) {
     let temp = TempDir::new();
     let path = temp.path().join("settings.json");
     cx.update(|cx| startup(cx, path.clone()));
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
     assert!(!path.exists());
 }
 
 #[gpui::test]
-fn without_the_theme_section_one_dark_is_active(cx: &mut gpui::TestAppContext) {
+fn without_the_theme_section_one_light_is_active(cx: &mut gpui::TestAppContext) {
     let temp = TempDir::new();
     let path = settings_file(&temp, "{}");
     cx.update(|cx| startup(cx, path.clone()));
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "{}");
+}
+
+// Without a section, system follows the OS: a dark startup applies One Dark.
+#[gpui::test]
+fn without_a_section_a_dark_appearance_activates_one_dark(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    cx.update(|cx| startup_dark(cx, path.clone()));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    assert!(!path.exists());
 }
 
 #[gpui::test]
@@ -115,20 +152,21 @@ fn an_unregistered_theme_name_keeps_one_dark(cx: &mut gpui::TestAppContext) {
     cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
 }
 
+// An unreadable section falls back to the defaults, whose mode is system.
 #[gpui::test]
-fn a_mode_of_another_value_keeps_one_dark(cx: &mut gpui::TestAppContext) {
+fn a_mode_of_another_value_activates_one_light(cx: &mut gpui::TestAppContext) {
     let temp = TempDir::new();
     let path = settings_file(&temp, r#"{"theme": {"mode": "dim"}}"#);
     cx.update(|cx| startup(cx, path));
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
 }
 
 #[gpui::test]
-fn a_theme_section_that_is_not_an_object_keeps_one_dark(cx: &mut gpui::TestAppContext) {
+fn a_theme_section_that_is_not_an_object_activates_one_light(cx: &mut gpui::TestAppContext) {
     let temp = TempDir::new();
     let path = settings_file(&temp, r#"{"theme": "One Dark"}"#);
     cx.update(|cx| startup(cx, path));
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
 }
 
 #[gpui::test]
@@ -149,33 +187,35 @@ fn the_palettes_background_differs_between_one_dark_and_one_light(cx: &mut gpui:
     });
 }
 
+// Startup with no file leaves One Light; an edit to dark switches.
 #[gpui::test]
-fn an_edit_from_no_file_to_light_switches_to_one_light(cx: &mut gpui::TestAppContext) {
+fn an_edit_from_no_file_to_dark_switches_to_one_dark(cx: &mut gpui::TestAppContext) {
     let temp = TempDir::new();
     let path = temp.path().join("settings.json");
     cx.update(|cx| startup(cx, path.clone()));
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
     let (switches, _subscription) = cx.update(theme_switches);
 
-    std::fs::write(&path, r#"{"theme": {"mode": "light"}}"#).unwrap();
+    std::fs::write(&path, r#"{"theme": {"mode": "dark"}}"#).unwrap();
     tick(cx);
 
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
     assert_eq!(switches.get(), 1);
 }
 
+// Deleting the file brings the defaults back: system on a light platform.
 #[gpui::test]
-fn deleting_the_file_switches_back_to_one_dark(cx: &mut gpui::TestAppContext) {
+fn deleting_the_file_switches_to_one_light(cx: &mut gpui::TestAppContext) {
     let temp = TempDir::new();
-    let path = settings_file(&temp, r#"{"theme": {"mode": "light"}}"#);
+    let path = settings_file(&temp, r#"{"theme": {"mode": "dark"}}"#);
     cx.update(|cx| startup(cx, path.clone()));
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
     let (switches, _subscription) = cx.update(theme_switches);
 
     std::fs::remove_file(&path).unwrap();
     tick(cx);
 
-    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
     assert_eq!(switches.get(), 1);
 }
 
@@ -226,6 +266,91 @@ fn a_broken_edit_keeps_the_active_theme(cx: &mut gpui::TestAppContext) {
     // The section's new content cannot be read: the last good value stays.
     std::fs::write(&path, r#"{"theme": {"mode": "dim"}}"#).unwrap();
     tick(cx);
+
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+    assert_eq!(switches.get(), 0);
+}
+
+// A window reports the OS's appearance. While the mode is system the theme of
+// the new appearance becomes active.
+#[gpui::test]
+fn in_system_mode_a_reported_light_appearance_activates_one_light(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"mode": "system"}}"#);
+    cx.update(|cx| startup_dark(cx, path));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    let (switches, _subscription) = cx.update(theme_switches);
+
+    window(cx);
+
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+    assert_eq!(switches.get(), 1);
+}
+
+// While the mode is dark a change of appearance is recorded and the theme stays.
+#[gpui::test]
+fn in_dark_mode_a_reported_light_appearance_keeps_one_dark(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"mode": "dark"}}"#);
+    cx.update(|cx| startup(cx, path));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    let (switches, _subscription) = cx.update(theme_switches);
+
+    // The recorded appearance is dark, so the window's light report is a change.
+    cx.update(|cx| record(cx, theme::Appearance::Dark));
+    window(cx);
+
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    assert_eq!(switches.get(), 0);
+}
+
+// The section's mode changes to system: the theme of the current appearance is
+// applied — dark here, so the theme stays.
+#[gpui::test]
+fn an_edit_to_system_applies_the_theme_of_the_current_appearance(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"mode": "dark"}}"#);
+    cx.update(|cx| startup(cx, path.clone()));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    let (switches, _subscription) = cx.update(theme_switches);
+
+    // The OS's appearance went dark while the mode was dark: it is recorded.
+    cx.update(|cx| record(cx, theme::Appearance::Dark));
+
+    std::fs::write(&path, r#"{"theme": {"mode": "system"}}"#).unwrap();
+    tick(cx);
+
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    assert_eq!(switches.get(), 0);
+}
+
+// The same edit while the current appearance is light switches to One Light.
+#[gpui::test]
+fn an_edit_to_system_switches_to_one_light(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"mode": "dark"}}"#);
+    cx.update(|cx| startup(cx, path.clone()));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
+    let (switches, _subscription) = cx.update(theme_switches);
+
+    std::fs::write(&path, r#"{"theme": {"mode": "system"}}"#).unwrap();
+    tick(cx);
+
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+    assert_eq!(switches.get(), 1);
+}
+
+// The same appearance reported twice does nothing.
+#[gpui::test]
+fn the_same_appearance_reported_twice_changes_nothing(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"mode": "system"}}"#);
+    cx.update(|cx| startup(cx, path));
+    cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
+    let (switches, _subscription) = cx.update(theme_switches);
+
+    window(cx);
+    window(cx);
 
     cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
     assert_eq!(switches.get(), 0);

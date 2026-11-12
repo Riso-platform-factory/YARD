@@ -1,7 +1,7 @@
 {
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "9ae0e45ea74d1928"
+      "app/riso/src/startup.rs": "9f9acdaf526d125c"
     },
     "promoted": "2026-11-13"
   },
@@ -95,7 +95,7 @@
   },
   "riso_ui/theme_setting": {
     "files": {
-      "crates/riso_ui/src/theme_setting.rs": "8b032f82b2ca7f69"
+      "crates/riso_ui/src/theme_setting.rs": "63c334d99fcf574c"
     },
     "promoted": "2026-11-13"
   },

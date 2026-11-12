@@ -46,7 +46,10 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
                     }),
                     ..Default::default()
                 },
-                riso_shell::new_shell,
+                |window, cx| {
+                    riso_ui::follow_appearance(window, cx);
+                    riso_shell::new_shell(window, cx)
+                },
             )
             .unwrap_or_else(|error| panic!("{} main window opens: {error}", product.name));
             cx.activate(true);

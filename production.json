@@ -5,6 +5,12 @@
     },
     "promoted": "2026-11-12"
   },
+  "riso_layout/layers": {
+    "files": {
+      "crates/riso_layout/src/layers.rs": "cf35a30bda94e6b5"
+    },
+    "promoted": "2026-11-12"
+  },
   "riso_layout/tree": {
     "files": {
       "crates/riso_layout/src/tree.rs": "116d72ffda479d91"
@@ -35,7 +41,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "29f90a57f3a08905"
+      "crates/riso_shell/src/shell.rs": "c33dcde12f51050e"
     },
     "promoted": "2026-11-12"
   },

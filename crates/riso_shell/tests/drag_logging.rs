@@ -320,6 +320,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
             [
                 "none: DEBUG message=drag started node=a",
                 r#"layout-op op="move" node="a" extension="riso": DEBUG message=node moved node=a parent=right slot=children index=2"#,
+                r#"layout-op op="move" node="a" extension="riso": DEBUG message=recorded user_layer=1"#,
             ]
         );
     }
@@ -354,8 +355,10 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
             [
                 "none: DEBUG message=drag started node=a",
                 r#"layout-op op="move" node="a" extension="riso": DEBUG message=node moved node=a parent=right slot=children index=0"#,
+                r#"layout-op op="move" node="a" extension="riso": DEBUG message=recorded user_layer=2"#,
                 "none: DEBUG message=drag started node=b",
                 r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=right slot=children index=1"#,
+                r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=3"#,
             ]
         );
     }
@@ -436,6 +439,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
             [
                 "none: DEBUG message=drag started node=c",
                 r#"layout-op op="move" node="c" extension="riso": DEBUG message=node moved node=c parent=root slot=children index=1"#,
+                r#"layout-op op="move" node="c" extension="riso": DEBUG message=recorded user_layer=5"#,
             ]
         );
     }
@@ -468,6 +472,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
             [
                 "none: DEBUG message=drag started node=b",
                 r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=root slot=children index=0"#,
+                r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=6"#,
             ]
         );
     }
@@ -606,8 +611,10 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
             [
                 "none: DEBUG message=drag started node=b",
                 r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=root slot=children index=2"#,
+                r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=1"#,
                 "none: DEBUG message=drag started node=c",
                 r#"layout-op op="move" node="c" extension="riso": DEBUG message=node moved node=c parent=root slot=children index=4"#,
+                r#"layout-op op="move" node="c" extension="riso": DEBUG message=recorded user_layer=2"#,
                 "none: DEBUG message=drag started node=a",
                 "none: DEBUG message=drop ignored node=a",
             ]

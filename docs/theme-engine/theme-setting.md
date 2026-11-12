@@ -34,7 +34,7 @@ pub fn active_theme(cx: &App) -> String;
 
 ## Rules
 
-Applying the section runs in a group, `theme-apply{mode, theme}`, inside `ui-init`. `theme` is the chosen name.
+Applying the section runs in a group, `theme-apply{mode, theme}`, inside `app-init`, right after `ui-init`. `theme` is the chosen name.
 
 | Situation | What happens | Log |
 |---|---|---|

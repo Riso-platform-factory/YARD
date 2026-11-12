@@ -34,7 +34,7 @@ pub fn observe<T: Settings>(cx: &mut App, on_change: impl FnMut(&mut App) + 'sta
 
 ## Rules
 
-`watch` runs in `settings-watch` and logs `started` at `debug`. Each check is logged at `trace`. A read runs in a group, `settings-reload{path}`, which belongs to the watch: the task that checks is spawned inside `settings-watch` with `.instrument`.
+`watch` runs in `settings-watch` and logs `started` at `debug`. Each check is logged at `trace`, without a group of its own, so that the trace does not get a line every second. A read runs in a group, `settings-reload{path}`, which belongs to the watch: the task that checks is spawned inside `settings-watch` with `.instrument`.
 
 | Situation | What happens | Log |
 |---|---|---|
@@ -43,7 +43,7 @@ pub fn observe<T: Settings>(cx: &mut App, on_change: impl FnMut(&mut App) + 'sta
 | The file was deleted | Every section that did not have its defaults gets them | `debug`: `changed {section}` for each |
 | A section's content in the file is the same as before | Nothing; its users are not told | — |
 | A section's content changed and can be read | It gets the new value, with defaults where the file says nothing; its users are told | `debug`: `changed {section}` |
-| A section's content changed and cannot be read | It keeps its value | `WARN`: `section <key> cannot be read: <reason>` |
+| A section's content changed and cannot be read | It keeps its value. The broken content counts as seen, so it is not reported again while it stays the same | `WARN`: `section <key> cannot be read: <reason>`, once |
 | A section's key was removed from the file | It gets its defaults; its users are told | `debug`: `changed {section}` |
 
 Each read ends with `debug`: `reloaded {changed}`, the number of sections that changed.
@@ -61,7 +61,7 @@ fn changed_sections(applied: &[(&'static str, Option<Value>)], content: &Map<Str
 
 - `parse_content` gives the JSON object, or the reason it is not one. `load` uses it too.
 - `changed_sections` takes, for each registered key, the content that was last applied, and gives the keys whose content in the new file differs, with their new content. A removed key gives nothing as its new content. Contents are compared as JSON values.
-- A section that cannot be read keeps its last applied content, so it is decoded again only when its content changes again. The GPUI part only checks the file on a timer, calls it, and publishes the result. GPUI tells the observers of a global every time it is set, even to an equal value, so a section that did not change is not set again.
+- A section that cannot be read keeps its value, but its new content counts as seen: it is decoded again only when its content changes again, so its `WARN` is not repeated when another section changes. The GPUI part only checks the file on a timer, calls it, and publishes the result. GPUI tells the observers of a global every time it is set, even to an equal value, so a section that did not change is not set again.
 
 ## Where the code changes
 

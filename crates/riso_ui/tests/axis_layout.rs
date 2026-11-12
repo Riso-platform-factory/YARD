@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{Along, AppContext, IntoElement, ParentElement, Styled};
 use std::{cell::RefCell, rc::Rc};
 
@@ -28,7 +26,7 @@ impl tracing::Subscriber for Trace {
     fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
     fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
     fn event(&self, event: &tracing::Event<'_>) {
-        if event.metadata().target() == "riso_ui::dev::axis" {
+        if event.metadata().target() == "riso_ui::axis" {
             let mut fields = Fields(event.metadata().level().to_string());
             event.record(&mut fields);
             self.0.lock().unwrap().push(fields.0);
@@ -60,7 +58,7 @@ impl gpui::Render for Probe {
             .collect();
         gpui::div()
             .size_full()
-            .child(riso_ui::dev::axis(self.axis, children))
+            .child(riso_ui::axis(self.axis, children))
     }
 }
 

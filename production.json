@@ -7,9 +7,9 @@
   },
   "riso_layout/tree": {
     "files": {
-      "crates/riso_layout/src/tree.rs": "ca8169b281ac57b6"
+      "crates/riso_layout/src/tree.rs": "82445267ab4d91a8"
     },
-    "promoted": "2026-11-11"
+    "promoted": "2026-11-12"
   },
   "riso_log/diagnostic_log": {
     "files": {
@@ -35,7 +35,13 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "83d01127373a8e72"
+      "crates/riso_shell/src/shell.rs": "8b96da271eee62a0"
+    },
+    "promoted": "2026-11-12"
+  },
+  "riso_ui/axis": {
+    "files": {
+      "crates/riso_ui/src/axis.rs": "e039ff351e94e674"
     },
     "promoted": "2026-11-12"
   },

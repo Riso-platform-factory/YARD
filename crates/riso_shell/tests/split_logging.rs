@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -119,9 +117,9 @@ fn splits_are_built_in_and_log_the_shown_tree(cx: &mut TestAppContext) {
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
             let _group = tracing::info_span!("extension-init", extension = "tour").entered();
-            assert!(riso_shell::dev::Extension::new(cx, "riso").is_none());
-            let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
-            let guest = riso_shell::dev::Extension::new(cx, "guest").unwrap();
+            assert!(riso_shell::Extension::new(cx, "riso").is_none());
+            let host = riso_shell::Extension::new(cx, "tour").unwrap();
+            let guest = riso_shell::Extension::new(cx, "guest").unwrap();
             host.register(cx, "riso.badge", &[], |_, _, _, _| {
                 panic!("reserved registration accepted")
             });
@@ -138,7 +136,7 @@ fn splits_are_built_in_and_log_the_shown_tree(cx: &mut TestAppContext) {
             host.place(cx, "missing", "tour.missing", "root", "children");
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         gpui::AnyWindowHandle::from(window)

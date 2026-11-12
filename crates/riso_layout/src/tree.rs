@@ -110,6 +110,8 @@ impl fmt::Display for SlotName {
 pub struct Node {
     pub id: NodeId,
     pub component: ComponentId,
+    /// The name of the extension that placed the node. The shell checks the name.
+    pub extension: String,
 }
 
 /// The main window's layout.
@@ -129,12 +131,18 @@ impl Tree {
             tracing::info!(
                 node = %node.id,
                 component = %node.component,
+                extension = %node.extension,
                 root = %root.id,
                 "a root is already placed",
             );
             return Err(PlaceError::RootTaken);
         }
-        tracing::debug!(node = %node.id, component = %node.component, "root placed");
+        tracing::debug!(
+            node = %node.id,
+            component = %node.component,
+            extension = %node.extension,
+            "root placed"
+        );
         self.root = Some(node);
         Ok(())
     }
@@ -144,6 +152,7 @@ impl Tree {
             tracing::info!(
                 node = %node.id,
                 component = %node.component,
+                extension = %node.extension,
                 parent = %parent,
                 slot = %slot,
                 "the node ID is already in the tree",
@@ -154,6 +163,7 @@ impl Tree {
             tracing::info!(
                 node = %node.id,
                 component = %node.component,
+                extension = %node.extension,
                 parent = %parent,
                 slot = %slot,
                 "the parent is not in the tree",
@@ -163,6 +173,7 @@ impl Tree {
         tracing::debug!(
             node = %node.id,
             component = %node.component,
+            extension = %node.extension,
             parent = %parent,
             slot = %slot,
             "node placed",
@@ -307,9 +318,11 @@ mod tests {
         let node = |id| Node {
             id: NodeId::parse(id).unwrap(),
             component: ComponentId::parse("tour.card").unwrap(),
+            extension: "placer".into(),
         };
         tree.place_root(node("root")).unwrap();
         assert_eq!(tree.root().unwrap().id.as_str(), "root");
+        assert_eq!(tree.root().unwrap().extension, "placer");
         let error = tree.place_root(node("second")).unwrap_err();
         assert_eq!(tree.root().unwrap().id.as_str(), "root");
         assert!(error.to_string().contains("root"));
@@ -320,6 +333,7 @@ mod tests {
         Node {
             id: NodeId::parse(id).unwrap(),
             component: ComponentId::parse("tour.card").unwrap(),
+            extension: "placer".into(),
         }
     }
 
@@ -371,6 +385,10 @@ mod tests {
             SlotName::parse("body").unwrap(),
         )
         .unwrap();
+        assert_eq!(tree.root().unwrap().extension, "placer");
+        for (_, children) in tree.slots(&root) {
+            assert!(children.iter().all(|node| node.extension == "placer"));
+        }
         let slots: Vec<_> = tree
             .slots(&root)
             .map(|(slot, nodes)| {

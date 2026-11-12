@@ -235,11 +235,11 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
                 "slug must start with a lowercase ASCII letter",
             ),
             r#"INFO root-place node="root" component="tour.card""#,
-            "  root-place: DEBUG message=root placed node=root component=tour.card",
+            "  root-place: DEBUG message=root placed node=root component=tour.card extension=tour",
             r#"INFO root-place node="second" component="tour.card""#,
             concat!(
                 "  root-place: INFO message=a root is already placed node=second ",
-                "component=tour.card root=root",
+                "component=tour.card extension=tour root=root",
             ),
             "INFO shell-create root=root",
             "INFO component-create node=root component=tour.card extension=tour",
@@ -248,7 +248,7 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
             "INFO shell-create root=none",
             "  shell-create: INFO message=no root placed; the window shows the background",
             r#"INFO root-place node="missing" component="tour.missing""#,
-            "  root-place: DEBUG message=root placed node=missing component=tour.missing",
+            "  root-place: DEBUG message=root placed node=missing component=tour.missing extension=tour",
             "INFO shell-create root=missing",
             "INFO component-create node=missing component=tour.missing extension=tour",
             concat!(
@@ -384,7 +384,7 @@ fn slots_contract(cx: &mut TestAppContext) {
         "node-place: INFO message=the parent is not in the tree node=lost",
         "node-place: INFO message=the node ID is already in the tree node=root",
         "node-place: INFO message=the node ID is already in the tree node=left",
-        "node-place: DEBUG message=node placed node=left component=tour.card parent=root slot=body",
+        "node-place: DEBUG message=node placed node=left component=tour.card extension=tour parent=root slot=body",
         "component-create: ERROR message=node missing names unregistered component tour.missing",
         concat!(
             "component-create: ERROR message=node aside is placed in slot ",

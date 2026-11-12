@@ -7,11 +7,9 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "dep:layout_tour", "layout_tour/dev", "dep:layout_guest", "layout_guest/dev"]
+dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev"]
 
 [dependencies]
-layout_tour = { path = "../../examples/layout_tour", optional = true, default-features = false }
-layout_guest = { path = "../../examples/layout_guest", optional = true, default-features = false }
 gpui.workspace = true
 gpui_platform.workspace = true
 

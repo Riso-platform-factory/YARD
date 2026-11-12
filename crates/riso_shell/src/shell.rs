@@ -1,8 +1,8 @@
 //! Component factories and the root view kept by the main window.
 
 use gpui::{
-    AnyView, App, AppContext, Context, Entity, Global, IntoElement, ParentElement, Render, Styled,
-    Window, div,
+    AnyView, App, AppContext, Axis, Context, Entity, Global, IntoElement, ParentElement, Render,
+    Styled, Window, div,
 };
 use riso_layout::{ComponentId, Node, NodeId, SlotName, Tree};
 use std::{
@@ -36,13 +36,56 @@ impl Slots {
     }
 }
 
-#[derive(Default)]
 struct Registry {
     extensions: BTreeSet<String>,
     components: BTreeMap<ComponentId, Component>,
     tree: Tree,
 }
+impl Default for Registry {
+    fn default() -> Self {
+        let components = [
+            ("riso.row", Axis::Horizontal),
+            ("riso.column", Axis::Vertical),
+        ]
+        .into_iter()
+        .map(|(name, axis)| {
+            (
+                ComponentId::parse(name).unwrap(),
+                Component {
+                    slots: vec![SlotName::parse("children").unwrap()],
+                    create: Rc::new(move |_, slots, _, cx| {
+                        cx.new(|_| Split { axis, slots }).into()
+                    }),
+                },
+            )
+        })
+        .collect();
+        Self {
+            extensions: BTreeSet::new(),
+            components,
+            tree: Tree::default(),
+        }
+    }
+}
 impl Global for Registry {}
+
+struct Split {
+    axis: Axis,
+    slots: Slots,
+}
+
+impl Render for Split {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        riso_ui::axis(
+            self.axis,
+            self.slots
+                .views("children")
+                .into_iter()
+                .map(IntoElement::into_any_element)
+                .collect(),
+        )
+    }
+}
 
 /// The application-assigned namespace for an extension's contributions.
 #[derive(Clone)]
@@ -53,6 +96,10 @@ pub struct Extension {
 impl Extension {
     /// Creates an extension handle. Called only by the startup.
     pub fn new(cx: &mut App, name: &str) -> Option<Extension> {
+        if name == "riso" {
+            log::error!("riso is the shell's own namespace");
+            return None;
+        }
         // An extension name follows the same slug rule as a node ID.
         if let Err(error) = NodeId::parse(name) {
             log::error!("invalid extension name {name:?}: {error}");
@@ -139,14 +186,17 @@ impl Extension {
                 return;
             }
         };
-        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+        if component.as_str().split('.').next() != Some(self.name.as_str())
+            && component.as_str().split('.').next() != Some("riso")
+        {
             log::error!("extension {} cannot place component {component}", self.name);
             return;
         }
-        let _ = cx
-            .default_global::<Registry>()
-            .tree
-            .place_root(Node { id, component });
+        let _ = cx.default_global::<Registry>().tree.place_root(Node {
+            id,
+            component,
+            extension: self.name.clone(),
+        });
     }
 
     /// Places a node under an already placed parent.
@@ -166,7 +216,9 @@ impl Extension {
                 return;
             }
         };
-        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+        if component.as_str().split('.').next() != Some(self.name.as_str())
+            && component.as_str().split('.').next() != Some("riso")
+        {
             log::error!("extension {} cannot place component {component}", self.name);
             return;
         }
@@ -184,10 +236,15 @@ impl Extension {
                 return;
             }
         };
-        let _ = cx
-            .default_global::<Registry>()
-            .tree
-            .place(Node { id, component }, &parent, slot);
+        let _ = cx.default_global::<Registry>().tree.place(
+            Node {
+                id,
+                component,
+                extension: self.name.clone(),
+            },
+            &parent,
+            slot,
+        );
     }
 }
 
@@ -223,12 +280,11 @@ fn create_view(
     cx: &mut App,
     views: &mut Vec<AnyView>,
 ) -> Option<AnyView> {
-    let extension = node.component.as_str().split('.').next().unwrap();
     let _group = tracing::info_span!(
         "component-create",
         node = %node.id,
         component = %node.component,
-        extension = %extension,
+        extension = %node.extension,
     )
     .entered();
     if let Some((component, declared, slot)) = parent
@@ -277,6 +333,17 @@ fn create_view(
             })
             .collect();
         slots.0.borrow_mut().push((slot, children));
+    }
+    if let Some(axis) = match node.component.as_str() {
+        "riso.row" => Some("row"),
+        "riso.column" => Some("column"),
+        _ => None,
+    } {
+        tracing::debug!(
+            axis,
+            children = slots.views("children").len(),
+            "split created"
+        );
     }
     Some(view)
 }

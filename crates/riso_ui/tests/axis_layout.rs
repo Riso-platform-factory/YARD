@@ -59,7 +59,7 @@ impl gpui::Render for Probe {
         gpui::div().size_full().child(riso_ui::axis(
             "probe",
             self.axis,
-            Rc::new(RefCell::new(Vec::new())),
+            Rc::new(RefCell::new(vec![1.; self.count])),
             children,
         ))
     }

@@ -2,7 +2,7 @@
 
 use gpui::{
     AnyView, App, AppContext, Axis, Context, Entity, Global, IntoElement, ParentElement, Render,
-    Styled, Window, div,
+    Styled, WeakEntity, Window, div,
 };
 use riso_layout::{ComponentId, Node, NodeId, SlotName, Tree};
 use std::{
@@ -23,7 +23,7 @@ type SlotViews = Vec<(SlotName, Vec<(NodeId, AnyView)>)>;
 
 /// A node's shown children, filled before the first render.
 #[derive(Clone)]
-pub struct Slots(Rc<RefCell<SlotViews>>);
+pub struct Slots(Rc<RefCell<SlotViews>>, Rc<RefCell<Tree>>);
 
 impl Slots {
     pub fn nodes(&self, slot: &str) -> Vec<NodeId> {
@@ -31,7 +31,13 @@ impl Slots {
             .borrow()
             .iter()
             .find(|(name, _)| name.as_str() == slot)
-            .map(|(_, views)| views.iter().map(|(node, _)| node.clone()).collect())
+            .map(|(_, views)| {
+                views
+                    .iter()
+                    .filter(|(node, _)| !self.1.borrow().is_hidden(node))
+                    .map(|(node, _)| node.clone())
+                    .collect()
+            })
             .unwrap_or_default()
     }
 
@@ -40,7 +46,13 @@ impl Slots {
             .borrow()
             .iter()
             .find(|(name, _)| name.as_str() == slot)
-            .map(|(_, views)| views.iter().map(|(_, view)| view.clone()).collect())
+            .map(|(_, views)| {
+                views
+                    .iter()
+                    .filter(|(node, _)| !self.1.borrow().is_hidden(node))
+                    .map(|(_, view)| view.clone())
+                    .collect()
+            })
             .unwrap_or_default()
     }
 }
@@ -48,7 +60,8 @@ impl Slots {
 struct Registry {
     extensions: BTreeSet<String>,
     components: BTreeMap<ComponentId, Component>,
-    tree: Tree,
+    tree: Rc<RefCell<Tree>>,
+    tabs: Vec<WeakEntity<Tabs>>,
 }
 impl Default for Registry {
     fn default() -> Self {
@@ -67,7 +80,9 @@ impl Default for Registry {
                             node: node.clone(),
                             axis,
                             slots,
-                            shares: Rc::new(RefCell::new(Vec::new())),
+                            shares: BTreeMap::new(),
+                            shown_nodes: Vec::new(),
+                            shown_shares: Rc::new(RefCell::new(Vec::new())),
                         })
                         .into()
                     }),
@@ -80,19 +95,21 @@ impl Default for Registry {
             Component {
                 slots: vec![SlotName::parse("children").unwrap()],
                 create: Rc::new(|node, slots, _, cx| {
-                    cx.new(|_| Tabs {
+                    let tabs = cx.new(|_| Tabs {
                         node: node.clone(),
                         slots,
-                        selected: 0,
-                    })
-                    .into()
+                        selected: None,
+                    });
+                    cx.default_global::<Registry>().tabs.push(tabs.downgrade());
+                    tabs.into()
                 }),
             },
         );
         Self {
             extensions: BTreeSet::new(),
             components,
-            tree: Tree::default(),
+            tree: Rc::new(RefCell::new(Tree::default())),
+            tabs: Vec::new(),
         }
     }
 }
@@ -100,17 +117,40 @@ impl Global for Registry {}
 
 struct Split {
     node: NodeId,
-    shares: Rc<RefCell<Vec<f32>>>,
+    shares: BTreeMap<NodeId, f32>,
+    shown_nodes: Vec<NodeId>,
+    shown_shares: Rc<RefCell<Vec<f32>>>,
     axis: Axis,
     slots: Slots,
 }
 
 impl Render for Split {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        // The axis mutates this vector during mouse events. Save it against the
+        // previous IDs before replacing it with the current shown children.
+        for (node, share) in self
+            .shown_nodes
+            .iter()
+            .zip(self.shown_shares.borrow().iter())
+        {
+            self.shares.insert(node.clone(), *share);
+        }
+        let nodes = self.slots.nodes("children");
+        let shares = nodes
+            .iter()
+            .map(|node| *self.shares.entry(node.clone()).or_insert(1.))
+            .collect();
+        if nodes != self.shown_nodes {
+            // A changed child set also ends any positional drag in the axis.
+            self.shown_shares = Rc::new(RefCell::new(shares));
+        } else {
+            *self.shown_shares.borrow_mut() = shares;
+        }
+        self.shown_nodes = nodes;
         riso_ui::axis(
             gpui::SharedString::from(self.node.to_string()),
             self.axis,
-            self.shares.clone(),
+            self.shown_shares.clone(),
             self.slots
                 .views("children")
                 .into_iter()
@@ -123,35 +163,47 @@ impl Render for Split {
 struct Tabs {
     node: NodeId,
     slots: Slots,
-    selected: usize,
+    selected: Option<NodeId>,
 }
 
 impl Tabs {
-    fn select(&mut self, index: usize, cx: &mut Context<Self>) {
-        if index == self.selected {
+    fn reconcile_selection(&mut self) {
+        let nodes = self.slots.nodes("children");
+        if !self
+            .selected
+            .as_ref()
+            .is_some_and(|node| nodes.contains(node))
+        {
+            self.selected = nodes.first().cloned();
+        }
+    }
+
+    fn select(&mut self, node: NodeId, cx: &mut Context<Self>) {
+        if self.selected.as_ref() == Some(&node) {
             return;
         }
-        let child_id = &self.slots.nodes("children")[index];
-        self.selected = index;
+        self.selected = Some(node.clone());
         cx.notify();
-        tracing::debug!(tabs = %self.node, tab = %child_id, "tab selected");
+        tracing::debug!(tabs = %self.node, tab = %node, "tab selected");
     }
 }
 
 impl Render for Tabs {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let tabs = self
-            .slots
-            .nodes("children")
+        self.reconcile_selection();
+        let nodes = self.slots.nodes("children");
+        let selected_index = nodes
+            .iter()
+            .position(|node| Some(node) == self.selected.as_ref());
+        let tabs = nodes
             .into_iter()
-            .enumerate()
-            .map(|(index, node)| {
+            .map(|node| {
                 let entity = cx.entity().downgrade();
                 let id = gpui::SharedString::from(node.to_string());
                 riso_ui::Tab::new(id.clone(), id)
-                    .selected(index == self.selected)
+                    .selected(Some(&node) == self.selected.as_ref())
                     .on_click(move |_, cx| {
-                        let _ = entity.update(cx, |tabs, cx| tabs.select(index, cx));
+                        let _ = entity.update(cx, |tabs, cx| tabs.select(node.clone(), cx));
                     })
             })
             .collect();
@@ -161,13 +213,19 @@ impl Render for Tabs {
             .size_full()
             .child(riso_ui::TabBar::new(gpui::SharedString::from(self.node.to_string())).tabs(tabs))
             .children(
-                self.slots
-                    .views("children")
-                    .get(self.selected)
-                    .cloned()
+                selected_index
+                    .and_then(|index| self.slots.views("children").get(index).cloned())
                     .map(|view| div().flex_1().min_h_0().child(view)),
             )
     }
+}
+
+/// Returns a node's own visibility flag for extension controls.
+pub fn is_hidden(cx: &App, node: &str) -> bool {
+    NodeId::parse(node).is_ok_and(|node| {
+        cx.try_global::<Registry>()
+            .is_some_and(|registry| registry.tree.borrow().is_hidden(&node))
+    })
 }
 
 /// The application-assigned namespace for an extension's contributions.
@@ -197,6 +255,33 @@ impl Extension {
             return None;
         }
         Some(Self { name: name.into() })
+    }
+
+    /// Hides or shows any non-root node while retaining its view.
+    pub fn set_hidden(&self, cx: &mut App, node: &str, hidden: bool) {
+        let _group =
+            tracing::info_span!("node-visibility", node, hidden, extension = self.name).entered();
+        let node = match NodeId::parse(node) {
+            Ok(node) => node,
+            Err(error) => {
+                log::error!("invalid node ID {node:?}: {error}");
+                return;
+            }
+        };
+        let changed = cx
+            .default_global::<Registry>()
+            .tree
+            .borrow_mut()
+            .set_hidden(&node, hidden);
+        if changed == Ok(true) {
+            // Reconcile at the transition, including tabs that cannot currently
+            // render under a hidden ancestor or an inactive parent tab.
+            let tabs = cx.default_global::<Registry>().tabs.clone();
+            for tabs in tabs {
+                let _ = tabs.update(cx, |tabs, _| tabs.reconcile_selection());
+            }
+            cx.refresh_windows();
+        }
     }
 
     /// Registers the first factory for a valid component ID.
@@ -275,11 +360,15 @@ impl Extension {
             log::error!("extension {} cannot place component {component}", self.name);
             return;
         }
-        let _ = cx.default_global::<Registry>().tree.place_root(Node {
-            id,
-            component,
-            extension: self.name.clone(),
-        });
+        let _ = cx
+            .default_global::<Registry>()
+            .tree
+            .borrow_mut()
+            .place_root(Node {
+                id,
+                component,
+                extension: self.name.clone(),
+            });
     }
 
     /// Places a node under an already placed parent.
@@ -319,7 +408,7 @@ impl Extension {
                 return;
             }
         };
-        let _ = cx.default_global::<Registry>().tree.place(
+        let _ = cx.default_global::<Registry>().tree.borrow_mut().place(
             Node {
                 id,
                 component,
@@ -339,7 +428,12 @@ pub struct Shell {
 
 /// Creates the shown nodes once, parent before children, when the window opens.
 pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
-    let root = cx.default_global::<Registry>().tree.root().cloned();
+    let root = cx
+        .default_global::<Registry>()
+        .tree
+        .borrow()
+        .root()
+        .cloned();
     let _group = tracing::info_span!(
         "shell-create",
         root = %root.as_ref().map_or("none", |node| node.id.as_str())
@@ -386,6 +480,7 @@ fn create_view(
         let component = registry.components.get(&node.component).cloned();
         let children = registry
             .tree
+            .borrow()
             .slots(&node.id)
             .map(|(slot, nodes)| (slot.clone(), nodes.to_vec()))
             .collect::<Vec<_>>();
@@ -399,7 +494,10 @@ fn create_view(
         );
         return None;
     };
-    let slots = Slots(Rc::new(RefCell::new(Vec::new())));
+    let slots = Slots(
+        Rc::new(RefCell::new(Vec::new())),
+        cx.default_global::<Registry>().tree.clone(),
+    );
     let view = (component.create)(&node.id, slots.clone(), window, cx);
     views.push((node.id.clone(), view.clone()));
     for (slot, nodes) in children {

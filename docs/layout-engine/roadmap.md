@@ -44,7 +44,7 @@ Status is one of: planned, dev, production.
 | 4 | `split` | A container that shows its children side by side, in a row or a column, in equal shares. Splits nest | Three cards in a row; a column inside a row | the axis layout of `pane_group.rs` | 3 | production |
 | 5 | `split-resize` | Dragging the handle between two children changes their shares. A child has a minimum size | Dragging a handle; a child that stops at its minimum | the handles and the resize rules of `pane_group.rs` | 4 | production |
 | 6 | `tabs` | A container that shows one child at a time under a tab bar | Three cards as tabs; clicking a tab shows its card | `TabBar` and `Tab` of `ui` | 4, foundation 7 | production |
-| 7 | `hide-show` | A hidden node keeps its state and gives its space to the others. An action hides and shows a node | A card that counts; hidden and shown again, it kept its count | the toggling of `dock.rs`, as reference | 4 | planned |
+| 7 | `hide-show` | A hidden node keeps its state and gives its space to the others. An action hides and shows a node | A card that counts; hidden and shown again, it kept its count | the toggling of `dock.rs`, as reference | 4 | production |
 
 ### Changes while the application runs
 

@@ -7,11 +7,9 @@
 //! `LAYOUT_TOUR=tabs LAYOUT_GUEST=tab cargo run dev`: a fourth tab in the host.
 //! `LAYOUT_GUEST=card cargo run dev`: the absent host's parent is refused.
 
-#![cfg(feature = "dev")]
-
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("LAYOUT_GUEST").unwrap_or_default();
     if case.is_empty() {
         return;

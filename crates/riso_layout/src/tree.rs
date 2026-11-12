@@ -1,6 +1,6 @@
 //! Component and node IDs, and the window's tree of named slots.
 
-use std::{error::Error, fmt};
+use std::{collections::BTreeSet, error::Error, fmt};
 
 /// A broken ID rule.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +64,7 @@ impl fmt::Display for ComponentId {
 }
 
 /// The slug naming one placed instance.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NodeId(String);
 
 impl NodeId {
@@ -118,10 +118,40 @@ pub struct Node {
 #[derive(Default)]
 pub struct Tree {
     root: Option<Node>,
+    hidden: BTreeSet<NodeId>,
     slots: Vec<(NodeId, SlotName, Vec<Node>)>,
 }
 
 impl Tree {
+    /// Changes only this node's flag; descendants keep their own flags.
+    pub fn set_hidden(&mut self, node: &NodeId, hidden: bool) -> Result<bool, HideError> {
+        if !self.contains(node) {
+            tracing::info!(node = %node, "the node is not in the tree");
+            return Err(HideError::MissingNode);
+        }
+        if self.root.as_ref().is_some_and(|root| &root.id == node) {
+            tracing::info!(node = %node, "the root cannot be hidden or shown");
+            return Err(HideError::Root);
+        }
+        if self.is_hidden(node) == hidden {
+            tracing::debug!(node = %node, hidden, "already in that state");
+            return Ok(false);
+        }
+        if hidden {
+            self.hidden.insert(node.clone());
+            tracing::debug!(node = %node, "node hidden");
+        } else {
+            self.hidden.remove(node);
+            tracing::debug!(node = %node, "node shown");
+        }
+        Ok(true)
+    }
+
+    /// Returns the node's own flag, independently of its ancestors.
+    pub fn is_hidden(&self, node: &NodeId) -> bool {
+        self.hidden.contains(node)
+    }
+
     pub fn root(&self) -> Option<&Node> {
         self.root.as_ref()
     }
@@ -209,6 +239,23 @@ impl Tree {
     }
 }
 
+/// A visibility change refused without changing the tree.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HideError {
+    MissingNode,
+    Root,
+}
+
+impl fmt::Display for HideError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::MissingNode => "the node is not in the tree",
+            Self::Root => "the root cannot be hidden or shown",
+        })
+    }
+}
+impl Error for HideError {}
+
 /// A placement refused without changing the tree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlaceError {
@@ -231,6 +278,64 @@ impl Error for PlaceError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn visibility_flags_start_shown_and_changes_preserve_the_tree() {
+        let mut tree = Tree::default();
+        let root = NodeId::parse("root").unwrap();
+        let child = NodeId::parse("child").unwrap();
+        let missing = NodeId::parse("missing").unwrap();
+        for hidden in [true, false] {
+            assert_eq!(
+                tree.set_hidden(&missing, hidden),
+                Err(HideError::MissingNode)
+            );
+        }
+        tree.place_root(node("root")).unwrap();
+        tree.place(node("child"), &root, SlotName::parse("body").unwrap())
+            .unwrap();
+        assert!(!tree.is_hidden(&root));
+        assert!(!tree.is_hidden(&child));
+        assert!(!tree.is_hidden(&missing));
+        for hidden in [false, true] {
+            assert_eq!(tree.set_hidden(&root, hidden), Err(HideError::Root));
+            assert!(!tree.is_hidden(&root));
+        }
+        assert_eq!(tree.set_hidden(&child, false), Ok(false));
+        assert_eq!(tree.set_hidden(&child, true), Ok(true));
+        assert!(tree.is_hidden(&child));
+        assert_eq!(tree.set_hidden(&child, true), Ok(false));
+        assert_eq!(tree.set_hidden(&child, false), Ok(true));
+        assert!(!tree.is_hidden(&child));
+        assert_eq!(tree.root().unwrap().id, root);
+        assert_eq!(tree.slots(&root).next().unwrap().1[0].id, child);
+        for error in [HideError::MissingNode, HideError::Root] {
+            assert!(!error.to_string().is_empty());
+            let _: &dyn Error = &error;
+        }
+    }
+
+    #[test]
+    fn descendants_keep_their_own_flags_while_an_ancestor_is_hidden() {
+        let mut tree = Tree::default();
+        let root = NodeId::parse("root").unwrap();
+        let parent = NodeId::parse("parent").unwrap();
+        let child = NodeId::parse("child").unwrap();
+        tree.place_root(node("root")).unwrap();
+        tree.place(node("parent"), &root, SlotName::parse("body").unwrap())
+            .unwrap();
+        tree.place(node("child"), &parent, SlotName::parse("body").unwrap())
+            .unwrap();
+        tree.set_hidden(&parent, true).unwrap();
+        assert!(!tree.is_hidden(&child));
+        tree.set_hidden(&child, true).unwrap();
+        tree.set_hidden(&parent, false).unwrap();
+        assert!(tree.is_hidden(&child));
+        tree.set_hidden(&parent, true).unwrap();
+        tree.set_hidden(&child, false).unwrap();
+        assert!(tree.is_hidden(&parent));
+        assert!(!tree.is_hidden(&child));
+    }
 
     #[test]
     fn node_ids_accept_every_slug_character() {

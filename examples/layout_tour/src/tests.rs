@@ -46,7 +46,7 @@ fn the_card_renders_each_measured_size_and_settles(cx: &mut gpui::TestAppContext
     let notifications = Rc::new(Cell::new(0));
     tracing::subscriber::with_default(trace.clone(), || {
         let window = cx.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "layout_tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "layout_tour").unwrap();
             let notifications = notifications.clone();
             ext.register(
                 cx,
@@ -68,7 +68,7 @@ fn the_card_renders_each_measured_size_and_settles(cx: &mut gpui::TestAppContext
                 },
             );
             ext.place_root(cx, "root", "layout_tour.card");
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         for dimensions in [(640., 480.), (900., 600.), (400., 300.)] {
@@ -134,7 +134,7 @@ fn visibility_controls_keep_the_count(cx: &mut gpui::TestAppContext) {
         app.update(riso_ui::init);
         let card = Rc::new(std::cell::RefCell::new(None));
         let window = app.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "layout_tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "layout_tour").unwrap();
             let card = card.clone();
             ext.register(
                 cx,
@@ -172,7 +172,7 @@ fn visibility_controls_keep_the_count(cx: &mut gpui::TestAppContext) {
             for node in ["a", "b"] {
                 ext.place(cx, node, "layout_tour.card", parent, "children");
             }
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         app.simulate_window_resize(window.into(), gpui::size(gpui::px(900.), gpui::px(600.)));
@@ -202,12 +202,12 @@ fn visibility_controls_keep_the_count(cx: &mut gpui::TestAppContext) {
         assert_eq!(app.update(|cx| card.read(cx).count), 3);
         click(&mut visual, "VISIBILITY-b");
         draw(&mut app);
-        assert!(app.update(|cx| riso_shell::dev::is_hidden(cx, "b")));
+        assert!(app.update(|cx| riso_shell::is_hidden(cx, "b")));
         assert!(visual.debug_bounds("COUNT-b").is_none());
         assert!(visual.debug_bounds("COUNT-a").is_some());
         click(&mut visual, "VISIBILITY-b");
         draw(&mut app);
-        assert!(!app.update(|cx| riso_shell::dev::is_hidden(cx, "b")));
+        assert!(!app.update(|cx| riso_shell::is_hidden(cx, "b")));
         if tabs {
             assert!(visual.debug_bounds("COUNT-b").is_none());
             click(&mut visual, "TAB-b");

@@ -24,8 +24,6 @@
 //! `LAYOUT_TOUR=hide-root cargo run dev`: hiding the root is refused.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -34,7 +32,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -190,7 +188,7 @@ struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 
 impl Card {
@@ -283,7 +281,7 @@ impl Render for Card {
 
 struct Controls {
     nodes: Vec<String>,
-    ext: riso_shell::dev::Extension,
+    ext: riso_shell::Extension,
 }
 
 impl Render for Controls {
@@ -299,7 +297,7 @@ impl Render for Controls {
             .text_color(palette.text)
             .bg(palette.background)
             .children(self.nodes.iter().map(|node| {
-                let hidden = riso_shell::dev::is_hidden(cx, node);
+                let hidden = riso_shell::is_hidden(cx, node);
                 let id = node.clone();
                 let ext = self.ext.clone();
                 div()

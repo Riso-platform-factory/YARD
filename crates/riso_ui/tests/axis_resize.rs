@@ -99,7 +99,7 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-            let shares = Rc::new(RefCell::new(Vec::new()));
+            let mut shares = Rc::new(RefCell::new(vec![1.; 3]));
             let bounds = Rc::new(RefCell::new(Vec::new()));
             let window = cx.update(|cx| {
                 cx.open_window(gpui::WindowOptions::default(), |_, cx| {
@@ -219,14 +219,20 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
                 gpui::MouseButton::Left,
                 Default::default(),
             );
-            // A mismatched count resets caller-owned shares before layout, including zero.
+            // Changing the child set supplies matching shares without resetting the previous vector.
+            let previous = shares.clone();
+            let retained = previous.borrow().clone();
             for count in [1, 0, 3] {
+                shares = Rc::new(RefCell::new(vec![1.; count]));
                 window
-                    .update(cx, |probe, _, _| probe.count = count)
+                    .update(cx, |probe, _, _| {
+                        probe.count = count;
+                        probe.shares = shares.clone();
+                    })
                     .unwrap();
                 draw(window, cx);
-                assert_eq!(*shares.borrow(), vec![1.; count]);
             }
+            assert_eq!(*previous.borrow(), retained);
             // A split made smaller than its minimums cannot be resized.
             cx.simulate_window_resize(window.into(), initial.apply_along(axis, |_| gpui::px(180.)));
             draw(window, cx);

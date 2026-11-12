@@ -11,7 +11,10 @@ use gpui::{
     GlobalElementId, Hitbox, HitboxBehavior, InspectorElementId, IntoElement, LayoutId,
     MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, Style, Window, fill, px, relative, size,
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 const DIVIDER_SIZE: f32 = 1.0;
 const HANDLE_HITBOX_SIZE: f32 = 4.0;
@@ -38,6 +41,11 @@ pub struct Axis {
     axis: Direction,
     shares: Rc<RefCell<Vec<f32>>>,
     children: Vec<AnyElement>,
+}
+
+struct DragState {
+    shares: Weak<RefCell<Vec<f32>>>,
+    handle: Rc<RefCell<Option<usize>>>,
 }
 
 struct HandleLayout {
@@ -100,18 +108,25 @@ impl Element for Axis {
         window: &mut Window,
         cx: &mut App,
     ) -> AxisLayout {
-        let dragged_handle = window.with_element_state::<Rc<RefCell<Option<usize>>>, _>(
-            global_id.unwrap(),
-            |state, _| {
-                let state = state.unwrap_or_else(|| Rc::new(RefCell::new(None)));
-                (state.clone(), state)
-            },
-        );
         let count = self.children.len();
+        debug_assert_eq!(self.shares.borrow().len(), count, "one share per child");
         if self.shares.borrow().len() != count {
-            *self.shares.borrow_mut() = vec![1.; count];
-            dragged_handle.replace(None);
+            // Keep the release fallback local: never reset the caller's shares.
+            self.shares = Rc::new(RefCell::new(vec![1.; count]));
         }
+        let shares_identity = Rc::downgrade(&self.shares);
+        let dragged_handle =
+            window.with_element_state::<DragState, _>(global_id.unwrap(), |state, _| {
+                // A new vector identifies a new child set. A positional drag
+                // must never carry over to different children, even at the same count.
+                let state = state
+                    .filter(|state| state.shares.ptr_eq(&shares_identity))
+                    .unwrap_or_else(|| DragState {
+                        shares: shares_identity,
+                        handle: Rc::new(RefCell::new(None)),
+                    });
+                (state.handle.clone(), state)
+            });
         let shares = self.shares.borrow().clone();
         let mut layout = AxisLayout {
             children: Vec::new(),
@@ -120,7 +135,7 @@ impl Element for Axis {
         if count == 0 {
             return layout;
         }
-        let space_per_share = bounds.size.along(self.axis) / count as f32;
+        let space_per_share = bounds.size.along(self.axis) / shares.iter().sum::<f32>();
         let mut origin = bounds.origin;
         for (index, mut child) in std::mem::take(&mut self.children).into_iter().enumerate() {
             let child_size = bounds
@@ -260,7 +275,7 @@ impl Element for Axis {
     }
 }
 
-// Zed's successor traversal, adapted to shares whose sum is the child count.
+// Zed's successor traversal, using the sum of the supplied shares.
 // Transfer each successor's available space to the grabbed side so that the
 // grabbed divider follows the pointer even after its neighbour hits the minimum.
 fn compute_resize(
@@ -270,11 +285,11 @@ fn compute_resize(
     target: f32,
     minimum: f32,
 ) -> bool {
-    let count = shares.len() as f32;
-    let size = |index: usize, shares: &[f32]| length * shares[index] / count;
+    let sum = shares.iter().sum::<f32>();
+    let size = |index: usize, shares: &[f32]| length * shares[index] / sum;
     if shares
         .iter()
-        .any(|share| length * share / count < minimum - 1.)
+        .any(|share| length * share / sum < minimum - 1.)
     {
         return false;
     }
@@ -299,7 +314,7 @@ fn compute_resize(
         }
         let pixels = remaining.min((size(donor, shares) - minimum).max(0.));
         if pixels > 0. {
-            let share_change = pixels * count / length;
+            let share_change = pixels * sum / length;
             shares[receiver] += share_change;
             shares[donor] -= share_change;
             remaining -= pixels;

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, Styled, TestAppContext};
 use std::{
     cell::RefCell,
@@ -49,8 +47,8 @@ impl tracing::Subscriber for Trace {
     fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
     fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
     fn event(&self, event: &tracing::Event<'_>) {
-        if !event.metadata().target().starts_with("riso_shell::dev")
-            && !event.metadata().target().starts_with("riso_layout::dev")
+        if !event.metadata().target().starts_with("riso_shell")
+            && !event.metadata().target().starts_with("riso_layout")
             && event.metadata().target() != "visibility_diagnostic"
             || *event.metadata().level() == tracing::Level::TRACE
         {
@@ -78,7 +76,7 @@ impl tracing::Subscriber for Trace {
 struct Diagnostics;
 impl log::Log for Diagnostics {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        metadata.target().starts_with("riso_shell::dev")
+        metadata.target().starts_with("riso_shell")
     }
     fn log(&self, record: &log::Record<'_>) {
         if self.enabled(record.metadata()) {
@@ -93,7 +91,7 @@ type Shown = Rc<RefCell<Vec<(String, gpui::Bounds<gpui::Pixels>)>>>;
 struct Card {
     node: String,
     shown: Shown,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 impl gpui::Render for Card {
     fn render(&mut self, _: &mut gpui::Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
@@ -116,11 +114,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
-    cx: &mut TestAppContext,
-    shown: &Shown,
-) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext, shown: &Shown) {
     shown.borrow_mut().clear();
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
@@ -147,7 +141,7 @@ fn shown_nodes(shown: &Shown) -> Vec<String> {
         .collect()
 }
 
-fn register(cx: &mut gpui::App, ext: &riso_shell::dev::Extension, shown: &Shown) {
+fn register(cx: &mut gpui::App, ext: &riso_shell::Extension, shown: &Shown) {
     let shown = shown.clone();
     ext.register(cx, "tour.card", &["body"], move |node, slots, _, cx| {
         cx.new(|_| Card {
@@ -205,8 +199,8 @@ fn slots_contract(cx: &mut TestAppContext) {
     let slots = Rc::new(RefCell::new(BTreeMap::new()));
     let created = Rc::new(RefCell::new(BTreeMap::new()));
     let (host, guest) = app.update(|cx| {
-        let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
-        let guest = riso_shell::dev::Extension::new(cx, "guest").unwrap();
+        let host = riso_shell::Extension::new(cx, "tour").unwrap();
+        let guest = riso_shell::Extension::new(cx, "guest").unwrap();
         let slots = slots.clone();
         let created = created.clone();
         let shown = shown.clone();
@@ -234,7 +228,7 @@ fn slots_contract(cx: &mut TestAppContext) {
         (host, guest)
     });
     let window = app.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     assert_eq!(
@@ -260,7 +254,7 @@ fn slots_contract(cx: &mut TestAppContext) {
     assert_eq!(shown_nodes(&shown), ["root", "a", "b"]);
     assert_eq!(root.views("body")[1].entity_id(), b);
     app.update(|cx| {
-        assert!(riso_shell::dev::is_hidden(cx, "inner"));
+        assert!(riso_shell::is_hidden(cx, "inner"));
         guest.set_hidden(cx, "inner", false);
         guest.set_hidden(cx, "b", false);
         for hidden in [true, false] {
@@ -294,7 +288,7 @@ fn splits_contract(cx: &mut TestAppContext) {
     app.update(riso_ui::init);
     let shown = Shown::default();
     let ext = app.update(|cx| {
-        let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let ext = riso_shell::Extension::new(cx, "tour").unwrap();
         register(cx, &ext, &shown);
         ext.place_root(cx, "root", "riso.row");
         for node in ["a", "b", "c"] {
@@ -303,7 +297,7 @@ fn splits_contract(cx: &mut TestAppContext) {
         ext
     });
     let window = app.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     app.simulate_window_resize(window.into(), gpui::size(gpui::px(600.), gpui::px(400.)));
@@ -349,7 +343,7 @@ fn tabs_contract(cx: &mut TestAppContext, trace: &Trace) {
     app.update(riso_ui::init);
     let shown = Shown::default();
     let ext = app.update(|cx| {
-        let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let ext = riso_shell::Extension::new(cx, "tour").unwrap();
         register(cx, &ext, &shown);
         ext.place_root(cx, "root", "riso.tabs");
         for node in ["a", "b", "c"] {
@@ -358,7 +352,7 @@ fn tabs_contract(cx: &mut TestAppContext, trace: &Trace) {
         ext
     });
     let window = app.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     app.simulate_window_resize(window.into(), gpui::size(gpui::px(600.), gpui::px(400.)));

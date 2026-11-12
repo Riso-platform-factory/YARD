@@ -1,8 +1,8 @@
 # theme_tour
 
-A test extension for the theme engine, in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("theme_tour", theme_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the theme engine again, or when the next theme feature is under review.
+A test extension for the theme engine, in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("theme_tour", theme_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
 
-Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With `THEME_TOUR=card`, it places one card as the root. The card shows the active theme's name, then each color of the palette as a swatch with its name, then a line in the UI font. A change of theme can then be seen at a glance.
+Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With `THEME_TOUR=card`, it places one card as the root. The card shows a tab bar with two tabs, the active theme's name, each color of the palette as a swatch with its name, and a line that names the UI font and its size. A change of theme can then be seen at a glance.
 
 Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/tmp/riso-theme`.
 
@@ -40,6 +40,17 @@ Without a section, the mode is now `system`: the theme follows macOS. Start `THE
 | Start with macOS in light mode | `One Light`. |
 | Switch macOS between light and dark in System Settings, Appearance, while it runs | Within a moment the card follows. `appearance-change` with `theme-apply` and `applied` inside it. |
 | Write `{"theme": {"mode": "light"}}`, then switch macOS | The card stays `One Light`. `mode is not system`. |
+
+## Feature 4: ui-font
+
+Start `THEME_TOUR=card cargo run dev` with a fresh home and no file, then edit `config/settings.json` while it runs:
+
+| Edit | What to look for |
+|---|---|
+| Write `{"theme": {"ui_font_size": 24}}` | The text and the tab bar grow, and the last line says `IBM Plex Sans 24`. `ui-font-apply{family=IBM Plex Sans, size=24}` with `applied`. |
+| Write `{"theme": {"ui_font_size": 200}}` | The text at 100. The `WARN` `ui_font_size 200 is clamped to 100`. |
+| Write `{"theme": {"ui_font_family": "Menlo"}}` | The card in Menlo at 16: `Menlo 16`. |
+| Write `{"theme": {"ui_font_family": "Nope Sans"}}` | IBM Plex Sans, and the `WARN` `font Nope Sans is not installed`. |
 
 ## Removing it
 

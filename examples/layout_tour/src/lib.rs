@@ -18,6 +18,8 @@
 //! `LAYOUT_TOUR=empty-split cargo run dev`: an empty row.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
+#![cfg(feature = "dev")]
+
 #[cfg(test)]
 mod tests;
 
@@ -26,7 +28,7 @@ use gpui::{
     WeakEntity, Window, canvas, div,
 };
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -129,7 +131,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
 struct Card {
     node: String,
     size: Size<Pixels>,
-    slots: riso_shell::Slots,
+    slots: riso_shell::dev::Slots,
 }
 
 impl Card {

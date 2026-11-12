@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
+A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app. When every feature it covers is in production, it is taken out of both until the next feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -59,6 +59,20 @@ An ERROR fails its group and every group around it, up to `app-startup`.
 | `LAYOUT_TOUR=reserved cargo run dev` | Registering `riso.badge` is refused with an ERROR: `riso` is the shell's namespace. |
 
 Resizing the window keeps the shares equal; each card's size catches up a frame after the resize.
+
+### Feature 5: split-resize
+
+No new case: the splits of feature 4 are resized by hand. In the trace, with `riso_ui` at `debug`, each drag logs `resize started {id, handle}` and `resize ended {id, shares}`, where `id` is the split's node ID.
+
+| Command and action | What to look for |
+|---|---|
+| `LAYOUT_TOUR=row cargo run dev`, hover a line | A column-resize cursor. |
+| Drag the line between `a` and `b` to the right | `a` grows, `b` shrinks, `c` does not change. |
+| Keep dragging right | `b` stops at 80px, then `c` shrinks to 80px, then nothing moves. |
+| Double-click the line | `shares reset`; the three cards are equal again. |
+| Resize the window after a drag | Each card keeps its fraction of the width. |
+| `LAYOUT_TOUR=column cargo run dev`, drag a line down | The same in height, with a row-resize cursor and a 100px minimum. |
+| `LAYOUT_TOUR=nested-split cargo run dev`, drag the row's line, then the column's | Each logs its own `id`, `root` or `right`, and changes only its own children. |
 
 ## Removing it
 

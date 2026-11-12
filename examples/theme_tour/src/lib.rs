@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
 
 pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
@@ -46,7 +44,7 @@ impl Render for Card {
             .bg(palette.background)
             .border_1()
             .border_color(palette.border)
-            .child(riso_ui::dev::active_theme(cx))
+            .child(riso_ui::active_theme(cx))
             .children(swatches.into_iter().map(|(name, color)| {
                 div()
                     .flex()

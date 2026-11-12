@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -287,7 +285,7 @@ fn startup(cx: &mut gpui::App, settings: &Path, content: Option<&str>) -> u64 {
         riso_settings::init(cx);
         riso_settings::load(cx, settings.to_path_buf());
         riso_ui::init(cx);
-        riso_ui::dev::apply_theme_setting(cx);
+        riso_ui::apply_theme_setting(cx);
     }
     app_init_id
 }
@@ -428,7 +426,7 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
         //    `applied` at DEBUG.
         let missing = temp.path().join("missing.json");
         let app_init = cx.update(|cx| startup(cx, &missing, None));
-        cx.read(|cx| assert_eq!(riso_ui::dev::active_theme(cx), "One Dark"));
+        cx.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Dark"));
         assert!(!missing.exists());
         {
             let captured = CAPTURED.lock().unwrap();
@@ -453,7 +451,7 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
         let app = cx.new_app();
         let app_init =
             app.update(|cx| startup(cx, &light, Some(r#"{"theme": {"mode": "light"}}"#)));
-        app.read(|cx| assert_eq!(riso_ui::dev::active_theme(cx), "One Light"));
+        app.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Light"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, apply_g) = scenario_groups(
@@ -482,7 +480,7 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
                 Some(r#"{"theme": {"mode": "dark", "dark": "One Light"}}"#),
             )
         });
-        app.read(|cx| assert_eq!(riso_ui::dev::active_theme(cx), "One Light"));
+        app.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Light"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, apply_g) = scenario_groups(
@@ -511,7 +509,7 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
                 Some(r#"{"theme": {"mode": "light", "light": "Solarized"}}"#),
             )
         });
-        app.read(|cx| assert_eq!(riso_ui::dev::active_theme(cx), "One Dark"));
+        app.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (_, apply_g) = scenario_groups(
@@ -541,7 +539,7 @@ fn theme_setting_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestApp
         let dim = temp.path().join("dim.json");
         let app = cx.new_app();
         let app_init = app.update(|cx| startup(cx, &dim, Some(r#"{"theme": {"mode": "dim"}}"#)));
-        app.read(|cx| assert_eq!(riso_ui::dev::active_theme(cx), "One Dark"));
+        app.read(|cx| assert_eq!(riso_ui::active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
             let (register_g, apply_g) =

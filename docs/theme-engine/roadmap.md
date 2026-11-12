@@ -8,7 +8,7 @@ The theme engine and the layout engine do not know each other. The layout decide
 
 ## What is built
 
-In production, in `riso_ui/theming`, with fixed values:
+In production, in `riso_ui/theming`, with fixed values, and the theme chosen in the settings by `riso_ui/theme_setting`:
 
 - IBM Plex Sans is bundled, and is the UI font at 16px.
 - Zed's One Dark and One Light are loaded into Zed's theme registry. One Dark is active.
@@ -46,7 +46,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 1 | `theme-setting` | The section `theme` names a dark theme and a light theme, and its `mode` says which one is used: `dark` or `light`. It is applied at startup | With `"mode": "light"` in `settings.json`, the window is One Light. A theme name that is not registered logs a `WARN`, and the default stays | `theme`'s registry | Settings engine: `user-file` | dev |
+| 1 | `theme-setting` | The section `theme` names a dark theme and a light theme, and its `mode` says which one is used: `dark` or `light`. It is applied at startup | With `"mode": "light"` in `settings.json`, the window is One Light. A theme name that is not registered logs a `WARN`, and the default stays | `theme`'s registry | Settings engine: `user-file` | production |
 | 2 | `theme-switch` | A change of the section while the application runs switches the theme, and every window redraws | Editing `settings.json` turns the running window from dark to light and back | `gpui`: `refresh_windows` | 1. Settings engine: `live-reload` | planned |
 | 3 | `system-appearance` | `mode` can be `system`, and that becomes the default, as in Zed. The theme then follows the light or dark appearance of the OS, also when the OS changes while the application runs | Switching macOS between light and dark switches the window | `SystemAppearance`. `gpui`: `observe_window_appearance` | 2 | planned |
 

@@ -14,10 +14,11 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
         {
             let _group = tracing::info_span!("app-init").entered();
             riso_log::init_app(cx);
-            riso_ui::init(cx);
             riso_settings::init(cx);
             riso_settings::load(cx, paths.settings_file());
             riso_settings::watch(cx);
+            riso_ui::init(cx);
+            riso_ui::apply_theme_setting(cx);
             riso_shell::set_layout_file(cx, paths.layout_file());
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {

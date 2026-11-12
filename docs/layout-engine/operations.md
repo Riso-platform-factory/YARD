@@ -19,7 +19,7 @@ While the application runs, the tree changes only through operations: add, remov
 | `move(node, parent, slot, index)` | Takes a node, with everything under it, to a slot of another node, or to another place in its own slot. `index` is the position in the target slot; past the end means last. |
 | `hide(node)`, `show(node)` | As in feature 7 |
 
-An extension asks for them through its handle. `place_root` and `place` stay for startup. After startup, they are the same rules as `add`.
+An extension asks for them through its handle. `place_root` and `place` are for startup only: once the window has opened, they are refused with an `INFO`, because a node placed then would get no view. A node is added after startup with `add`.
 
 ## Rules
 

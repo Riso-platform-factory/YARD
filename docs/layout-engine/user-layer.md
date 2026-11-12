@@ -6,7 +6,7 @@ The engine keeps the default layout apart from what changed it while the applica
 
 ## Model
 
-- **The default layout** is the tree as the extensions built it when the application started: every `place_root` and `place` made in the extensions' `init`. The default layout is fixed when the window opens.
+- **The default layout** is the tree as the extensions built it when the application started: every `place_root` and `place` made in the extensions' `init`. The default layout is fixed once, when the window opens; after that, `place_root` and `place` are refused.
 - **The user layer** is every operation applied after that, in order: an extension's `add`, `remove`, `move_node`, `set_hidden`, and the shell's moves from a drag.
   - A refused operation is not recorded.
   - The current tree is always the default layout with the user layer applied.

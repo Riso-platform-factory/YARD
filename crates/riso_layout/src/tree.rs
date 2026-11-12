@@ -170,7 +170,7 @@ impl fmt::Display for OpError {
 impl Error for OpError {}
 
 /// The main window's layout.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Tree {
     root: Option<Node>,
     hidden: BTreeSet<NodeId>,

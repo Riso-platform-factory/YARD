@@ -4659,9 +4659,11 @@ dependencies = [
  "riso_layout",
  "riso_log",
  "riso_paths",
+ "riso_settings",
  "riso_shell",
  "riso_ui",
  "serde_json",
+ "settings_tour",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
 ]
@@ -4698,6 +4700,16 @@ dependencies = [
  "dirs",
  "log",
  "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "riso_settings"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "serde",
  "tracing",
 ]
 
@@ -5033,6 +5045,19 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "settings_tour"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "riso_settings",
+ "riso_shell",
+ "riso_ui",
+ "serde",
+ "tracing",
 ]
 
 [[package]]

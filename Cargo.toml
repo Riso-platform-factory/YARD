@@ -19,6 +19,7 @@ riso_shell = { path = "crates/riso_shell", default-features = false }
 riso_log = { path = "crates/riso_log", default-features = false }
 riso_paths = { path = "crates/riso_paths", default-features = false }
 riso_ui = { path = "crates/riso_ui", default-features = false }
+riso_settings = { path = "crates/riso_settings", default-features = false }
 dirs = "6"
 log = "0.4.35"
 tracing = "0.1.44"

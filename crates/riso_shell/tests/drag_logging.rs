@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, Bounds, IntoElement, Pixels, Point, Styled, TestAppContext, px};
 use std::{
     cell::RefCell,
@@ -86,7 +84,7 @@ struct Card {
     node: String,
     marker: usize,
     shown: Shown,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 
 impl gpui::Render for Card {
@@ -115,11 +113,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
-    cx: &mut TestAppContext,
-    shown: &Shown,
-) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext, shown: &Shown) {
     shown.borrow_mut().clear();
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
@@ -161,7 +155,7 @@ fn assert_no_overlays(visual: &mut gpui::VisualTestContext) {
 }
 
 fn drag_tab(
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     app: &mut TestAppContext,
     visual: &mut gpui::VisualTestContext,
     shown: &Shown,
@@ -227,7 +221,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     let entities = Rc::new(RefCell::new(BTreeMap::new()));
 
     app.update(|cx| {
-        let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let host = riso_shell::Extension::new(cx, "tour").unwrap();
         let shown = shown.clone();
         let entities = entities.clone();
         host.register(cx, "tour.card", &["body"], move |node, slots, _, cx| {
@@ -251,7 +245,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     });
 
     let window = app.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     app.simulate_window_resize(window.into(), gpui::size(px(1200.), px(600.)));
@@ -522,7 +516,7 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
     let shown = Shown::default();
 
     let host = app.update(|cx| {
-        let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let host = riso_shell::Extension::new(cx, "tour").unwrap();
         let shown = shown.clone();
         host.register(cx, "tour.card", &["body"], move |node, slots, _, cx| {
             cx.new(|_| Card {
@@ -545,7 +539,7 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
     });
 
     let window = app.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     app.simulate_window_resize(window.into(), gpui::size(px(600.), px(600.)));
@@ -632,7 +626,7 @@ fn cycle_drop_is_refused(cx: &mut TestAppContext, trace: &Trace) {
     let shown = Shown::default();
 
     app.update(|cx| {
-        let host = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let host = riso_shell::Extension::new(cx, "tour").unwrap();
         let shown = shown.clone();
         host.register(cx, "tour.card", &["body"], move |node, slots, _, cx| {
             cx.new(|_| Card {
@@ -651,7 +645,7 @@ fn cycle_drop_is_refused(cx: &mut TestAppContext, trace: &Trace) {
     });
 
     let window = app.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     app.simulate_window_resize(window.into(), gpui::size(px(600.), px(600.)));

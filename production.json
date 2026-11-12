@@ -35,7 +35,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "315a77bb82b221ad"
+      "crates/riso_shell/src/shell.rs": "a28a2f4068f40468"
     },
     "promoted": "2026-11-12"
   },
@@ -47,7 +47,7 @@
   },
   "riso_ui/tabs": {
     "files": {
-      "crates/riso_ui/src/tabs.rs": "5a686788ccda6481"
+      "crates/riso_ui/src/tabs.rs": "d747458984b6eb38"
     },
     "promoted": "2026-11-12"
   },

@@ -6,5 +6,3 @@ mod theming;
 pub use axis::*;
 pub use tabs::*;
 pub use theming::*;
-#[cfg(feature = "dev")]
-pub mod dev;

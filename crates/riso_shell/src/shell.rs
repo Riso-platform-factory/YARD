@@ -1,8 +1,9 @@
 //! Component factories and the root view kept by the main window.
 
 use gpui::{
-    AnyView, App, AppContext, Axis, Context, Entity, Global, IntoElement, ParentElement, Render,
-    Styled, WeakEntity, Window, div,
+    AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, DragMoveEvent, Entity,
+    EntityId, Global, InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render,
+    SharedString, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, SlotName, Tree};
 use std::{
@@ -13,6 +14,33 @@ use std::{
 
 type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
 type ViewMap = BTreeMap<NodeId, AnyView>;
+
+#[derive(Clone)]
+struct DraggedNode {
+    node: NodeId,
+    label: SharedString,
+}
+
+impl Render for DraggedNode {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = riso_ui::palette(cx);
+        div()
+            .px_3()
+            .py_1()
+            .bg(palette.background)
+            .border_1()
+            .border_color(palette.border)
+            .text_color(palette.text)
+            .font(riso_ui::ui_font())
+            .child(self.label.clone())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Edge {
+    Before,
+    After,
+}
 
 #[derive(Clone)]
 struct Component {
@@ -96,6 +124,8 @@ impl Default for Registry {
                             shares: BTreeMap::new(),
                             shown_nodes: Vec::new(),
                             shown_shares: Rc::new(RefCell::new(Vec::new())),
+                            edges: BTreeMap::new(),
+                            child_bounds: BTreeMap::new(),
                         });
                         cx.default_global::<Registry>()
                             .splits
@@ -115,6 +145,7 @@ impl Default for Registry {
                         node: node.clone(),
                         slots,
                         selected: None,
+                        bar_bounds: None,
                     });
                     cx.default_global::<Registry>().tabs.push(tabs.downgrade());
                     tabs.into()
@@ -133,11 +164,177 @@ impl Default for Registry {
 }
 impl Global for Registry {}
 
+fn edge_at(bounds: Bounds<Pixels>, axis: Axis, position: Point<Pixels>) -> Option<Edge> {
+    if !bounds.contains(&position) {
+        return None;
+    }
+    let size = bounds.size.width.min(bounds.size.height) * 0.2;
+    let relative = Point::new(position.x - bounds.left(), position.y - bounds.top());
+    match axis {
+        Axis::Horizontal => {
+            if relative.x < size {
+                Some(Edge::Before)
+            } else if relative.x > bounds.size.width - size {
+                Some(Edge::After)
+            } else {
+                None
+            }
+        }
+        Axis::Vertical => {
+            if relative.y < size {
+                Some(Edge::Before)
+            } else if relative.y > bounds.size.height - size {
+                Some(Edge::After)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+fn edge_overlay(axis: Axis, edge: Edge, color: gpui::Hsla) -> gpui::Div {
+    let overlay = div()
+        .debug_selector(move || {
+            let side = match (axis, edge) {
+                (Axis::Horizontal, Edge::Before) => "left",
+                (Axis::Horizontal, Edge::After) => "right",
+                (Axis::Vertical, Edge::Before) => "top",
+                (Axis::Vertical, Edge::After) => "bottom",
+            };
+            format!("DROP-OVERLAY-{side}")
+        })
+        .absolute()
+        .bg(color);
+    match (axis, edge) {
+        (Axis::Horizontal, Edge::Before) => overlay
+            .top_0()
+            .left_0()
+            .bottom_0()
+            .w(DefiniteLength::Fraction(0.5)),
+        (Axis::Horizontal, Edge::After) => overlay
+            .top_0()
+            .right_0()
+            .bottom_0()
+            .w(DefiniteLength::Fraction(0.5)),
+        (Axis::Vertical, Edge::Before) => overlay
+            .top_0()
+            .left_0()
+            .right_0()
+            .h(DefiniteLength::Fraction(0.5)),
+        (Axis::Vertical, Edge::After) => overlay
+            .left_0()
+            .right_0()
+            .bottom_0()
+            .h(DefiniteLength::Fraction(0.5)),
+    }
+}
+
+fn inner_target_claims_cursor(
+    cx: &App,
+    current_split: EntityId,
+    subtree_root: &NodeId,
+    position: Point<Pixels>,
+) -> bool {
+    let Some(registry) = cx.try_global::<Registry>() else {
+        return false;
+    };
+    let tabs_selected: BTreeMap<NodeId, Option<NodeId>> = registry
+        .tabs
+        .iter()
+        .filter_map(|weak| weak.upgrade())
+        .map(|tabs| {
+            let tabs = tabs.read(cx);
+            (tabs.node.clone(), tabs.selected.clone())
+        })
+        .collect();
+    let mut shown_subtree = BTreeSet::new();
+    {
+        let tree = registry.tree.borrow();
+        let views = registry.views.borrow();
+        fn collect(
+            tree: &Tree,
+            views: &ViewMap,
+            tabs_selected: &BTreeMap<NodeId, Option<NodeId>>,
+            node: &NodeId,
+            out: &mut BTreeSet<NodeId>,
+        ) {
+            if tree.is_hidden(node) || !views.contains_key(node) || !out.insert(node.clone()) {
+                return;
+            }
+            if let Some(selected) = tabs_selected.get(node) {
+                if let Some(child) = selected {
+                    collect(tree, views, tabs_selected, child, out);
+                }
+                return;
+            }
+            for (_, children) in tree.slots(node) {
+                for child in children {
+                    collect(tree, views, tabs_selected, &child.id, out);
+                }
+            }
+        }
+        collect(
+            &tree,
+            &views,
+            &tabs_selected,
+            subtree_root,
+            &mut shown_subtree,
+        );
+    }
+    for weak in &registry.tabs {
+        if let Some(tabs) = weak.upgrade() {
+            let tabs = tabs.read(cx);
+            if shown_subtree.contains(&tabs.node)
+                && tabs
+                    .bar_bounds
+                    .is_some_and(|bounds| bounds.contains(&position))
+            {
+                return true;
+            }
+        }
+    }
+    for weak in &registry.splits {
+        if let Some(split) = weak.upgrade()
+            && split.entity_id() != current_split
+        {
+            let split = split.read(cx);
+            if shown_subtree.contains(&split.node)
+                && split.shown_nodes.iter().any(|child| {
+                    split
+                        .child_bounds
+                        .get(child)
+                        .is_some_and(|bounds| edge_at(*bounds, split.axis, position).is_some())
+                })
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn clear_drag_edges(cx: &mut App) {
+    let splits = cx
+        .try_global::<Registry>()
+        .map(|registry| registry.splits.clone())
+        .unwrap_or_default();
+    for split in splits {
+        let _ = split.update(cx, |split, cx| {
+            if !split.edges.is_empty() {
+                split.edges.clear();
+                cx.notify();
+            }
+        });
+    }
+}
+
 struct Split {
     node: NodeId,
     shares: BTreeMap<NodeId, f32>,
     shown_nodes: Vec<NodeId>,
     shown_shares: Rc<RefCell<Vec<f32>>>,
+    edges: BTreeMap<NodeId, Edge>,
+    child_bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     axis: Axis,
     slots: Slots,
 }
@@ -167,22 +364,99 @@ impl Split {
         } else {
             *self.shown_shares.borrow_mut() = shares;
         }
+        self.edges.retain(|child, _| nodes.contains(child));
+        self.child_bounds.retain(|child, _| nodes.contains(child));
         self.shown_nodes = nodes;
+    }
+
+    fn handle_drag_move(
+        &mut self,
+        child_id: &NodeId,
+        event: &DragMoveEvent<DraggedNode>,
+        cx: &mut Context<Self>,
+    ) {
+        let position = event.event.position;
+        let current_entity = cx.entity().entity_id();
+        let next = edge_at(event.bounds, self.axis, position)
+            .filter(|_| !inner_target_claims_cursor(cx, current_entity, child_id, position));
+        let previous = self.edges.get(child_id).copied();
+        if event.bounds.contains(&position) || next != previous {
+            tracing::trace!(
+                split = %self.node,
+                child = %child_id,
+                edge = ?next,
+                "drag edge"
+            );
+        }
+        if next != previous {
+            match next {
+                Some(edge) => {
+                    self.edges.insert(child_id.clone(), edge);
+                }
+                None => {
+                    self.edges.remove(child_id);
+                }
+            }
+            cx.notify();
+        }
     }
 }
 
 impl Render for Split {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.reconcile();
+        if !cx.has_active_drag() {
+            self.edges.clear();
+        }
+        let palette = riso_ui::palette(cx);
+        let children = self
+            .shown_nodes
+            .iter()
+            .cloned()
+            .zip(self.slots.views("children"))
+            .enumerate()
+            .map(|(shown_index, (child_id, view))| {
+                let edge = self.edges.get(&child_id).copied();
+                let move_child = child_id.clone();
+                let bounds_child = child_id.clone();
+                let bounds_entity = cx.entity().downgrade();
+                let split_node = self.node.clone();
+                let zone_id = SharedString::from(format!("{}:{child_id}", self.node));
+                let mut zone = div()
+                    .id(zone_id)
+                    .relative()
+                    .size_full()
+                    .on_drag_move::<DraggedNode>(cx.listener(move |split, event, _, cx| {
+                        split.handle_drag_move(&move_child, event, cx);
+                    }))
+                    .child(view)
+                    .child(
+                        canvas(
+                            move |bounds, _, cx| {
+                                let _ = bounds_entity.update(cx, |split, _| {
+                                    split.child_bounds.insert(bounds_child.clone(), bounds);
+                                });
+                            },
+                            |_, _, _, _| {},
+                        )
+                        .absolute()
+                        .size_full(),
+                    );
+                if let Some(edge) = edge {
+                    zone = zone
+                        .on_drop::<DraggedNode>(move |dragged, _, cx| {
+                            drop_on_edge(cx, &dragged.node, &split_node, shown_index, edge);
+                        })
+                        .child(edge_overlay(self.axis, edge, palette.drop_target));
+                }
+                zone.into_any_element()
+            })
+            .collect();
         riso_ui::axis(
-            gpui::SharedString::from(self.node.to_string()),
+            SharedString::from(self.node.to_string()),
             self.axis,
             self.shown_shares.clone(),
-            self.slots
-                .views("children")
-                .into_iter()
-                .map(IntoElement::into_any_element)
-                .collect(),
+            children,
         )
     }
 }
@@ -191,6 +465,7 @@ struct Tabs {
     node: NodeId,
     slots: Slots,
     selected: Option<NodeId>,
+    bar_bounds: Option<Bounds<Pixels>>,
 }
 
 impl Tabs {
@@ -222,29 +497,173 @@ impl Render for Tabs {
         let selected_index = nodes
             .iter()
             .position(|node| Some(node) == self.selected.as_ref());
+        let parent = self.node.clone();
         let tabs = nodes
-            .into_iter()
+            .iter()
             .map(|node| {
                 let entity = cx.entity().downgrade();
-                let id = gpui::SharedString::from(node.to_string());
-                riso_ui::Tab::new(id.clone(), id)
-                    .selected(Some(&node) == self.selected.as_ref())
+                let click_node = node.clone();
+                let target_node = node.clone();
+                let target_parent = parent.clone();
+                let label = SharedString::from(node.to_string());
+                let dragged = DraggedNode {
+                    node: node.clone(),
+                    label: label.clone(),
+                };
+                riso_ui::Tab::new(label.clone(), label)
+                    .selected(Some(node) == self.selected.as_ref())
                     .on_click(move |_, cx| {
-                        let _ = entity.update(cx, |tabs, cx| tabs.select(node.clone(), cx));
+                        let _ = entity.update(cx, |tabs, cx| tabs.select(click_node.clone(), cx));
+                    })
+                    .on_drag(dragged, |dragged, _, cx| {
+                        tracing::debug!(node = %dragged.node, "drag started");
+                        cx.new(|_| dragged.clone()).into()
+                    })
+                    .on_drop::<DraggedNode>(move |dragged, _, cx| {
+                        drop_on_tab(cx, &dragged.node, &target_parent, &target_node);
                     })
             })
             .collect();
+        let bar_parent = self.node.clone();
+        let bar_entity = cx.entity().downgrade();
+        let bar = riso_ui::TabBar::new(SharedString::from(self.node.to_string()))
+            .tabs(tabs)
+            .on_drop::<DraggedNode>(move |dragged, _, cx| {
+                drop_on_tab_bar(cx, &dragged.node, &bar_parent);
+            });
         div()
             .flex()
             .flex_col()
             .size_full()
-            .child(riso_ui::TabBar::new(gpui::SharedString::from(self.node.to_string())).tabs(tabs))
+            .on_children_prepainted(move |children_bounds, _, cx| {
+                if let Some(&bounds) = children_bounds.first() {
+                    let _ = bar_entity.update(cx, |tabs, _| {
+                        tabs.bar_bounds = Some(bounds);
+                    });
+                }
+            })
+            .child(bar)
             .children(
                 selected_index
                     .and_then(|index| self.slots.views("children").get(index).cloned())
                     .map(|view| div().flex_1().min_h_0().child(view)),
             )
     }
+}
+
+fn current_location(tree: &Tree, target: &NodeId) -> Option<(NodeId, SlotName, usize, usize)> {
+    fn find(
+        tree: &Tree,
+        parent: &NodeId,
+        target: &NodeId,
+    ) -> Option<(NodeId, SlotName, usize, usize)> {
+        for (slot, children) in tree.slots(parent) {
+            if let Some(index) = children.iter().position(|child| &child.id == target) {
+                return Some((parent.clone(), slot.clone(), index, children.len()));
+            }
+            for child in children {
+                if let Some(found) = find(tree, &child.id, target) {
+                    return Some(found);
+                }
+            }
+        }
+        None
+    }
+    find(tree, &tree.root()?.id, target)
+}
+
+fn slot_index_of(tree: &Tree, parent: &NodeId, slot: &str, child_id: &NodeId) -> Option<usize> {
+    tree.slots(parent)
+        .find(|(name, _)| name.as_str() == slot)
+        .and_then(|(_, children)| children.iter().position(|child| &child.id == child_id))
+}
+
+fn is_own_position(tree: &Tree, node: &NodeId, parent: &NodeId, slot: &str, index: usize) -> bool {
+    current_location(tree, node).is_some_and(|(cur_parent, cur_slot, cur_index, cur_len)| {
+        &cur_parent == parent && cur_slot.as_str() == slot && index.min(cur_len - 1) == cur_index
+    })
+}
+
+fn drop_on_tab(cx: &mut App, node: &NodeId, parent: &NodeId, target_tab: &NodeId) {
+    clear_drag_edges(cx);
+    let index = {
+        let tree = cx.default_global::<Registry>().tree.borrow();
+        let Some(index) = slot_index_of(&tree, parent, "children", target_tab) else {
+            return;
+        };
+        if is_own_position(&tree, node, parent, "children", index) {
+            tracing::debug!(node = %node, "drop ignored");
+            return;
+        }
+        index
+    };
+    shell_move(cx, node, parent, "children", index);
+}
+
+fn drop_on_tab_bar(cx: &mut App, node: &NodeId, parent: &NodeId) {
+    clear_drag_edges(cx);
+    {
+        let tree = cx.default_global::<Registry>().tree.borrow();
+        if is_own_position(&tree, node, parent, "children", usize::MAX) {
+            tracing::debug!(node = %node, "drop ignored");
+            return;
+        }
+    }
+    shell_move(cx, node, parent, "children", usize::MAX);
+}
+
+fn drop_on_edge(cx: &mut App, node: &NodeId, split_id: &NodeId, shown_index: usize, edge: Edge) {
+    clear_drag_edges(cx);
+    let shown_child = cx.try_global::<Registry>().and_then(|registry| {
+        registry
+            .splits
+            .iter()
+            .filter_map(|weak| weak.upgrade())
+            .find(|split| &split.read(cx).node == split_id)
+            .and_then(|split| split.read(cx).shown_nodes.get(shown_index).cloned())
+    });
+    let Some(shown_child) = shown_child else {
+        return;
+    };
+    let index = {
+        let tree = cx.default_global::<Registry>().tree.borrow();
+        let Some(slot_pos) = slot_index_of(&tree, split_id, "children", &shown_child) else {
+            return;
+        };
+        let gap = match edge {
+            Edge::Before => slot_pos,
+            Edge::After => slot_pos + 1,
+        };
+        let index = match current_location(&tree, node) {
+            Some((cur_parent, cur_slot, cur_index, _))
+                if &cur_parent == split_id
+                    && cur_slot.as_str() == "children"
+                    && cur_index < gap =>
+            {
+                gap - 1
+            }
+            _ => gap,
+        };
+        if is_own_position(&tree, node, split_id, "children", index) {
+            tracing::debug!(node = %node, "drop ignored");
+            return;
+        }
+        index
+    };
+    shell_move(cx, node, split_id, "children", index);
+}
+
+fn shell_move(cx: &mut App, node: &NodeId, parent: &NodeId, slot: &str, index: usize) {
+    run_op("riso", None, cx, "move", node.as_str(), |_, node| {
+        let slot = SlotName::parse(slot)
+            .map_err(|error| format!("invalid slot name {slot:?}: {error}"))?;
+        Ok(Operation::Move {
+            node,
+            parent: parent.clone(),
+            slot,
+            index,
+        })
+    });
 }
 
 /// Returns a node's own visibility flag for extension controls.
@@ -279,6 +698,135 @@ fn reconcile_containers(cx: &mut App) {
     }
     for tabs in tabs {
         let _ = tabs.update(cx, |tabs, _| tabs.reconcile_selection());
+    }
+}
+
+fn run_op(
+    extension: &str,
+    window: Option<&mut Window>,
+    cx: &mut App,
+    op: &'static str,
+    node: &str,
+    build: impl FnOnce(String, NodeId) -> Result<Operation, String>,
+) {
+    let _group = tracing::info_span!("layout-op", op, node, extension).entered();
+    let node_id = match NodeId::parse(node) {
+        Ok(id) => id,
+        Err(error) => {
+            log::error!("invalid node ID {node:?}: {error}");
+            return;
+        }
+    };
+    let operation = match build(extension.to_string(), node_id) {
+        Ok(operation) => operation,
+        Err(message) => {
+            log::error!("{message}");
+            return;
+        }
+    };
+    if !check_shell_rules(extension, cx, &operation) {
+        return;
+    }
+    let added = match &operation {
+        Operation::Add { node, .. } => Some(node.clone()),
+        _ => None,
+    };
+    let applied = {
+        let tree = cx.default_global::<Registry>().tree.clone();
+        let mut tree = tree.borrow_mut();
+        tree.apply(operation)
+    };
+    let Ok(applied) = applied else {
+        return;
+    };
+    match applied {
+        Applied::Added => {
+            if let (Some(node), Some(window)) = (added, window) {
+                let _ = create_view(&node, None, window, cx);
+            }
+        }
+        Applied::Removed(removed) => {
+            for id in removed {
+                let dropped = cx
+                    .default_global::<Registry>()
+                    .views
+                    .borrow_mut()
+                    .remove(&id);
+                if dropped.is_some() {
+                    drop(dropped);
+                    tracing::debug!(node = %id, "view dropped");
+                }
+            }
+        }
+        Applied::Moved | Applied::SetHidden(true) => {}
+        Applied::SetHidden(false) => return,
+    }
+    reconcile_containers(cx);
+    cx.refresh_windows();
+}
+
+fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bool {
+    let registry = cx.default_global::<Registry>();
+    match operation {
+        Operation::Add { node, parent, slot } => {
+            let namespace = node.component.as_str().split('.').next();
+            if namespace != Some(extension) && namespace != Some("riso") {
+                tracing::info!(
+                    node = %node.id,
+                    component = %node.component,
+                    extension = %extension,
+                    "component is not in the extension's namespace",
+                );
+                return false;
+            }
+            if !registry.components.contains_key(&node.component) {
+                tracing::info!(
+                    node = %node.id,
+                    component = %node.component,
+                    "component is not registered",
+                );
+                return false;
+            }
+            let tree = registry.tree.borrow();
+            if let Some(parent_component) = component_of(&tree, parent)
+                && !registry
+                    .components
+                    .get(parent_component)
+                    .is_some_and(|component| component.slots.contains(slot))
+            {
+                tracing::info!(
+                    node = %node.id,
+                    parent = %parent,
+                    parent_component = %parent_component,
+                    slot = %slot,
+                    "parent component does not declare slot",
+                );
+                return false;
+            }
+            true
+        }
+        Operation::Move {
+            node, parent, slot, ..
+        } => {
+            let tree = registry.tree.borrow();
+            if let Some(parent_component) = component_of(&tree, parent)
+                && !registry
+                    .components
+                    .get(parent_component)
+                    .is_some_and(|component| component.slots.contains(slot))
+            {
+                tracing::info!(
+                    node = %node,
+                    parent = %parent,
+                    parent_component = %parent_component,
+                    slot = %slot,
+                    "parent component does not declare slot",
+                );
+                return false;
+            }
+            true
+        }
+        Operation::Remove { .. } | Operation::SetHidden { .. } => true,
     }
 }
 
@@ -321,35 +869,42 @@ impl Extension {
         parent: &str,
         slot: &str,
     ) {
-        self.run_op(Some(window), cx, "add", node, |extension, id| {
-            let component = ComponentId::parse(component)
-                .map_err(|error| format!("invalid component ID {component:?}: {error}"))?;
-            let parent = NodeId::parse(parent)
-                .map_err(|error| format!("invalid parent ID {parent:?}: {error}"))?;
-            let slot = SlotName::parse(slot)
-                .map_err(|error| format!("invalid slot name {slot:?}: {error}"))?;
-            Ok(Operation::Add {
-                node: Node {
-                    id,
-                    component,
-                    extension,
-                },
-                parent,
-                slot,
-            })
-        });
+        run_op(
+            &self.name,
+            Some(window),
+            cx,
+            "add",
+            node,
+            |extension, id| {
+                let component = ComponentId::parse(component)
+                    .map_err(|error| format!("invalid component ID {component:?}: {error}"))?;
+                let parent = NodeId::parse(parent)
+                    .map_err(|error| format!("invalid parent ID {parent:?}: {error}"))?;
+                let slot = SlotName::parse(slot)
+                    .map_err(|error| format!("invalid slot name {slot:?}: {error}"))?;
+                Ok(Operation::Add {
+                    node: Node {
+                        id,
+                        component,
+                        extension,
+                    },
+                    parent,
+                    slot,
+                })
+            },
+        );
     }
 
     /// Removes a non-root node and its subtree, dropping their views.
     pub fn remove(&self, cx: &mut App, node: &str) {
-        self.run_op(None, cx, "remove", node, |_, node| {
+        run_op(&self.name, None, cx, "remove", node, |_, node| {
             Ok(Operation::Remove { node })
         });
     }
 
     /// Moves a non-root node with its subtree into a declared slot at `index`.
     pub fn move_node(&self, cx: &mut App, node: &str, parent: &str, slot: &str, index: usize) {
-        self.run_op(None, cx, "move", node, |_, node| {
+        run_op(&self.name, None, cx, "move", node, |_, node| {
             let parent = NodeId::parse(parent)
                 .map_err(|error| format!("invalid parent ID {parent:?}: {error}"))?;
             let slot = SlotName::parse(slot)
@@ -366,138 +921,9 @@ impl Extension {
     /// Hides or shows any non-root node while retaining its view.
     pub fn set_hidden(&self, cx: &mut App, node: &str, hidden: bool) {
         let op = if hidden { "hide" } else { "show" };
-        self.run_op(None, cx, op, node, |_, node| {
+        run_op(&self.name, None, cx, op, node, |_, node| {
             Ok(Operation::SetHidden { node, hidden })
         });
-    }
-
-    fn run_op(
-        &self,
-        window: Option<&mut Window>,
-        cx: &mut App,
-        op: &'static str,
-        node: &str,
-        build: impl FnOnce(String, NodeId) -> Result<Operation, String>,
-    ) {
-        let _group = tracing::info_span!("layout-op", op, node, extension = self.name).entered();
-        let node_id = match NodeId::parse(node) {
-            Ok(id) => id,
-            Err(error) => {
-                log::error!("invalid node ID {node:?}: {error}");
-                return;
-            }
-        };
-        let operation = match build(self.name.clone(), node_id) {
-            Ok(operation) => operation,
-            Err(message) => {
-                log::error!("{message}");
-                return;
-            }
-        };
-        if !self.check_shell_rules(cx, &operation) {
-            return;
-        }
-        let added = match &operation {
-            Operation::Add { node, .. } => Some(node.clone()),
-            _ => None,
-        };
-        let applied = {
-            let tree = cx.default_global::<Registry>().tree.clone();
-            let mut tree = tree.borrow_mut();
-            tree.apply(operation)
-        };
-        let Ok(applied) = applied else {
-            return;
-        };
-        match applied {
-            Applied::Added => {
-                if let (Some(node), Some(window)) = (added, window) {
-                    let _ = create_view(&node, None, window, cx);
-                }
-            }
-            Applied::Removed(removed) => {
-                for id in removed {
-                    let dropped = cx
-                        .default_global::<Registry>()
-                        .views
-                        .borrow_mut()
-                        .remove(&id);
-                    if dropped.is_some() {
-                        drop(dropped);
-                        tracing::debug!(node = %id, "view dropped");
-                    }
-                }
-            }
-            Applied::Moved | Applied::SetHidden(true) => {}
-            Applied::SetHidden(false) => return,
-        }
-        reconcile_containers(cx);
-        cx.refresh_windows();
-    }
-
-    fn check_shell_rules(&self, cx: &mut App, operation: &Operation) -> bool {
-        let registry = cx.default_global::<Registry>();
-        match operation {
-            Operation::Add { node, parent, slot } => {
-                let namespace = node.component.as_str().split('.').next();
-                if namespace != Some(self.name.as_str()) && namespace != Some("riso") {
-                    tracing::info!(
-                        node = %node.id,
-                        component = %node.component,
-                        extension = %self.name,
-                        "component is not in the extension's namespace",
-                    );
-                    return false;
-                }
-                if !registry.components.contains_key(&node.component) {
-                    tracing::info!(
-                        node = %node.id,
-                        component = %node.component,
-                        "component is not registered",
-                    );
-                    return false;
-                }
-                let tree = registry.tree.borrow();
-                if let Some(parent_component) = component_of(&tree, parent)
-                    && !registry
-                        .components
-                        .get(parent_component)
-                        .is_some_and(|component| component.slots.contains(slot))
-                {
-                    tracing::info!(
-                        node = %node.id,
-                        parent = %parent,
-                        parent_component = %parent_component,
-                        slot = %slot,
-                        "parent component does not declare slot",
-                    );
-                    return false;
-                }
-                true
-            }
-            Operation::Move {
-                node, parent, slot, ..
-            } => {
-                let tree = registry.tree.borrow();
-                if let Some(parent_component) = component_of(&tree, parent)
-                    && !registry
-                        .components
-                        .get(parent_component)
-                        .is_some_and(|component| component.slots.contains(slot))
-                {
-                    tracing::info!(
-                        node = %node,
-                        parent = %parent,
-                        parent_component = %parent_component,
-                        slot = %slot,
-                        "parent component does not declare slot",
-                    );
-                    return false;
-                }
-                true
-            }
-            Operation::Remove { .. } | Operation::SetHidden { .. } => true,
-        }
     }
 
     /// Registers the first factory for a valid component ID.
@@ -746,12 +1172,17 @@ impl Render for Shell {
         tracing::trace!("rendering shell");
         window.set_rem_size(riso_ui::ui_font_size());
         div()
+            .id("shell")
             .size_full()
             .grid()
             .grid_cols(1)
             .grid_rows(1)
             .bg(riso_ui::palette(cx).background)
             .font(riso_ui::ui_font())
+            .on_drop::<DraggedNode>(|dragged, _, cx| {
+                clear_drag_edges(cx);
+                tracing::debug!(node = %dragged.node, "drop ignored");
+            })
             .children(self.root.clone())
     }
 }

@@ -13,6 +13,31 @@ use theme::ActiveTheme;
 
 // TODO(theme-settings): The theme, the UI font, and its size are fixed. Read them from the settings engine when one exists.
 
+struct Provider(Font);
+
+impl theme::ThemeSettingsProvider for Provider {
+    fn ui_font<'a>(&'a self, _: &'a App) -> &'a Font {
+        &self.0
+    }
+
+    fn buffer_font<'a>(&'a self, _: &'a App) -> &'a Font {
+        // TODO(code-font): The code font is the UI font until a code font is bundled. Bundle Zed's Lilex when something shows code.
+        &self.0
+    }
+
+    fn ui_font_size(&self, _: &App) -> Pixels {
+        ui_font_size()
+    }
+
+    fn buffer_font_size(&self, _: &App) -> Pixels {
+        px(15.)
+    }
+
+    fn ui_density(&self, _: &App) -> theme::UiDensity {
+        theme::UiDensity::Default
+    }
+}
+
 /// Initializes the bundled UI fonts and themes, and activates One Dark.
 pub fn init(cx: &mut App) {
     let _span = tracing::info_span!("ui-init").entered();
@@ -49,6 +74,8 @@ pub fn init(cx: &mut App) {
         Err(error) => log::error!("could not activate One Dark, keeping the fallback: {error}"),
     }
     tracing::debug!(theme = %cx.theme().name, "theme active");
+    theme::set_theme_settings_provider(Box::new(Provider(ui_font())), cx);
+    tracing::debug!("theme settings provider installed");
 }
 
 /// The font for UI text.

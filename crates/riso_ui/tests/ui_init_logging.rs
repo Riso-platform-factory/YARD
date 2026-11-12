@@ -99,6 +99,7 @@ fn init_logs_fonts_and_themes_inside_ui_init(cx: &mut gpui::TestAppContext) {
             captured.records[1].as_str(),
             "DEBUG message=bundled themes loaded themes=2",
             "DEBUG message=theme active theme=One Dark",
+            "DEBUG message=theme settings provider installed",
         ]
     );
 }

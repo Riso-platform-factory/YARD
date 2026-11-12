@@ -2,7 +2,7 @@
 
 A second test extension for the layout engine, the guest of `layout_tour`. It places its own card in a slot of the host's card. Removing it shows that the host's slot is then empty.
 
-When `app/riso/src/dev/review.rs` lists it as `("layout_guest", layout_guest::init)`, after `layout_tour`, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it with the name the application gives it. The features it covers are in production, so it is not loaded now; add both back with `layout_tour` to check them again.
+`app/riso/src/dev/review.rs` lists it as `("layout_guest", layout_guest::init)`, after `layout_tour`, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it with the name the application gives it. When the features it covers are in production, it is taken out of both until the next feature is under review.
 
 Without a case it does nothing. It has no stage and is never in production.
 
@@ -17,6 +17,7 @@ The case is chosen with the environment variable `LAYOUT_GUEST`. An unknown case
 | `LAYOUT_TOUR=host LAYOUT_GUEST=foreign cargo run dev` | The guest places a node of `layout_tour.card`. Refused with an ERROR (`extension layout_guest cannot place component layout_tour.card`); the host's card is empty. |
 | `LAYOUT_TOUR=host LAYOUT_GUEST=namespace cargo run dev` | The guest registers `layout_tour.badge`. Refused with an ERROR (`extension layout_guest cannot register component layout_tour.badge`). |
 | `LAYOUT_TOUR=row LAYOUT_GUEST=split cargo run dev` | The guest places its card in `root.children` of the host's row: a fourth, equal child, last. |
+| `LAYOUT_TOUR=tabs LAYOUT_GUEST=tab cargo run dev` | The guest places its card in the host's tabs: a fourth tab, `guest`. |
 | `LAYOUT_GUEST=card cargo run dev` | No host. The guest's placement is refused with an INFO (`the parent is not in the tree`), and the window is empty. |
 
 ## Removing it

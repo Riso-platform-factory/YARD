@@ -16,7 +16,12 @@
 //! `LAYOUT_TOUR=nested-split cargo run dev`: a column inside a row.
 //! `LAYOUT_TOUR=one cargo run dev`: one card fills a row.
 //! `LAYOUT_TOUR=empty-split cargo run dev`: an empty row.
+//! `LAYOUT_TOUR=tabs cargo run dev`: three cards in tabs.
+//! `LAYOUT_TOUR=tabs-in-split cargo run dev`: tabs inside a row.
+//! `LAYOUT_TOUR=empty-tabs cargo run dev`: an empty tab bar.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -26,14 +31,15 @@ use gpui::{
     WeakEntity, Window, canvas, div,
 };
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
-        "row" | "column" | "nested-split" | "one" | "empty-split" | "reserved" => {
+        "row" | "column" | "nested-split" | "one" | "empty-split" | "reserved" | "tabs"
+        | "tabs-in-split" | "empty-tabs" => {
             ext.register(cx, "layout_tour.card", &["body"], |node, slots, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -53,20 +59,32 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 "root",
                 if case == "column" {
                     "riso.column"
+                } else if case == "tabs" || case == "empty-tabs" {
+                    "riso.tabs"
                 } else {
                     "riso.row"
                 },
             );
-            if case != "empty-split" {
+            if case != "empty-split" && case != "empty-tabs" {
                 ext.place(cx, "a", "layout_tour.card", "root", "children");
             }
             match case.as_str() {
-                "row" | "column" => {
+                "row" | "column" | "tabs" => {
                     ext.place(cx, "b", "layout_tour.card", "root", "children");
                     ext.place(cx, "c", "layout_tour.card", "root", "children");
                 }
-                "nested-split" => {
-                    ext.place(cx, "right", "riso.column", "root", "children");
+                "nested-split" | "tabs-in-split" => {
+                    ext.place(
+                        cx,
+                        "right",
+                        if case == "tabs-in-split" {
+                            "riso.tabs"
+                        } else {
+                            "riso.column"
+                        },
+                        "root",
+                        "children",
+                    );
                     ext.place(cx, "b", "layout_tour.card", "right", "children");
                     ext.place(cx, "c", "layout_tour.card", "right", "children");
                 }
@@ -121,7 +139,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
         _ => log::warn!(
             "unknown LAYOUT_TOUR case {case:?}; known cases: host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
-             missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved"
+             missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
+             tabs, tabs-in-split, empty-tabs"
         ),
     }
 }
@@ -129,7 +148,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
 struct Card {
     node: String,
     size: Size<Pixels>,
-    slots: riso_shell::Slots,
+    slots: riso_shell::dev::Slots,
 }
 
 impl Card {

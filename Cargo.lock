@@ -932,6 +932,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
+name = "component"
+version = "0.1.0"
+source = "git+https://github.com/zed-industries/zed?rev=ddb90e5e89d346f21847281727e1644b8bb2cc37#ddb90e5e89d346f21847281727e1644b8bb2cc37"
+dependencies = [
+ "collections",
+ "gpui",
+ "inventory",
+ "parking_lot",
+ "strum",
+ "theme",
+]
+
+[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1315,6 +1328,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
 dependencies = [
  "litrs",
+]
+
+[[package]]
+name = "documented"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c278cf01d971a2ce2e4a97f2af1c13706e111c2c05636a88f93520b61c75b3cb"
+dependencies = [
+ "documented-macros",
+ "phf",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "documented-macros"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3605d4f0b4326a3a1909b6d258b47478c0d47bb668ad2cb7d4a6e2d22e852f5c"
+dependencies = [
+ "convert_case 0.11.0",
+ "itertools 0.15.0",
+ "optfield",
+ "proc-macro2",
+ "quote",
+ "strum",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -2456,6 +2495,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "icons"
+version = "0.1.0"
+source = "git+https://github.com/zed-industries/zed?rev=ddb90e5e89d346f21847281727e1644b8bb2cc37#ddb90e5e89d346f21847281727e1644b8bb2cc37"
+dependencies = [
+ "serde",
+ "strum",
+]
+
+[[package]]
 name = "icu_collections"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2725,6 +2773,15 @@ name = "itertools"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
 dependencies = [
  "either",
 ]
@@ -3101,6 +3158,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "menu"
+version = "0.1.0"
+source = "git+https://github.com/zed-industries/zed?rev=ddb90e5e89d346f21847281727e1644b8bb2cc37#ddb90e5e89d346f21847281727e1644b8bb2cc37"
+dependencies = [
+ "gpui",
 ]
 
 [[package]]
@@ -3707,6 +3772,17 @@ checksum = "8d8c8b8e725ad26404d6896eb2f064294a0a7b4f1d9120210d85544684c4ca95"
 dependencies = [
  "is-wsl",
  "libc",
+]
+
+[[package]]
+name = "optfield"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "969ccca8ffc4fb105bd131a228107d5c9dd89d9d627edf3295cbe979156f9712"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -4580,6 +4656,8 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
+ "layout_guest",
+ "layout_tour",
  "riso_layout",
  "riso_log",
  "riso_paths",
@@ -4642,6 +4720,7 @@ dependencies = [
  "serde_json",
  "theme",
  "tracing",
+ "ui",
 ]
 
 [[package]]
@@ -5794,6 +5873,39 @@ dependencies = [
  "memoffset",
  "tempfile",
  "windows-sys",
+]
+
+[[package]]
+name = "ui"
+version = "0.1.0"
+source = "git+https://github.com/zed-industries/zed?rev=ddb90e5e89d346f21847281727e1644b8bb2cc37#ddb90e5e89d346f21847281727e1644b8bb2cc37"
+dependencies = [
+ "chrono",
+ "component",
+ "documented",
+ "gpui",
+ "gpui_macros",
+ "gpui_util",
+ "icons",
+ "itertools 0.14.0",
+ "log",
+ "menu",
+ "schemars",
+ "serde",
+ "smallvec",
+ "strum",
+ "theme",
+ "ui_macros",
+ "web-time",
+]
+
+[[package]]
+name = "ui_macros"
+version = "0.1.0"
+source = "git+https://github.com/zed-industries/zed?rev=ddb90e5e89d346f21847281727e1644b8bb2cc37#ddb90e5e89d346f21847281727e1644b8bb2cc37"
+dependencies = [
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

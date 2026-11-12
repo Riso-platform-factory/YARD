@@ -15,6 +15,7 @@ dev = []
 
 [dependencies]
 dirs.workspace = true
+log.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]

@@ -2,3 +2,6 @@
 
 mod directories;
 pub use directories::*;
+
+#[cfg(feature = "dev")]
+pub mod dev;

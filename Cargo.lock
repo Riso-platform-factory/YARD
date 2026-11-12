@@ -4656,6 +4656,8 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
+ "layout_guest",
+ "layout_tour",
  "riso_layout",
  "riso_log",
  "riso_paths",
@@ -4670,6 +4672,8 @@ dependencies = [
 name = "riso_layout"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "tracing",
 ]
 
@@ -4694,6 +4698,7 @@ name = "riso_paths"
 version = "0.1.0"
 dependencies = [
  "dirs",
+ "log",
  "tempfile",
  "tracing",
 ]
@@ -4705,6 +4710,7 @@ dependencies = [
  "gpui",
  "log",
  "riso_layout",
+ "riso_paths",
  "riso_ui",
  "tracing",
 ]

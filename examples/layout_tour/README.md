@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers so far is in production, so it is not loaded now; add both back to check those features again, or when the next feature is under review.
+A test extension for the layout engine. `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, so `cargo run dev` loads it into the running app. When every feature it covers is in production, it is taken out of both until the next feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -148,6 +148,18 @@ The controls show `user layer: N`, the number of operations applied since the wi
 | Select `b` and count it to 2, drag tab `a` onto `right`'s bar, drag the row's line, `hide d` | `user layer: 2`: `recorded {user_layer=1}` after the move, `{user_layer=2}` after the hide. The resize and the tab selection are not recorded. |
 | `reset layout` | `left` has `a`, `b` and `right` has `c`, `d` again, in equal shares, with the first tabs selected; `b` keeps `count: 2`; `user layer dropped {dropped=2}`. |
 | `reset layout` again | `nothing to reset`. |
+
+### Feature 12: save-restore
+
+The user layer is saved to `data/layout.json` after every recorded operation and every reset, and applied again at the next start. Use a fresh home, so that no real file is touched: `RISO_HOME=/tmp/riso-layout`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-layout LAYOUT_TOUR=user-layer cargo run dev`, drag tab `a` onto `right`'s bar, `hide d`, quit | `layout-save` and `file-write` inside each `layout-op`; `layout.json` holds a `move` (no `index`: it went last) and a `hide`. |
+| The same command again | `layout-restore` ends with `restored {applied=2, skipped=0}`; `right` shows `c`, `a`, and `d` is hidden; `user layer: 2`. |
+| `RISO_HOME=/tmp/riso-layout LAYOUT_TOUR=tabs cargo run dev` | The `tabs` layout has no `right` and no `d`: both operations are `skipped` with INFO, and the default `tabs` layout is shown. |
+| `reset layout`, quit, start `user-layer` again | `layout.json` holds no operation; the default layout. |
+| Write `not json` into `layout.json`, start `user-layer` | A WARN, `the saved layout cannot be read`, and the default layout; the file is left as it is. |
 
 ## Removing it
 

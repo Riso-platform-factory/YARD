@@ -23,6 +23,7 @@ The user layer is saved to disk every time it changes. At the next start, the de
   - a `version` number, starting at 1;
   - a list of operations;
   - each operation names its kind and its fields by their IDs: `add` with node, component, parent, and slot; `remove` with node; `move` with node, parent, slot, and index; `hide` and `show` with node;
+  - a `move` to the end of a slot has no `index`, so that the file never holds a number that depends on the platform; a missing `index` means last;
   - the extension that asked for each operation is kept, so that the namespace rule of `add` can be checked again when the operation is restored.
 - **The model owns the format.** A new part, `riso_layout/saved`, encodes and decodes it without GPUI. Decoding checks every ID with the slug rules.
 

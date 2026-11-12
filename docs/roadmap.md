@@ -11,7 +11,7 @@ risoapp is a platform: engines on which applications are built. This file lists 
 | Files | `riso_paths` | Its directories, the names of its files, and writing a file in one step | built | `docs/foundations/roadmap.md` |
 | Startup | `app/riso` | The order of a start: the log, the files, the extensions, the window | built | `docs/foundations/roadmap.md` |
 | Layout | `riso_layout`, `riso_shell` | A tree of components that extensions fill and the user rearranges, saved between runs | first part built, second part planned | `docs/layout-engine/roadmap.md` |
-| Settings | `riso_settings` | Everything that can be configured: declared in sections, read from one file, changed while the application runs | missing | `docs/settings-engine/roadmap.md` |
+| Settings | `riso_settings` | Everything that can be configured: declared in sections, read from one file, changed while the application runs | sections built, the rest is missing | `docs/settings-engine/roadmap.md` |
 | Theme | `riso_ui` | The colors, fonts, and density of everything, chosen in the settings | fixed defaults built, the engine is missing | `docs/theme-engine/roadmap.md` |
 | UI kit | `riso_ui` | The base components everything is drawn with: text, icons, buttons, lists, inputs, menus | tabs and the split's axis built, the rest is missing | `docs/ui-kit/roadmap.md` |
 | Keymap | `riso_keymap`, `riso_shell` | The keyboard: focus, actions, default keys, the user's keys, commands by name | missing | `docs/keymap-engine/roadmap.md` |

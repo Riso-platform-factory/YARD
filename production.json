@@ -1,7 +1,7 @@
 {
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "0f24b2c8f9ced298"
+      "app/riso/src/startup.rs": "31d5c333a09cb7a8"
     },
     "promoted": "2026-11-12"
   },
@@ -54,6 +54,12 @@
   "riso_paths/write_atomic": {
     "files": {
       "crates/riso_paths/src/write_atomic.rs": "c1071920f441312d"
+    },
+    "promoted": "2026-11-12"
+  },
+  "riso_settings/sections": {
+    "files": {
+      "crates/riso_settings/src/sections.rs": "a6d197c684ba5d60"
     },
     "promoted": "2026-11-12"
   },

@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
-use riso_settings::dev::{Settings, get, init, register};
+use riso_settings::{Settings, get, init, register};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Mutex,

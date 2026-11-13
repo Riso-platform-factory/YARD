@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the layout engine again, or when the next feature that it shows is under review.
+A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -194,6 +194,17 @@ The case `actions` with keys instead of its buttons:
 | Press `shift-escape` before clicking anything | Refused: `no node has the focus`. |
 | Click card `b`, then press `cmd-}` twice and `cmd-{` once | `c`, `d`, then `c`. `alt-cmd-right` and `alt-cmd-left` do the same. |
 | Click card `a`, then press `shift-escape` twice | `a` fills the window, then comes back. |
+
+## Keymap feature 4: focus-by-direction
+
+`LAYOUT_TOUR=nested-split`: `a` on the left, `b` above `c` on the right. Click a card away from its `zoom` line, which zooms it.
+
+| Action | What to look for |
+|---|---|
+| Click `b`, then `cmd-k cmd-down` | `c` says `focused`. `layout-action{action=FocusDown, node=b}` with `done {target=c}`. |
+| Then `cmd-k cmd-left` | `a`. |
+| Then `cmd-k cmd-left` again | Refused: `no node on the left`, with `a`'s bounds and the probe point. |
+| Click `a`, then `cmd-k cmd-right` | `b` or `c`, whichever holds the middle of `a`'s right edge. |
 
 ## Removing it
 

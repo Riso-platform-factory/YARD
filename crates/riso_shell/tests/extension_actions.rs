@@ -1,4 +1,4 @@
-#![cfg(all(feature = "dev", target_os = "macos"))]
+#![cfg(target_os = "macos")]
 
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
 use std::{
@@ -26,7 +26,7 @@ impl gpui::Render for Card {
             .size_full();
         // The element that handles the component's action tracks the node's own
         // handle: the action runs only while this card has the focus.
-        if let Some(handle) = riso_shell::dev::focus_handle(cx, &self.node) {
+        if let Some(handle) = riso_shell::focus_handle(cx, &self.node) {
             card = card.track_focus(&handle).key_context("test_ext").on_action(
                 move |_: &Increment, _, _| {
                     *counts.borrow_mut().entry(node.clone()).or_default() += 1;
@@ -37,7 +37,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -52,12 +52,12 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppCont
 fn open_cards_app(
     cx: &mut TestAppContext,
     counts: Counts,
-    init: impl FnOnce(&mut gpui::App, &riso_shell::dev::Extension),
-) -> gpui::WindowHandle<riso_shell::dev::Shell> {
+    init: impl FnOnce(&mut gpui::App, &riso_shell::Extension),
+) -> gpui::WindowHandle<riso_shell::Shell> {
     cx.update(|cx| {
         // The startup binds the default keys in `app-init`, before extensions run.
-        riso_shell::dev::bind_default_keys(cx);
-        let ext = riso_shell::dev::Extension::new(cx, "test_ext").unwrap();
+        riso_shell::bind_default_keys(cx);
+        let ext = riso_shell::Extension::new(cx, "test_ext").unwrap();
         ext.register(cx, "test_ext.card", &[], move |node, _, _, cx| {
             cx.new(|_| Card {
                 node: node.to_string(),
@@ -72,7 +72,7 @@ fn open_cards_app(
         }
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
@@ -82,8 +82,7 @@ fn open_cards_app(
 
 /// The node the dev shell says has the focus, if any.
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
-    visual
-        .update(|window, cx| riso_shell::dev::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 /// Clicks the center of the element with `selector`.
@@ -186,7 +185,7 @@ fn handling_a_shell_action_is_refused_and_it_still_hides_the_focused_card(cx: &m
     cx.update(riso_ui::init);
     let counts = Rc::new(RefCell::new(BTreeMap::new()));
     let window = open_cards_app(cx, counts, |cx, ext| {
-        ext.on_action::<riso_shell::dev::Hide>(cx, |_, _, _| {
+        ext.on_action::<riso_shell::Hide>(cx, |_, _, _| {
             panic!("test_ext cannot handle riso::Hide")
         });
     });
@@ -194,11 +193,11 @@ fn handling_a_shell_action_is_refused_and_it_still_hides_the_focused_card(cx: &m
     click(&mut visual, "CARD-a");
     draw(window, cx);
     assert_eq!(focused(&mut visual).as_deref(), Some("a"));
-    visual.dispatch_action(riso_shell::dev::Hide);
+    visual.dispatch_action(riso_shell::Hide);
     draw(window, cx);
     // `Hide` stays the shell's action: it hides the focused card as before.
-    assert!(cx.update(|cx| riso_shell::dev::is_hidden(cx, "a")));
-    assert!(!cx.update(|cx| riso_shell::dev::is_hidden(cx, "b")));
+    assert!(cx.update(|cx| riso_shell::is_hidden(cx, "a")));
+    assert!(!cx.update(|cx| riso_shell::is_hidden(cx, "b")));
     assert_eq!(focused(&mut visual), None);
 }
 
@@ -222,5 +221,5 @@ fn an_extension_key_in_shell_overrides_the_shells_default_key(cx: &mut TestAppCo
     visual.simulate_keystrokes("shift-escape");
     draw(window, cx);
     assert_eq!(pings.get(), 1);
-    assert_eq!(cx.update(|cx| riso_shell::dev::zoomed(cx)), None);
+    assert_eq!(cx.update(|cx| riso_shell::zoomed(cx)), None);
 }

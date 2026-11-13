@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     App, AppContext, Context, Global, InteractiveElement, IntoElement, ParentElement, Render,
     Styled, Subscription, Window, rems,
@@ -13,7 +11,7 @@ struct Pings(usize);
 
 impl Global for Pings {}
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("KEYS_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -70,7 +68,7 @@ impl Render for Card {
             .bg(palette.background)
             .border_1()
             .border_color(palette.border);
-        if let Some(handle) = riso_shell::dev::focus_handle(cx, &self.node) {
+        if let Some(handle) = riso_shell::focus_handle(cx, &self.node) {
             focused = handle.is_focused(window);
             card = card
                 .track_focus(&handle)

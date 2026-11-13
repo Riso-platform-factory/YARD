@@ -1,6 +1,6 @@
 # keys_tour
 
-A test extension for the keymap engine. It declares GPUI actions of its own, binds their keys through its handle, and handles them in two ways: in its component, and for the whole window. When `app/riso/src/dev/review.rs` lists it as `("keys_tour", keys_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
+A test extension for the keymap engine. It declares GPUI actions of its own, binds their keys through its handle, and handles them in two ways: in its component, and for the whole window. When `app/riso/src/dev/review.rs` lists it as `("keys_tour", keys_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the keymap engine again, or when the next keymap feature is under review.
 
 Without `KEYS_TOUR` it does nothing. With `KEYS_TOUR=all`, it places a row of two cards, `a` and `b`. A card shows its node, its count, the pings, and `focused` when its node has the focus.
 

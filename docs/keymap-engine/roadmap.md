@@ -49,7 +49,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 5 | `extension-actions` | An extension declares actions and binds their default keys. It handles an action in one of its components, where it runs only while that component has the focus, or for the whole window through its handle | The keys tour's action runs from its key only while its card has the focus. Its window-wide action runs from anywhere | `gpui`: `on_action`, key contexts | 3 | dev |
+| 5 | `extension-actions` | An extension declares actions and binds their default keys. It handles an action in one of its components, where it runs only while that component has the focus, or for the whole window through its handle | The keys tour's action runs from its key only while its card has the focus. Its window-wide action runs from anywhere | `gpui`: `on_action`, key contexts | 3 | production |
 
 ### The user's keys
 

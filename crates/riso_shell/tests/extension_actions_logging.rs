@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -115,7 +113,7 @@ impl gpui::Render for Card {
             .size_full();
         // A component handles its own action on the element that tracks the
         // node's handle; what it logs is the extension's, not the shell's.
-        if let Some(handle) = riso_shell::dev::focus_handle(cx, &self.node) {
+        if let Some(handle) = riso_shell::focus_handle(cx, &self.node) {
             card = card.track_focus(&handle).key_context("test_ext").on_action(
                 |_: &Increment, _, _| {
                     tracing::info!(target: PROBE, "increment");
@@ -126,7 +124,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -172,7 +170,7 @@ fn binding_and_handling_actions_log_their_groups_lines_and_refusals(cx: &mut Tes
         cx.update(|cx| {
             // The startup wraps each extension's setup in `extension-init`.
             let _group = tracing::info_span!("extension-init", extension = "test_ext").entered();
-            let ext = riso_shell::dev::Extension::new(cx, "test_ext").unwrap();
+            let ext = riso_shell::Extension::new(cx, "test_ext").unwrap();
             ext.register(cx, "test_ext.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -190,7 +188,7 @@ fn binding_and_handling_actions_log_their_groups_lines_and_refusals(cx: &mut Tes
             ext.on_action::<Ping>(cx, |_, _, _| {
                 tracing::info!(target: PROBE, "ping");
             });
-            ext.on_action::<riso_shell::dev::Hide>(cx, |_, _, _| {
+            ext.on_action::<riso_shell::Hide>(cx, |_, _, _| {
                 panic!("test_ext cannot handle riso::Hide")
             });
             ext.place_root(cx, "root", "riso.row");
@@ -199,7 +197,7 @@ fn binding_and_handling_actions_log_their_groups_lines_and_refusals(cx: &mut Tes
             }
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));

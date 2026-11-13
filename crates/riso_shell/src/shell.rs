@@ -1,24 +1,5 @@
 //! Component factories and the root view kept by the main window.
 
-use gpui::{
-    AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, DragMoveEvent, Entity,
-    EntityId, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding, ParentElement,
-    Pixels, Point, Render, SharedString, Styled, Subscription, WeakEntity, Window, canvas, div,
-};
-use riso_layout::Layers;
-use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, SlotName, Tree};
-use riso_layout::{decode, encode};
-use riso_paths::write_atomic;
-use std::{
-    cell::RefCell,
-    collections::{BTreeMap, BTreeSet, btree_map::Entry},
-    path::PathBuf,
-    rc::Rc,
-};
-
-type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
-type ViewMap = BTreeMap<NodeId, AnyView>;
-
 gpui::actions!(
     riso,
     [
@@ -32,6 +13,26 @@ gpui::actions!(
         FocusDown
     ]
 );
+use gpui::{
+    Action, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div, DragMoveEvent,
+    Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding,
+    KeyBindingContextPredicate, ParentElement, Pixels, Point, Render, SharedString, Styled,
+    Subscription, WeakEntity, Window, canvas, div,
+};
+use riso_layout::Layers;
+use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, SlotName, Tree};
+use riso_layout::{decode, encode};
+use riso_paths::write_atomic;
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet, btree_map::Entry},
+    path::PathBuf,
+    rc::Rc,
+};
+
+type ActionHandler = Rc<dyn Fn(Div) -> Div>;
+type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
+type ViewMap = BTreeMap<NodeId, AnyView>;
 
 struct NodeView {
     node: NodeId,
@@ -180,6 +181,7 @@ impl Slots {
 struct Registry {
     extensions: BTreeSet<String>,
     components: BTreeMap<ComponentId, Component>,
+    action_handlers: Vec<ActionHandler>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
     focus_handles: BTreeMap<NodeId, FocusHandle>,
@@ -244,6 +246,7 @@ impl Default for Registry {
         Self {
             extensions: BTreeSet::new(),
             components,
+            action_handlers: Vec::new(),
             tree: Rc::new(RefCell::new(Layers::new(Tree::default()))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
             focus_handles: BTreeMap::new(),
@@ -1790,6 +1793,96 @@ impl Extension {
                 slot,
             );
     }
+
+    /// Binds default keys for actions in the given key contexts.
+    pub fn bind_keys(&self, cx: &mut App, bindings: &[(&str, Box<dyn Action>, &str)]) {
+        let _group = tracing::info_span!(
+            "keys-bind",
+            extension = self.name.as_str(),
+            count = bindings.len(),
+        )
+        .entered();
+        let mut valid = Vec::with_capacity(bindings.len());
+        let mut logged = Vec::with_capacity(bindings.len());
+        for (keys, action, context) in bindings {
+            let predicate = match KeyBindingContextPredicate::parse(context) {
+                Ok(predicate) => Rc::new(predicate),
+                Err(error) => {
+                    log::error!("invalid key context {context:?} for keys {keys:?}: {error}");
+                    continue;
+                }
+            };
+            if keys.split_whitespace().next().is_none() {
+                log::error!("invalid key binding {keys:?}: empty key sequence");
+                continue;
+            }
+            let action_name = action.name();
+            let binding = match KeyBinding::load(
+                keys,
+                action.boxed_clone(),
+                Some(predicate),
+                false,
+                None,
+                cx,
+            ) {
+                Ok(binding) => binding,
+                Err(error) => {
+                    log::error!("invalid key binding {keys:?}: {error}");
+                    continue;
+                }
+            };
+            if binding
+                .keystrokes()
+                .iter()
+                .any(|keystroke| keystroke.key().is_empty())
+            {
+                log::error!("invalid key binding {keys:?}: missing key after `-`");
+                continue;
+            }
+            logged.push((*keys, action_name, *context));
+            valid.push(binding);
+        }
+        if !valid.is_empty() {
+            cx.bind_keys(valid);
+        }
+        for (keys, action, context) in logged {
+            tracing::debug!(keys, action, context, "bound");
+        }
+    }
+
+    /// Registers a window-wide handler for an action in the extension's namespace.
+    pub fn on_action<A: Action>(
+        &self,
+        cx: &mut App,
+        handler: impl Fn(&A, &mut Window, &mut App) + 'static,
+    ) {
+        let action = A::name_for_type();
+        if !action
+            .strip_prefix(self.name.as_str())
+            .is_some_and(|rest| rest.starts_with("::"))
+        {
+            log::error!("extension {} cannot handle {action}", self.name);
+            return;
+        }
+        let handler = Rc::new(handler);
+        let extension = self.name.clone();
+        cx.default_global::<Registry>()
+            .action_handlers
+            .push(Rc::new(move |div| {
+                let handler = handler.clone();
+                let extension = extension.clone();
+                div.on_action::<A>(move |value, window, cx| {
+                    let _group = tracing::info_span!(
+                        "extension-action",
+                        extension = extension.as_str(),
+                        action,
+                    )
+                    .entered();
+                    handler(value, window, cx);
+                })
+            }));
+        tracing::debug!(extension = self.name.as_str(), action, "action handled");
+    }
 }
 
 /// The window's root view. All views live in the shell's global map.
@@ -2052,17 +2145,22 @@ impl Render for Shell {
         tracing::trace!("rendering shell");
         cx.defer_in(window, |shell, window, cx| shell.sync_focus(window, cx));
         window.set_rem_size(riso_ui::ui_font_size(cx));
-        let view = cx
+        let (view, action_handlers) = cx
             .try_global::<Registry>()
-            .and_then(|registry| {
-                registry
+            .map(|registry| {
+                let view = registry
                     .zoomed
                     .as_ref()
-                    .and_then(|node| registry.views.borrow().get(node).cloned())
+                    .and_then(|node| registry.views.borrow().get(node).cloned());
+                (view, registry.action_handlers.clone())
             })
-            .or_else(|| self.root.clone());
-        div()
-            .id("shell")
+            .unwrap_or_default();
+        let view = view.or_else(|| self.root.clone());
+        let mut root = div();
+        for attach in action_handlers {
+            root = attach(root);
+        }
+        root.id("shell")
             .key_context("Shell")
             .track_focus(&self.handle)
             .on_action(|_: &ToggleZoom, window, cx| {

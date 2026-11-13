@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -155,17 +153,17 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "window_tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "window_tour").unwrap();
             window_tour::init(cx, &ext);
         });
         if mode == "title-bar" {
             let window = cx.update(|cx| {
                 cx.open_window(
                     gpui::WindowOptions {
-                        titlebar: Some(riso_ui::dev::titlebar_options("riso")),
+                        titlebar: Some(riso_ui::titlebar_options("riso")),
                         ..Default::default()
                     },
-                    riso_shell::dev::new_shell,
+                    riso_shell::new_shell,
                 )
                 .unwrap()
             });

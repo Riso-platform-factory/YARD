@@ -34,64 +34,209 @@ type ActionHandler = Rc<dyn Fn(Div) -> Div>;
 type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
 type ViewMap = BTreeMap<NodeId, AnyView>;
 
+const FRAME_NODES: &[&str] = &["window", "title_bar", "body"];
+const FRAME_COMPONENTS: &[&str] = &["riso.window", "riso.title_bar", "riso.body"];
+
+fn is_frame_node(id: &NodeId) -> bool {
+    FRAME_NODES.contains(&id.as_str())
+}
+
+fn is_frame_component(id: &ComponentId) -> bool {
+    FRAME_COMPONENTS.contains(&id.as_str())
+}
+
+fn is_frame_slot(parent: &NodeId, slot: &SlotName) -> bool {
+    matches!(
+        (parent.as_str(), slot.as_str()),
+        ("window", "title_bar" | "body") | ("body", "children")
+    )
+}
+
+fn is_bar_item(tree: &Tree, id: &NodeId) -> bool {
+    current_location(tree, id).is_some_and(|(parent, _, _, _)| parent.as_str() == "title_bar")
+}
+
+fn is_in_body(tree: &Tree, id: &NodeId) -> bool {
+    let mut current = id.clone();
+    while let Some((parent, _, _, _)) = current_location(tree, &current) {
+        if parent.as_str() == "body" {
+            return true;
+        }
+        current = parent;
+    }
+    false
+}
+
+struct WindowFrame {
+    slots: Slots,
+}
+
+impl Render for WindowFrame {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        riso_ui::v_flex()
+            .size_full()
+            .children(self.slots.views("title_bar"))
+            .children(self.slots.views("body").into_iter().map(|view| {
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .w_full()
+                    .grid()
+                    .grid_cols(1)
+                    .grid_rows(1)
+                    .child(view)
+            }))
+    }
+}
+
+struct TitleBarFrame {
+    node: NodeId,
+    slots: Slots,
+}
+
+impl Render for TitleBarFrame {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let left = self.slots.views("left");
+        let center = self.slots.views("center");
+        let right = self.slots.views("right");
+        let title_shown = left.is_empty();
+        tracing::trace!(
+            left = left.len(),
+            center = center.len(),
+            right = right.len(),
+            title = title_shown,
+            "rendering title bar",
+        );
+        let window_title = cx
+            .try_global::<Registry>()
+            .map(|registry| registry.window_title.clone())
+            .unwrap_or_default();
+        let mut bar = riso_ui::TitleBar::new(SharedString::from(self.node.to_string()));
+        if title_shown {
+            let selector_title = window_title.clone();
+            bar = bar.left(
+                div()
+                    .debug_selector(move || format!("WINDOW-TITLE-{selector_title}"))
+                    .child(
+                        riso_ui::Label::new(window_title)
+                            .size(riso_ui::LabelSize::Small)
+                            .color(riso_ui::TextColor::Muted),
+                    ),
+            );
+        } else {
+            for view in left {
+                bar = bar.left(view);
+            }
+        }
+        for view in center {
+            bar = bar.center(view);
+        }
+        for view in right {
+            bar = bar.right(view);
+        }
+        bar
+    }
+}
+
+struct BodyFrame {
+    slots: Slots,
+}
+
+impl Render for BodyFrame {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let zoomed_view = cx.try_global::<Registry>().and_then(|registry| {
+            registry
+                .zoomed
+                .as_ref()
+                .and_then(|node| registry.views.borrow().get(node).cloned())
+        });
+        let views = match zoomed_view {
+            Some(view) => vec![view],
+            None => self.slots.views("children"),
+        };
+        div()
+            .size_full()
+            .grid()
+            .grid_cols(1)
+            .grid_rows(1)
+            .children(views)
+    }
+}
+
 struct NodeView {
     node: NodeId,
-    handle: FocusHandle,
+    handle: Option<FocusHandle>,
     view: AnyView,
 }
 
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let node = self.node.clone();
-        div()
-            .relative()
-            .size_full()
-            .grid()
-            .grid_cols(1)
-            .grid_rows(1)
-            .track_focus(&self.handle)
-            .on_action(cx.listener(|view, _: &ToggleZoom, window, cx| {
-                layout_action(LayoutAction::ToggleZoom, Some(&view.node), window, cx);
-            }))
-            .on_action(cx.listener(|view, _: &Hide, window, cx| {
-                layout_action(LayoutAction::Hide, Some(&view.node), window, cx);
-            }))
-            .on_action(cx.listener(|view, _: &SelectNextTab, window, cx| {
-                layout_action(LayoutAction::SelectNextTab, Some(&view.node), window, cx);
-            }))
-            .on_action(cx.listener(|view, _: &FocusLeft, window, cx| {
-                layout_action(LayoutAction::FocusLeft, Some(&view.node), window, cx);
-            }))
-            .on_action(cx.listener(|view, _: &FocusRight, window, cx| {
-                layout_action(LayoutAction::FocusRight, Some(&view.node), window, cx);
-            }))
-            .on_action(cx.listener(|view, _: &FocusUp, window, cx| {
-                layout_action(LayoutAction::FocusUp, Some(&view.node), window, cx);
-            }))
-            .on_action(cx.listener(|view, _: &FocusDown, window, cx| {
-                layout_action(LayoutAction::FocusDown, Some(&view.node), window, cx);
-            }))
-            .on_action(cx.listener(|view, _: &SelectPreviousTab, window, cx| {
-                layout_action(
-                    LayoutAction::SelectPreviousTab,
-                    Some(&view.node),
-                    window,
-                    cx,
-                );
-            }))
-            .child(self.view.clone())
-            .child(
-                canvas(
-                    move |bounds, _, cx| {
-                        cx.default_global::<Registry>()
-                            .bounds
-                            .insert(node.clone(), bounds);
-                    },
-                    |_, _, _, _| {},
-                )
-                .absolute()
-                .size_full(),
+        let in_bar = cx.try_global::<Registry>().is_some_and(|registry| {
+            let layers = registry.tree.borrow();
+            is_bar_item(layers.current(), &self.node)
+        });
+        let container = if self.node.as_str() == "title_bar" {
+            div().relative().w_full().flex_none()
+        } else if in_bar {
+            riso_ui::h_flex().relative().h_full().flex_shrink_0()
+        } else {
+            div()
+                .relative()
+                .size_full()
+                .grid()
+                .grid_cols(1)
+                .grid_rows(1)
+        };
+        let container = if let Some(handle) = &self.handle {
+            container
+                .track_focus(handle)
+                .on_action(cx.listener(|view, _: &ToggleZoom, window, cx| {
+                    layout_action(LayoutAction::ToggleZoom, Some(&view.node), window, cx);
+                }))
+                .on_action(cx.listener(|view, _: &Hide, window, cx| {
+                    layout_action(LayoutAction::Hide, Some(&view.node), window, cx);
+                }))
+                .on_action(cx.listener(|view, _: &SelectNextTab, window, cx| {
+                    layout_action(LayoutAction::SelectNextTab, Some(&view.node), window, cx);
+                }))
+                .on_action(cx.listener(|view, _: &FocusLeft, window, cx| {
+                    layout_action(LayoutAction::FocusLeft, Some(&view.node), window, cx);
+                }))
+                .on_action(cx.listener(|view, _: &FocusRight, window, cx| {
+                    layout_action(LayoutAction::FocusRight, Some(&view.node), window, cx);
+                }))
+                .on_action(cx.listener(|view, _: &FocusUp, window, cx| {
+                    layout_action(LayoutAction::FocusUp, Some(&view.node), window, cx);
+                }))
+                .on_action(cx.listener(|view, _: &FocusDown, window, cx| {
+                    layout_action(LayoutAction::FocusDown, Some(&view.node), window, cx);
+                }))
+                .on_action(cx.listener(|view, _: &SelectPreviousTab, window, cx| {
+                    layout_action(
+                        LayoutAction::SelectPreviousTab,
+                        Some(&view.node),
+                        window,
+                        cx,
+                    );
+                }))
+        } else {
+            container
+        };
+        container.child(self.view.clone()).child(
+            canvas(
+                move |bounds, _, cx| {
+                    cx.default_global::<Registry>()
+                        .bounds
+                        .insert(node.clone(), bounds);
+                },
+                |_, _, _, _| {},
             )
+            .absolute()
+            .top_0()
+            .left_0()
+            .size_full(),
+        )
     }
 }
 
@@ -189,7 +334,9 @@ struct Registry {
     root_focus_handle: Option<FocusHandle>,
     splits: Vec<WeakEntity<Split>>,
     tabs: Vec<WeakEntity<Tabs>>,
+    extension_root: Option<NodeId>,
     zoomed: Option<NodeId>,
+    window_title: SharedString,
     layout_file: Option<PathBuf>,
     views_created: bool,
     default_fixed: bool,
@@ -243,18 +390,107 @@ impl Default for Registry {
                 }),
             },
         );
+        components.insert(
+            ComponentId::parse("riso.window").unwrap(),
+            Component {
+                slots: vec![
+                    SlotName::parse("title_bar").unwrap(),
+                    SlotName::parse("body").unwrap(),
+                ],
+                create: Rc::new(|_, slots, _, cx| cx.new(|_| WindowFrame { slots }).into()),
+            },
+        );
+        components.insert(
+            ComponentId::parse("riso.title_bar").unwrap(),
+            Component {
+                slots: vec![
+                    SlotName::parse("left").unwrap(),
+                    SlotName::parse("center").unwrap(),
+                    SlotName::parse("right").unwrap(),
+                ],
+                create: Rc::new(|node, slots, _, cx| {
+                    cx.new(|_| TitleBarFrame {
+                        node: node.clone(),
+                        slots,
+                    })
+                    .into()
+                }),
+            },
+        );
+        components.insert(
+            ComponentId::parse("riso.body").unwrap(),
+            Component {
+                slots: vec![SlotName::parse("children").unwrap()],
+                create: Rc::new(|_, slots, _, cx| cx.new(|_| BodyFrame { slots }).into()),
+            },
+        );
+        let mut tree = Tree::default();
+        {
+            let _frame = tracing::info_span!("window-frame").entered();
+            let window_id = NodeId::parse("window").unwrap();
+            {
+                let _place =
+                    tracing::info_span!("root-place", node = "window", component = "riso.window",)
+                        .entered();
+                let _ = tree.place_root(Node {
+                    id: window_id.clone(),
+                    component: ComponentId::parse("riso.window").unwrap(),
+                    extension: "riso".into(),
+                });
+            }
+            {
+                let _place = tracing::info_span!(
+                    "node-place",
+                    node = "title_bar",
+                    component = "riso.title_bar",
+                    parent = "window",
+                    slot = "title_bar",
+                )
+                .entered();
+                let _ = tree.place(
+                    Node {
+                        id: NodeId::parse("title_bar").unwrap(),
+                        component: ComponentId::parse("riso.title_bar").unwrap(),
+                        extension: "riso".into(),
+                    },
+                    &window_id,
+                    SlotName::parse("title_bar").unwrap(),
+                );
+            }
+            {
+                let _place = tracing::info_span!(
+                    "node-place",
+                    node = "body",
+                    component = "riso.body",
+                    parent = "window",
+                    slot = "body",
+                )
+                .entered();
+                let _ = tree.place(
+                    Node {
+                        id: NodeId::parse("body").unwrap(),
+                        component: ComponentId::parse("riso.body").unwrap(),
+                        extension: "riso".into(),
+                    },
+                    &window_id,
+                    SlotName::parse("body").unwrap(),
+                );
+            }
+        }
         Self {
             extensions: BTreeSet::new(),
             components,
             action_handlers: Vec::new(),
-            tree: Rc::new(RefCell::new(Layers::new(Tree::default()))),
+            tree: Rc::new(RefCell::new(Layers::new(tree))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
             focus_handles: BTreeMap::new(),
             bounds: BTreeMap::new(),
             root_focus_handle: None,
             splits: Vec::new(),
             tabs: Vec::new(),
+            extension_root: None,
             zoomed: None,
+            window_title: SharedString::default(),
             layout_file: None,
             views_created: false,
             default_fixed: false,
@@ -789,6 +1025,15 @@ pub fn set_layout_file(cx: &mut App, path: PathBuf) {
     cx.default_global::<Registry>().layout_file = Some(path);
 }
 
+/// Sets the title shown in the title bar when its `left` slot has no shown item.
+pub fn set_window_title(cx: &mut App, title: impl Into<SharedString>) {
+    let title = title.into();
+    let registry = cx.default_global::<Registry>();
+    tracing::debug!(title = %title, "window title");
+    registry.window_title = title;
+    cx.refresh_windows();
+}
+
 /// Binds the shell's default keys in the `Shell` key context.
 pub fn bind_default_keys(cx: &mut App) {
     #[cfg(target_os = "macos")]
@@ -841,7 +1086,7 @@ pub fn bind_default_keys(cx: &mut App) {
     }
 }
 
-/// Returns the node currently filling the window for extension controls.
+/// Returns the node currently filling the body for extension controls.
 pub fn zoomed(cx: &App) -> Option<String> {
     cx.try_global::<Registry>()
         .and_then(|registry| registry.zoomed.as_ref().map(ToString::to_string))
@@ -978,7 +1223,15 @@ fn focus_by_direction(action: LayoutAction, node: &NodeId, window: &mut Window, 
             let candidate_bounds = registry.bounds.get(candidate);
             inside_shown |= candidate_bounds.is_some_and(|bounds| bounds.contains(&point));
             let container = component_of(tree, candidate).is_some_and(|component| {
-                matches!(component.as_str(), "riso.row" | "riso.column" | "riso.tabs")
+                matches!(
+                    component.as_str(),
+                    "riso.row"
+                        | "riso.column"
+                        | "riso.tabs"
+                        | "riso.window"
+                        | "riso.title_bar"
+                        | "riso.body"
+                )
             });
             let has_shown_child = tree
                 .slots(candidate)
@@ -1108,11 +1361,12 @@ pub fn focused_node(window: &Window, cx: &App) -> Option<NodeId> {
     window.focused(cx)?;
     let registry = cx.try_global::<Registry>()?;
     find_in_drawn(registry, cx, |node| {
-        registry
-            .focus_handles
-            .get(node)
-            .is_some_and(|handle| handle.contains_focused(window, cx))
-            .then(|| node.clone())
+        (!is_frame_node(node)
+            && registry
+                .focus_handles
+                .get(node)
+                .is_some_and(|handle| handle.contains_focused(window, cx)))
+        .then(|| node.clone())
     })
 }
 
@@ -1130,6 +1384,9 @@ pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>> {
 /// Returns a shown node's focus handle.
 pub fn focus_handle(cx: &App, node: &str) -> Option<FocusHandle> {
     let target = NodeId::parse(node).ok()?;
+    if is_frame_node(&target) {
+        return None;
+    }
     let registry = cx.try_global::<Registry>()?;
     find_in_drawn(registry, cx, |current| {
         (current == &target)
@@ -1155,35 +1412,40 @@ fn find_in_drawn<T>(
     let layers = registry.tree.borrow();
     let tree = layers.current();
     let views = registry.views.borrow();
-    let drawn_root = registry
+    let drawn_root = tree.root().map(|root| &root.id)?;
+    let zoomed = registry
         .zoomed
         .as_ref()
-        .filter(|node| views.contains_key(*node))
-        .or_else(|| tree.root().map(|root| &root.id))?;
+        .filter(|node| views.contains_key(*node));
     fn walk<T>(
         tree: &Tree,
         views: &ViewMap,
         tabs_selected: &BTreeMap<NodeId, Option<NodeId>>,
+        zoomed: Option<&NodeId>,
         current: &NodeId,
         visit: &mut impl FnMut(&NodeId) -> Option<T>,
     ) -> Option<T> {
         if tree.is_hidden(current) || !views.contains_key(current) {
             return None;
         }
-        let from_child = if let Some(selected) = tabs_selected.get(current) {
+        let from_child = if current.as_str() == "body"
+            && let Some(zoomed_node) = zoomed
+        {
+            walk(tree, views, tabs_selected, None, zoomed_node, visit)
+        } else if let Some(selected) = tabs_selected.get(current) {
             selected
                 .as_ref()
-                .and_then(|child| walk(tree, views, tabs_selected, child, visit))
+                .and_then(|child| walk(tree, views, tabs_selected, zoomed, child, visit))
         } else {
             tree.slots(current).find_map(|(_, children)| {
                 children
                     .iter()
-                    .find_map(|child| walk(tree, views, tabs_selected, &child.id, visit))
+                    .find_map(|child| walk(tree, views, tabs_selected, zoomed, &child.id, visit))
             })
         };
         from_child.or_else(|| visit(current))
     }
-    walk(tree, &views, &tabs_selected, drawn_root, &mut visit)
+    walk(tree, &views, &tabs_selected, zoomed, drawn_root, &mut visit)
 }
 
 fn save(cx: &App) {
@@ -1304,11 +1566,11 @@ fn run_op(
     }
     {
         let registry = cx.default_global::<Registry>();
-        if registry
-            .zoomed
-            .as_ref()
-            .is_some_and(|node| !is_shown(registry.tree.borrow().current(), node))
-        {
+        if registry.zoomed.as_ref().is_some_and(|node| {
+            let layers = registry.tree.borrow();
+            let tree = layers.current();
+            !is_shown(tree, node) || !is_in_body(tree, node)
+        }) {
             let node = registry.zoomed.take().unwrap();
             tracing::debug!(node = %node, "zoom cleared");
         }
@@ -1329,6 +1591,16 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
                     component = %node.component,
                     extension = %extension,
                     "component is not in the extension's namespace",
+                );
+                return false;
+            }
+            if is_frame_component(&node.component) || is_frame_slot(parent, slot) {
+                tracing::info!(
+                    node = %node.id,
+                    component = %node.component,
+                    parent = %parent,
+                    slot = %slot,
+                    "the window's frame belongs to the shell",
                 );
                 return false;
             }
@@ -1360,8 +1632,31 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             true
         }
         Operation::Move {
-            node, parent, slot, ..
+            node,
+            parent,
+            slot,
+            index,
         } => {
+            if is_frame_node(node) || is_frame_slot(parent, slot) {
+                tracing::info!(
+                    node = %node,
+                    parent = %parent,
+                    slot = %slot,
+                    index,
+                    "the window's frame belongs to the shell",
+                );
+                return false;
+            }
+            if registry.extension_root.as_ref() == Some(node) {
+                tracing::info!(
+                    node = %node,
+                    parent = %parent,
+                    slot = %slot,
+                    index,
+                    "the root cannot be moved",
+                );
+                return false;
+            }
             let layers = registry.tree.borrow();
             let tree = layers.current();
             if let Some(parent_component) = component_of(tree, parent)
@@ -1381,7 +1676,28 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             }
             true
         }
-        Operation::Remove { .. } | Operation::SetHidden { .. } => true,
+        Operation::Remove { node } => {
+            if is_frame_node(node) {
+                tracing::info!(node = %node, "the window's frame belongs to the shell");
+                return false;
+            }
+            if registry.extension_root.as_ref() == Some(node) {
+                tracing::info!(node = %node, "the root cannot be removed");
+                return false;
+            }
+            true
+        }
+        Operation::SetHidden { node, .. } => {
+            if is_frame_node(node) {
+                tracing::info!(node = %node, "the window's frame belongs to the shell");
+                return false;
+            }
+            if registry.extension_root.as_ref() == Some(node) {
+                tracing::info!(node = %node, "the root cannot be hidden or shown");
+                return false;
+            }
+            true
+        }
     }
 }
 
@@ -1396,6 +1712,9 @@ fn shell_rule_error(
             let namespace = node.component.as_str().split('.').next();
             if namespace != Some(extension) && namespace != Some("riso") {
                 return Err("component is not in the extension's namespace");
+            }
+            if is_frame_component(&node.component) || is_frame_slot(parent, slot) {
+                return Err("the window's frame belongs to the shell");
             }
             if !registry.components.contains_key(&node.component) {
                 return Err("component is not registered");
@@ -1412,7 +1731,15 @@ fn shell_rule_error(
             }
             Ok(())
         }
-        Operation::Move { parent, slot, .. } => {
+        Operation::Move {
+            node, parent, slot, ..
+        } => {
+            if is_frame_node(node) || is_frame_slot(parent, slot) {
+                return Err("the window's frame belongs to the shell");
+            }
+            if registry.extension_root.as_ref() == Some(node) {
+                return Err("the root cannot be removed, moved, hidden, or shown");
+            }
             let layers = registry.tree.borrow();
             let tree = layers.current();
             if let Some(parent_component) = component_of(tree, parent)
@@ -1425,7 +1752,15 @@ fn shell_rule_error(
             }
             Ok(())
         }
-        Operation::Remove { .. } | Operation::SetHidden { .. } => Ok(()),
+        Operation::Remove { node } | Operation::SetHidden { node, .. } => {
+            if is_frame_node(node) {
+                return Err("the window's frame belongs to the shell");
+            }
+            if registry.extension_root.as_ref() == Some(node) {
+                return Err("the root cannot be removed, moved, hidden, or shown");
+            }
+            Ok(())
+        }
     }
 }
 
@@ -1543,8 +1878,16 @@ impl Extension {
                 tracing::info!("the node is not in the tree");
                 return;
             }
-            if tree.root().is_some_and(|root| root.id == id) {
-                tracing::info!("the root already fills the window");
+            if is_frame_node(&id) {
+                tracing::info!("the window's frame belongs to the shell");
+                return;
+            }
+            if !is_in_body(tree, &id) {
+                tracing::info!("only a node in the body can be zoomed");
+                return;
+            }
+            if registry.extension_root.as_ref() == Some(&id) {
+                tracing::info!("the root already fills the body");
                 return;
             }
             if !is_shown(tree, &id) {
@@ -1723,17 +2066,45 @@ impl Extension {
             log::error!("extension {} cannot place component {component}", self.name);
             return;
         }
-        let _ = cx
-            .default_global::<Registry>()
+        if is_frame_component(&component) {
+            tracing::info!(
+                node = %id,
+                component = %component,
+                extension = %self.name,
+                "the window's frame belongs to the shell",
+            );
+            return;
+        }
+        let registry = cx.default_global::<Registry>();
+        if let Some(root) = &registry.extension_root {
+            tracing::info!(
+                node = %id,
+                component = %component,
+                extension = %self.name,
+                root = %root,
+                "a root is already placed",
+            );
+            return;
+        }
+        let body = NodeId::parse("body").unwrap();
+        let children = SlotName::parse("children").unwrap();
+        let placed = registry
             .tree
             .borrow_mut()
             .current_mut()
             .expect("startup placement is open")
-            .place_root(Node {
-                id,
-                component,
-                extension: self.name.clone(),
-            });
+            .place(
+                Node {
+                    id: id.clone(),
+                    component,
+                    extension: self.name.clone(),
+                },
+                &body,
+                children,
+            );
+        if placed.is_ok() {
+            registry.extension_root = Some(id);
+        }
     }
 
     /// Places a node under an already placed parent.
@@ -1777,6 +2148,17 @@ impl Extension {
                 return;
             }
         };
+        if is_frame_component(&component) || is_frame_slot(&parent, &slot) {
+            tracing::info!(
+                node = %id,
+                component = %component,
+                extension = %self.name,
+                parent = %parent,
+                slot = %slot,
+                "the window's frame belongs to the shell",
+            );
+            return;
+        }
         let _ = cx
             .default_global::<Registry>()
             .tree
@@ -1921,27 +2303,29 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     if should_restore {
         restore(cx);
     }
-    let root = cx
-        .default_global::<Registry>()
-        .tree
-        .borrow()
-        .current()
-        .root()
-        .cloned();
+    let (frame_root, ext_root) = {
+        let registry = cx.default_global::<Registry>();
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        (tree.root().cloned(), registry.extension_root.clone())
+    };
     let _group = tracing::info_span!(
         "shell-create",
-        root = %root.as_ref().map_or("none", |node| node.id.as_str())
+        root = %ext_root.as_ref().map_or("none", NodeId::as_str)
     )
     .entered();
-    if root.is_none() {
+    if ext_root.is_none() {
         tracing::info!("no root placed; the window shows the background");
     }
-    let root = root.and_then(|node| create_view(&node, None, window, cx));
+    let root = frame_root.and_then(|node| create_view(&node, None, window, cx));
     let registry = cx.default_global::<Registry>();
     registry.views_created = true;
     if registry.zoomed.as_ref().is_some_and(|node| {
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
         !registry.views.borrow().contains_key(node)
-            || !is_shown(registry.tree.borrow().current(), node)
+            || !is_shown(tree, node)
+            || !is_in_body(tree, node)
     }) {
         let node = registry.zoomed.take().unwrap();
         tracing::debug!(node = %node, "zoom cleared");
@@ -2093,10 +2477,13 @@ fn create_view(
     };
     let created = kept.is_none();
     let view = kept.unwrap_or_else(|| {
-        let handle = cx.focus_handle();
-        cx.default_global::<Registry>()
-            .focus_handles
-            .insert(node.id.clone(), handle.clone());
+        let handle = (!is_frame_node(&node.id)).then(|| {
+            let handle = cx.focus_handle();
+            cx.default_global::<Registry>()
+                .focus_handles
+                .insert(node.id.clone(), handle.clone());
+            handle
+        });
         let view = (component.create)(&node.id, slots.clone(), window, cx);
         let wrapped: AnyView = cx
             .new(|_| NodeView {
@@ -2145,17 +2532,11 @@ impl Render for Shell {
         tracing::trace!("rendering shell");
         cx.defer_in(window, |shell, window, cx| shell.sync_focus(window, cx));
         window.set_rem_size(riso_ui::ui_font_size(cx));
-        let (view, action_handlers) = cx
+        let action_handlers = cx
             .try_global::<Registry>()
-            .map(|registry| {
-                let view = registry
-                    .zoomed
-                    .as_ref()
-                    .and_then(|node| registry.views.borrow().get(node).cloned());
-                (view, registry.action_handlers.clone())
-            })
+            .map(|registry| registry.action_handlers.clone())
             .unwrap_or_default();
-        let view = view.or_else(|| self.root.clone());
+        let view = self.root.clone();
         let mut root = div();
         for attach in action_handlers {
             root = attach(root);

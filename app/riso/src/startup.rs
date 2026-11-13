@@ -1,4 +1,4 @@
-use gpui::{App, TitlebarOptions, WindowOptions};
+use gpui::{App, WindowOptions};
 
 type Init = fn(&mut App, &riso_shell::Extension);
 
@@ -21,6 +21,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
                 riso_settings::watch(cx);
                 riso_ui::init(cx);
                 riso_ui::apply_theme_setting(cx);
+                riso_shell::set_window_title(cx, product.name);
                 riso_shell::set_layout_file(cx, paths.layout_file());
                 riso_shell::bind_default_keys(cx);
                 cx.on_window_closed(|cx, _| {
@@ -44,10 +45,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
                 let _group = tracing::info_span!("window-open").entered();
                 cx.open_window(
                     WindowOptions {
-                        titlebar: Some(TitlebarOptions {
-                            title: Some(product.name.into()),
-                            ..Default::default()
-                        }),
+                        titlebar: Some(riso_ui::titlebar_options(product.name)),
                         ..Default::default()
                     },
                     |window, cx| {

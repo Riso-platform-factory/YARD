@@ -74,27 +74,25 @@ fn unsized_nodes_fill_root_split_tabs_and_component_slots(cx: &mut TestAppContex
                 })
                 .unwrap();
             let actual = measured.get().expect("probe rendered");
+            let body = app.update(|cx| riso_shell::node_bounds(cx, "body").unwrap());
             let expected = match component {
                 "riso.row" => gpui::Bounds::new(
-                    gpui::point(gpui::px(width / 2.), gpui::px(0.)),
-                    gpui::size(gpui::px(width / 2.), gpui::px(height)),
+                    gpui::point(gpui::px(width / 2.), body.top()),
+                    gpui::size(gpui::px(width / 2.), body.size.height),
                 ),
                 "riso.column" => gpui::Bounds::new(
-                    gpui::point(gpui::px(0.), gpui::px(height / 2.)),
-                    gpui::size(gpui::px(width), gpui::px(height / 2.)),
+                    gpui::point(gpui::px(0.), body.top() + body.size.height / 2.),
+                    gpui::size(gpui::px(width), body.size.height / 2.),
                 ),
                 "riso.tabs" => {
                     let mut visual = gpui::VisualTestContext::from_window(window.into(), &app);
                     let bar = visual.debug_bounds("TABBAR-root").unwrap();
                     gpui::Bounds::new(
                         gpui::point(gpui::px(0.), bar.bottom()),
-                        gpui::size(gpui::px(width), gpui::px(height) - bar.bottom()),
+                        gpui::size(gpui::px(width), body.bottom() - bar.bottom()),
                     )
                 }
-                _ => gpui::Bounds::new(
-                    gpui::point(gpui::px(0.), gpui::px(0.)),
-                    gpui::size(gpui::px(width), gpui::px(height)),
-                ),
+                _ => body,
             };
             assert_eq!(actual, expected, "{component} at {width}x{height}");
         }

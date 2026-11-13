@@ -1,5 +1,5 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &["riso_ui/title_bar", "riso_shell/shell", "riso/startup"];
+pub(crate) const UNDER_REVIEW: &[&str] = &[];
 
 pub(crate) fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -22,18 +22,11 @@ pub(crate) fn run() -> bool {
         // SAFETY: the logger and GPUI have not started any threads yet.
         unsafe { std::env::set_var(variable, filter) };
     }
-    super::startup::run(
-        product,
-        &[
-            ("review", announce),
-            ("window_tour", window_tour::init),
-            ("layout_tour", layout_tour::init),
-        ],
-    );
+    crate::startup::run(product, &[("review", announce)]);
     true
 }
 
-fn announce(_: &mut gpui::App, _: &riso_shell::dev::Extension) {
+fn announce(_: &mut gpui::App, _: &riso_shell::Extension) {
     let under_review = if UNDER_REVIEW.is_empty() {
         String::from("nothing")
     } else {

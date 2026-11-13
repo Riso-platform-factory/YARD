@@ -1,6 +1,6 @@
 # window_tour
 
-A test extension for the window engine. When `app/riso/src/dev/review.rs` lists it as `("window_tour", window_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
+A test extension for the window engine. When `app/riso/src/dev/review.rs` lists it as `("window_tour", window_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back when the next window engine feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: the window's frame, with the title bar drawn by riso and an empty body. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 

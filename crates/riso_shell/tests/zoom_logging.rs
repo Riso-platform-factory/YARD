@@ -184,10 +184,7 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
         assert_eq!(nodes(&shown), ["a"]);
         assert_eq!(
             shown.borrow()[0].1,
-            gpui::Bounds {
-                origin: gpui::point(gpui::px(0.), gpui::px(0.)),
-                size: gpui::size(gpui::px(800.), gpui::px(600.))
-            }
+            app.update(|cx| riso_shell::node_bounds(cx, "body").unwrap())
         );
         let original: BTreeMap<_, _> = views
             .borrow()
@@ -231,7 +228,7 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
         assert_eq!(nodes(&shown), ["c"]);
         assert_eq!(
             shown.borrow()[0].1.size,
-            gpui::size(gpui::px(800.), gpui::px(600.))
+            app.update(|cx| riso_shell::node_bounds(cx, "body").unwrap().size)
         );
         assert!(
             visual.debug_bounds("TAB-c").is_none(),
@@ -367,7 +364,7 @@ fn zoom_keeps_views_layout_and_logs_every_rule(cx: &mut TestAppContext) {
     assert!(captured.entered.is_empty());
     for line in [
         r#"zoom node="missing" extension="guest": INFO message=the node is not in the tree"#,
-        r#"zoom node="root" extension="guest": INFO message=the root already fills the window"#,
+        r#"zoom node="root" extension="guest": INFO message=the root already fills the body"#,
         r#"zoom node="b" extension="guest": INFO message=the node is hidden or under a hidden node"#,
         r#"zoom node="c" extension="guest": INFO message=the node is hidden or under a hidden node"#,
         r#"zoom node="a" extension="tour": DEBUG message=replaced previous=c"#,

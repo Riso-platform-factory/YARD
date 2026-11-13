@@ -175,7 +175,22 @@ fn splits_are_built_in_and_log_the_shown_tree(cx: &mut TestAppContext) {
     assert_eq!(
         captured.parents,
         [
-            (root.into(), None),
+            (
+                " node=window component=riso.window extension=riso".into(),
+                None
+            ),
+            (
+                " node=title_bar component=riso.title_bar extension=riso".into(),
+                Some(" node=window component=riso.window extension=riso".into())
+            ),
+            (
+                " node=body component=riso.body extension=riso".into(),
+                Some(" node=window component=riso.window extension=riso".into())
+            ),
+            (
+                root.into(),
+                Some(" node=body component=riso.body extension=riso".into())
+            ),
             (right.into(), Some(root.into())),
             (
                 " node=card component=tour.card extension=tour".into(),

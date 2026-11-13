@@ -65,12 +65,13 @@ fn check_click_direction(cx: &mut TestAppContext, down: bool) {
     draw(&mut visual);
     assert_eq!(focused(&mut visual).as_deref(), Some("b"));
     assert!(!visual.update(|_, cx| cx.has_active_drag()));
+    let body = visual.update(|_, cx| riso_shell::node_bounds(cx, "body").unwrap());
     for (node, selector) in [("a", "CARD-a"), ("b", "CARD-b"), ("c", "CARD-c")] {
         let drawn = visual.debug_bounds(selector).expect("card is drawn");
         assert_eq!(drawn.size.width, gpui::px(450.));
         assert_eq!(
             drawn.size.height,
-            gpui::px(if node == "a" { 600. } else { 300. })
+            body.size.height / if node == "a" { 1. } else { 2. }
         );
         let recorded = visual.update(|_, cx| riso_shell::node_bounds(cx, node));
         assert_eq!(

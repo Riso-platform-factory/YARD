@@ -15,7 +15,7 @@ risoapp is a platform: engines on which applications are built. This file lists 
 | Theme | `riso_ui` | The colors, fonts, and density of everything, chosen in the settings | the theme chosen in the settings, switched while running, and following the OS, the UI font, and the density built; more themes and a list of them are missing | `docs/theme-engine/roadmap.md` |
 | UI kit | `riso_ui` | The base components everything is drawn with: text, icons, buttons, lists, inputs, menus | tabs, the split's axis, text, the row and column helpers, icons, buttons, dividers, and the modal frame built, with the gallery; the rest is missing | `docs/ui-kit/roadmap.md` |
 | Keymap | `riso_keymap`, `riso_shell` | The keyboard: focus, actions, default keys, the user's keys, commands by name | the focused node, the shell's actions on it, moving the focus by direction, their default keys, and extensions' own actions and keys built; the user's keys and the command palette are missing | `docs/keymap-engine/roadmap.md` |
-| Window | `riso_shell`, `riso_ui` | The frame of a window: title bar, status bar, modals, messages, menus. Several windows, remembered | one plain window built, the engine is missing | `docs/window-engine/roadmap.md` |
+| Window | `riso_shell`, `riso_ui` | The frame of a window: title bar, status bar, modals, messages, menus. Several windows, remembered | one window, with its frame and its title bar, built; the status bar, the layers, the menus, and several windows are missing | `docs/window-engine/roadmap.md` |
 | State | `riso_state`, `riso_shell` | What the components were showing, kept between runs | missing | `docs/state-engine/roadmap.md` |
 | Packaging | tooling beside the workspace | An installable application made from the product config, and its updates | product config built, the rest is missing | `docs/packaging/roadmap.md` |
 
@@ -67,7 +67,7 @@ An extension is a Rust crate compiled into the application. The application's co
 | Draw with the theme and the base components | Theme engine, UI kit | partly built |
 | Declare its settings | Settings engine: `extension-sections` | missing |
 | Declare actions and their default keys | Keymap engine: `extension-actions` | built |
-| Put items in the title bar and the status bar, and show a modal or a message | Window engine | missing |
+| Put items in the title bar and the status bar, and show a modal or a message | Window engine | partly built: the title bar |
 | Give a model to everything under one of its nodes, or to a whole window | Layout engine: `contexts` | missing |
 | Keep the state of its components, and values of its own, between runs | State engine | missing |
 

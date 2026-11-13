@@ -52,10 +52,11 @@ fn nested_split_focus_uses_resized_bounds(cx: &mut TestAppContext) {
     for (width, height) in [(1440., 900.), (900., 600.)] {
         visual.simulate_resize(gpui::size(gpui::px(width), gpui::px(height)));
         draw(&mut visual);
+        let body = visual.update(|_, cx| riso_shell::node_bounds(cx, "body").unwrap());
         let b = visual.debug_bounds("CARD-b").expect("b has bounds");
         let c = visual.debug_bounds("CARD-c").expect("c has bounds");
         assert_eq!(b.size.width, gpui::px(width / 2.));
-        assert_eq!(b.size.height, gpui::px(height / 2.));
+        assert_eq!(b.size.height, body.size.height / 2.);
         assert_eq!(b.bottom(), c.top());
 
         click(&mut visual, "CARD-a");

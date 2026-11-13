@@ -342,7 +342,7 @@ fn each_action_logs_done_or_refused_inside_its_layout_action_group(cx: &mut Test
         ),
         (
             "INFO zoom node=root extension=riso",
-            "INFO message=the root already fills the window",
+            "INFO message=the root already fills the body",
         ),
         (
             "INFO layout-op op=hide node=root extension=riso",

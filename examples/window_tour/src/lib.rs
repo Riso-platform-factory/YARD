@@ -2,15 +2,13 @@
 //! Without `WINDOW_TOUR`, it contributes nothing.
 //! `WINDOW_TOUR=title-bar cargo run dev`: a root card, `window_tour` in `left`, and `ping` in `right`.
 
-#![cfg(feature = "dev")]
-
 use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, Size, Styled, WeakEntity, Window, canvas, div, rems,
 };
 use riso_ui::{Button, ButtonSize, Label, LabelSize, palette, v_flex};
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("WINDOW_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -103,7 +101,7 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = palette(cx);
         let entity = cx.entity().downgrade();
-        let focused = riso_shell::dev::focus_handle(cx, &self.node)
+        let focused = riso_shell::focus_handle(cx, &self.node)
             .is_some_and(|handle| handle.is_focused(window));
         v_flex()
             .debug_selector(|| format!("CARD-{}", self.node))

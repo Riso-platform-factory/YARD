@@ -250,6 +250,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     });
     app.simulate_window_resize(window.into(), gpui::size(px(1200.), px(600.)));
     draw(window, &mut app, &shown);
+    let body = app.update(|cx| riso_shell::node_bounds(cx, "body").unwrap());
     assert_eq!(shown_nodes(&shown), ["a", "c"]);
 
     let a_id = entities.borrow()["a"].entity_id();
@@ -407,8 +408,8 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     assert_eq!(
         visual.debug_bounds("DROP-OVERLAY-right"),
         Some(Bounds {
-            origin: gpui::point(px(300.), px(0.)),
-            size: gpui::size(px(300.), px(600.)),
+            origin: gpui::point(px(300.), body.top()),
+            size: gpui::size(px(300.), body.size.height),
         })
     );
     // Leave the edge zone into the middle of `left`: overlay clears while drag continues.
@@ -450,7 +451,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     assert_eq!(card_bounds(&shown, "c").size.width, px(400.));
 
     // 5. Drop `b` onto `left`'s left edge (`Edge::Before` on `left`, index 0 in `root`).
-    // `left` currently occupies `x: 0..400, y: 0..600`, so its left half is `0..200 × 0..600`.
+    // `left` fills the body vertically; its left half is 200px wide.
     let before_left_edge = trace.0.lock().unwrap().lines.len();
     drag_tab(
         window,
@@ -462,8 +463,8 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
         Some((
             "DROP-OVERLAY-left",
             Bounds {
-                origin: gpui::point(px(0.), px(0.)),
-                size: gpui::size(px(200.), px(600.)),
+                origin: gpui::point(px(0.), body.top()),
+                size: gpui::size(px(200.), body.size.height),
             },
         )),
     );
@@ -551,6 +552,7 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
     });
     app.simulate_window_resize(window.into(), gpui::size(px(600.), px(600.)));
     draw(window, &mut app, &shown);
+    let body = app.update(|cx| riso_shell::node_bounds(cx, "body").unwrap());
     assert_eq!(shown_nodes(&shown), ["a", "d"]);
 
     let mut visual = gpui::VisualTestContext::from_window(window.into(), &app);
@@ -563,20 +565,23 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
         &mut visual,
         &shown,
         "TAB-b",
-        gpui::point(px(300.), px(315.)),
+        gpui::point(px(300.), body.top() + body.size.height / 2. + px(15.)),
         Some((
             "DROP-OVERLAY-top",
             Bounds {
-                origin: gpui::point(px(0.), px(300.)),
-                size: gpui::size(px(600.), px(150.)),
+                origin: gpui::point(px(0.), body.top() + body.size.height / 2.),
+                size: gpui::size(px(600.), body.size.height / 4.),
             },
         )),
     );
     assert_eq!(shown_nodes(&shown), ["a", "b", "d"]);
-    assert_eq!(card_bounds(&shown, "b").size.height, px(200.));
+    assert_eq!(
+        card_bounds(&shown, "b").size.height,
+        (body.size.height / 3.).round()
+    );
 
     // Drop `c` onto `d`'s bottom edge (`Edge::After` on shown index 2 `d`, slot index 4).
-    // `d` now spans `y: 400..600`, so its bottom half is `y: 500..600`.
+    // `d` now fills the last third of the body; the overlay fills its bottom half.
     drag_tab(
         window,
         &mut app,
@@ -587,13 +592,16 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
         Some((
             "DROP-OVERLAY-bottom",
             Bounds {
-                origin: gpui::point(px(0.), px(500.)),
-                size: gpui::size(px(600.), px(100.)),
+                origin: gpui::point(px(0.), body.top() + (body.size.height / 3.).round() * 2.5),
+                size: gpui::size(px(600.), (body.size.height / 3.).round() / 2.),
             },
         )),
     );
     assert_eq!(shown_nodes(&shown), ["a", "b", "d", "c"]);
-    assert_eq!(card_bounds(&shown, "c").size.height, px(150.));
+    assert_eq!(
+        card_bounds(&shown, "c").size.height,
+        (body.size.height / 4.).round()
+    );
 
     // Dropping `a` onto `b`'s left edge (across `riso.column`'s vertical axis) is ignored.
     let b_rect = card_bounds(&shown, "b");

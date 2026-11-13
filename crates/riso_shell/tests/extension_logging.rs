@@ -184,7 +184,10 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
                 .update(cx, |_, window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert_eq!(bounds.get().unwrap().size, window.viewport_size());
+                    assert_eq!(
+                        bounds.get().unwrap().size,
+                        riso_shell::node_bounds(cx, "body").unwrap().size
+                    );
                 })
                 .unwrap();
         }
@@ -215,6 +218,13 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
     assert_eq!(
         lines,
         &[
+            "INFO window-frame",
+            r#"INFO root-place node="window" component="riso.window""#,
+            "  root-place: DEBUG message=root placed node=window component=riso.window extension=riso",
+            r#"INFO node-place node="title_bar" component="riso.title_bar" parent="window" slot="title_bar""#,
+            "  node-place: DEBUG message=node placed node=title_bar component=riso.title_bar extension=riso parent=window slot=title_bar",
+            r#"INFO node-place node="body" component="riso.body" parent="window" slot="body""#,
+            "  node-place: DEBUG message=node placed node=body component=riso.body extension=riso parent=window slot=body",
             r#"INFO component-register component="tour.card" slots="""#,
             "  component-register: DEBUG message=registered",
             r#"INFO component-register component="tour.card" slots="""#,
@@ -235,21 +245,44 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
                 "slug must start with a lowercase ASCII letter",
             ),
             r#"INFO root-place node="root" component="tour.card""#,
-            "  root-place: DEBUG message=root placed node=root component=tour.card extension=tour",
+            "  root-place: DEBUG message=node placed node=root component=tour.card extension=tour parent=body slot=children",
             r#"INFO root-place node="second" component="tour.card""#,
             concat!(
                 "  root-place: INFO message=a root is already placed node=second ",
                 "component=tour.card extension=tour root=root",
             ),
             "INFO shell-create root=root",
+            "INFO component-create node=window component=riso.window extension=riso",
+            "INFO component-create node=title_bar component=riso.title_bar extension=riso",
+            "INFO component-create node=body component=riso.body extension=riso",
             "INFO component-create node=root component=tour.card extension=tour",
             r#"INFO component-register component="tour.extra" slots="""#,
             "  component-register: DEBUG message=registered",
+            "INFO window-frame",
+            r#"INFO root-place node="window" component="riso.window""#,
+            "  root-place: DEBUG message=root placed node=window component=riso.window extension=riso",
+            r#"INFO node-place node="title_bar" component="riso.title_bar" parent="window" slot="title_bar""#,
+            "  node-place: DEBUG message=node placed node=title_bar component=riso.title_bar extension=riso parent=window slot=title_bar",
+            r#"INFO node-place node="body" component="riso.body" parent="window" slot="body""#,
+            "  node-place: DEBUG message=node placed node=body component=riso.body extension=riso parent=window slot=body",
             "INFO shell-create root=none",
             "  shell-create: INFO message=no root placed; the window shows the background",
+            "INFO component-create node=window component=riso.window extension=riso",
+            "INFO component-create node=title_bar component=riso.title_bar extension=riso",
+            "INFO component-create node=body component=riso.body extension=riso",
+            "INFO window-frame",
+            r#"INFO root-place node="window" component="riso.window""#,
+            "  root-place: DEBUG message=root placed node=window component=riso.window extension=riso",
+            r#"INFO node-place node="title_bar" component="riso.title_bar" parent="window" slot="title_bar""#,
+            "  node-place: DEBUG message=node placed node=title_bar component=riso.title_bar extension=riso parent=window slot=title_bar",
+            r#"INFO node-place node="body" component="riso.body" parent="window" slot="body""#,
+            "  node-place: DEBUG message=node placed node=body component=riso.body extension=riso parent=window slot=body",
             r#"INFO root-place node="missing" component="tour.missing""#,
-            "  root-place: DEBUG message=root placed node=missing component=tour.missing extension=tour",
+            "  root-place: DEBUG message=node placed node=missing component=tour.missing extension=tour parent=body slot=children",
             "INFO shell-create root=missing",
+            "INFO component-create node=window component=riso.window extension=riso",
+            "INFO component-create node=title_bar component=riso.title_bar extension=riso",
+            "INFO component-create node=body component=riso.body extension=riso",
             "INFO component-create node=missing component=tour.missing extension=tour",
             concat!(
                 "  component-create: ERROR message=node missing names ",
@@ -423,7 +456,22 @@ fn slots_contract(cx: &mut TestAppContext) {
     assert_eq!(
         captured.parents,
         [
-            (root.into(), None),
+            (
+                " node=window component=riso.window extension=riso".into(),
+                None
+            ),
+            (
+                " node=title_bar component=riso.title_bar extension=riso".into(),
+                Some(" node=window component=riso.window extension=riso".into())
+            ),
+            (
+                " node=body component=riso.body extension=riso".into(),
+                Some(" node=window component=riso.window extension=riso".into())
+            ),
+            (
+                root.into(),
+                Some(" node=body component=riso.body extension=riso".into())
+            ),
             (left.into(), Some(root.into())),
             (
                 " node=inner component=tour.card extension=tour".into(),

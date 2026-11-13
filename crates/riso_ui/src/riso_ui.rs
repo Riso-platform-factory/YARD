@@ -10,6 +10,7 @@ mod tabs;
 mod text;
 mod theme_setting;
 mod theming;
+mod title_bar;
 pub use axis::*;
 pub use button::*;
 pub use divider::*;
@@ -20,6 +21,4 @@ pub use tabs::*;
 pub use text::*;
 pub use theme_setting::*;
 pub use theming::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;
+pub use title_bar::*;

@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
-use riso_shell::dev::{Extension, FocusDown, FocusUp};
+use riso_shell::{Extension, FocusDown, FocusUp};
 use std::{
     cell::Cell,
     collections::BTreeMap,
@@ -97,7 +95,7 @@ impl gpui::Render for Ping {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -110,7 +108,7 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppCont
 fn open_app(
     cx: &mut TestAppContext,
     place: impl FnOnce(&mut gpui::App, &Extension),
-) -> (Extension, gpui::WindowHandle<riso_shell::dev::Shell>) {
+) -> (Extension, gpui::WindowHandle<riso_shell::Shell>) {
     cx.update(riso_ui::init);
     let ext = cx.update(|cx| {
         let ext = Extension::new(cx, "tour").unwrap();
@@ -125,7 +123,7 @@ fn open_app(
         ext
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(WIDTH), gpui::px(HEIGHT)));
@@ -138,7 +136,7 @@ fn node_bounds(
     visual: &mut gpui::VisualTestContext,
     node: &str,
 ) -> Option<gpui::Bounds<gpui::Pixels>> {
-    visual.update(|_, cx| riso_shell::dev::node_bounds(cx, node))
+    visual.update(|_, cx| riso_shell::node_bounds(cx, node))
 }
 
 /// The bounds of every `nodes` item in the last draw.
@@ -162,7 +160,7 @@ fn assert_unchanged(
         assert_eq!(node_bounds(visual, node), *expected, "{op} changed {node}");
     }
     assert_eq!(
-        visual.update(|_, cx| riso_shell::dev::zoomed(cx)),
+        visual.update(|_, cx| riso_shell::zoomed(cx)),
         None,
         "{op} zoomed a node"
     );
@@ -170,8 +168,7 @@ fn assert_unchanged(
 
 /// The node the dev shell says has the focus, if any.
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
-    visual
-        .update(|window, cx| riso_shell::dev::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 /// Clicks the center of the element with `selector`.
@@ -201,7 +198,7 @@ fn drawn_title(visual: &mut gpui::VisualTestContext) -> Option<gpui::Bounds<gpui
 
 #[test]
 fn titlebar_options_open_a_transparent_bar_with_moved_traffic_lights() {
-    let options = riso_ui::dev::titlebar_options("riso");
+    let options = riso_ui::titlebar_options("riso");
     assert_eq!(options.title.as_deref(), Some("riso"));
     assert!(options.appears_transparent);
     assert_eq!(
@@ -229,7 +226,7 @@ fn the_bar_sits_on_top_and_the_body_and_root_fill_below(cx: &mut TestAppContext)
 #[gpui::test]
 fn the_window_title_is_drawn_in_the_bar_only_while_left_is_empty(cx: &mut TestAppContext) {
     let (ext, window) = open_app(cx, |cx, ext| {
-        riso_shell::dev::set_window_title(cx, "Tour");
+        riso_shell::set_window_title(cx, "Tour");
         ext.place_root(cx, "root", "tour.card");
         ext.place(cx, "item", "tour.card", "title_bar", "left");
         ext.set_hidden(cx, "item", true);
@@ -354,9 +351,7 @@ fn a_zoomed_card_fills_the_body_and_the_bar_stays(cx: &mut TestAppContext) {
     });
     let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
     assert_eq!(
-        visual
-            .update(|_, cx| riso_shell::dev::zoomed(cx))
-            .as_deref(),
+        visual.update(|_, cx| riso_shell::zoomed(cx)).as_deref(),
         Some("a")
     );
     assert_eq!(
@@ -385,7 +380,7 @@ fn zooming_a_bar_item_is_refused(cx: &mut TestAppContext) {
     cx.update(|cx| ext.set_zoomed(cx, "item"));
     draw(window, cx);
     assert_eq!(
-        visual.update(|_, cx| riso_shell::dev::zoomed(cx)),
+        visual.update(|_, cx| riso_shell::zoomed(cx)),
         None,
         "only a node in the body can be zoomed"
     );
@@ -605,7 +600,7 @@ fn a_saved_layout_cannot_change_the_frame(cx: &mut TestAppContext) {
     )
     .unwrap();
     let (_, window) = open_app(cx, |cx, ext| {
-        riso_shell::dev::set_layout_file(cx, layout_path);
+        riso_shell::set_layout_file(cx, layout_path);
         ext.place_root(cx, "root", "riso.row");
         ext.place(cx, "a", "tour.card", "root", "children");
     });
@@ -622,7 +617,7 @@ fn a_saved_layout_cannot_change_the_frame(cx: &mut TestAppContext) {
         "an add into the frame is skipped"
     );
     assert_eq!(
-        cx.update(|cx| riso_shell::dev::user_layer_len(cx)),
+        cx.update(|cx| riso_shell::user_layer_len(cx)),
         0,
         "every frame change was skipped"
     );
@@ -644,7 +639,7 @@ fn a_saved_layout_of_extension_changes_restores(cx: &mut TestAppContext) {
     )
     .unwrap();
     let (_, window) = open_app(cx, |cx, ext| {
-        riso_shell::dev::set_layout_file(cx, layout_path);
+        riso_shell::set_layout_file(cx, layout_path);
         ext.place_root(cx, "root", "riso.row");
         ext.place(cx, "a", "tour.card", "root", "children");
         ext.place(cx, "b", "tour.card", "root", "children");
@@ -652,12 +647,12 @@ fn a_saved_layout_of_extension_changes_restores(cx: &mut TestAppContext) {
     });
     let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
     assert_eq!(
-        cx.update(|cx| riso_shell::dev::user_layer_len(cx)),
+        cx.update(|cx| riso_shell::user_layer_len(cx)),
         2,
         "the extension's changes are restored"
     );
     assert!(
-        cx.update(|cx| riso_shell::dev::is_hidden(cx, "a")),
+        cx.update(|cx| riso_shell::is_hidden(cx, "a")),
         "the saved hide is applied"
     );
     assert_eq!(node_bounds(&mut visual, "a"), None, "a stays hidden");
@@ -680,13 +675,13 @@ fn the_frame_nodes_have_no_focus_handle(cx: &mut TestAppContext) {
     let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
     for node in ["window", "title_bar", "body"] {
         assert!(
-            visual.update(|_, cx| riso_shell::dev::focus_handle(cx, node).is_none()),
+            visual.update(|_, cx| riso_shell::focus_handle(cx, node).is_none()),
             "{node} has a focus handle"
         );
     }
     for node in ["root", "item"] {
         assert!(
-            visual.update(|_, cx| riso_shell::dev::focus_handle(cx, node).is_some()),
+            visual.update(|_, cx| riso_shell::focus_handle(cx, node).is_some()),
             "{node} lost its focus handle"
         );
     }

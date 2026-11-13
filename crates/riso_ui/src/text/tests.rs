@@ -1,5 +1,5 @@
 use super::*;
-use crate::dev::{h_flex, v_flex};
+use crate::{h_flex, v_flex};
 use gpui::{IntoElement, ParentElement, Styled};
 use std::{cell::RefCell, rc::Rc};
 use theme::ActiveTheme;

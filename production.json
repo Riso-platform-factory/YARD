@@ -87,11 +87,23 @@
     },
     "promoted": "2026-11-12"
   },
+  "riso_ui/stack": {
+    "files": {
+      "crates/riso_ui/src/stack.rs": "08e93a167b4de235"
+    },
+    "promoted": "2026-11-13"
+  },
   "riso_ui/tabs": {
     "files": {
       "crates/riso_ui/src/tabs.rs": "d747458984b6eb38"
     },
     "promoted": "2026-11-12"
+  },
+  "riso_ui/text": {
+    "files": {
+      "crates/riso_ui/src/text.rs": "433e112c4caa28a2"
+    },
+    "promoted": "2026-11-13"
   },
   "riso_ui/theme_setting": {
     "files": {

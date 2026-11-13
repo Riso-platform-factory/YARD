@@ -1,10 +1,8 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, px,
     rems,
 };
-use riso_ui::dev::{Headline, HeadlineSize, Label, LabelSize, TextColor, h_flex, v_flex};
+use riso_ui::{Headline, HeadlineSize, Label, LabelSize, TextColor, h_flex, v_flex};
 
 const HEADLINE_SIZES: [(&str, HeadlineSize); 5] = [
     ("XLarge", HeadlineSize::XLarge),

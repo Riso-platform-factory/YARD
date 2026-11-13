@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::ParentElement;
-use riso_ui::dev::{Headline, HeadlineSize, Label, LabelSize, TextColor, h_flex, v_flex};
+use riso_ui::{Headline, HeadlineSize, Label, LabelSize, TextColor, h_flex, v_flex};
 use std::sync::{Arc, Mutex};
 
 // One page drawing a label and a headline, each of which must log one trace

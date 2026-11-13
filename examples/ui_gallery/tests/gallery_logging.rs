@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,

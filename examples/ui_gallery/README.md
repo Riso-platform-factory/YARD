@@ -1,6 +1,6 @@
 # ui_gallery
 
-A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the UI kit again, or when the next UI kit feature is under review.
+A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
 
 Without `UI_GALLERY` it does nothing, so a plain `cargo run dev` shows only what the app really does. With `UI_GALLERY=all`, it places a tabs container as the root, with one tab per page and one page per base component. A page shows every variant of its component, each naming itself, in groups with an upper-case muted title beside a hairline, as Zed's component preview does.
 
@@ -40,6 +40,17 @@ Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/t
 |---|---|
 | `UI_GALLERY=all cargo run dev`, the tab `divider` | Under `HORIZONTAL`, a solid, a dashed, and an inset divider in each color; under `VERTICAL`, labels separated by solid and dashed dividers. `gallery-build{pages=4}`. |
 | The same, in One Light | The lines follow the theme. |
+
+## Feature 5: modal
+
+Each modal is drawn in place on the page, not above the window.
+
+| Command and action | What to look for |
+|---|---|
+| `UI_GALLERY=all cargo run dev`, the tab `modal` | Under `HEADER`, a modal with a headline, one with a description as well, and one with a close button as well; under `SECTIONS`, a section without a header and two with headers; under `FOOTER`, `Cancel` and a filled `Confirm` at the end, and the same with `Additional information` at the start; under `DISMISS`, a full modal saying `dismissed 0 times`. Each filled `Confirm` stands out from the modal's surface. `gallery-build{pages=5}`. |
+| Click the `DISMISS` modal's close button, then its `Cancel` | `dismissed 2 times`. Two `button-click` groups, `id=dismiss-counter-dismiss` then `id=dismiss-cancel`, each with `modal dismissed {count}` inside it. |
+| The same, with `{"theme": {"mode": "light", "ui_density": "compact"}}` | The surfaces follow One Light, and the spacing gets tighter. |
+| The tab `button` | Every button as before. |
 
 ## Removing it
 

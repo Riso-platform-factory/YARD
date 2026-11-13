@@ -1,3 +1,5 @@
+#![cfg(feature = "dev")]
+
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -159,7 +161,7 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             })
             .unwrap();
         let mut visual = gpui::VisualTestContext::from_window(handle, cx);
-        for selector in ["TAB-icon", "TAB-button", "TAB-divider"] {
+        for selector in ["TAB-icon", "TAB-button", "TAB-divider", "TAB-modal"] {
             let Some(bounds) = visual.debug_bounds(selector) else {
                 continue;
             };
@@ -200,8 +202,8 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
                 captured
                     .spans
                     .values()
-                    .any(|span| span == "gallery-build pages=4"),
-                "expected gallery-build pages=4, got {:?}",
+                    .any(|span| span == "gallery-build pages=5"),
+                "expected gallery-build pages=5, got {:?}",
                 captured.spans
             );
             let build_lines: Vec<_> = captured
@@ -212,15 +214,22 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             assert_eq!(
                 build_lines,
                 vec![
-                    "gallery-build pages=4: DEBUG message=page placed page=text",
-                    "gallery-build pages=4: DEBUG message=page placed page=icon",
-                    "gallery-build pages=4: DEBUG message=page placed page=button",
-                    "gallery-build pages=4: DEBUG message=page placed page=divider",
+                    "gallery-build pages=5: DEBUG message=page placed page=text",
+                    "gallery-build pages=5: DEBUG message=page placed page=icon",
+                    "gallery-build pages=5: DEBUG message=page placed page=button",
+                    "gallery-build pages=5: DEBUG message=page placed page=divider",
+                    "gallery-build pages=5: DEBUG message=page placed page=modal",
                 ],
                 "unexpected non-trace lines: {:?}",
                 captured.lines
             );
-            for page in ["page=text", "page=icon", "page=button", "page=divider"] {
+            for page in [
+                "page=text",
+                "page=icon",
+                "page=button",
+                "page=divider",
+                "page=modal",
+            ] {
                 assert!(
                     captured
                         .lines

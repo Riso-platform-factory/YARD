@@ -1,9 +1,12 @@
+#![cfg(feature = "dev")]
+
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
 use riso_ui::{
     Button, ButtonSize, ButtonStyle, Divider, DividerColor, Headline, HeadlineSize, Icon,
     IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, TextColor, TintColor,
+    dev::{Modal, ModalFooter, ModalHeader, Section, SectionHeader},
     h_flex, v_flex,
 };
 
@@ -54,7 +57,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let _group = tracing::info_span!("gallery-build", pages = 4).entered();
+            let _group = tracing::info_span!("gallery-build", pages = 5).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
             });
@@ -71,6 +74,9 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.register(cx, "ui_gallery.divider", &[], |_, _, _, cx| {
                 cx.new(|_| DividerPage).into()
             });
+            ext.register(cx, "ui_gallery.modal", &[], |_, _, _, cx| {
+                cx.new(|_| ModalPage { dismissals: 0 }).into()
+            });
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
@@ -80,6 +86,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             tracing::debug!(page = "button", "page placed");
             ext.place(cx, "divider", "ui_gallery.divider", "root", "children");
             tracing::debug!(page = "divider", "page placed");
+            ext.place(cx, "modal", "ui_gallery.modal", "root", "children");
+            tracing::debug!(page = "modal", "page placed");
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),
     }
@@ -350,6 +358,146 @@ impl Render for DividerPage {
                     .child(Label::new("Dashed"))
                     .child(Divider::vertical_dashed().color(DividerColor::BorderVariant))
                     .child(Label::new("End")),
+            ))
+    }
+}
+
+struct ModalPage {
+    dismissals: usize,
+}
+
+impl ModalPage {
+    fn dismiss(&mut self, cx: &mut Context<Self>) {
+        self.dismissals += 1;
+        tracing::info!(count = self.dismissals, "modal dismissed");
+        cx.notify();
+    }
+}
+
+impl Render for ModalPage {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        use riso_ui::dev::{Button, ButtonStyle, ElevationIndex};
+
+        tracing::trace!(page = "modal", "rendering page");
+        let palette = riso_ui::palette(cx);
+        let close = cx.weak_entity();
+        let cancel = cx.weak_entity();
+        v_flex()
+            .size_full()
+            .p(rems(1.))
+            .gap(rems(0.75))
+            .bg(palette.background)
+            .child(group(
+                "Header",
+                h_flex()
+                    .items_start()
+                    .flex_wrap()
+                    .gap(rems(0.75))
+                    .child(
+                        Modal::new("headline-only").header(ModalHeader::new().headline("Headline")),
+                    )
+                    .child(
+                        Modal::new("with-description").header(
+                            ModalHeader::new()
+                                .headline("Headline")
+                                .description("A description"),
+                        ),
+                    )
+                    .child(
+                        Modal::new("with-close").header(
+                            ModalHeader::new()
+                                .headline("Headline")
+                                .description("A description")
+                                .on_dismiss(|_, _| tracing::info!("header modal dismissed")),
+                        ),
+                    ),
+            ))
+            .child(group(
+                "Sections",
+                Modal::new("sections")
+                    .section(Section::new().child(Label::new("A section without a header")))
+                    .section(
+                        Section::new()
+                            .header(SectionHeader::new("First section"))
+                            .child(Label::new("First section text")),
+                    )
+                    .section(
+                        Section::new()
+                            .header(SectionHeader::new("Second section"))
+                            .child(Label::new("Second section text")),
+                    ),
+            ))
+            .child(group(
+                "Footer",
+                h_flex()
+                    .items_start()
+                    .flex_wrap()
+                    .gap(rems(0.75))
+                    .child(
+                        Modal::new("end-only").footer(
+                            ModalFooter::new().end_slot(
+                                h_flex()
+                                    .gap(rems(0.5))
+                                    .child(Button::new("end-cancel", "Cancel"))
+                                    .child(
+                                        Button::new("end-confirm", "Confirm")
+                                            .style(ButtonStyle::Filled)
+                                            .layer(ElevationIndex::ModalSurface),
+                                    ),
+                            ),
+                        ),
+                    )
+                    .child(
+                        Modal::new("both-slots").footer(
+                            ModalFooter::new()
+                                .start_slot(
+                                    Label::new("Additional information").color(TextColor::Muted),
+                                )
+                                .end_slot(
+                                    h_flex()
+                                        .gap(rems(0.5))
+                                        .child(Button::new("both-cancel", "Cancel"))
+                                        .child(
+                                            Button::new("both-confirm", "Confirm")
+                                                .style(ButtonStyle::Filled)
+                                                .layer(ElevationIndex::ModalSurface),
+                                        ),
+                                ),
+                        ),
+                    ),
+            ))
+            .child(group(
+                "Dismiss",
+                Modal::new("dismiss-counter")
+                    .header(
+                        ModalHeader::new()
+                            .headline("Dismiss")
+                            .description("The owner counts dismissals")
+                            .on_dismiss(move |_, cx| {
+                                let _ = close.update(cx, |this, cx| this.dismiss(cx));
+                            }),
+                    )
+                    .section(
+                        Section::new()
+                            .header(SectionHeader::new("Dismissals"))
+                            .child(Label::new(format!("dismissed {} times", self.dismissals))),
+                    )
+                    .footer(
+                        ModalFooter::new().end_slot(
+                            h_flex()
+                                .gap(rems(0.5))
+                                .child(Button::new("dismiss-cancel", "Cancel").on_click(
+                                    move |_, cx| {
+                                        let _ = cancel.update(cx, |this, cx| this.dismiss(cx));
+                                    },
+                                ))
+                                .child(
+                                    Button::new("dismiss-confirm", "Confirm")
+                                        .style(ButtonStyle::Filled)
+                                        .layer(ElevationIndex::ModalSurface),
+                                ),
+                        ),
+                    ),
             ))
     }
 }

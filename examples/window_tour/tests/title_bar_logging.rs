@@ -1,3 +1,5 @@
+#![cfg(feature = "dev")]
+
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -142,6 +144,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
         run_child(None);
         run_child(Some(""));
         run_child(Some("title-bar"));
+        run_child(Some("status-bar"));
+        run_child(Some("status-items"));
         run_child(Some("unknown"));
         return;
     };
@@ -152,18 +156,19 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
 
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
-        cx.update(|cx| {
-            let ext = riso_shell::Extension::new(cx, "window_tour").unwrap();
+        let ext = cx.update(|cx| {
+            let ext = riso_shell::dev::Extension::new(cx, "window_tour").unwrap();
             window_tour::init(cx, &ext);
+            ext
         });
-        if mode == "title-bar" {
+        if matches!(mode.as_str(), "title-bar" | "status-bar" | "status-items") {
             let window = cx.update(|cx| {
                 cx.open_window(
                     gpui::WindowOptions {
                         titlebar: Some(riso_ui::titlebar_options("riso")),
                         ..Default::default()
                     },
-                    riso_shell::new_shell,
+                    riso_shell::dev::new_shell,
                 )
                 .unwrap()
             });
@@ -180,6 +185,47 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 .debug_bounds("BAR-PING")
                 .expect("ping button is drawn in the title bar");
             visual.simulate_click(ping.center(), Default::default());
+            if mode == "status-bar" {
+                let before = visual.debug_bounds("CARD-root").unwrap();
+                let toggle = visual
+                    .debug_bounds("STATUS-VISIBILITY")
+                    .expect("visibility toggle");
+                assert!(
+                    toggle.size.width < before.size.width / 2.,
+                    "the toggle keeps its own width"
+                );
+                visual.simulate_click(toggle.center(), Default::default());
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                });
+                assert!(visual.debug_bounds("BAR-PING").is_none());
+                assert!(visual.debug_bounds("CARD-root").unwrap().size.height > before.size.height);
+                visual.simulate_click(toggle.center(), Default::default());
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                });
+                assert!(visual.debug_bounds("BAR-PING").is_some());
+                assert_eq!(visual.debug_bounds("CARD-root").unwrap(), before);
+                for hidden in ["title", "ping"] {
+                    visual.update(|window, cx| {
+                        ext.set_hidden(cx, hidden, true);
+                        window.refresh();
+                        let _ = window.draw(cx);
+                    });
+                    let toggle = visual.debug_bounds("STATUS-VISIBILITY").unwrap();
+                    visual.simulate_click(toggle.center(), Default::default());
+                    visual.update(|window, cx| {
+                        window.refresh();
+                        let _ = window.draw(cx);
+                        assert!(!riso_shell::dev::is_hidden(cx, "title"));
+                        assert!(!riso_shell::dev::is_hidden(cx, "ping"));
+                    });
+                    assert!(visual.debug_bounds("BAR-TITLE").is_some());
+                    assert!(visual.debug_bounds("BAR-PING").is_some());
+                }
+            }
         }
     });
 
@@ -234,6 +280,28 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 "unexpected diagnostics: {diagnostics:?}"
             );
         }
+        "status-bar" | "status-items" => {
+            let root_placed = captured
+                .lines
+                .iter()
+                .any(|line| line.contains("node=root component=window_tour.card"));
+            assert_eq!(root_placed, mode == "status-bar");
+            for expected in [
+                "node=title component=window_tour.title extension=window_tour parent=status_bar slot=left",
+                "node=ping component=window_tour.ping extension=window_tour parent=status_bar slot=right",
+                "button-click id=ping: INFO message=ping",
+            ] {
+                assert!(
+                    captured.lines.iter().any(|line| line.contains(expected)),
+                    "missing {expected} in {:#?}",
+                    captured.lines
+                );
+            }
+            assert!(
+                diagnostics.is_empty(),
+                "unexpected diagnostics: {diagnostics:?}"
+            );
+        }
         "unknown" => {
             assert_eq!(
                 diagnostics.len(),
@@ -241,7 +309,9 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 "expected one warning: {diagnostics:?}"
             );
             assert!(
-                diagnostics[0].starts_with("WARN ") && diagnostics[0].contains("unknown"),
+                diagnostics[0].starts_with("WARN ")
+                    && diagnostics[0].contains("unknown")
+                    && diagnostics[0].contains("title-bar, status-bar, status-items"),
                 "unexpected diagnostic: {}",
                 diagnostics[0]
             );

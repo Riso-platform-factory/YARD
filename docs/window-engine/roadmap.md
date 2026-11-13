@@ -45,7 +45,7 @@ Status is one of: planned, dev, production.
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 1 | `title-bar` | The tree of a window starts with a frame of the shell's own: the title bar and the body. An extension's root goes in the body, as today, and a zoomed node fills the body. The status bar joins the frame in `status-bar`. The window draws its own title bar, with the slots `left`, `center`, and `right`. Dragging the bar moves the window, and the OS's window buttons stay | The tour places a label on the left and a button on the right. Without them, the bar shows `riso` | `platform_title_bar`. `gpui`: `TitlebarOptions` | UI kit: `gallery-and-text`, `button` | production |
-| 2 | `status-bar` | The status bar, with the slots `left` and `right`. It takes no room while it holds nothing | The tour places an item on each side. Without them there is no bar | `status_bar.rs` | 1. UI kit: `divider` | planned |
+| 2 | `status-bar` | The status bar, with the slots `left` and `right`. It takes no room while it holds nothing | The tour places an item on each side. Without them there is no bar | `status_bar.rs` | 1. UI kit: `divider` | dev |
 
 ### Above the layout
 

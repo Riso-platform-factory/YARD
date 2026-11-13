@@ -1,6 +1,10 @@
+#![cfg(feature = "dev")]
+
 //! The window tour extension, loaded as `window_tour` in `cargo run dev`.
 //! Without `WINDOW_TOUR`, it contributes nothing.
 //! `WINDOW_TOUR=title-bar cargo run dev`: a root card, `window_tour` in `left`, and `ping` in `right`.
+//! `WINDOW_TOUR=status-bar cargo run dev`: a root card with a visibility button and status bar items.
+//! `WINDOW_TOUR=status-items cargo run dev`: status bar items only, for use beside the layout tour.
 
 use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
@@ -8,16 +12,20 @@ use gpui::{
 };
 use riso_ui::{Button, ButtonSize, Label, LabelSize, palette, v_flex};
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("WINDOW_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("window-tour", case).entered();
     match case.as_str() {
-        "title-bar" => {
-            ext.register(cx, "window_tour.card", &[], |node, _, _, cx| {
+        "title-bar" | "status-bar" | "status-items" => {
+            let status = case != "title-bar";
+            let card_ext = ext.clone();
+            ext.register(cx, "window_tour.card", &[], move |node, _, _, cx| {
                 cx.new(|_| Card {
+                    status,
+                    ext: card_ext.clone(),
                     node: node.to_string(),
                     size: Size::default(),
                 })
@@ -29,11 +37,16 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.register(cx, "window_tour.ping", &[], |_, _, _, cx| {
                 cx.new(|_| PingButton).into()
             });
-            ext.place_root(cx, "root", "window_tour.card");
-            ext.place(cx, "title", "window_tour.title", "title_bar", "left");
-            ext.place(cx, "ping", "window_tour.ping", "title_bar", "right");
+            if case != "status-items" {
+                ext.place_root(cx, "root", "window_tour.card");
+            }
+            let bar = if status { "status_bar" } else { "title_bar" };
+            ext.place(cx, "title", "window_tour.title", bar, "left");
+            ext.place(cx, "ping", "window_tour.ping", bar, "right");
         }
-        _ => log::warn!("unknown WINDOW_TOUR case {case:?}; known cases: title-bar"),
+        _ => log::warn!(
+            "unknown WINDOW_TOUR case {case:?}; known cases: title-bar, status-bar, status-items"
+        ),
     }
 }
 
@@ -60,6 +73,8 @@ impl Render for PingButton {
 }
 
 struct Card {
+    status: bool,
+    ext: riso_shell::dev::Extension,
     node: String,
     size: Size<Pixels>,
 }
@@ -101,10 +116,36 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = palette(cx);
         let entity = cx.entity().downgrade();
-        let focused = riso_shell::focus_handle(cx, &self.node)
+        let focused = riso_shell::dev::focus_handle(cx, &self.node)
             .is_some_and(|handle| handle.is_focused(window));
-        v_flex()
-            .debug_selector(|| format!("CARD-{}", self.node))
+        let mut card = v_flex();
+        if self.status {
+            let hidden =
+                riso_shell::dev::is_hidden(cx, "title") || riso_shell::dev::is_hidden(cx, "ping");
+            let ext = self.ext.clone();
+            card = card.child(
+                div()
+                    .debug_selector(|| "STATUS-VISIBILITY".into())
+                    .self_start()
+                    .child(
+                        Button::new(
+                            "status-visibility",
+                            if hidden {
+                                "show status items"
+                            } else {
+                                "hide status items"
+                            },
+                        )
+                        .on_click(move |_, cx| {
+                            let hidden = riso_shell::dev::is_hidden(cx, "title")
+                                || riso_shell::dev::is_hidden(cx, "ping");
+                            ext.set_hidden(cx, "title", !hidden);
+                            ext.set_hidden(cx, "ping", !hidden);
+                        }),
+                    ),
+            );
+        }
+        card.debug_selector(|| format!("CARD-{}", self.node))
             .relative()
             .size_full()
             .p(rems(0.5))

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -157,7 +155,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         let ext = cx.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "window_tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "window_tour").unwrap();
             window_tour::init(cx, &ext);
             ext
         });
@@ -168,7 +166,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                         titlebar: Some(riso_ui::titlebar_options("riso")),
                         ..Default::default()
                     },
-                    riso_shell::dev::new_shell,
+                    riso_shell::new_shell,
                 )
                 .unwrap()
             });
@@ -219,8 +217,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                     visual.update(|window, cx| {
                         window.refresh();
                         let _ = window.draw(cx);
-                        assert!(!riso_shell::dev::is_hidden(cx, "title"));
-                        assert!(!riso_shell::dev::is_hidden(cx, "ping"));
+                        assert!(!riso_shell::is_hidden(cx, "title"));
+                        assert!(!riso_shell::is_hidden(cx, "ping"));
                     });
                     assert!(visual.debug_bounds("BAR-TITLE").is_some());
                     assert!(visual.debug_bounds("BAR-PING").is_some());

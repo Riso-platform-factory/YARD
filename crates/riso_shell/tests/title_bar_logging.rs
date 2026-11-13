@@ -281,6 +281,7 @@ fn the_title_bar_logs_its_frame_title_refusals_and_draws(cx: &mut TestAppContext
         r#"root-place node="window" component="riso.window""#,
         r#"node-place node="title_bar" component="riso.title_bar" parent="window" slot="title_bar""#,
         r#"node-place node="body" component="riso.body" parent="window" slot="body""#,
+        r#"node-place node="status_bar" component="riso.status_bar" parent="window" slot="status_bar""#,
     ] {
         assert!(
             captured.span_stacks.iter().any(|stack| {
@@ -297,6 +298,7 @@ fn the_title_bar_logs_its_frame_title_refusals_and_draws(cx: &mut TestAppContext
         r#"root-place node="window" component="riso.window": DEBUG message=root placed node=window component=riso.window extension=riso"#,
         r#"node-place node="title_bar" component="riso.title_bar" parent="window" slot="title_bar": DEBUG message=node placed node=title_bar component=riso.title_bar extension=riso parent=window slot=title_bar"#,
         r#"node-place node="body" component="riso.body" parent="window" slot="body": DEBUG message=node placed node=body component=riso.body extension=riso parent=window slot=body"#,
+        r#"node-place node="status_bar" component="riso.status_bar" parent="window" slot="status_bar": DEBUG message=node placed node=status_bar component=riso.status_bar extension=riso parent=window slot=status_bar"#,
     ] {
         assert!(
             captured.lines.iter().any(|actual| actual.as_str() == line),

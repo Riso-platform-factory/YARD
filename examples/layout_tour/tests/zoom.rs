@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
 
 // A separate process selects the real extension case before GPUI starts threads.
@@ -27,11 +25,11 @@ fn card_clicks_zoom_and_restore_the_layout(cx: &mut TestAppContext) {
     }
     cx.update(|cx| {
         riso_ui::init(cx);
-        let ext = riso_shell::dev::Extension::new(cx, "layout_tour").unwrap();
+        let ext = riso_shell::Extension::new(cx, "layout_tour").unwrap();
         layout_tour::init(cx, &ext);
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(px(1000.), px(600.)));
@@ -55,10 +53,7 @@ fn card_clicks_zoom_and_restore_the_layout(cx: &mut TestAppContext) {
     let tab = visual.debug_bounds("TAB-c").unwrap();
     click(&mut visual, "ZOOM-c");
     draw(window, cx);
-    assert_eq!(
-        cx.update(|cx| riso_shell::dev::zoomed(cx)).as_deref(),
-        Some("c")
-    );
+    assert_eq!(cx.update(|cx| riso_shell::zoomed(cx)).as_deref(), Some("c"));
     assert!(visual.debug_bounds("COUNT-a").is_none());
     assert!(visual.debug_bounds("TAB-c").is_none());
     assert!(visual.debug_bounds("COUNT-b").is_none());
@@ -72,14 +67,14 @@ fn card_clicks_zoom_and_restore_the_layout(cx: &mut TestAppContext) {
     assert!(visual.debug_bounds("ZOOM-c").is_some());
     assert!(visual.debug_bounds("ZOOM-OUT-c").is_none());
     assert!(visual.debug_bounds("COUNT-a-2").is_some());
-    assert_eq!(cx.update(|cx| riso_shell::dev::zoomed(cx)), None);
+    assert_eq!(cx.update(|cx| riso_shell::zoomed(cx)), None);
     assert_eq!(visual.debug_bounds("COUNT-a"), Some(a));
     assert_eq!(visual.debug_bounds("COUNT-c"), Some(c));
     assert_eq!(visual.debug_bounds("TAB-c"), Some(tab));
     assert!(visual.debug_bounds("COUNT-b").is_none());
 }
 
-fn draw(window: WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             let _ = window.draw(cx);

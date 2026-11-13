@@ -204,6 +204,10 @@ fn splits_are_built_in_and_log_the_shown_tree(cx: &mut TestAppContext) {
                 " node=missing component=tour.missing extension=tour".into(),
                 Some(root.into())
             ),
+            (
+                " node=status_bar component=riso.status_bar extension=riso".into(),
+                Some(" node=window component=riso.window extension=riso".into())
+            ),
         ]
     );
 }

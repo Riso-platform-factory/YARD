@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, Styled, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -132,7 +130,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -229,8 +227,8 @@ fn the_status_bar_logs_its_frame_refusals_and_draws(cx: &mut TestAppContext) {
         let mut app = cx.new_app();
         app.update(riso_ui::init);
         let ext = app.update(|cx| {
-            riso_shell::dev::set_layout_file(cx, layout_path);
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            riso_shell::set_layout_file(cx, layout_path);
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.register(cx, "tour.card", &[], |_, _, _, cx| cx.new(|_| Card).into());
             ext.place_root(cx, "root", "riso.row");
             ext.place(cx, "a", "tour.card", "root", "children");
@@ -241,7 +239,7 @@ fn the_status_bar_logs_its_frame_refusals_and_draws(cx: &mut TestAppContext) {
             ext
         });
         let window = app.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         app.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));

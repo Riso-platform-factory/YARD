@@ -225,6 +225,8 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
             "  node-place: DEBUG message=node placed node=title_bar component=riso.title_bar extension=riso parent=window slot=title_bar",
             r#"INFO node-place node="body" component="riso.body" parent="window" slot="body""#,
             "  node-place: DEBUG message=node placed node=body component=riso.body extension=riso parent=window slot=body",
+            r#"INFO node-place node="status_bar" component="riso.status_bar" parent="window" slot="status_bar""#,
+            "  node-place: DEBUG message=node placed node=status_bar component=riso.status_bar extension=riso parent=window slot=status_bar",
             r#"INFO component-register component="tour.card" slots="""#,
             "  component-register: DEBUG message=registered",
             r#"INFO component-register component="tour.card" slots="""#,
@@ -258,6 +260,7 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
             "INFO component-create node=root component=tour.card extension=tour",
             r#"INFO component-register component="tour.extra" slots="""#,
             "  component-register: DEBUG message=registered",
+            "INFO component-create node=status_bar component=riso.status_bar extension=riso",
             "INFO window-frame",
             r#"INFO root-place node="window" component="riso.window""#,
             "  root-place: DEBUG message=root placed node=window component=riso.window extension=riso",
@@ -265,11 +268,14 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
             "  node-place: DEBUG message=node placed node=title_bar component=riso.title_bar extension=riso parent=window slot=title_bar",
             r#"INFO node-place node="body" component="riso.body" parent="window" slot="body""#,
             "  node-place: DEBUG message=node placed node=body component=riso.body extension=riso parent=window slot=body",
+            r#"INFO node-place node="status_bar" component="riso.status_bar" parent="window" slot="status_bar""#,
+            "  node-place: DEBUG message=node placed node=status_bar component=riso.status_bar extension=riso parent=window slot=status_bar",
             "INFO shell-create root=none",
             "  shell-create: INFO message=no root placed; the window shows the background",
             "INFO component-create node=window component=riso.window extension=riso",
             "INFO component-create node=title_bar component=riso.title_bar extension=riso",
             "INFO component-create node=body component=riso.body extension=riso",
+            "INFO component-create node=status_bar component=riso.status_bar extension=riso",
             "INFO window-frame",
             r#"INFO root-place node="window" component="riso.window""#,
             "  root-place: DEBUG message=root placed node=window component=riso.window extension=riso",
@@ -277,6 +283,8 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
             "  node-place: DEBUG message=node placed node=title_bar component=riso.title_bar extension=riso parent=window slot=title_bar",
             r#"INFO node-place node="body" component="riso.body" parent="window" slot="body""#,
             "  node-place: DEBUG message=node placed node=body component=riso.body extension=riso parent=window slot=body",
+            r#"INFO node-place node="status_bar" component="riso.status_bar" parent="window" slot="status_bar""#,
+            "  node-place: DEBUG message=node placed node=status_bar component=riso.status_bar extension=riso parent=window slot=status_bar",
             r#"INFO root-place node="missing" component="tour.missing""#,
             "  root-place: DEBUG message=node placed node=missing component=tour.missing extension=tour parent=body slot=children",
             "INFO shell-create root=missing",
@@ -288,6 +296,7 @@ fn component_operations_log_in_order_and_create_once(cx: &mut TestAppContext) {
                 "  component-create: ERROR message=node missing names ",
                 "unregistered component tour.missing",
             ),
+            "INFO component-create node=status_bar component=riso.status_bar extension=riso",
         ]
     );
     drop(captured);
@@ -492,6 +501,10 @@ fn slots_contract(cx: &mut TestAppContext) {
             (
                 " node=last component=tour.card extension=tour".into(),
                 Some(root.into())
+            ),
+            (
+                " node=status_bar component=riso.status_bar extension=riso".into(),
+                Some(" node=window component=riso.window extension=riso".into())
             ),
         ]
     );

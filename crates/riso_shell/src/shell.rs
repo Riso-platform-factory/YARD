@@ -34,8 +34,13 @@ type ActionHandler = Rc<dyn Fn(Div) -> Div>;
 type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
 type ViewMap = BTreeMap<NodeId, AnyView>;
 
-const FRAME_NODES: &[&str] = &["window", "title_bar", "body"];
-const FRAME_COMPONENTS: &[&str] = &["riso.window", "riso.title_bar", "riso.body"];
+const FRAME_NODES: &[&str] = &["window", "title_bar", "body", "status_bar"];
+const FRAME_COMPONENTS: &[&str] = &[
+    "riso.window",
+    "riso.title_bar",
+    "riso.body",
+    "riso.status_bar",
+];
 
 fn is_frame_node(id: &NodeId) -> bool {
     FRAME_NODES.contains(&id.as_str())
@@ -48,12 +53,13 @@ fn is_frame_component(id: &ComponentId) -> bool {
 fn is_frame_slot(parent: &NodeId, slot: &SlotName) -> bool {
     matches!(
         (parent.as_str(), slot.as_str()),
-        ("window", "title_bar" | "body") | ("body", "children")
+        ("window", "title_bar" | "body" | "status_bar") | ("body", "children")
     )
 }
 
 fn is_bar_item(tree: &Tree, id: &NodeId) -> bool {
-    current_location(tree, id).is_some_and(|(parent, _, _, _)| parent.as_str() == "title_bar")
+    current_location(tree, id)
+        .is_some_and(|(parent, _, _, _)| matches!(parent.as_str(), "title_bar" | "status_bar"))
 }
 
 fn is_in_body(tree: &Tree, id: &NodeId) -> bool {
@@ -86,6 +92,7 @@ impl Render for WindowFrame {
                     .grid_rows(1)
                     .child(view)
             }))
+            .children(self.slots.views("status_bar"))
     }
 }
 
@@ -138,6 +145,34 @@ impl Render for TitleBarFrame {
     }
 }
 
+struct StatusBarFrame {
+    node: NodeId,
+    slots: Slots,
+}
+
+impl Render for StatusBarFrame {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        let left = self.slots.views("left");
+        let right = self.slots.views("right");
+        if left.is_empty() && right.is_empty() {
+            return div().into_any_element();
+        }
+        tracing::trace!(
+            left = left.len(),
+            right = right.len(),
+            "rendering status bar"
+        );
+        let mut bar = riso_ui::StatusBar::new(SharedString::from(self.node.to_string()));
+        for view in left {
+            bar = bar.left(view);
+        }
+        for view in right {
+            bar = bar.right(view);
+        }
+        bar.into_any_element()
+    }
+}
+
 struct BodyFrame {
     slots: Slots,
 }
@@ -176,7 +211,7 @@ impl Render for NodeView {
             let layers = registry.tree.borrow();
             is_bar_item(layers.current(), &self.node)
         });
-        let container = if self.node.as_str() == "title_bar" {
+        let container = if matches!(self.node.as_str(), "title_bar" | "status_bar") {
             div().relative().w_full().flex_none()
         } else if in_bar {
             riso_ui::h_flex().relative().h_full().flex_shrink_0()
@@ -396,6 +431,7 @@ impl Default for Registry {
                 slots: vec![
                     SlotName::parse("title_bar").unwrap(),
                     SlotName::parse("body").unwrap(),
+                    SlotName::parse("status_bar").unwrap(),
                 ],
                 create: Rc::new(|_, slots, _, cx| cx.new(|_| WindowFrame { slots }).into()),
             },
@@ -422,6 +458,22 @@ impl Default for Registry {
             Component {
                 slots: vec![SlotName::parse("children").unwrap()],
                 create: Rc::new(|_, slots, _, cx| cx.new(|_| BodyFrame { slots }).into()),
+            },
+        );
+        components.insert(
+            ComponentId::parse("riso.status_bar").unwrap(),
+            Component {
+                slots: vec![
+                    SlotName::parse("left").unwrap(),
+                    SlotName::parse("right").unwrap(),
+                ],
+                create: Rc::new(|node, slots, _, cx| {
+                    cx.new(|_| StatusBarFrame {
+                        node: node.clone(),
+                        slots,
+                    })
+                    .into()
+                }),
             },
         );
         let mut tree = Tree::default();
@@ -474,6 +526,25 @@ impl Default for Registry {
                     },
                     &window_id,
                     SlotName::parse("body").unwrap(),
+                );
+            }
+            {
+                let _place = tracing::info_span!(
+                    "node-place",
+                    node = "status_bar",
+                    component = "riso.status_bar",
+                    parent = "window",
+                    slot = "status_bar"
+                )
+                .entered();
+                let _ = tree.place(
+                    Node {
+                        id: NodeId::parse("status_bar").unwrap(),
+                        component: ComponentId::parse("riso.status_bar").unwrap(),
+                        extension: "riso".into(),
+                    },
+                    &window_id,
+                    SlotName::parse("status_bar").unwrap(),
                 );
             }
         }
@@ -1230,6 +1301,7 @@ fn focus_by_direction(action: LayoutAction, node: &NodeId, window: &mut Window, 
                         | "riso.tabs"
                         | "riso.window"
                         | "riso.title_bar"
+                        | "riso.status_bar"
                         | "riso.body"
                 )
             });

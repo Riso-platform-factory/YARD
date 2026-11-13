@@ -2,3 +2,6 @@
 
 mod shell;
 pub use shell::*;
+
+#[cfg(feature = "dev")]
+pub mod dev;

@@ -55,7 +55,7 @@ Status is one of: planned, dev, production.
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 4 | `ui-font` | The section holds the UI font's family and size. Text follows, and so does every size given in rems. A size outside sane limits is clamped, and a family that is not installed keeps the default with a `WARN` | A larger size in `settings.json` scales the card and the tab bar | `setup_ui_font`, as reference | 2 | production |
-| 5 | `density` | The section holds the density: compact, default, or comfortable. It changes the spacing of the components that come from Zed | The tab bar gets lower and higher | `UiDensity` | 2 | planned |
+| 5 | `density` | The section holds the density: compact, default, or comfortable. It changes the spacing of the components that come from Zed | The tab bar gets lower and higher | `UiDensity` | 2 | dev |
 
 ### More themes
 

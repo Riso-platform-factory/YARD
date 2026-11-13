@@ -1,6 +1,6 @@
 # theme_tour
 
-A test extension for the theme engine, in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("theme_tour", theme_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the theme engine again, or when the next theme feature is under review.
+A test extension for the theme engine, in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("theme_tour", theme_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With `THEME_TOUR=card`, it places one card as the root. The card shows a tab bar with two tabs, the active theme's name, each color of the palette as a swatch with its name, and a line that names the UI font and its size. A change of theme can then be seen at a glance.
 
@@ -51,6 +51,16 @@ Start `THEME_TOUR=card cargo run dev` with a fresh home and no file, then edit `
 | Write `{"theme": {"ui_font_size": 200}}` | The text at 100. The `WARN` `ui_font_size 200 is clamped to 100`. |
 | Write `{"theme": {"ui_font_family": "Menlo"}}` | The card in Menlo at 16: `Menlo 16`. |
 | Write `{"theme": {"ui_font_family": "Nope Sans"}}` | IBM Plex Sans, and the `WARN` `font Nope Sans is not installed`. |
+
+## Feature 5: density
+
+Start `THEME_TOUR=card cargo run dev` with a fresh home and no file, then edit `config/settings.json` while it runs:
+
+| Edit | What to look for |
+|---|---|
+| Write `{"theme": {"ui_density": "compact"}}` | The tab bar and its tabs get lower and narrower. `density-apply{density=compact}` with `applied`. |
+| Write `{"theme": {"ui_density": "comfortable"}}` | They get higher and wider than by default. |
+| Write `{"theme": {"ui_density": "huge"}}` | Nothing changes. The settings engine's `WARN` that the section `theme` cannot be read. |
 
 ## Removing it
 

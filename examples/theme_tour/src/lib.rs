@@ -1,6 +1,8 @@
+#![cfg(feature = "dev")]
+
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("THEME_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -23,8 +25,8 @@ impl Render for Card {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering card");
         let palette = riso_ui::palette(cx);
-        let font = riso_ui::ui_font(cx);
-        let font_size = riso_ui::ui_font_size(cx);
+        let font = riso_ui::dev::ui_font(cx);
+        let font_size = riso_ui::dev::ui_font_size(cx);
         let font_label = format!("{} {}", font.family, f32::from(font_size));
         let swatches = [
             ("background", palette.background),
@@ -49,7 +51,7 @@ impl Render for Card {
             .border_1()
             .border_color(palette.border)
             .child(tabs)
-            .child(riso_ui::active_theme(cx))
+            .child(riso_ui::dev::active_theme(cx))
             .children(swatches.into_iter().map(|(name, color)| {
                 div()
                     .flex()

@@ -1,3 +1,5 @@
+#![cfg(feature = "dev")]
+
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -151,12 +153,23 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
-        AnyWindowHandle::from(window)
+        let handle = AnyWindowHandle::from(window);
+        handle
             .update(cx, |_, window, cx| {
                 window.refresh();
                 let _ = window.draw(cx);
             })
             .unwrap();
+        let mut visual = gpui::VisualTestContext::from_window(handle, cx);
+        if let Some(bounds) = visual.debug_bounds("TAB-icon") {
+            visual.simulate_click(bounds.center(), Default::default());
+            handle
+                .update(&mut visual, |_, window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                })
+                .unwrap();
+        }
     });
 
     let captured = trace.0.lock().unwrap();
@@ -186,8 +199,8 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
                 captured
                     .spans
                     .values()
-                    .any(|span| span == "gallery-build pages=1"),
-                "expected gallery-build pages=1, got {:?}",
+                    .any(|span| span == "gallery-build pages=2"),
+                "expected gallery-build pages=2, got {:?}",
                 captured.spans
             );
             let build_lines: Vec<_> = captured
@@ -197,18 +210,23 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
                 .collect();
             assert_eq!(
                 build_lines,
-                vec!["gallery-build pages=1: DEBUG message=page placed page=text"],
+                vec![
+                    "gallery-build pages=2: DEBUG message=page placed page=text",
+                    "gallery-build pages=2: DEBUG message=page placed page=icon",
+                ],
                 "unexpected non-trace lines: {:?}",
                 captured.lines
             );
-            assert!(
-                captured
-                    .lines
-                    .iter()
-                    .any(|line| line.contains(": TRACE") && line.contains("page=text")),
-                "expected text page render trace in {:?}",
-                captured.lines
-            );
+            for page in ["page=text", "page=icon"] {
+                assert!(
+                    captured
+                        .lines
+                        .iter()
+                        .any(|line| line.contains(": TRACE") && line.contains(page)),
+                    "expected {page} render trace in {:?}",
+                    captured.lines
+                );
+            }
             assert!(
                 diagnostics.is_empty(),
                 "unexpected diagnostics: {diagnostics:?}"

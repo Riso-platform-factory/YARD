@@ -1,8 +1,14 @@
+#![cfg(feature = "dev")]
+
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, px,
     rems,
 };
-use riso_ui::{Headline, HeadlineSize, Label, LabelSize, TextColor, h_flex, v_flex};
+use riso_ui::{
+    Headline, HeadlineSize, Label, LabelSize, TextColor,
+    dev::{Icon, IconName, IconSize},
+    h_flex, v_flex,
+};
 
 const HEADLINE_SIZES: [(&str, HeadlineSize); 5] = [
     ("XLarge", HeadlineSize::XLarge),
@@ -30,6 +36,14 @@ const TEXT_COLORS: [(&str, TextColor); 8] = [
     ("Success", TextColor::Success),
 ];
 
+const ICON_SIZES: [IconSize; 5] = [
+    IconSize::Indicator,
+    IconSize::XSmall,
+    IconSize::Small,
+    IconSize::Medium,
+    IconSize::XLarge,
+];
+
 pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("UI_GALLERY").unwrap_or_default();
     if case.is_empty() {
@@ -37,19 +51,26 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let _group = tracing::info_span!("gallery-build", pages = 1).entered();
+            let _group = tracing::info_span!("gallery-build", pages = 2).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
+            });
+            ext.register(cx, "ui_gallery.icon", &[], |_, _, _, cx| {
+                cx.new(|_| IconPage).into()
             });
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
+            ext.place(cx, "icon", "ui_gallery.icon", "root", "children");
+            tracing::debug!(page = "icon", "page placed");
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),
     }
 }
 
 struct TextPage;
+
+struct IconPage;
 
 fn group(title: &str, palette: &riso_ui::Palette, content: impl IntoElement) -> Div {
     v_flex()
@@ -116,6 +137,50 @@ impl Render for TextPage {
                 v_flex()
                     .gap(rems(0.25))
                     .children(["one", "two", "three"].map(Label::new)),
+            ))
+    }
+}
+
+impl Render for IconPage {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!(page = "icon", "rendering page");
+        let palette = riso_ui::palette(cx);
+        v_flex()
+            .size_full()
+            .p(rems(1.))
+            .gap(rems(0.75))
+            .bg(palette.background)
+            .child(group(
+                "Size",
+                &palette,
+                v_flex()
+                    .gap(rems(0.25))
+                    .children(ICON_SIZES.into_iter().map(|size| {
+                        h_flex()
+                            .gap(rems(0.5))
+                            .children(IconName::ALL.iter().map(|&name| Icon::new(name).size(size)))
+                    })),
+            ))
+            .child(group(
+                "Color",
+                &palette,
+                h_flex().gap(rems(0.5)).children(
+                    TEXT_COLORS
+                        .into_iter()
+                        .map(|(_, color)| Icon::new(IconName::Check).color(color)),
+                ),
+            ))
+            .child(group(
+                "Name",
+                &palette,
+                v_flex()
+                    .gap(rems(0.25))
+                    .children(IconName::ALL.iter().map(|&name| {
+                        h_flex()
+                            .gap(rems(0.5))
+                            .child(Icon::new(name))
+                            .child(Label::new(format!("{name:?}")))
+                    })),
             ))
     }
 }

@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the layout engine again, or when the next feature that it shows is under review.
+A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -171,6 +171,18 @@ The card shows `focused` when its node has the keyboard focus, and `contains foc
 | Click card `b`, then card `c` | `b` says `focused`, then `c` does and `b` no longer does. `focus-change{node=b}`, then `focus-change{node=c}`. A second click on `c` logs nothing. |
 | `LAYOUT_TOUR=nested-split cargo run dev`, click `c` | `c` says `focused`, and `right` contains the focus. |
 | `LAYOUT_TOUR=tabs cargo run dev`, click card `a`, then the tab `b` | `focus-change{node=a}`, then `focus-change{node=root}`: the click on the tab bar focuses the tabs container. |
+
+## Keymap feature 2: layout-actions
+
+`LAYOUT_TOUR=actions`: a row with a `controls` card, card `a`, and tabs `right` with `b`, `c`, and `d`. The `controls` card's buttons send the shell's actions to the focused node without taking the focus themselves.
+
+| Action | What to look for |
+|---|---|
+| Click `next tab` first | `layout-action{action=SelectNextTab, node=none}` refused: `no node has the focus`. |
+| Click card `b`, then `next tab` three times | `c`, `d`, then `b` again; the tabs container `right` takes the focus. `previous tab`: `d`. |
+| Click card `a`, then `next tab` | Refused: `no tabs container holds it`. |
+| Click card `a`, then `hide` | `a` is hidden, inside `layout-action{action=Hide, node=a}`, and `focus-change{node=none}`. |
+| Click card `b`, then `zoom` | `b` fills the window, inside `layout-action{action=ToggleZoom, node=b}`. |
 
 ## Removing it
 

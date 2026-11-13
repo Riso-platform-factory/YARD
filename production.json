@@ -93,6 +93,12 @@
     },
     "promoted": "2026-11-13"
   },
+  "riso_ui/divider": {
+    "files": {
+      "crates/riso_ui/src/divider.rs": "3c8ddc057b198a1f"
+    },
+    "promoted": "2026-11-13"
+  },
   "riso_ui/icon": {
     "files": {
       "crates/riso_ui/src/icon.rs": "7e47f64da69b65ce"

@@ -1,12 +1,9 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
 use riso_ui::{
-    Button, ButtonSize, ButtonStyle, Headline, HeadlineSize, Icon, IconButton, IconButtonShape,
-    IconName, IconSize, Label, LabelSize, TextColor, TintColor,
-    dev::{Divider, DividerColor},
+    Button, ButtonSize, ButtonStyle, Divider, DividerColor, Headline, HeadlineSize, Icon,
+    IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, TextColor, TintColor,
     h_flex, v_flex,
 };
 

@@ -1,10 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{ParentElement, Styled, px};
-use riso_ui::{
-    dev::{Divider, DividerColor},
-    h_flex, v_flex,
-};
+use riso_ui::{Divider, DividerColor, h_flex, v_flex};
 use std::sync::{Arc, Mutex};
 
 // One page drawing a divider of each direction, style, and color, each of

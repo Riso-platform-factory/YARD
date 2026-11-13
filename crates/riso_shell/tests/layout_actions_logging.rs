@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::dev::{Hide, SelectNextTab, SelectPreviousTab, ToggleZoom};
+use riso_shell::{Hide, SelectNextTab, SelectPreviousTab, ToggleZoom};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -112,7 +110,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -159,7 +157,7 @@ fn each_action_logs_done_or_refused_inside_its_layout_action_group(cx: &mut Test
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         let ext = cx.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.register(cx, "tour.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -183,7 +181,7 @@ fn each_action_logs_done_or_refused_inside_its_layout_action_group(cx: &mut Test
             ext
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
@@ -250,7 +248,7 @@ fn each_action_logs_done_or_refused_inside_its_layout_action_group(cx: &mut Test
         let mut app2 = cx.new_app();
         app2.update(riso_ui::init);
         app2.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.register(cx, "tour.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -260,7 +258,7 @@ fn each_action_logs_done_or_refused_inside_its_layout_action_group(cx: &mut Test
             ext.place_root(cx, "root", "tour.card");
         });
         let window = app2.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         app2.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));

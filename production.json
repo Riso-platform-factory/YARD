@@ -77,7 +77,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "5df7723d81cf8c8a"
+      "crates/riso_shell/src/shell.rs": "c9dd93543c32aab0"
     },
     "promoted": "2026-11-13"
   },

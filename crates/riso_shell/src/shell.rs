@@ -19,19 +19,39 @@ use std::{
 type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
 type ViewMap = BTreeMap<NodeId, AnyView>;
 
+gpui::actions!(riso, [ToggleZoom, Hide, SelectNextTab, SelectPreviousTab]);
+
 struct NodeView {
+    node: NodeId,
     handle: FocusHandle,
     view: AnyView,
 }
 
 impl Render for NodeView {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
             .size_full()
             .grid()
             .grid_cols(1)
             .grid_rows(1)
             .track_focus(&self.handle)
+            .on_action(cx.listener(|view, _: &ToggleZoom, window, cx| {
+                layout_action(LayoutAction::ToggleZoom, Some(&view.node), window, cx);
+            }))
+            .on_action(cx.listener(|view, _: &Hide, window, cx| {
+                layout_action(LayoutAction::Hide, Some(&view.node), window, cx);
+            }))
+            .on_action(cx.listener(|view, _: &SelectNextTab, window, cx| {
+                layout_action(LayoutAction::SelectNextTab, Some(&view.node), window, cx);
+            }))
+            .on_action(cx.listener(|view, _: &SelectPreviousTab, window, cx| {
+                layout_action(
+                    LayoutAction::SelectPreviousTab,
+                    Some(&view.node),
+                    window,
+                    cx,
+                );
+            }))
             .child(self.view.clone())
     }
 }
@@ -125,6 +145,7 @@ struct Registry {
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
     focus_handles: BTreeMap<NodeId, FocusHandle>,
+    root_focus_handle: Option<FocusHandle>,
     splits: Vec<WeakEntity<Split>>,
     tabs: Vec<WeakEntity<Tabs>>,
     zoomed: Option<NodeId>,
@@ -187,6 +208,7 @@ impl Default for Registry {
             tree: Rc::new(RefCell::new(Layers::new(Tree::default()))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
             focus_handles: BTreeMap::new(),
+            root_focus_handle: None,
             splits: Vec::new(),
             tabs: Vec::new(),
             zoomed: None,
@@ -728,6 +750,176 @@ pub fn set_layout_file(cx: &mut App, path: PathBuf) {
 pub fn zoomed(cx: &App) -> Option<String> {
     cx.try_global::<Registry>()
         .and_then(|registry| registry.zoomed.as_ref().map(ToString::to_string))
+}
+
+/// Returns the node currently shown by a tabs container.
+pub fn selected_tab(cx: &App, tabs: &str) -> Option<NodeId> {
+    let node = NodeId::parse(tabs).ok()?;
+    cx.try_global::<Registry>()?
+        .tabs
+        .iter()
+        .filter_map(|tabs| tabs.upgrade())
+        .find_map(|tabs| {
+            let tabs = tabs.read(cx);
+            (tabs.node == node).then(|| tabs.selected.clone()).flatten()
+        })
+}
+
+#[derive(Clone, Copy)]
+enum LayoutAction {
+    ToggleZoom,
+    Hide,
+    SelectNextTab,
+    SelectPreviousTab,
+}
+
+impl LayoutAction {
+    fn name(self) -> &'static str {
+        match self {
+            Self::ToggleZoom => "ToggleZoom",
+            Self::Hide => "Hide",
+            Self::SelectNextTab => "SelectNextTab",
+            Self::SelectPreviousTab => "SelectPreviousTab",
+        }
+    }
+}
+
+fn layout_action(action: LayoutAction, node: Option<&NodeId>, window: &mut Window, cx: &mut App) {
+    let _group = tracing::info_span!(
+        "layout-action",
+        action = action.name(),
+        node = node.map_or("none", NodeId::as_str),
+    )
+    .entered();
+    let Some(node) = node else {
+        tracing::info!(reason = "no node has the focus", "refused");
+        return;
+    };
+    let shell = Extension {
+        name: "riso".into(),
+    };
+    let applied = match action {
+        LayoutAction::ToggleZoom => {
+            let previous = zoomed(cx);
+            if previous.is_some() {
+                shell.zoom_out(cx);
+            } else {
+                shell.set_zoomed(cx, node.as_str());
+            }
+            zoomed(cx) != previous
+        }
+        LayoutAction::Hide => {
+            shell.set_hidden(cx, node.as_str(), true);
+            if is_hidden(cx, node.as_str()) {
+                if let Some(handle) = cx.global::<Registry>().root_focus_handle.clone() {
+                    handle.focus(window, cx);
+                }
+                true
+            } else {
+                false
+            }
+        }
+        LayoutAction::SelectNextTab | LayoutAction::SelectPreviousTab => select_adjacent_tab(
+            &shell,
+            cx,
+            window,
+            node,
+            matches!(action, LayoutAction::SelectNextTab),
+        ),
+    };
+    if applied {
+        tracing::debug!("done");
+    }
+}
+
+fn select_adjacent_tab(
+    shell: &Extension,
+    cx: &mut App,
+    window: &mut Window,
+    node: &NodeId,
+    next: bool,
+) -> bool {
+    let tabs = {
+        let registry = cx.global::<Registry>();
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let mut current = node.clone();
+        loop {
+            if component_of(tree, &current)
+                .is_some_and(|component| component.as_str() == "riso.tabs")
+            {
+                break registry
+                    .tabs
+                    .iter()
+                    .filter_map(|tabs| tabs.upgrade())
+                    .find(|tabs| tabs.read(cx).node == current);
+            }
+            let Some((parent, _, _, _)) = current_location(tree, &current) else {
+                break None;
+            };
+            current = parent;
+        }
+    };
+    let Some(tabs) = tabs else {
+        tracing::info!(reason = "no tabs container holds it", "refused");
+        return false;
+    };
+    let selected = tabs.update(cx, |tabs, cx| {
+        tabs.reconcile_selection();
+        let nodes = tabs.slots.nodes("children");
+        if nodes.is_empty() {
+            tracing::info!(reason = "no tabs", "refused");
+            return None;
+        }
+        if nodes.len() == 1 {
+            tracing::info!(reason = "one tab", "refused");
+            return None;
+        }
+        let index = nodes
+            .iter()
+            .position(|node| Some(node) == tabs.selected.as_ref())?;
+        let adjacent = if next {
+            (index + 1) % nodes.len()
+        } else {
+            (index + nodes.len() - 1) % nodes.len()
+        };
+        let zoom_inside = {
+            let registry = cx.global::<Registry>();
+            let layers = registry.tree.borrow();
+            let tree = layers.current();
+            let mut current = registry.zoomed.clone();
+            let mut inside = false;
+            while let Some(node) = current {
+                let Some((parent, _, _, _)) = current_location(tree, &node) else {
+                    break;
+                };
+                if parent == tabs.node {
+                    inside = true;
+                    break;
+                }
+                current = Some(parent);
+            }
+            inside
+        };
+        if zoom_inside {
+            shell.zoom_out(cx);
+        }
+        tabs.select(nodes[adjacent].clone(), cx);
+        Some(tabs.node.clone())
+    });
+    if let Some(node) = selected {
+        if let Some(handle) = cx
+            .default_global::<Registry>()
+            .focus_handles
+            .get(&node)
+            .cloned()
+        {
+            handle.focus(window, cx);
+        }
+        true
+    } else {
+        false
+    }
 }
 
 /// Returns the innermost shown node that contains the keyboard focus.
@@ -1411,6 +1603,7 @@ impl Extension {
 
 /// The window's root view. All views live in the shell's global map.
 pub struct Shell {
+    handle: FocusHandle,
     root: Option<AnyView>,
     last_focused: Option<NodeId>,
     _focus_lost: Subscription,
@@ -1471,14 +1664,22 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     }
     // Initialize split children and tab selections early so visibility checks work before the first draw.
     reconcile_containers(cx);
-    cx.new(|cx| Shell {
-        root,
-        last_focused: None,
-        _focus_lost: cx.on_focus_lost(window, |shell: &mut Shell, window, cx| {
-            window.blur(cx);
-            shell.sync_focus(window, cx);
-            window.on_next_frame(|window, _| window.refresh());
-        }),
+    cx.new(|cx| {
+        let handle = cx.focus_handle();
+        cx.default_global::<Registry>().root_focus_handle = Some(handle.clone());
+        if window.focused(cx).is_none() {
+            handle.focus(window, cx);
+        }
+        Shell {
+            handle,
+            root,
+            last_focused: None,
+            _focus_lost: cx.on_focus_lost(window, |shell: &mut Shell, window, cx| {
+                shell.handle.focus(window, cx);
+                shell.sync_focus(window, cx);
+                window.on_next_frame(|window, _| window.refresh());
+            }),
+        }
     })
 }
 
@@ -1613,7 +1814,13 @@ fn create_view(
             .focus_handles
             .insert(node.id.clone(), handle.clone());
         let view = (component.create)(&node.id, slots.clone(), window, cx);
-        let wrapped: AnyView = cx.new(|_| NodeView { handle, view }).into();
+        let wrapped: AnyView = cx
+            .new(|_| NodeView {
+                node: node.id.clone(),
+                handle,
+                view,
+            })
+            .into();
         cx.default_global::<Registry>()
             .views
             .borrow_mut()
@@ -1665,6 +1872,19 @@ impl Render for Shell {
             .or_else(|| self.root.clone());
         div()
             .id("shell")
+            .track_focus(&self.handle)
+            .on_action(|_: &ToggleZoom, window, cx| {
+                layout_action(LayoutAction::ToggleZoom, None, window, cx);
+            })
+            .on_action(|_: &Hide, window, cx| {
+                layout_action(LayoutAction::Hide, None, window, cx);
+            })
+            .on_action(|_: &SelectNextTab, window, cx| {
+                layout_action(LayoutAction::SelectNextTab, None, window, cx);
+            })
+            .on_action(|_: &SelectPreviousTab, window, cx| {
+                layout_action(LayoutAction::SelectPreviousTab, None, window, cx);
+            })
             .size_full()
             .grid()
             .grid_cols(1)

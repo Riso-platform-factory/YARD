@@ -15,8 +15,9 @@ Every shown node can take the keyboard focus, and a click inside a node gives it
   - a click on a card inside a row focuses the card;
   - a click on a tab bar, outside every tab's view, focuses the tabs container.
 - **A container knows that it contains the focus** without having it.
+- **A control inside a component can hold the focus itself,** such as a text input with its own GPUI handle. Its node is then the focused node, because it is the innermost node that contains the focus. The shell never takes the focus from it.
 - When the window opens, no node has the focus.
-- When the focused node stops being shown, because it is hidden, removed, or its tab is not selected, no node has the focus.
+- When the focused node stops being shown, because it is hidden, removed, or its tab is not selected, GPUI reports the focus lost, and no node has the focus.
 
 ## What code can do
 
@@ -25,17 +26,19 @@ pub fn focused_node(window: &Window, cx: &App) -> Option<NodeId>;
 pub fn focus_handle(cx: &App, node: &str) -> Option<FocusHandle>;
 ```
 
-- `focused_node` gives the node that has the focus, the innermost one, or nothing.
-- `focus_handle` gives a shown node's handle. A component uses it to ask whether its own node has the focus (`is_focused`) or contains it (`contains_focused`), while it draws. GPUI draws the window again when the focus moves, so a component needs nothing else to follow it.
+- `focused_node` gives the innermost shown node that contains the focus, or nothing.
+- `focus_handle` gives a shown node's handle, and nothing for a node that is hidden, inside a hidden node, in a tab that is not selected, or outside the zoomed node. A component uses it to ask whether its own node has the focus (`is_focused`) or contains it (`contains_focused`), while it draws. GPUI draws the window again when the focus moves, so a component needs nothing else to follow it.
 - `FocusHandle` is GPUI's.
 
 ## Logging
 
 | Situation | Log |
 |---|---|
-| The focused node changes, by a click or by code | A group `focus-change{node}`, with `debug`: `focused` |
+| The focused node changes, by a click or by code | A group `focus-change{node}` at `info`, with `debug`: `focused` |
 | The focus leaves every node | `focus-change{node=none}`, with `debug`: `focused` |
 | A click inside the node that already has the focus | Nothing |
+
+The change is seen when the window next draws, as GPUI reports focus changes once per frame. Two changes before one draw log only the last.
 
 ## Where the code changes
 
@@ -54,7 +57,8 @@ pub fn focus_handle(cx: &App, node: &str) -> Option<FocusHandle>;
   - a click on a card inside a column inside a row focuses that card, and the column and the row contain the focus;
   - a click on a tab bar focuses the tabs container;
   - selecting another tab, hiding the focused node, and removing it each leave no node focused;
-  - `focus_handle` gives nothing for a node that is not in the tree.
+  - `focus_handle` gives nothing for a node that is not in the tree, and for a hidden node;
+  - a focusable control inside a card keeps the focus when clicked, and its card is the focused node.
 - A logging test alone in its file: every row of the table.
 
 ## Test extension: `examples/layout_tour`

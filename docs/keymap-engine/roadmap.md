@@ -43,7 +43,7 @@ Status is one of: planned, dev, production.
 | 1 | `focused-node` | Every shown node can take the keyboard focus, and a click inside a node gives it the focus. The shell knows the focused node, and a component can ask whether it is the one | The focused card says `focused`. A click on another card moves the mark | `gpui`: focus handles | none | production |
 | 2 | `layout-actions` | The shell declares actions on the focused node: zoom it or zoom out, hide it, go to the next or the previous tab of its container. An action that cannot apply is refused and logged, like any operation | Buttons in the tour send each action, and the focused card reacts | `gpui`: actions | 1 | production |
 | 3 | `default-keys` | The shell binds default keys to its actions at startup: the keys Zed uses on each OS | `shift-escape` zooms the focused card, and `cmd-}` shows the next tab | `gpui`: `bind_keys`. Zed's default keymaps, as reference | 2 | production |
-| 4 | `focus-by-direction` | Four actions move the focus to the node on the left, on the right, above, or below, by the nodes' places on screen | In a row with a column inside, the keys walk through the cards | `find_pane_in_direction`, as reference | 3 | dev |
+| 4 | `focus-by-direction` | Four actions move the focus to the node on the left, on the right, above, or below, by the nodes' places on screen | In a row with a column inside, the keys walk through the cards | `find_pane_in_direction`, as reference | 3 | production |
 
 ### Extensions
 

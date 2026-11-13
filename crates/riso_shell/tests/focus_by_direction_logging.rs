@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::dev::{FocusDown, FocusLeft, FocusRight, FocusUp};
+use riso_shell::{FocusDown, FocusLeft, FocusRight, FocusUp};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -111,7 +109,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -153,7 +151,7 @@ fn each_move_logs_done_or_refused_inside_its_layout_action_group(cx: &mut TestAp
     let mut b_bounds = None;
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.register(cx, "tour.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -166,7 +164,7 @@ fn each_move_logs_done_or_refused_inside_its_layout_action_group(cx: &mut TestAp
             }
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
@@ -180,7 +178,7 @@ fn each_move_logs_done_or_refused_inside_its_layout_action_group(cx: &mut TestAp
         draw(window, cx);
         click(&mut visual, "CARD-a");
         draw(window, cx);
-        a_bounds = visual.update(|_, cx| riso_shell::dev::node_bounds(cx, "a"));
+        a_bounds = visual.update(|_, cx| riso_shell::node_bounds(cx, "a"));
         // `a` fills the left half of the window: nothing is on its left, above, or below.
         visual.dispatch_action(FocusLeft);
         visual.dispatch_action(FocusUp);
@@ -188,7 +186,7 @@ fn each_move_logs_done_or_refused_inside_its_layout_action_group(cx: &mut TestAp
         draw(window, cx);
         visual.dispatch_action(FocusRight);
         draw(window, cx);
-        b_bounds = visual.update(|_, cx| riso_shell::dev::node_bounds(cx, "b"));
+        b_bounds = visual.update(|_, cx| riso_shell::node_bounds(cx, "b"));
         // `b` fills the right half: nothing is on its right.
         visual.dispatch_action(FocusRight);
         draw(window, cx);

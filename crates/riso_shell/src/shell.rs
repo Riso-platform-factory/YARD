@@ -19,7 +19,19 @@ use std::{
 type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
 type ViewMap = BTreeMap<NodeId, AnyView>;
 
-gpui::actions!(riso, [ToggleZoom, Hide, SelectNextTab, SelectPreviousTab]);
+gpui::actions!(
+    riso,
+    [
+        ToggleZoom,
+        Hide,
+        SelectNextTab,
+        SelectPreviousTab,
+        FocusLeft,
+        FocusRight,
+        FocusUp,
+        FocusDown
+    ]
+);
 
 struct NodeView {
     node: NodeId,
@@ -29,7 +41,9 @@ struct NodeView {
 
 impl Render for NodeView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let node = self.node.clone();
         div()
+            .relative()
             .size_full()
             .grid()
             .grid_cols(1)
@@ -44,6 +58,18 @@ impl Render for NodeView {
             .on_action(cx.listener(|view, _: &SelectNextTab, window, cx| {
                 layout_action(LayoutAction::SelectNextTab, Some(&view.node), window, cx);
             }))
+            .on_action(cx.listener(|view, _: &FocusLeft, window, cx| {
+                layout_action(LayoutAction::FocusLeft, Some(&view.node), window, cx);
+            }))
+            .on_action(cx.listener(|view, _: &FocusRight, window, cx| {
+                layout_action(LayoutAction::FocusRight, Some(&view.node), window, cx);
+            }))
+            .on_action(cx.listener(|view, _: &FocusUp, window, cx| {
+                layout_action(LayoutAction::FocusUp, Some(&view.node), window, cx);
+            }))
+            .on_action(cx.listener(|view, _: &FocusDown, window, cx| {
+                layout_action(LayoutAction::FocusDown, Some(&view.node), window, cx);
+            }))
             .on_action(cx.listener(|view, _: &SelectPreviousTab, window, cx| {
                 layout_action(
                     LayoutAction::SelectPreviousTab,
@@ -53,6 +79,18 @@ impl Render for NodeView {
                 );
             }))
             .child(self.view.clone())
+            .child(
+                canvas(
+                    move |bounds, _, cx| {
+                        cx.default_global::<Registry>()
+                            .bounds
+                            .insert(node.clone(), bounds);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .size_full(),
+            )
     }
 }
 
@@ -145,6 +183,7 @@ struct Registry {
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
     focus_handles: BTreeMap<NodeId, FocusHandle>,
+    bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     root_focus_handle: Option<FocusHandle>,
     splits: Vec<WeakEntity<Split>>,
     tabs: Vec<WeakEntity<Tabs>>,
@@ -208,6 +247,7 @@ impl Default for Registry {
             tree: Rc::new(RefCell::new(Layers::new(Tree::default()))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
             focus_handles: BTreeMap::new(),
+            bounds: BTreeMap::new(),
             root_focus_handle: None,
             splits: Vec::new(),
             tabs: Vec::new(),
@@ -755,12 +795,20 @@ pub fn bind_default_keys(cx: &mut App) {
         ("alt-cmd-right", LayoutAction::SelectNextTab),
         ("cmd-{", LayoutAction::SelectPreviousTab),
         ("alt-cmd-left", LayoutAction::SelectPreviousTab),
+        ("cmd-k cmd-left", LayoutAction::FocusLeft),
+        ("cmd-k cmd-right", LayoutAction::FocusRight),
+        ("cmd-k cmd-up", LayoutAction::FocusUp),
+        ("cmd-k cmd-down", LayoutAction::FocusDown),
     ];
     #[cfg(not(target_os = "macos"))]
     const DEFAULT_KEYS: &[(&str, LayoutAction)] = &[
         ("shift-escape", LayoutAction::ToggleZoom),
         ("ctrl-pagedown", LayoutAction::SelectNextTab),
         ("ctrl-pageup", LayoutAction::SelectPreviousTab),
+        ("ctrl-k ctrl-left", LayoutAction::FocusLeft),
+        ("ctrl-k ctrl-right", LayoutAction::FocusRight),
+        ("ctrl-k ctrl-up", LayoutAction::FocusUp),
+        ("ctrl-k ctrl-down", LayoutAction::FocusDown),
     ];
     let _group = tracing::info_span!("keys-bind", count = DEFAULT_KEYS.len()).entered();
     let mut logged = Vec::with_capacity(DEFAULT_KEYS.len());
@@ -770,6 +818,11 @@ pub fn bind_default_keys(cx: &mut App) {
             let binding = match action {
                 LayoutAction::ToggleZoom => KeyBinding::new(keys, ToggleZoom, Some("Shell")),
                 LayoutAction::Hide => KeyBinding::new(keys, Hide, Some("Shell")),
+                LayoutAction::FocusLeft => KeyBinding::new(keys, FocusLeft, Some("Shell")),
+                LayoutAction::FocusRight => KeyBinding::new(keys, FocusRight, Some("Shell")),
+                LayoutAction::FocusUp => KeyBinding::new(keys, FocusUp, Some("Shell")),
+                LayoutAction::FocusDown => KeyBinding::new(keys, FocusDown, Some("Shell")),
+
                 LayoutAction::SelectNextTab => KeyBinding::new(keys, SelectNextTab, Some("Shell")),
                 LayoutAction::SelectPreviousTab => {
                     KeyBinding::new(keys, SelectPreviousTab, Some("Shell"))
@@ -810,6 +863,10 @@ enum LayoutAction {
     Hide,
     SelectNextTab,
     SelectPreviousTab,
+    FocusLeft,
+    FocusRight,
+    FocusUp,
+    FocusDown,
 }
 
 impl LayoutAction {
@@ -819,6 +876,10 @@ impl LayoutAction {
             Self::Hide => "Hide",
             Self::SelectNextTab => "SelectNextTab",
             Self::SelectPreviousTab => "SelectPreviousTab",
+            Self::FocusLeft => "FocusLeft",
+            Self::FocusRight => "FocusRight",
+            Self::FocusUp => "FocusUp",
+            Self::FocusDown => "FocusDown",
         }
     }
 }
@@ -858,6 +919,13 @@ fn layout_action(action: LayoutAction, node: Option<&NodeId>, window: &mut Windo
                 false
             }
         }
+        LayoutAction::FocusLeft
+        | LayoutAction::FocusRight
+        | LayoutAction::FocusUp
+        | LayoutAction::FocusDown => {
+            focus_by_direction(action, node, window, cx);
+            return;
+        }
         LayoutAction::SelectNextTab | LayoutAction::SelectPreviousTab => select_adjacent_tab(
             &shell,
             cx,
@@ -869,6 +937,77 @@ fn layout_action(action: LayoutAction, node: Option<&NodeId>, window: &mut Windo
     if applied {
         tracing::debug!("done");
     }
+}
+
+fn focus_by_direction(action: LayoutAction, node: &NodeId, window: &mut Window, cx: &mut App) {
+    let registry = cx.global::<Registry>();
+    let reason = match action {
+        LayoutAction::FocusLeft => "no node on the left",
+        LayoutAction::FocusRight => "no node on the right",
+        LayoutAction::FocusUp => "no node above",
+        LayoutAction::FocusDown => "no node below",
+        _ => unreachable!(),
+    };
+    let Some(bounds) = registry.bounds.get(node) else {
+        tracing::info!(reason = "no bounds for the focused node", "refused");
+        return;
+    };
+    let center = bounds.center();
+    let distance = gpui::px(4.);
+    let mut point = match action {
+        LayoutAction::FocusLeft => Point::new(bounds.left() - distance, center.y),
+        LayoutAction::FocusRight => Point::new(bounds.right() + distance, center.y),
+        LayoutAction::FocusUp => Point::new(center.x, bounds.top() - distance),
+        LayoutAction::FocusDown => Point::new(center.x, bounds.bottom() + distance),
+        _ => unreachable!(),
+    };
+    let mut shown = BTreeSet::new();
+    find_in_drawn::<()>(registry, cx, |node| {
+        shown.insert(node.clone());
+        None
+    });
+    let window_bounds = Bounds::new(Point::default(), window.viewport_size());
+    let target = loop {
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let mut inside_shown = window_bounds.contains(&point);
+        let target = find_in_drawn(registry, cx, |candidate| {
+            let candidate_bounds = registry.bounds.get(candidate);
+            inside_shown |= candidate_bounds.is_some_and(|bounds| bounds.contains(&point));
+            let container = component_of(tree, candidate).is_some_and(|component| {
+                matches!(component.as_str(), "riso.row" | "riso.column" | "riso.tabs")
+            });
+            let has_shown_child = tree
+                .slots(candidate)
+                .any(|(_, children)| children.iter().any(|child| shown.contains(&child.id)));
+            if container || has_shown_child {
+                return None;
+            }
+            let bounds = registry.bounds.get(candidate);
+            tracing::trace!(candidate = %candidate, bounds = ?bounds, "considered");
+            bounds
+                .is_some_and(|bounds| bounds.contains(&point))
+                .then(|| candidate.clone())
+        });
+        if target.is_some() || !inside_shown {
+            break target;
+        }
+        match action {
+            LayoutAction::FocusLeft => point.x -= distance,
+            LayoutAction::FocusRight => point.x += distance,
+            LayoutAction::FocusUp => point.y -= distance,
+            LayoutAction::FocusDown => point.y += distance,
+            _ => unreachable!(),
+        }
+    };
+    if let Some(target) = target
+        && let Some(handle) = registry.focus_handles.get(&target).cloned()
+    {
+        handle.focus(window, cx);
+        tracing::debug!(target = %target, "done");
+        return;
+    }
+    tracing::info!(reason, bounds = ?bounds, point = ?point, "refused");
 }
 
 fn select_adjacent_tab(
@@ -971,6 +1110,17 @@ pub fn focused_node(window: &Window, cx: &App) -> Option<NodeId> {
             .get(node)
             .is_some_and(|handle| handle.contains_focused(window, cx))
             .then(|| node.clone())
+    })
+}
+
+/// Returns the last drawn bounds of a shown node.
+pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>> {
+    let target = NodeId::parse(node).ok()?;
+    let registry = cx.try_global::<Registry>()?;
+    find_in_drawn(registry, cx, |current| {
+        (current == &target)
+            .then(|| registry.bounds.get(current).copied())
+            .flatten()
     })
 }
 
@@ -1138,6 +1288,7 @@ fn run_op(
                 let dropped = {
                     let registry = cx.default_global::<Registry>();
                     registry.focus_handles.remove(&id);
+                    registry.bounds.remove(&id);
                     registry.views.borrow_mut().remove(&id)
                 };
                 if dropped.is_some() {
@@ -1453,6 +1604,7 @@ impl Extension {
                 .collect();
             for id in removed {
                 registry.focus_handles.remove(&id);
+                registry.bounds.remove(&id);
                 let dropped = registry.views.borrow_mut().remove(&id);
                 drop(dropped);
                 tracing::debug!(node = %id, "view dropped");
@@ -1921,6 +2073,18 @@ impl Render for Shell {
             })
             .on_action(|_: &SelectNextTab, window, cx| {
                 layout_action(LayoutAction::SelectNextTab, None, window, cx);
+            })
+            .on_action(|_: &FocusLeft, window, cx| {
+                layout_action(LayoutAction::FocusLeft, None, window, cx);
+            })
+            .on_action(|_: &FocusRight, window, cx| {
+                layout_action(LayoutAction::FocusRight, None, window, cx);
+            })
+            .on_action(|_: &FocusUp, window, cx| {
+                layout_action(LayoutAction::FocusUp, None, window, cx);
+            })
+            .on_action(|_: &FocusDown, window, cx| {
+                layout_action(LayoutAction::FocusDown, None, window, cx);
             })
             .on_action(|_: &SelectPreviousTab, window, cx| {
                 layout_action(LayoutAction::SelectPreviousTab, None, window, cx);

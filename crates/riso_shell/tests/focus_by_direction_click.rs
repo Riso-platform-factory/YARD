@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
-use riso_shell::dev::{FocusDown, FocusLeft};
+use riso_shell::{FocusDown, FocusLeft};
 
 struct Card(String);
 
@@ -31,14 +29,13 @@ fn click(visual: &mut gpui::VisualTestContext, selector: &'static str) {
 }
 
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
-    visual
-        .update(|window, cx| riso_shell::dev::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 fn check_click_direction(cx: &mut TestAppContext, down: bool) {
     cx.update(|cx| {
         riso_ui::init(cx);
-        let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let ext = riso_shell::Extension::new(cx, "tour").unwrap();
         ext.register(cx, "tour.card", &[], |node, _, _, cx| {
             cx.new(|_| Card(node.to_string())).into()
         });
@@ -58,7 +55,7 @@ fn check_click_direction(cx: &mut TestAppContext, down: bool) {
                 ))),
                 ..Default::default()
             },
-            riso_shell::dev::new_shell,
+            riso_shell::new_shell,
         )
         .unwrap()
     });
@@ -75,7 +72,7 @@ fn check_click_direction(cx: &mut TestAppContext, down: bool) {
             drawn.size.height,
             gpui::px(if node == "a" { 600. } else { 300. })
         );
-        let recorded = visual.update(|_, cx| riso_shell::dev::node_bounds(cx, node));
+        let recorded = visual.update(|_, cx| riso_shell::node_bounds(cx, node));
         assert_eq!(
             recorded,
             Some(drawn),

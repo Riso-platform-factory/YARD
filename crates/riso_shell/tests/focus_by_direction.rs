@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::dev::{FocusDown, FocusLeft, FocusRight, FocusUp, SelectNextTab};
+use riso_shell::{FocusDown, FocusLeft, FocusRight, FocusUp, SelectNextTab};
 
 struct Card {
     node: String,
@@ -15,7 +13,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -27,10 +25,10 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppCont
 /// Opens a window over the layout that `place` builds.
 fn open_cards_app(
     cx: &mut TestAppContext,
-    place: impl FnOnce(&mut gpui::App, &riso_shell::dev::Extension),
-) -> gpui::WindowHandle<riso_shell::dev::Shell> {
+    place: impl FnOnce(&mut gpui::App, &riso_shell::Extension),
+) -> gpui::WindowHandle<riso_shell::Shell> {
     cx.update(|cx| {
-        let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let ext = riso_shell::Extension::new(cx, "tour").unwrap();
         ext.register(cx, "tour.card", &[], |node, _, _, cx| {
             cx.new(|_| Card {
                 node: node.to_string(),
@@ -40,7 +38,7 @@ fn open_cards_app(
         place(cx, &ext);
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
@@ -48,7 +46,7 @@ fn open_cards_app(
     window
 }
 
-fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
+fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::Extension) {
     ext.place_root(cx, "root", "riso.row");
     for node in ["a", "b", "c"] {
         ext.place(cx, node, "tour.card", "root", "children");
@@ -56,7 +54,7 @@ fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
 }
 
 /// A row of `a` and a column `right` of `b` above `c`.
-fn nested_split(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
+fn nested_split(cx: &mut gpui::App, ext: &riso_shell::Extension) {
     ext.place_root(cx, "root", "riso.row");
     ext.place(cx, "a", "tour.card", "root", "children");
     ext.place(cx, "right", "riso.column", "root", "children");
@@ -66,7 +64,7 @@ fn nested_split(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
 }
 
 /// A card `x` beside a `tabs` container of `a` and `b`.
-fn card_and_tabs(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
+fn card_and_tabs(cx: &mut gpui::App, ext: &riso_shell::Extension) {
     ext.place_root(cx, "root", "riso.row");
     ext.place(cx, "x", "tour.card", "root", "children");
     ext.place(cx, "tabs", "riso.tabs", "root", "children");
@@ -76,7 +74,7 @@ fn card_and_tabs(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
 }
 
 /// A card `top` above a `tabs` container of `x` and `y`.
-fn card_above_tabs(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
+fn card_above_tabs(cx: &mut gpui::App, ext: &riso_shell::Extension) {
     ext.place_root(cx, "root", "riso.column");
     ext.place(cx, "top", "tour.card", "root", "children");
     ext.place(cx, "tabs", "riso.tabs", "root", "children");
@@ -86,20 +84,19 @@ fn card_above_tabs(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
 }
 
 /// `nested_split` with `right` zoomed, so `a` is not drawn.
-fn nested_split_zoomed(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
+fn nested_split_zoomed(cx: &mut gpui::App, ext: &riso_shell::Extension) {
     nested_split(cx, ext);
     ext.set_zoomed(cx, "right");
 }
 
 /// The node the dev shell says has the focus, if any.
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
-    visual
-        .update(|window, cx| riso_shell::dev::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 /// The node shown by the `tabs` container, if any.
 fn selected(visual: &mut gpui::VisualTestContext, tabs: &str) -> Option<String> {
-    visual.update(|_, cx| riso_shell::dev::selected_tab(cx, tabs).map(|node| node.to_string()))
+    visual.update(|_, cx| riso_shell::selected_tab(cx, tabs).map(|node| node.to_string()))
 }
 
 /// A node's bounds in the last draw, if it was drawn.
@@ -107,7 +104,7 @@ fn node_bounds(
     visual: &mut gpui::VisualTestContext,
     node: &str,
 ) -> Option<gpui::Bounds<gpui::Pixels>> {
-    visual.update(|_, cx| riso_shell::dev::node_bounds(cx, node))
+    visual.update(|_, cx| riso_shell::node_bounds(cx, node))
 }
 
 /// Clicks the center of the element with `selector`.
@@ -305,7 +302,7 @@ fn node_bounds_is_none_for_a_node_not_in_the_last_draw(cx: &mut TestAppContext) 
 fn the_direction_keys_move_the_focus(cx: &mut TestAppContext) {
     cx.update(riso_ui::init);
     // The startup binds the default keys in `app-init`, before extensions run.
-    cx.update(riso_shell::dev::bind_default_keys);
+    cx.update(riso_shell::bind_default_keys);
     let window = open_cards_app(cx, nested_split);
     let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
     click(&mut visual, "CARD-a");
@@ -331,7 +328,7 @@ fn the_direction_keys_move_the_focus(cx: &mut TestAppContext) {
 #[gpui::test]
 fn the_up_and_down_keys_move_the_focus(cx: &mut TestAppContext) {
     cx.update(riso_ui::init);
-    cx.update(riso_shell::dev::bind_default_keys);
+    cx.update(riso_shell::bind_default_keys);
     let window = open_cards_app(cx, nested_split);
     let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
     click(&mut visual, "CARD-b");
@@ -349,7 +346,7 @@ fn the_up_and_down_keys_move_the_focus(cx: &mut TestAppContext) {
 #[gpui::test]
 fn bind_default_keys_binds_the_macos_direction_keys_in_the_shell_context(cx: &mut TestAppContext) {
     cx.update(|cx| {
-        riso_shell::dev::bind_default_keys(cx);
+        riso_shell::bind_default_keys(cx);
         let os = cx.platform_info().os;
         let shell = gpui::KeyBindingContextPredicate::parse("Shell").unwrap();
         let keymap = cx.key_bindings();

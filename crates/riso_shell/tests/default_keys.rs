@@ -1,7 +1,9 @@
 #![cfg(target_os = "macos")]
 
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::{Hide, SelectNextTab, SelectPreviousTab, ToggleZoom};
+use riso_shell::{
+    FocusDown, FocusLeft, FocusRight, FocusUp, Hide, SelectNextTab, SelectPreviousTab, ToggleZoom,
+};
 
 struct Card {
     node: String,
@@ -139,11 +141,15 @@ fn bind_default_keys_binds_the_macos_keys_of_each_action_in_the_shell_context(
         let shell = gpui::KeyBindingContextPredicate::parse("Shell").unwrap();
         let keymap = cx.key_bindings();
         let keymap = keymap.borrow();
-        let table: [(&dyn gpui::Action, &[&str]); 4] = [
+        let table: [(&dyn gpui::Action, &[&str]); 8] = [
             (&ToggleZoom, &["shift-escape"]),
             (&SelectNextTab, &["cmd-}", "alt-cmd-right"]),
             (&SelectPreviousTab, &["cmd-{", "alt-cmd-left"]),
             (&Hide, &[]),
+            (&FocusLeft, &["cmd-k cmd-left"]),
+            (&FocusRight, &["cmd-k cmd-right"]),
+            (&FocusUp, &["cmd-k cmd-up"]),
+            (&FocusDown, &["cmd-k cmd-down"]),
         ];
         for (action, expected) in table {
             let bindings: Vec<_> = keymap.bindings_for_action(action).collect();
@@ -171,6 +177,6 @@ fn bind_default_keys_binds_the_macos_keys_of_each_action_in_the_shell_context(
                 );
             }
         }
-        assert_eq!(keymap.bindings().len(), 5, "every bound key");
+        assert_eq!(keymap.bindings().len(), 9, "every bound key");
     });
 }

@@ -100,6 +100,10 @@ const BINDINGS: &[(&str, &str)] = &[
     ("alt-cmd-right", "SelectNextTab"),
     ("cmd-{", "SelectPreviousTab"),
     ("alt-cmd-left", "SelectPreviousTab"),
+    ("cmd-k cmd-left", "FocusLeft"),
+    ("cmd-k cmd-right", "FocusRight"),
+    ("cmd-k cmd-up", "FocusUp"),
+    ("cmd-k cmd-down", "FocusDown"),
 ];
 
 #[cfg(not(target_os = "macos"))]
@@ -107,6 +111,10 @@ const BINDINGS: &[(&str, &str)] = &[
     ("shift-escape", "ToggleZoom"),
     ("ctrl-pagedown", "SelectNextTab"),
     ("ctrl-pageup", "SelectPreviousTab"),
+    ("ctrl-k ctrl-left", "FocusLeft"),
+    ("ctrl-k ctrl-right", "FocusRight"),
+    ("ctrl-k ctrl-up", "FocusUp"),
+    ("ctrl-k ctrl-down", "FocusDown"),
 ];
 
 // Alone in this binary: all calls reaching the captured lines use one subscriber.

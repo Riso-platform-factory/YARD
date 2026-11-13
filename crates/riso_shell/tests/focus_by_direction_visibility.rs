@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, Styled, TestAppContext};
-use riso_shell::dev::{self as shell, FocusRight};
+use riso_shell::{self as shell, FocusRight};
 
 struct Card;
 impl gpui::Render for Card {

@@ -2842,6 +2842,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "keys_tour"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "riso_shell",
+ "riso_ui",
+ "tracing",
+]
+
+[[package]]
 name = "khronos-egl"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4656,6 +4667,7 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
+ "keys_tour",
  "riso_layout",
  "riso_log",
  "riso_paths",

@@ -38,7 +38,7 @@ pub fn v_flex() -> Div;   // a column
   - `Error`, `Warning`, and `Success` are its status colors.
 - A headline is drawn in the theme's text color, as in Zed: Zed's headline has no other color.
 - `h_flex` and `v_flex` are the same plain GPUI helpers as Zed's. riso writes them itself; nothing of Zed is needed for them.
-- Labels and headlines draw as Zed's do. Drawing happens every frame, so each draw logs one line at `trace`, with its size and color, and nothing above `trace`. The gallery logs what it builds.
+- Labels and headlines draw as Zed's do. Drawing happens every frame, so each draw logs one line at `trace`, a label's with its size and color and a headline's with its size, and nothing above `trace`. The gallery logs what it builds.
 
 ## The gallery
 
@@ -50,7 +50,7 @@ pub fn v_flex() -> Div;   // a column
   - a label per `LabelSize`, each saying its size's name;
   - a label per `TextColor`, each saying its color's name;
   - a row of three labels made with `h_flex`, and a column of three made with `v_flex`.
-- Each group has a small muted label above it, naming it, as in Zed's component preview.
+- Each group has a title above it, as Zed's component preview draws a group's title (`component_layout.rs`): the group's name in upper case, a label at `LabelSize::XSmall` and `TextColor::Muted`, beside a hairline in the palette's `border` that fills the rest of the row.
 - A page draws only with `riso_ui`: its components, the palette, and rems.
 - It runs in a group, `gallery-build{pages}`, and logs each page it places at `debug`.
 

@@ -87,6 +87,12 @@
     },
     "promoted": "2026-11-12"
   },
+  "riso_ui/button": {
+    "files": {
+      "crates/riso_ui/src/button.rs": "7d0ca08bf6829d7b"
+    },
+    "promoted": "2026-11-13"
+  },
   "riso_ui/icon": {
     "files": {
       "crates/riso_ui/src/icon.rs": "7e47f64da69b65ce"

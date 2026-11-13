@@ -1,13 +1,10 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, px,
     rems,
 };
 use riso_ui::{
-    Headline, HeadlineSize, Icon, IconName, IconSize, Label, LabelSize, TextColor,
-    dev::{Button, ButtonSize, ButtonStyle, IconButton, IconButtonShape, TintColor},
-    h_flex, v_flex,
+    Button, ButtonSize, ButtonStyle, Headline, HeadlineSize, Icon, IconButton, IconButtonShape,
+    IconName, IconSize, Label, LabelSize, TextColor, TintColor, h_flex, v_flex,
 };
 
 const HEADLINE_SIZES: [(&str, HeadlineSize); 5] = [

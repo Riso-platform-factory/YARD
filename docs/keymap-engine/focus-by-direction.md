@@ -20,8 +20,9 @@ Each key is two keystrokes. GPUI waits up to a second for the second one. The ke
 As Zed chooses a pane:
 
 - **The candidates are the shown leaf nodes:** shown nodes with no shown child node. A row and a column are never targets, nor a tabs container. Only the selected tab of a tabs container is shown, and only the zoomed node's subtree when a node is zoomed. A container can still have the focus, after a click on a tab bar, and is then where the move starts.
-- **The place is the node's bounds in the last draw.** Every node's wrapper records them while it draws.
+- **The place is the node's bounds in the last draw.** Every node's wrapper records them while it draws. A node that was not drawn in the last draw, such as an unselected tab, is never a candidate, even if bounds of an earlier draw are still kept.
 - **The shell takes the point 4px past the focused node's edge, in the direction,** at the middle of that edge. The target is the leaf node whose bounds contain it.
+- **A container's own chrome is crossed.** When the point falls on a shown container but on no leaf, such as on a tab bar, the point moves on in the direction, 4px at a time, until it reaches a leaf or leaves the window. So a move goes down into a tabs container's selected card, and up out of it.
 - **No node there** means nothing moves: there is no wrapping around.
 
 ## Rules and logging
@@ -60,11 +61,14 @@ pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>>;
   - in a row of `a`, `b`, `c`: from `b`, left gives `a` and right gives `c`; from `a`, left is refused;
   - in a row of `a` and a column `right` of `b` above `c`: from `a`, right gives `b` or `c`, whichever is at the middle of `a`'s right edge; from `b`, down gives `c`; from `c`, left gives `a`;
   - in tabs, only the selected tab's card is a target;
+  - in a column with a card above a tabs container: from the card, down gives the selected tab's card, across the tab bar; from that card, up gives the card above;
+  - inside a zoomed column, a move stays inside it;
   - from a focused tabs container, a move starts from its bounds;
   - with no node focused, each is refused.
 - On macOS, the keys `cmd-k cmd-right` and the others move the focus.
 - A unit test of the bindings: the keys of the table, in the context `Shell`.
-- A logging test alone in its file: every row, with its level and its group.
+- A logging test alone in its file: every row, with its level and its group, the `bounds` and `point` of a direction refusal, and the reason `no bounds for the focused node`.
+- `node_bounds` gives nothing for a node that was never drawn.
 
 ## Test extension: `examples/layout_tour`
 

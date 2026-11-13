@@ -1,7 +1,7 @@
-#![cfg(all(feature = "dev", target_os = "macos"))]
+#![cfg(target_os = "macos")]
 
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::dev::{Hide, SelectNextTab, SelectPreviousTab, ToggleZoom};
+use riso_shell::{Hide, SelectNextTab, SelectPreviousTab, ToggleZoom};
 
 struct Card {
     node: String,
@@ -15,7 +15,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -27,12 +27,12 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppCont
 /// Binds the default keys, then opens a window over the layout that `place` builds.
 fn open_cards_app(
     cx: &mut TestAppContext,
-    place: impl FnOnce(&mut gpui::App, &riso_shell::dev::Extension),
-) -> gpui::WindowHandle<riso_shell::dev::Shell> {
+    place: impl FnOnce(&mut gpui::App, &riso_shell::Extension),
+) -> gpui::WindowHandle<riso_shell::Shell> {
     cx.update(|cx| {
         // The startup binds the default keys in `app-init`, before extensions run.
-        riso_shell::dev::bind_default_keys(cx);
-        let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        riso_shell::bind_default_keys(cx);
+        let ext = riso_shell::Extension::new(cx, "tour").unwrap();
         ext.register(cx, "tour.card", &[], |node, _, _, cx| {
             cx.new(|_| Card {
                 node: node.to_string(),
@@ -42,7 +42,7 @@ fn open_cards_app(
         place(cx, &ext);
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
@@ -50,7 +50,7 @@ fn open_cards_app(
     window
 }
 
-fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
+fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::Extension) {
     ext.place_root(cx, "root", "riso.row");
     for node in ["a", "b", "c"] {
         ext.place(cx, node, "tour.card", "root", "children");
@@ -59,13 +59,12 @@ fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
 
 /// The node the dev shell says has the focus, if any.
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
-    visual
-        .update(|window, cx| riso_shell::dev::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 /// The node shown by the `tabs` container, if any.
 fn selected(visual: &mut gpui::VisualTestContext, tabs: &str) -> Option<String> {
-    visual.update(|_, cx| riso_shell::dev::selected_tab(cx, tabs).map(|node| node.to_string()))
+    visual.update(|_, cx| riso_shell::selected_tab(cx, tabs).map(|node| node.to_string()))
 }
 
 /// Clicks the center of the element with `selector`.
@@ -86,13 +85,10 @@ fn shift_escape_zooms_the_focused_card_and_zooms_out(cx: &mut TestAppContext) {
     assert_eq!(focused(&mut visual).as_deref(), Some("b"));
     visual.simulate_keystrokes("shift-escape");
     draw(window, cx);
-    assert_eq!(
-        cx.update(|cx| riso_shell::dev::zoomed(cx)).as_deref(),
-        Some("b")
-    );
+    assert_eq!(cx.update(|cx| riso_shell::zoomed(cx)).as_deref(), Some("b"));
     visual.simulate_keystrokes("shift-escape");
     draw(window, cx);
-    assert_eq!(cx.update(|cx| riso_shell::dev::zoomed(cx)), None);
+    assert_eq!(cx.update(|cx| riso_shell::zoomed(cx)), None);
 }
 
 #[gpui::test]
@@ -129,7 +125,7 @@ fn shift_escape_with_no_node_focused_changes_nothing(cx: &mut TestAppContext) {
     assert_eq!(focused(&mut visual), None);
     visual.simulate_keystrokes("shift-escape");
     draw(window, cx);
-    assert_eq!(cx.update(|cx| riso_shell::dev::zoomed(cx)), None);
+    assert_eq!(cx.update(|cx| riso_shell::zoomed(cx)), None);
     assert_eq!(focused(&mut visual), None);
 }
 
@@ -138,7 +134,7 @@ fn bind_default_keys_binds_the_macos_keys_of_each_action_in_the_shell_context(
     cx: &mut TestAppContext,
 ) {
     cx.update(|cx| {
-        riso_shell::dev::bind_default_keys(cx);
+        riso_shell::bind_default_keys(cx);
         let os = cx.platform_info().os;
         let shell = gpui::KeyBindingContextPredicate::parse("Shell").unwrap();
         let keymap = cx.key_bindings();

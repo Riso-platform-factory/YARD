@@ -2,8 +2,8 @@
 
 use gpui::{
     AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, DragMoveEvent, Entity,
-    EntityId, FocusHandle, Global, InteractiveElement, IntoElement, ParentElement, Pixels, Point,
-    Render, SharedString, Styled, Subscription, WeakEntity, Window, canvas, div,
+    EntityId, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding, ParentElement,
+    Pixels, Point, Render, SharedString, Styled, Subscription, WeakEntity, Window, canvas, div,
 };
 use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, SlotName, Tree};
@@ -744,6 +744,45 @@ pub fn user_layer_len(cx: &App) -> usize {
 pub fn set_layout_file(cx: &mut App, path: PathBuf) {
     tracing::debug!(path = %path.display(), "layout file set");
     cx.default_global::<Registry>().layout_file = Some(path);
+}
+
+/// Binds the shell's default keys in the `Shell` key context.
+pub fn bind_default_keys(cx: &mut App) {
+    #[cfg(target_os = "macos")]
+    const DEFAULT_KEYS: &[(&str, LayoutAction)] = &[
+        ("shift-escape", LayoutAction::ToggleZoom),
+        ("cmd-}", LayoutAction::SelectNextTab),
+        ("alt-cmd-right", LayoutAction::SelectNextTab),
+        ("cmd-{", LayoutAction::SelectPreviousTab),
+        ("alt-cmd-left", LayoutAction::SelectPreviousTab),
+    ];
+    #[cfg(not(target_os = "macos"))]
+    const DEFAULT_KEYS: &[(&str, LayoutAction)] = &[
+        ("shift-escape", LayoutAction::ToggleZoom),
+        ("ctrl-pagedown", LayoutAction::SelectNextTab),
+        ("ctrl-pageup", LayoutAction::SelectPreviousTab),
+    ];
+    let _group = tracing::info_span!("keys-bind", count = DEFAULT_KEYS.len()).entered();
+    let mut logged = Vec::with_capacity(DEFAULT_KEYS.len());
+    let bindings: Vec<KeyBinding> = DEFAULT_KEYS
+        .iter()
+        .map(|&(keys, action)| {
+            let binding = match action {
+                LayoutAction::ToggleZoom => KeyBinding::new(keys, ToggleZoom, Some("Shell")),
+                LayoutAction::Hide => KeyBinding::new(keys, Hide, Some("Shell")),
+                LayoutAction::SelectNextTab => KeyBinding::new(keys, SelectNextTab, Some("Shell")),
+                LayoutAction::SelectPreviousTab => {
+                    KeyBinding::new(keys, SelectPreviousTab, Some("Shell"))
+                }
+            };
+            logged.push((keys, binding.action().name()));
+            binding
+        })
+        .collect();
+    cx.bind_keys(bindings);
+    for (keys, action) in logged {
+        tracing::debug!(keys, action, context = "Shell", "bound");
+    }
 }
 
 /// Returns the node currently filling the window for extension controls.
@@ -1872,6 +1911,7 @@ impl Render for Shell {
             .or_else(|| self.root.clone());
         div()
             .id("shell")
+            .key_context("Shell")
             .track_focus(&self.handle)
             .on_action(|_: &ToggleZoom, window, cx| {
                 layout_action(LayoutAction::ToggleZoom, None, window, cx);

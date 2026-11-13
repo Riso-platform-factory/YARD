@@ -22,6 +22,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
                 riso_ui::init(cx);
                 riso_ui::apply_theme_setting(cx);
                 riso_shell::set_layout_file(cx, paths.layout_file());
+                riso_shell::bind_default_keys(cx);
                 cx.on_window_closed(|cx, _| {
                     if cx.windows().is_empty() {
                         cx.quit();

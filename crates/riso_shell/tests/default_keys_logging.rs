@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use std::{
     collections::BTreeMap,
@@ -118,7 +116,7 @@ fn bind_default_keys_logs_a_keys_bind_group_with_a_debug_line_per_binding(cx: &m
     tracing::subscriber::with_default(trace.clone(), || {
         // The startup binds the default keys inside `app-init`.
         let _group = tracing::info_span!("app-init").entered();
-        cx.update(riso_shell::dev::bind_default_keys);
+        cx.update(riso_shell::bind_default_keys);
     });
     let captured = trace.0.lock().unwrap();
     assert!(captured.entered.is_empty());

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -104,7 +102,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -129,7 +127,7 @@ fn focus_changes_and_blurs_log_a_focus_change_group(cx: &mut TestAppContext) {
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         let ext = cx.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.register(cx, "tour.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -143,7 +141,7 @@ fn focus_changes_and_blurs_log_a_focus_change_group(cx: &mut TestAppContext) {
             ext
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));

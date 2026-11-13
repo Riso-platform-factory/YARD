@@ -288,6 +288,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
         assert_eq!(
             &captured.lines[before_own..],
             [
+                "focus-change node=left: DEBUG message=focused",
                 "none: DEBUG message=drag started node=a",
                 "none: DEBUG message=drop ignored node=a",
                 "none: DEBUG message=drag started node=b",
@@ -356,6 +357,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
                 "none: DEBUG message=drag started node=a",
                 r#"layout-op op="move" node="a" extension="riso": DEBUG message=node moved node=a parent=right slot=children index=0"#,
                 r#"layout-op op="move" node="a" extension="riso": DEBUG message=recorded user_layer=2"#,
+                "focus-change node=left: DEBUG message=focused",
                 "none: DEBUG message=drag started node=b",
                 r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=right slot=children index=1"#,
                 r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=3"#,
@@ -609,6 +611,7 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
         assert_eq!(
             &captured.lines[before..],
             [
+                "focus-change node=tabs: DEBUG message=focused",
                 "none: DEBUG message=drag started node=b",
                 r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=root slot=children index=2"#,
                 r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=1"#,
@@ -682,6 +685,7 @@ fn cycle_drop_is_refused(cx: &mut TestAppContext, trace: &Trace) {
         assert_eq!(
             &captured.lines[before..],
             [
+                "focus-change node=root: DEBUG message=focused",
                 "none: DEBUG message=drag started node=branch",
                 r#"layout-op op="move" node="branch" extension="riso": INFO message=moving a node into itself or its subtree would make a cycle node=branch parent=inner slot=children index=0"#,
             ]

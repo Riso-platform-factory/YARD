@@ -2,8 +2,8 @@
 
 use gpui::{
     AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, DragMoveEvent, Entity,
-    EntityId, Global, InteractiveElement, IntoElement, ParentElement, Pixels, Point, Render,
-    SharedString, Styled, WeakEntity, Window, canvas, div,
+    EntityId, FocusHandle, Global, InteractiveElement, IntoElement, ParentElement, Pixels, Point,
+    Render, SharedString, Styled, Subscription, WeakEntity, Window, canvas, div,
 };
 use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, SlotName, Tree};
@@ -18,6 +18,23 @@ use std::{
 
 type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
 type ViewMap = BTreeMap<NodeId, AnyView>;
+
+struct NodeView {
+    handle: FocusHandle,
+    view: AnyView,
+}
+
+impl Render for NodeView {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .size_full()
+            .grid()
+            .grid_cols(1)
+            .grid_rows(1)
+            .track_focus(&self.handle)
+            .child(self.view.clone())
+    }
+}
 
 #[derive(Clone)]
 struct DraggedNode {
@@ -107,6 +124,7 @@ struct Registry {
     components: BTreeMap<ComponentId, Component>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
+    focus_handles: BTreeMap<NodeId, FocusHandle>,
     splits: Vec<WeakEntity<Split>>,
     tabs: Vec<WeakEntity<Tabs>>,
     zoomed: Option<NodeId>,
@@ -168,6 +186,7 @@ impl Default for Registry {
             components,
             tree: Rc::new(RefCell::new(Layers::new(Tree::default()))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
+            focus_handles: BTreeMap::new(),
             splits: Vec::new(),
             tabs: Vec::new(),
             zoomed: None,
@@ -711,6 +730,78 @@ pub fn zoomed(cx: &App) -> Option<String> {
         .and_then(|registry| registry.zoomed.as_ref().map(ToString::to_string))
 }
 
+/// Returns the innermost shown node that contains the keyboard focus.
+pub fn focused_node(window: &Window, cx: &App) -> Option<NodeId> {
+    window.focused(cx)?;
+    let registry = cx.try_global::<Registry>()?;
+    find_in_drawn(registry, cx, |node| {
+        registry
+            .focus_handles
+            .get(node)
+            .is_some_and(|handle| handle.contains_focused(window, cx))
+            .then(|| node.clone())
+    })
+}
+
+/// Returns a shown node's focus handle.
+pub fn focus_handle(cx: &App, node: &str) -> Option<FocusHandle> {
+    let target = NodeId::parse(node).ok()?;
+    let registry = cx.try_global::<Registry>()?;
+    find_in_drawn(registry, cx, |current| {
+        (current == &target)
+            .then(|| registry.focus_handles.get(current).cloned())
+            .flatten()
+    })
+}
+
+fn find_in_drawn<T>(
+    registry: &Registry,
+    cx: &App,
+    mut visit: impl FnMut(&NodeId) -> Option<T>,
+) -> Option<T> {
+    let tabs_selected: BTreeMap<NodeId, Option<NodeId>> = registry
+        .tabs
+        .iter()
+        .filter_map(|weak| weak.upgrade())
+        .map(|tabs| {
+            let tabs = tabs.read(cx);
+            (tabs.node.clone(), tabs.selected.clone())
+        })
+        .collect();
+    let layers = registry.tree.borrow();
+    let tree = layers.current();
+    let views = registry.views.borrow();
+    let drawn_root = registry
+        .zoomed
+        .as_ref()
+        .filter(|node| views.contains_key(*node))
+        .or_else(|| tree.root().map(|root| &root.id))?;
+    fn walk<T>(
+        tree: &Tree,
+        views: &ViewMap,
+        tabs_selected: &BTreeMap<NodeId, Option<NodeId>>,
+        current: &NodeId,
+        visit: &mut impl FnMut(&NodeId) -> Option<T>,
+    ) -> Option<T> {
+        if tree.is_hidden(current) || !views.contains_key(current) {
+            return None;
+        }
+        let from_child = if let Some(selected) = tabs_selected.get(current) {
+            selected
+                .as_ref()
+                .and_then(|child| walk(tree, views, tabs_selected, child, visit))
+        } else {
+            tree.slots(current).find_map(|(_, children)| {
+                children
+                    .iter()
+                    .find_map(|child| walk(tree, views, tabs_selected, &child.id, visit))
+            })
+        };
+        from_child.or_else(|| visit(current))
+    }
+    walk(tree, &views, &tabs_selected, drawn_root, &mut visit)
+}
+
 fn save(cx: &App) {
     let Some((path, len, encoded)) = cx.try_global::<Registry>().and_then(|registry| {
         if !registry.default_fixed {
@@ -813,11 +904,11 @@ fn run_op(
         }
         Applied::Removed(removed) => {
             for id in removed {
-                let dropped = cx
-                    .default_global::<Registry>()
-                    .views
-                    .borrow_mut()
-                    .remove(&id);
+                let dropped = {
+                    let registry = cx.default_global::<Registry>();
+                    registry.focus_handles.remove(&id);
+                    registry.views.borrow_mut().remove(&id)
+                };
                 if dropped.is_some() {
                     drop(dropped);
                     tracing::debug!(node = %id, "view dropped");
@@ -1130,6 +1221,7 @@ impl Extension {
                 .cloned()
                 .collect();
             for id in removed {
+                registry.focus_handles.remove(&id);
                 let dropped = registry.views.borrow_mut().remove(&id);
                 drop(dropped);
                 tracing::debug!(node = %id, "view dropped");
@@ -1320,6 +1412,21 @@ impl Extension {
 /// The window's root view. All views live in the shell's global map.
 pub struct Shell {
     root: Option<AnyView>,
+    last_focused: Option<NodeId>,
+    _focus_lost: Subscription,
+}
+
+impl Shell {
+    fn sync_focus(&mut self, window: &Window, cx: &App) {
+        let current = focused_node(window, cx);
+        if self.last_focused == current {
+            return;
+        }
+        self.last_focused = current.clone();
+        let node = current.as_ref().map_or("none", NodeId::as_str);
+        let _group = tracing::info_span!("focus-change", node = %node).entered();
+        tracing::debug!("focused");
+    }
 }
 
 /// Creates the initial nodes once, parent before children, when the window opens.
@@ -1362,7 +1469,17 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
         let node = registry.zoomed.take().unwrap();
         tracing::debug!(node = %node, "zoom cleared");
     }
-    cx.new(|_| Shell { root })
+    // Initialize split children and tab selections early so visibility checks work before the first draw.
+    reconcile_containers(cx);
+    cx.new(|cx| Shell {
+        root,
+        last_focused: None,
+        _focus_lost: cx.on_focus_lost(window, |shell: &mut Shell, window, cx| {
+            window.blur(cx);
+            shell.sync_focus(window, cx);
+            window.on_next_frame(|window, _| window.refresh());
+        }),
+    })
 }
 
 fn restore(cx: &mut App) {
@@ -1491,12 +1608,17 @@ fn create_view(
     };
     let created = kept.is_none();
     let view = kept.unwrap_or_else(|| {
+        let handle = cx.focus_handle();
+        cx.default_global::<Registry>()
+            .focus_handles
+            .insert(node.id.clone(), handle.clone());
         let view = (component.create)(&node.id, slots.clone(), window, cx);
+        let wrapped: AnyView = cx.new(|_| NodeView { handle, view }).into();
         cx.default_global::<Registry>()
             .views
             .borrow_mut()
-            .insert(node.id.clone(), view.clone());
-        view
+            .insert(node.id.clone(), wrapped.clone());
+        wrapped
     });
     for (slot, nodes) in children {
         for child in &nodes {
@@ -1530,6 +1652,7 @@ fn create_view(
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering shell");
+        cx.defer_in(window, |shell, window, cx| shell.sync_focus(window, cx));
         window.set_rem_size(riso_ui::ui_font_size(cx));
         let view = cx
             .try_global::<Registry>()

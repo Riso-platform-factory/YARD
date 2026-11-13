@@ -252,7 +252,8 @@ fn slots_contract(cx: &mut TestAppContext) {
     app.update(|cx| guest.set_hidden(cx, "b", false));
     draw(window, &mut app, &shown);
     assert_eq!(shown_nodes(&shown), ["root", "a", "b"]);
-    assert_eq!(root.views("body")[1].entity_id(), b);
+    assert_eq!(created.borrow()["b"].upgrade().unwrap().entity_id(), b);
+    let b_view = root.views("body")[1].entity_id();
     app.update(|cx| {
         assert!(riso_shell::is_hidden(cx, "inner"));
         guest.set_hidden(cx, "inner", false);
@@ -265,7 +266,8 @@ fn slots_contract(cx: &mut TestAppContext) {
     });
     draw(window, &mut app, &shown);
     assert_eq!(shown_nodes(&shown), ["root", "a", "b", "inner"]);
-    assert_eq!(root.views("body")[1].entity_id(), b);
+    assert_eq!(root.views("body")[1].entity_id(), b_view);
+    assert_eq!(created.borrow()["b"].upgrade().unwrap().entity_id(), b);
     assert_eq!(created.borrow().len(), 4);
     assert!(
         created

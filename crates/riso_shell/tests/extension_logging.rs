@@ -335,20 +335,38 @@ fn slots_contract(cx: &mut TestAppContext) {
             assert_eq!(root_body.len(), 2);
             let left_body = handles["left"].views("body");
             let other = root.views("other");
-            let weak = weak_views.borrow();
             assert_eq!(
-                root_body[0].entity_id(),
-                weak[1].upgrade().unwrap().entity_id()
+                root.nodes("body")
+                    .iter()
+                    .map(|id| id.as_str())
+                    .collect::<Vec<_>>(),
+                ["left", "right"]
             );
             assert_eq!(
-                root_body[1].entity_id(),
-                weak[3].upgrade().unwrap().entity_id()
+                handles["left"]
+                    .nodes("body")
+                    .iter()
+                    .map(|id| id.as_str())
+                    .collect::<Vec<_>>(),
+                ["inner"]
             );
+            assert_eq!(
+                root.nodes("other")
+                    .iter()
+                    .map(|id| id.as_str())
+                    .collect::<Vec<_>>(),
+                ["last"]
+            );
+            assert_eq!(left_body.len(), 1);
+            assert_eq!(other.len(), 1);
+            for (view, again) in root_body.iter().zip(root.views("body")) {
+                assert_eq!(view.entity_id(), again.entity_id());
+            }
             assert_eq!(
                 left_body[0].entity_id(),
-                weak[2].upgrade().unwrap().entity_id()
+                handles["left"].views("body")[0].entity_id()
             );
-            assert_eq!(other[0].entity_id(), weak[4].upgrade().unwrap().entity_id());
+            assert_eq!(other[0].entity_id(), root.views("other")[0].entity_id());
             assert!(root.views("side").is_empty());
             assert!(root.views("unknown").is_empty());
             assert!(handles["right"].views("body").is_empty());

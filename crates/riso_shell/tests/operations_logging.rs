@@ -333,6 +333,7 @@ fn lifecycle_and_refusals_contract(cx: &mut TestAppContext) {
         ["sub"]
     );
     let sub_entity = weak_views.borrow()["sub"].upgrade().unwrap().entity_id();
+    let sub_view = slots_by_node.borrow()["b"].views("body")[0].entity_id();
     draw(window, &mut app, &shown);
     assert_eq!(shown_nodes(&shown), ["a", "b", "sub", "c", "d"]);
 
@@ -342,6 +343,10 @@ fn lifecycle_and_refusals_contract(cx: &mut TestAppContext) {
     });
     assert_eq!(
         slots_by_node.borrow()["b"].views("body")[0].entity_id(),
+        sub_view
+    );
+    assert_eq!(
+        weak_views.borrow()["sub"].upgrade().unwrap().entity_id(),
         sub_entity
     );
     assert_eq!(
@@ -371,12 +376,29 @@ fn lifecycle_and_refusals_contract(cx: &mut TestAppContext) {
     let d_entity = weak_views.borrow()["d"].upgrade().unwrap().entity_id();
     app.update(|cx| {
         host.move_node(cx, "d", "a", "body", 0);
-        host.move_node(cx, "b", "a", "body", 0);
     });
+    let d_view = slots_by_node.borrow()["a"].views("body")[0].entity_id();
+    app.update(|cx| host.move_node(cx, "b", "a", "body", 0));
     let a_views = slots_by_node.borrow()["a"].views("body");
     assert_eq!(a_views.len(), 2);
-    assert_eq!(a_views[0].entity_id(), b_entity);
-    assert_eq!(a_views[1].entity_id(), d_entity);
+    assert_eq!(
+        slots_by_node.borrow()["a"]
+            .nodes("body")
+            .iter()
+            .map(|id| id.as_str())
+            .collect::<Vec<_>>(),
+        ["b", "d"]
+    );
+    let b_view = a_views[0].entity_id();
+    assert_eq!(a_views[1].entity_id(), d_view);
+    assert_eq!(
+        weak_views.borrow()["b"].upgrade().unwrap().entity_id(),
+        b_entity
+    );
+    assert_eq!(
+        weak_views.borrow()["d"].upgrade().unwrap().entity_id(),
+        d_entity
+    );
     drop(a_views);
 
     // Hide and show through the unified operation path.
@@ -385,12 +407,20 @@ fn lifecycle_and_refusals_contract(cx: &mut TestAppContext) {
         assert!(riso_shell::is_hidden(cx, "b"));
     });
     assert_eq!(slots_by_node.borrow()["a"].views("body").len(), 1);
+    assert_eq!(
+        slots_by_node.borrow()["a"].views("body")[0].entity_id(),
+        d_view
+    );
     app.update(|cx| {
         guest.set_hidden(cx, "b", false);
         assert!(!riso_shell::is_hidden(cx, "b"));
         guest.set_hidden(cx, "b", false);
     });
     assert_eq!(slots_by_node.borrow()["a"].views("body").len(), 2);
+    assert_eq!(
+        slots_by_node.borrow()["a"].views("body")[0].entity_id(),
+        b_view
+    );
 
     // Exercise every refusal (shell, model, and invalid slugs); the tree must not change.
     let snapshot_before = {

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
 use std::{cell::RefCell, rc::Rc};
 
@@ -35,7 +33,7 @@ impl gpui::Render for ControlCard {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -47,13 +45,10 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppCont
 /// Opens a window over the `tour.card` layout that `place` builds.
 fn open_cards_app(
     cx: &mut TestAppContext,
-    place: impl FnOnce(&mut gpui::App, &riso_shell::dev::Extension),
-) -> (
-    riso_shell::dev::Extension,
-    gpui::WindowHandle<riso_shell::dev::Shell>,
-) {
+    place: impl FnOnce(&mut gpui::App, &riso_shell::Extension),
+) -> (riso_shell::Extension, gpui::WindowHandle<riso_shell::Shell>) {
     let ext = cx.update(|cx| {
-        let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let ext = riso_shell::Extension::new(cx, "tour").unwrap();
         ext.register(cx, "tour.card", &[], |node, _, _, cx| {
             cx.new(|_| Card {
                 node: node.to_string(),
@@ -64,7 +59,7 @@ fn open_cards_app(
         ext
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
@@ -72,7 +67,7 @@ fn open_cards_app(
     (ext, window)
 }
 
-fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
+fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::Extension) {
     ext.place_root(cx, "root", "riso.row");
     for node in ["a", "b", "c"] {
         ext.place(cx, node, "tour.card", "root", "children");
@@ -81,14 +76,13 @@ fn row_of_three(cx: &mut gpui::App, ext: &riso_shell::dev::Extension) {
 
 /// The node the shell says has the focus, if any.
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
-    visual
-        .update(|window, cx| riso_shell::dev::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 /// `(is_focused, contains_focused)` for `node`, or `None` when it has no handle.
 fn focus_flags(visual: &mut gpui::VisualTestContext, node: &str) -> Option<(bool, bool)> {
     visual.update(|window, cx| {
-        riso_shell::dev::focus_handle(cx, node).map(|handle| {
+        riso_shell::focus_handle(cx, node).map(|handle| {
             (
                 handle.is_focused(window),
                 handle.contains_focused(window, cx),

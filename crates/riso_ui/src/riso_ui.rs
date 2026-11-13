@@ -1,5 +1,8 @@
 //! The UI boundary, theme colors, and fonts.
 
+#[cfg(feature = "dev")]
+pub mod dev;
+
 mod axis;
 mod tabs;
 mod theme_setting;

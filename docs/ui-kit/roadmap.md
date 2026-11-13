@@ -42,7 +42,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the gallery shows | From Zed | Needs | First needed by | Status |
 |---|---|---|---|---|---|---|---|
-| 1 | `gallery-and-text` | The gallery itself, and the text components: a label and a headline in Zed's sizes and colors, and the row and column helpers | A page with every size and color of text | `Label`, `Headline` | none | Window engine: `title-bar` | planned |
+| 1 | `gallery-and-text` | The gallery itself, and the text components: a label and a headline in Zed's sizes and colors, and the row and column helpers | A page with every size and color of text | `Label`, `Headline` | none | Window engine: `title-bar` | dev |
 | 2 | `icon` | An icon by name, in Zed's sizes and colors. The set holds the icons the other roadmaps use, and grows by need. The startup gives GPUI the bundled files | A page with every bundled icon and its name | `Icon`, `IconName`, `assets/icons` | 1 | Window engine: `toasts` | planned |
 | 3 | `button` | A button with a label, an icon, or both, in Zed's styles and sizes. It can be disabled or toggled, and it tells its owner when it is clicked | A page with every style and state. A click is logged | `Button`, `IconButton` | 2 | Window engine: `title-bar` | planned |
 | 4 | `divider` | A thin line between groups, horizontal or vertical | A page with both | `Divider` | 1 | Window engine: `status-bar` | planned |

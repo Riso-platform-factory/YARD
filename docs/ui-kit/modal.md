@@ -50,8 +50,8 @@ The startup does not change. `review.rs` loads the gallery.
   - with no width, the modal is 30 rems wide; with a width, that width;
   - the footer is below the sections, and the sections below the header;
   - two sections with the same header label in one modal draw, and so do two modals on one page;
-  - a filled button with the layer `ModalSurface` paints the theme's background color, and one without a layer the element background.
-- A logging test alone in its file: exactly one `trace` line per modal draw from the modal part, with its id, its headline, and the value of each part's field, for a full modal and for a bare one; and `button-click{id}` around the owner's line when the close button is clicked.
+  - a button and an icon button with a layer draw and are clicked as before.
+- A logging test alone in its file: exactly one `trace` line per modal draw from the modal part, with its id, its headline, and the value of each part's field, for a full modal and for a bare one; `button-click{id}` around the owner's line when the close button is clicked; and a button's draw line naming its layer when it has one, and no layer when it has none. The color of a button on a layer is checked by eye in the gallery.
 
 ## Test extension: `examples/ui_gallery`
 

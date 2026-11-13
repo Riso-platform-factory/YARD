@@ -1,10 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, AssetSource};
-use riso_ui::{
-    TextColor,
-    dev::{Assets, Icon, IconName, IconSize},
-};
+use riso_ui::{Assets, Icon, IconName, IconSize, TextColor};
 use std::sync::{Arc, Mutex};
 
 // One page drawing one icon, which must log one trace line per draw.

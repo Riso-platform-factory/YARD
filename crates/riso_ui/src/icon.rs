@@ -154,35 +154,29 @@ pub struct Assets;
 const FILES: &[(&str, &[u8])] = &[
     (
         "icons/check.svg",
-        include_bytes!("../../assets/icons/check.svg"),
+        include_bytes!("../assets/icons/check.svg"),
     ),
     (
         "icons/chevron_down.svg",
-        include_bytes!("../../assets/icons/chevron_down.svg"),
+        include_bytes!("../assets/icons/chevron_down.svg"),
     ),
     (
         "icons/chevron_right.svg",
-        include_bytes!("../../assets/icons/chevron_right.svg"),
+        include_bytes!("../assets/icons/chevron_right.svg"),
     ),
     (
         "icons/close.svg",
-        include_bytes!("../../assets/icons/close.svg"),
+        include_bytes!("../assets/icons/close.svg"),
     ),
-    (
-        "icons/info.svg",
-        include_bytes!("../../assets/icons/info.svg"),
-    ),
-    (
-        "icons/plus.svg",
-        include_bytes!("../../assets/icons/plus.svg"),
-    ),
+    ("icons/info.svg", include_bytes!("../assets/icons/info.svg")),
+    ("icons/plus.svg", include_bytes!("../assets/icons/plus.svg")),
     (
         "icons/warning.svg",
-        include_bytes!("../../assets/icons/warning.svg"),
+        include_bytes!("../assets/icons/warning.svg"),
     ),
     (
         "icons/x_circle.svg",
-        include_bytes!("../../assets/icons/x_circle.svg"),
+        include_bytes!("../assets/icons/x_circle.svg"),
     ),
 ];
 

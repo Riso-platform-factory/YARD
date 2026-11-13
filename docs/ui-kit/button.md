@@ -30,7 +30,7 @@ Both buttons take:
 
 - **The styles, the sizes, and the colors of every state are Zed's.** Hovered, pressed, disabled, and toggled all come from the active theme and the density, as Zed draws them. The sizes are 32, 28, 22, 18, and 16px at 16px, in rems.
 - **A disabled button is never clicked.** Its label and icon use the disabled color.
-- **A toggled button** uses its selected style, and its label and icon use the accent color, as in Zed.
+- **A toggled button** uses its selected style, and its colors are Zed's: a `Button`'s label turns accent and its icons keep their colors, and an `IconButton`'s icon takes the color of its selected style.
 - **The owner keeps the state.** A button holds no state of its own: a view that owns a toggle sets `toggle_state` from its own field when it draws, changes the field in `on_click`, and asks to be drawn again.
 - **An id names each button,** as in Zed. Two buttons in the same view need different ids.
 - **Logging:**

@@ -32,9 +32,20 @@ Each move runs in the group of the other actions, `layout-action{action, node}`:
 |---|---|---|
 | A leaf node is in that direction | It gets the focus | `debug`: `done`, with `target` |
 | No node has the focus | Nothing | `info`: `refused`, reason `no node has the focus` |
-| No node in that direction | Nothing | `info`: `refused`, reason `no node on the left`, `on the right`, `above`, or `below` |
+| No node in that direction | Nothing | `info`: `refused`, reason `no node on the left`, `on the right`, `above`, or `below`, with the focused node's `bounds` and the probe `point` |
+| The focused node has no bounds yet | Nothing | `info`: `refused`, reason `no bounds for the focused node` |
+
+At `trace`, each candidate considered is logged with its bounds, so that a refusal can be explained from the log.
 
 The move of the focus then logs `focus-change{node}`, as any move of the focus does.
+
+## What code can do
+
+```rust
+pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>>;
+```
+
+`node_bounds` gives a node's bounds in the last draw, or nothing if it was not drawn. Tests use it, and so will features that place things by a node, such as an inspector.
 
 ## Where the code changes
 

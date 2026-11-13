@@ -1,9 +1,13 @@
+#![cfg(feature = "dev")]
+
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, px,
     rems,
 };
 use riso_ui::{
-    Headline, HeadlineSize, Icon, IconName, IconSize, Label, LabelSize, TextColor, h_flex, v_flex,
+    Headline, HeadlineSize, Icon, IconName, IconSize, Label, LabelSize, TextColor,
+    dev::{Button, ButtonSize, ButtonStyle, IconButton, IconButtonShape, TintColor},
+    h_flex, v_flex,
 };
 
 const HEADLINE_SIZES: [(&str, HeadlineSize); 5] = [
@@ -47,18 +51,27 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let _group = tracing::info_span!("gallery-build", pages = 2).entered();
+            let _group = tracing::info_span!("gallery-build", pages = 3).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
             });
             ext.register(cx, "ui_gallery.icon", &[], |_, _, _, cx| {
                 cx.new(|_| IconPage).into()
             });
+            ext.register(cx, "ui_gallery.button", &[], |_, _, _, cx| {
+                cx.new(|_| ButtonPage {
+                    clicks: 0,
+                    toggled: false,
+                })
+                .into()
+            });
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
             ext.place(cx, "icon", "ui_gallery.icon", "root", "children");
             tracing::debug!(page = "icon", "page placed");
+            ext.place(cx, "button", "ui_gallery.button", "root", "children");
+            tracing::debug!(page = "button", "page placed");
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),
     }
@@ -177,6 +190,118 @@ impl Render for IconPage {
                             .child(Icon::new(name))
                             .child(Label::new(format!("{name:?}")))
                     })),
+            ))
+    }
+}
+
+struct ButtonPage {
+    clicks: usize,
+    toggled: bool,
+}
+
+impl Render for ButtonPage {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!(page = "button", "rendering page");
+        let palette = riso_ui::palette(cx);
+        let counter = cx.weak_entity();
+        let toggle = cx.weak_entity();
+        v_flex()
+            .size_full()
+            .p(rems(1.))
+            .gap(rems(0.75))
+            .bg(palette.background)
+            .child(group(
+                "Style",
+                &palette,
+                h_flex().flex_wrap().gap(rems(0.5)).children(
+                    [
+                        ButtonStyle::Filled,
+                        ButtonStyle::Tinted(TintColor::Accent),
+                        ButtonStyle::Tinted(TintColor::Error),
+                        ButtonStyle::Tinted(TintColor::Warning),
+                        ButtonStyle::Tinted(TintColor::Success),
+                        ButtonStyle::Outlined,
+                        ButtonStyle::Subtle,
+                        ButtonStyle::Transparent,
+                    ]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, style)| {
+                        Button::new(("style", index), format!("{style:?}")).style(style)
+                    }),
+                ),
+            ))
+            .child(group(
+                "Size",
+                &palette,
+                h_flex().flex_wrap().gap(rems(0.5)).children(
+                    [
+                        ButtonSize::Large,
+                        ButtonSize::Medium,
+                        ButtonSize::Default,
+                        ButtonSize::Compact,
+                        ButtonSize::None,
+                    ]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, size)| {
+                        Button::new(("size", index), format!("{size:?}")).size(size)
+                    }),
+                ),
+            ))
+            .child(group(
+                "Icon",
+                &palette,
+                h_flex()
+                    .flex_wrap()
+                    .gap(rems(0.5))
+                    .child(Button::new("start", "Start icon").start_icon(IconName::Check))
+                    .child(Button::new("end", "End icon").end_icon(IconName::ChevronDown))
+                    .child(
+                        Button::new("both", "Both icons")
+                            .start_icon(IconName::Check)
+                            .end_icon(IconName::ChevronDown),
+                    )
+                    .child(IconButton::new("square", IconName::Plus).shape(IconButtonShape::Square))
+                    .child(IconButton::new("wide", IconName::Plus).shape(IconButtonShape::Wide)),
+            ))
+            .child(group(
+                "State",
+                &palette,
+                h_flex()
+                    .flex_wrap()
+                    .gap(rems(0.5))
+                    .child(Button::new("disabled", "Disabled").disabled(true))
+                    .child(IconButton::new("disabled-icon", IconName::Close).disabled(true))
+                    .child(Button::new("toggled", "Toggled").toggle_state(true))
+                    .child(IconButton::new("toggled-icon", IconName::Check).toggle_state(true)),
+            ))
+            .child(group(
+                "Click",
+                &palette,
+                h_flex()
+                    .gap(rems(0.5))
+                    .child(
+                        Button::new("count-clicks", format!("clicked {} times", self.clicks))
+                            .on_click(move |_, cx| {
+                                let _ = counter.update(cx, |this, cx| {
+                                    this.clicks += 1;
+                                    tracing::info!(count = this.clicks, "button clicked");
+                                    cx.notify();
+                                });
+                            }),
+                    )
+                    .child(
+                        IconButton::new("toggle-clicks", IconName::Check)
+                            .toggle_state(self.toggled)
+                            .on_click(move |_, cx| {
+                                let _ = toggle.update(cx, |this, cx| {
+                                    this.toggled = !this.toggled;
+                                    tracing::info!(state = this.toggled, "icon button toggled");
+                                    cx.notify();
+                                });
+                            }),
+                    ),
             ))
     }
 }

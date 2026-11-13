@@ -95,13 +95,13 @@
   },
   "riso_ui/theme_setting": {
     "files": {
-      "crates/riso_ui/src/theme_setting.rs": "0b79603eb285be5b"
+      "crates/riso_ui/src/theme_setting.rs": "dda7c4575cf73ea8"
     },
     "promoted": "2026-11-13"
   },
   "riso_ui/theming": {
     "files": {
-      "crates/riso_ui/src/theming.rs": "c00f8ce6ada6a57d",
+      "crates/riso_ui/src/theming.rs": "606862a5bbd5d16c",
       "crates/riso_ui/src/theming/themes.rs": "6e115181e4dbf18c"
     },
     "promoted": "2026-11-13"

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -293,8 +291,8 @@ fn startup(cx: &mut gpui::App, settings: &Path, content: Option<&str>) -> u64 {
         riso_settings::init(cx);
         riso_settings::load(cx, settings.to_path_buf());
         riso_settings::watch(cx);
-        riso_ui::dev::init(cx);
-        riso_ui::dev::apply_theme_setting(cx);
+        riso_ui::init(cx);
+        riso_ui::apply_theme_setting(cx);
     }
     app_init_id
 }
@@ -807,7 +805,7 @@ fn density_opens_density_apply_and_logs_every_contract_line(cx: &mut TestAppCont
         app.executor().advance_clock(Duration::from_secs(1));
         app.run_until_parked();
         app.read(|cx| {
-            assert_eq!(riso_ui::dev::active_theme(cx), "One Dark");
+            assert_eq!(riso_ui::active_theme(cx), "One Dark");
             assert_eq!(density(cx), theme::UiDensity::Compact);
         });
         {

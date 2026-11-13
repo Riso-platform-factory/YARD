@@ -340,9 +340,9 @@ fn assert_apply_group(
     assert_eq!(text(&group.fields["theme"]), theme);
 }
 
-// The six groups of one startup, in order: settings-init, settings-load,
+// The seven groups of one startup, in order: settings-init, settings-load,
 // ui-init, settings-register{section=theme}, theme-apply{mode, theme},
-// ui-font-apply{family, size}.
+// ui-font-apply{family, size}, density-apply{density}.
 // Returns the settings-register and theme-apply groups.
 fn scenario_groups<'a>(
     captured: &'a Captured,
@@ -352,9 +352,17 @@ fn scenario_groups<'a>(
     mode: &str,
     theme: &str,
 ) -> (&'a Group, &'a Group) {
-    let [init_g, load_g, ui_init_g, register_g, apply_g, font_g] = &captured.groups[cursor..]
+    let [
+        init_g,
+        load_g,
+        ui_init_g,
+        register_g,
+        apply_g,
+        font_g,
+        density_g,
+    ] = &captured.groups[cursor..]
     else {
-        panic!("expected 6 groups, got {:#?}", &captured.groups[cursor..]);
+        panic!("expected 7 groups, got {:#?}", &captured.groups[cursor..]);
     };
     assert_group(init_g, &captured.entered_groups, "settings-init");
     assert!(
@@ -377,6 +385,8 @@ fn scenario_groups<'a>(
     assert_apply_group(apply_g, &captured.entered_groups, app_init_id, mode, theme);
     assert_group(font_g, &captured.entered_groups, "ui-font-apply");
     assert_eq!(font_g.parent, Some(app_init_id));
+    assert_group(density_g, &captured.entered_groups, "density-apply");
+    assert_eq!(density_g.parent, Some(app_init_id));
     (register_g, apply_g)
 }
 

@@ -511,3 +511,96 @@ fn an_edit_of_only_the_theme_leaves_the_ui_font_as_it_was(cx: &mut gpui::TestApp
         assert_ui_font(cx, "IBM Plex Sans", 20.);
     });
 }
+
+// ----- density -----
+
+// The density the settings provider gives Zed's components.
+fn assert_density(cx: &gpui::App, density: theme::UiDensity) {
+    let provider = theme::theme_settings(cx);
+    assert_eq!(provider.ui_density(cx), density);
+}
+
+// Without a value the default density applies.
+#[gpui::test]
+fn without_a_value_the_density_is_default(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = temp.path().join("settings.json");
+    cx.update(|cx| startup(cx, path.clone()));
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Default));
+    assert!(!path.exists());
+}
+
+#[gpui::test]
+fn compact_density_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_density": "compact"}}"#);
+    cx.update(|cx| startup(cx, path));
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Compact));
+}
+
+#[gpui::test]
+fn comfortable_density_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_density": "comfortable"}}"#);
+    cx.update(|cx| startup(cx, path));
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Comfortable));
+}
+
+// A value that is none of the three cannot be read: at startup the section's
+// last good values are its defaults.
+#[gpui::test]
+fn a_ui_density_of_another_value_keeps_the_default(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_density": "huge"}}"#);
+    cx.update(|cx| startup(cx, path));
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Default));
+}
+
+// The section's new content cannot be read: the last good value stays.
+#[gpui::test]
+fn a_broken_density_edit_keeps_the_last_good_value(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_density": "compact"}}"#);
+    cx.update(|cx| startup(cx, path.clone()));
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Compact));
+
+    std::fs::write(&path, r#"{"theme": {"ui_density": "huge"}}"#).unwrap();
+    tick(cx);
+
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Compact));
+}
+
+// A change of the density while running applies at once, as a change of theme does.
+#[gpui::test]
+fn an_edit_from_default_to_compact_applies(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_density": "default"}}"#);
+    cx.update(|cx| startup(cx, path.clone()));
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Default));
+
+    std::fs::write(&path, r#"{"theme": {"ui_density": "compact"}}"#).unwrap();
+    tick(cx);
+
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Compact));
+}
+
+// Only the theme changed: the density is as it was.
+#[gpui::test]
+fn an_edit_of_only_the_theme_leaves_the_density_as_it_was(cx: &mut gpui::TestAppContext) {
+    let temp = TempDir::new();
+    let path = settings_file(&temp, r#"{"theme": {"ui_density": "comfortable"}}"#);
+    cx.update(|cx| startup(cx, path.clone()));
+    cx.read(|cx| assert_density(cx, theme::UiDensity::Comfortable));
+
+    std::fs::write(
+        &path,
+        r#"{"theme": {"mode": "dark", "ui_density": "comfortable"}}"#,
+    )
+    .unwrap();
+    tick(cx);
+
+    cx.read(|cx| {
+        assert_eq!(active_theme(cx), "One Dark");
+        assert_density(cx, theme::UiDensity::Comfortable);
+    });
+}

@@ -401,9 +401,10 @@ fn only<'a>(rest: &'a [Group], name: &str) -> &'a Group {
     group
 }
 
-// The seven groups of one dev startup: settings-init, settings-load,
+// The eight groups of one dev startup: settings-init, settings-load,
 // settings-watch, ui-init, settings-register{section=theme}, then
-// theme-apply{mode, theme} and ui-font-apply{family, size} beside each other.
+// theme-apply{mode, theme}, ui-font-apply{family, size} and
+// density-apply{density} beside each other.
 // Returns the theme-apply and ui-font-apply groups.
 fn scenario_groups<'a>(
     captured: &'a Captured,
@@ -415,12 +416,12 @@ fn scenario_groups<'a>(
 ) -> (&'a Group, &'a Group) {
     let [init_g, load_g, watch_g, ui_init_g, register_g, applies @ ..] = &captured.groups[cursor..]
     else {
-        panic!("expected 7 groups, got {:#?}", &captured.groups[cursor..]);
+        panic!("expected 8 groups, got {:#?}", &captured.groups[cursor..]);
     };
     assert_eq!(
         applies.len(),
-        2,
-        "expected theme-apply and ui-font-apply, got {applies:#?}"
+        3,
+        "expected theme-apply, ui-font-apply and density-apply, got {applies:#?}"
     );
     assert_group(init_g, &captured.entered_groups, "settings-init");
     assert!(
@@ -454,23 +455,29 @@ fn scenario_groups<'a>(
         font_g.parent, apply_g.parent,
         "ui-font-apply must sit beside theme-apply"
     );
+    let density_g = only(applies, "density-apply");
+    assert_group(density_g, &captured.entered_groups, "density-apply");
+    assert_eq!(
+        density_g.parent, apply_g.parent,
+        "density-apply must sit beside theme-apply"
+    );
     (apply_g, font_g)
 }
 
 // The groups of one change of the section while running: settings-reload{path},
-// then theme-apply and ui-font-apply beside each other.
+// then theme-apply, ui-font-apply and density-apply beside each other.
 // Returns the theme-apply and ui-font-apply groups.
 fn change_groups<'a>(captured: &'a Captured, cursor: usize, path: &Path) -> (&'a Group, &'a Group) {
     let [reload_g, applies @ ..] = &captured.groups[cursor..] else {
         panic!(
-            "expected settings-reload, theme-apply and ui-font-apply, got {:#?}",
+            "expected settings-reload, theme-apply, ui-font-apply and density-apply, got {:#?}",
             &captured.groups[cursor..]
         );
     };
     assert_eq!(
         applies.len(),
-        2,
-        "expected theme-apply and ui-font-apply, got {applies:#?}"
+        3,
+        "expected theme-apply, ui-font-apply and density-apply, got {applies:#?}"
     );
     assert_path_group(reload_g, &captured.entered_groups, "settings-reload", path);
     let apply_g = only(applies, "theme-apply");
@@ -482,6 +489,12 @@ fn change_groups<'a>(captured: &'a Captured, cursor: usize, path: &Path) -> (&'a
         "ui-font-apply must sit beside theme-apply"
     );
     assert_font_keys(font_g);
+    let density_g = only(applies, "density-apply");
+    assert_group(density_g, &captured.entered_groups, "density-apply");
+    assert_eq!(
+        density_g.parent, apply_g.parent,
+        "density-apply must sit beside theme-apply"
+    );
     (apply_g, font_g)
 }
 

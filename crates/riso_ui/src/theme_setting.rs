@@ -2,7 +2,8 @@ use gpui::{App, Global, Window, px};
 use theme::{ActiveTheme, Appearance, GlobalTheme, SystemAppearance, ThemeRegistry};
 
 use super::theming::{
-    DEFAULT_UI_FONT_FAMILY, DEFAULT_UI_FONT_SIZE, set_ui_font, ui_font, ui_font_size,
+    DEFAULT_UI_FONT_FAMILY, DEFAULT_UI_FONT_SIZE, set_ui_density, set_ui_font, ui_density, ui_font,
+    ui_font_size,
 };
 
 const MIN_UI_FONT_SIZE: f32 = 6.;
@@ -34,6 +35,35 @@ impl std::fmt::Display for Mode {
     }
 }
 
+#[derive(Clone, Copy, Default, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Density {
+    Compact,
+    #[default]
+    Default,
+    Comfortable,
+}
+
+impl std::fmt::Display for Density {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Compact => f.write_str("compact"),
+            Self::Default => f.write_str("default"),
+            Self::Comfortable => f.write_str("comfortable"),
+        }
+    }
+}
+
+impl From<Density> for theme::UiDensity {
+    fn from(density: Density) -> Self {
+        match density {
+            Density::Compact => Self::Compact,
+            Density::Default => Self::Default,
+            Density::Comfortable => Self::Comfortable,
+        }
+    }
+}
+
 #[derive(serde::Deserialize)]
 #[serde(default)]
 struct ThemeSettings {
@@ -42,6 +72,7 @@ struct ThemeSettings {
     light: String,
     ui_font_family: Option<String>,
     ui_font_size: Option<f32>,
+    ui_density: Option<Density>,
 }
 
 impl Default for ThemeSettings {
@@ -52,6 +83,7 @@ impl Default for ThemeSettings {
             light: "One Light".into(),
             ui_font_family: None,
             ui_font_size: None,
+            ui_density: None,
         }
     }
 }
@@ -60,14 +92,16 @@ impl riso_settings::Settings for ThemeSettings {
     const KEY: &'static str = "theme";
 }
 
-/// Registers the `theme` section, applies the chosen theme and UI font, and switches on changes.
+/// Registers the `theme` section, applies the chosen theme, UI font, and density, and switches on changes.
 pub fn apply_theme_setting(cx: &mut App) {
     riso_settings::register::<ThemeSettings>(cx);
     apply(cx, false);
     apply_ui_font(cx, false);
+    apply_density(cx, false);
     riso_settings::observe::<ThemeSettings>(cx, |cx| {
         apply(cx, true);
         apply_ui_font(cx, true);
+        apply_density(cx, true);
     })
     .detach();
 }
@@ -178,6 +212,23 @@ fn apply_ui_font(cx: &mut App, switch: bool) {
     }
 
     set_ui_font(cx, family, size);
+    if switch {
+        cx.refresh_windows();
+    }
+    tracing::debug!("applied");
+}
+
+fn apply_density(cx: &mut App, switch: bool) {
+    let density = riso_settings::get::<ThemeSettings>(cx)
+        .ui_density
+        .unwrap_or_default();
+    let _group = tracing::info_span!("density-apply", density = %density).entered();
+    let target = theme::UiDensity::from(density);
+    if switch && ui_density(cx) == target {
+        tracing::debug!("unchanged");
+        return;
+    }
+    set_ui_density(cx, target);
     if switch {
         cx.refresh_windows();
     }

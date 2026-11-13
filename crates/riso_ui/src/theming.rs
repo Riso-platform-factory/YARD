@@ -1,5 +1,5 @@
-//! The theme and the UI font: Zed's One themes and IBM Plex Sans, bundled
-//! with the application.
+//! The theme, the UI font, and the UI density: Zed's One themes and IBM Plex
+//! Sans, bundled with the application.
 //!
 //! This wraps Zed's `theme` crate at revision
 //! ddb90e5e89d346f21847281727e1644b8bb2cc37, licensed GPL-3.0-or-later.
@@ -17,6 +17,7 @@ pub(crate) const DEFAULT_UI_FONT_SIZE: f32 = 16.;
 struct UiFont {
     font: Font,
     size: Pixels,
+    density: theme::UiDensity,
 }
 
 impl Global for UiFont {}
@@ -41,8 +42,8 @@ impl theme::ThemeSettingsProvider for Provider {
         px(15.)
     }
 
-    fn ui_density(&self, _: &App) -> theme::UiDensity {
-        theme::UiDensity::Default
+    fn ui_density(&self, cx: &App) -> theme::UiDensity {
+        ui_density(cx)
     }
 }
 
@@ -85,16 +86,24 @@ pub fn init(cx: &mut App) {
     cx.set_global(UiFont {
         font: font(DEFAULT_UI_FONT_FAMILY),
         size: px(DEFAULT_UI_FONT_SIZE),
+        density: theme::UiDensity::Default,
     });
     theme::set_theme_settings_provider(Box::new(Provider), cx);
     tracing::debug!("theme settings provider installed");
 }
 
 pub(crate) fn set_ui_font(cx: &mut App, family: impl Into<SharedString>, size: Pixels) {
-    cx.set_global(UiFont {
-        font: font(family),
-        size,
-    });
+    let ui = cx.global_mut::<UiFont>();
+    ui.font = font(family);
+    ui.size = size;
+}
+
+pub(crate) fn set_ui_density(cx: &mut App, density: theme::UiDensity) {
+    cx.global_mut::<UiFont>().density = density;
+}
+
+pub(crate) fn ui_density(cx: &App) -> theme::UiDensity {
+    cx.global::<UiFont>().density
 }
 
 /// The font for UI text.

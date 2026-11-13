@@ -479,7 +479,8 @@ fn diagnostics_since(captured: &Captured, cursor: usize, expected: usize) -> &[D
 }
 
 // The groups of one read that changed `theme`: settings-reload{path}, then
-// theme-apply{mode, theme} and ui-font-apply{family, size}, inside settings-watch.
+// theme-apply{mode, theme}, ui-font-apply{family, size}, and
+// density-apply{density}, inside settings-watch.
 fn reload_then_apply<'a>(
     captured: &'a Captured,
     cursor: usize,
@@ -487,10 +488,10 @@ fn reload_then_apply<'a>(
     watch_id: u64,
     mode: &str,
     theme: &str,
-) -> (&'a Group, &'a Group, &'a Group) {
-    let [reload, apply, font] = &captured.groups[cursor..] else {
+) -> (&'a Group, &'a Group, &'a Group, &'a Group) {
+    let [reload, apply, font, density] = &captured.groups[cursor..] else {
         panic!(
-            "expected settings-reload, theme-apply, and ui-font-apply, got {:#?}",
+            "expected settings-reload, theme-apply, ui-font-apply, and density-apply, got {:#?}",
             &captured.groups[cursor..]
         );
     };
@@ -498,7 +499,9 @@ fn reload_then_apply<'a>(
     assert_apply_group(apply, &captured.entered_groups, watch_id, mode, theme);
     assert_group(font, &captured.entered_groups, "ui-font-apply");
     assert_eq!(font.parent, Some(watch_id));
-    (reload, apply, font)
+    assert_group(density, &captured.entered_groups, "density-apply");
+    assert_eq!(density.parent, Some(watch_id));
+    (reload, apply, font, density)
 }
 
 // Alone in this binary: installs the process-wide diagnostic logger and captures every callsite.
@@ -514,7 +517,8 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         // 1. Startup with no file: the watch runs inside app-init and the
         //    defaults hold. Groups in order: settings-init, settings-load,
         //    settings-watch, ui-init, settings-register{section=theme},
-        //    theme-apply{mode, theme}, ui-font-apply{family, size}.
+        //    theme-apply{mode, theme}, ui-font-apply{family, size},
+        //    density-apply{density}.
         let path = temp.path().join("settings.json");
         let app_init = cx.update(|cx| startup(cx, &path));
         cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
@@ -528,9 +532,10 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 register_g,
                 apply_g,
                 font_g,
+                density_g,
             ] = &captured.groups[..]
             else {
-                panic!("expected 7 startup groups, got {:#?}", captured.groups);
+                panic!("expected 8 startup groups, got {:#?}", captured.groups);
             };
             assert_group(init_g, &captured.entered_groups, "settings-init");
             assert!(
@@ -556,6 +561,8 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
             );
             assert_group(font_g, &captured.entered_groups, "ui-font-apply");
             assert_eq!(font_g.parent, Some(app_init));
+            assert_group(density_g, &captured.entered_groups, "density-apply");
+            assert_eq!(density_g.parent, Some(app_init));
             let started = events_in_group(&captured, 0, watch_g.id);
             assert_eq!(
                 started.len(),
@@ -581,7 +588,7 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
-            let (reload, apply_g, font_g) = reload_then_apply(
+            let (reload, apply_g, font_g, density_g) = reload_then_apply(
                 &captured,
                 groups_cursor,
                 &path,
@@ -589,11 +596,12 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 "dark",
                 "One Dark",
             );
-            let events = events_since(&captured, events_cursor, 4);
+            let events = events_since(&captured, events_cursor, 5);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
             assert_debug_event(events[1], reload.id, "reloaded", &[("changed", "1")]);
             let applied = assert_apply_line(&events[2..3], apply_g.id, "applied");
             assert_debug_event(events[3], font_g.id, "unchanged", &[]);
+            assert_debug_event(events[4], density_g.id, "unchanged", &[]);
             assert!(
                 events[1].seq < applied.seq,
                 "the apply must run after the read that changed the section"
@@ -611,7 +619,7 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
-            let (reload, apply_g, font_g) = reload_then_apply(
+            let (reload, apply_g, font_g, density_g) = reload_then_apply(
                 &captured,
                 groups_cursor,
                 &path,
@@ -619,11 +627,12 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 "dark",
                 "One Dark",
             );
-            let events = events_since(&captured, events_cursor, 4);
+            let events = events_since(&captured, events_cursor, 5);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
             assert_debug_event(events[1], reload.id, "reloaded", &[("changed", "1")]);
             assert_apply_line(&events[2..3], apply_g.id, "unchanged");
             assert_debug_event(events[3], font_g.id, "unchanged", &[]);
+            assert_debug_event(events[4], density_g.id, "unchanged", &[]);
             diagnostics_since(&captured, diagnostics_cursor, 0);
             groups_cursor = captured.groups.len();
             events_cursor = captured.events.len();
@@ -637,7 +646,7 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         cx.read(|cx| assert_eq!(active_theme(cx), "One Dark"));
         {
             let captured = CAPTURED.lock().unwrap();
-            let (reload, apply_g, font_g) = reload_then_apply(
+            let (reload, apply_g, font_g, density_g) = reload_then_apply(
                 &captured,
                 groups_cursor,
                 &path,
@@ -645,10 +654,11 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 "dark",
                 "Solarized",
             );
-            let events = events_since(&captured, events_cursor, 3);
+            let events = events_since(&captured, events_cursor, 4);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
             assert_debug_event(events[1], reload.id, "reloaded", &[("changed", "1")]);
             assert_debug_event(events[2], font_g.id, "unchanged", &[]);
+            assert_debug_event(events[3], density_g.id, "unchanged", &[]);
             assert!(
                 events_in_group(&captured, events_cursor, apply_g.id).is_empty(),
                 "nothing is applied when the theme stays"
@@ -696,7 +706,7 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
         cx.read(|cx| assert_eq!(active_theme(cx), "One Light"));
         {
             let captured = CAPTURED.lock().unwrap();
-            let (reload, apply_g, font_g) = reload_then_apply(
+            let (reload, apply_g, font_g, density_g) = reload_then_apply(
                 &captured,
                 groups_cursor,
                 &path,
@@ -704,11 +714,12 @@ fn theme_switch_opens_theme_apply_and_logs_every_contract_line(cx: &mut TestAppC
                 "system",
                 "One Light",
             );
-            let events = events_since(&captured, events_cursor, 4);
+            let events = events_since(&captured, events_cursor, 5);
             assert_debug_event(events[0], reload.id, "changed", &[("section", "theme")]);
             assert_debug_event(events[1], reload.id, "reloaded", &[("changed", "1")]);
             let applied = assert_apply_line(&events[2..3], apply_g.id, "applied");
             assert_debug_event(events[3], font_g.id, "unchanged", &[]);
+            assert_debug_event(events[4], density_g.id, "unchanged", &[]);
             assert!(
                 events[1].seq < applied.seq,
                 "the apply must run after the read that changed the section"

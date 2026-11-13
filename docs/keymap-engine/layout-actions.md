@@ -18,9 +18,9 @@ They are in the namespace `riso`, as the shell's components are:
 - **"The focused node"** is the innermost node with the focus, as `focused-node` defines it.
 - **"Its tabs container"** is the nearest `riso.tabs` node at or above it. A focused tabs container selects among its own tabs. A card inside a row inside tabs selects among those tabs.
 - **The operations are the shell's own,** the ones an extension already uses: zooming, zooming out, hiding, and selecting a tab. Each is checked by the same rules. The shell acts on its own behalf, as extension `riso`.
-- After `Hide`, no node has the focus, as `focused-node` says of a hidden node.
+- After `Hide`, no node has the focus, as `focused-node` says of a hidden node. The focus goes to the shell's root, which is no node, so that the next action still reaches the shell and is refused.
 - After a tab is selected, the focus goes to the tabs container, so that the next `SelectNextTab` continues there.
-- When a node inside the tabs container is zoomed, selecting a tab zooms out first, so that the new tab is seen and the container can take the focus.
+- When a node strictly inside the tabs container is zoomed, selecting a tab zooms out first, so that the new tab is seen and the container can take the focus. When the tabs container itself, or a node above it, is zoomed, the zoom stays.
 
 ## Where they are handled
 
@@ -39,6 +39,7 @@ Each action runs in a group, `layout-action{action, node}`, with `node` the focu
 | `Hide` on the root | Nothing | the model's own refusal |
 | `SelectNextTab` or `SelectPreviousTab` with no tabs container at or above the node | Nothing | `info`: `refused`, reason `no tabs container holds it` |
 | A tabs container with one tab | Nothing | `info`: `refused`, reason `one tab` |
+| A tabs container with no shown tab | Nothing | `info`: `refused`, reason `no tabs` |
 
 ## What code can do
 

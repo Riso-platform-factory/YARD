@@ -20,6 +20,7 @@ They are in the namespace `riso`, as the shell's components are:
 - **The operations are the shell's own,** the ones an extension already uses: zooming, zooming out, hiding, and selecting a tab. Each is checked by the same rules. The shell acts on its own behalf, as extension `riso`.
 - After `Hide`, no node has the focus, as `focused-node` says of a hidden node.
 - After a tab is selected, the focus goes to the tabs container, so that the next `SelectNextTab` continues there.
+- When a node inside the tabs container is zoomed, selecting a tab zooms out first, so that the new tab is seen and the container can take the focus.
 
 ## Where they are handled
 

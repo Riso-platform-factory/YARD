@@ -1,6 +1,6 @@
 # ui_gallery
 
-A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the UI kit again, or when the next UI kit feature is under review.
+A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app.
 
 Without `UI_GALLERY` it does nothing, so a plain `cargo run dev` shows only what the app really does. With `UI_GALLERY=all`, it places a tabs container as the root, with one tab per page and one page per base component. A page shows every variant of its component, each naming itself, in groups with an upper-case muted title beside a hairline, as Zed's component preview does.
 
@@ -33,6 +33,13 @@ Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/t
 | Click the check under `CLICK` | It turns accent, with `button-click{id=toggle-clicks}`, then back on the next click. |
 | Click the disabled buttons | Nothing, and no `button-click`. |
 | With `{"theme": {"ui_density": "compact"}}` | The buttons get smaller. |
+
+## Feature 4: divider
+
+| Command and action | What to look for |
+|---|---|
+| `UI_GALLERY=all cargo run dev`, the tab `divider` | Under `HORIZONTAL`, a solid, a dashed, and an inset divider in each color; under `VERTICAL`, labels separated by solid and dashed dividers. `gallery-build{pages=4}`. |
+| The same, in One Light | The lines follow the theme. |
 
 ## Removing it
 

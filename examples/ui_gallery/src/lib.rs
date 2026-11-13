@@ -1,10 +1,13 @@
+#![cfg(feature = "dev")]
+
 use gpui::{
-    App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, px,
-    rems,
+    App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
 use riso_ui::{
     Button, ButtonSize, ButtonStyle, Headline, HeadlineSize, Icon, IconButton, IconButtonShape,
-    IconName, IconSize, Label, LabelSize, TextColor, TintColor, h_flex, v_flex,
+    IconName, IconSize, Label, LabelSize, TextColor, TintColor,
+    dev::{Divider, DividerColor},
+    h_flex, v_flex,
 };
 
 const HEADLINE_SIZES: [(&str, HeadlineSize); 5] = [
@@ -41,6 +44,12 @@ const ICON_SIZES: [IconSize; 5] = [
     IconSize::XLarge,
 ];
 
+const DIVIDER_COLORS: [DividerColor; 3] = [
+    DividerColor::Border,
+    DividerColor::BorderFaded,
+    DividerColor::BorderVariant,
+];
+
 pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("UI_GALLERY").unwrap_or_default();
     if case.is_empty() {
@@ -48,7 +57,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let _group = tracing::info_span!("gallery-build", pages = 3).entered();
+            let _group = tracing::info_span!("gallery-build", pages = 4).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
             });
@@ -62,6 +71,9 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 })
                 .into()
             });
+            ext.register(cx, "ui_gallery.divider", &[], |_, _, _, cx| {
+                cx.new(|_| DividerPage).into()
+            });
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
@@ -69,6 +81,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             tracing::debug!(page = "icon", "page placed");
             ext.place(cx, "button", "ui_gallery.button", "root", "children");
             tracing::debug!(page = "button", "page placed");
+            ext.place(cx, "divider", "ui_gallery.divider", "root", "children");
+            tracing::debug!(page = "divider", "page placed");
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),
     }
@@ -78,7 +92,7 @@ struct TextPage;
 
 struct IconPage;
 
-fn group(title: &str, palette: &riso_ui::Palette, content: impl IntoElement) -> Div {
+fn group(title: &str, content: impl IntoElement) -> Div {
     v_flex()
         .gap(rems(0.25))
         .child(
@@ -89,7 +103,11 @@ fn group(title: &str, palette: &riso_ui::Palette, content: impl IntoElement) -> 
                         .size(LabelSize::XSmall)
                         .color(TextColor::Muted),
                 )
-                .child(div().flex_1().h(px(1.)).bg(palette.border)),
+                .child(
+                    div()
+                        .flex_1()
+                        .child(Divider::horizontal().color(DividerColor::Border)),
+                ),
         )
         .child(content)
 }
@@ -105,7 +123,6 @@ impl Render for TextPage {
             .bg(palette.background)
             .child(group(
                 "Headline",
-                &palette,
                 v_flex().gap(rems(0.25)).children(
                     HEADLINE_SIZES
                         .into_iter()
@@ -114,7 +131,6 @@ impl Render for TextPage {
             ))
             .child(group(
                 "Label size",
-                &palette,
                 v_flex().gap(rems(0.25)).children(
                     LABEL_SIZES
                         .into_iter()
@@ -123,7 +139,6 @@ impl Render for TextPage {
             ))
             .child(group(
                 "Label color",
-                &palette,
                 v_flex().gap(rems(0.25)).children(
                     TEXT_COLORS
                         .into_iter()
@@ -132,14 +147,12 @@ impl Render for TextPage {
             ))
             .child(group(
                 "Row",
-                &palette,
                 h_flex()
                     .gap(rems(0.75))
                     .children(["one", "two", "three"].map(Label::new)),
             ))
             .child(group(
                 "Column",
-                &palette,
                 v_flex()
                     .gap(rems(0.25))
                     .children(["one", "two", "three"].map(Label::new)),
@@ -158,7 +171,6 @@ impl Render for IconPage {
             .bg(palette.background)
             .child(group(
                 "Size",
-                &palette,
                 v_flex()
                     .gap(rems(0.25))
                     .children(ICON_SIZES.into_iter().map(|size| {
@@ -169,7 +181,6 @@ impl Render for IconPage {
             ))
             .child(group(
                 "Color",
-                &palette,
                 h_flex().gap(rems(0.5)).children(
                     TEXT_COLORS
                         .into_iter()
@@ -178,7 +189,6 @@ impl Render for IconPage {
             ))
             .child(group(
                 "Name",
-                &palette,
                 v_flex()
                     .gap(rems(0.25))
                     .children(IconName::ALL.iter().map(|&name| {
@@ -209,7 +219,6 @@ impl Render for ButtonPage {
             .bg(palette.background)
             .child(group(
                 "Style",
-                &palette,
                 h_flex().flex_wrap().gap(rems(0.5)).children(
                     [
                         ButtonStyle::Filled,
@@ -230,7 +239,6 @@ impl Render for ButtonPage {
             ))
             .child(group(
                 "Size",
-                &palette,
                 h_flex().flex_wrap().gap(rems(0.5)).children(
                     [
                         ButtonSize::Large,
@@ -248,7 +256,6 @@ impl Render for ButtonPage {
             ))
             .child(group(
                 "Icon",
-                &palette,
                 h_flex()
                     .flex_wrap()
                     .gap(rems(0.5))
@@ -264,7 +271,6 @@ impl Render for ButtonPage {
             ))
             .child(group(
                 "State",
-                &palette,
                 h_flex()
                     .flex_wrap()
                     .gap(rems(0.5))
@@ -275,7 +281,6 @@ impl Render for ButtonPage {
             ))
             .child(group(
                 "Click",
-                &palette,
                 h_flex()
                     .gap(rems(0.5))
                     .child(
@@ -299,6 +304,55 @@ impl Render for ButtonPage {
                                 });
                             }),
                     ),
+            ))
+    }
+}
+
+struct DividerPage;
+
+impl Render for DividerPage {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!(page = "divider", "rendering page");
+        let palette = riso_ui::palette(cx);
+        v_flex()
+            .size_full()
+            .p(rems(1.))
+            .gap(rems(0.75))
+            .bg(palette.background)
+            .child(group(
+                "Horizontal",
+                v_flex()
+                    .gap(rems(0.75))
+                    .children(DIVIDER_COLORS.into_iter().map(|color| {
+                        v_flex()
+                            .gap(rems(0.25))
+                            .child(Label::new(format!("{color:?} — solid")))
+                            .child(Divider::horizontal().color(color))
+                            .child(Label::new(format!("{color:?} — dashed")))
+                            .child(Divider::horizontal_dashed().color(color))
+                            .child(Label::new(format!("{color:?} — inset")))
+                            .child(Divider::horizontal().inset().color(color))
+                            .child(Label::new(format!("{color:?}")))
+                    })),
+            ))
+            .child(group(
+                "Vertical",
+                h_flex()
+                    .h(rems(1.5))
+                    .gap(rems(0.75))
+                    .child(Label::new("Border"))
+                    .child(Divider::vertical().color(DividerColor::Border))
+                    .child(Label::new("Dashed"))
+                    .child(Divider::vertical_dashed().color(DividerColor::Border))
+                    .child(Label::new("BorderFaded"))
+                    .child(Divider::vertical().color(DividerColor::BorderFaded))
+                    .child(Label::new("Dashed"))
+                    .child(Divider::vertical_dashed().color(DividerColor::BorderFaded))
+                    .child(Label::new("BorderVariant"))
+                    .child(Divider::vertical().color(DividerColor::BorderVariant))
+                    .child(Label::new("Dashed"))
+                    .child(Divider::vertical_dashed().color(DividerColor::BorderVariant))
+                    .child(Label::new("End")),
             ))
     }
 }

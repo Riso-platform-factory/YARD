@@ -1,9 +1,5 @@
 use super::{Modal, ModalFooter, ModalHeader, Section, SectionHeader};
-use crate::{
-    Assets, IconName, Label,
-    dev::{Button, ButtonStyle, ElevationIndex, IconButton},
-    v_flex,
-};
+use crate::{Assets, Button, ButtonStyle, ElevationIndex, IconButton, IconName, Label, v_flex};
 use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, div, px, rems};
 use std::{cell::Cell, rc::Rc, sync::Arc};
 

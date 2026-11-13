@@ -2,7 +2,7 @@
 //! ddb90e5e89d346f21847281727e1644b8bb2cc37, licensed GPL-3.0-or-later.
 //! Copyright Zed Industries, Inc.
 
-use crate::{IconName, IconSize, dev::IconButton, h_flex, v_flex};
+use crate::{IconButton, IconName, IconSize, h_flex, v_flex};
 use gpui::{
     AnyElement, App, Div, ElementId, InteractiveElement, IntoElement, ParentElement, Rems,
     RenderOnce, SharedString, Styled, Window, prelude::FluentBuilder, rems,

@@ -89,9 +89,9 @@
   },
   "riso_ui/button": {
     "files": {
-      "crates/riso_ui/src/button.rs": "7d0ca08bf6829d7b"
+      "crates/riso_ui/src/button.rs": "7f970617e3a2341b"
     },
-    "promoted": "2026-11-13"
+    "promoted": "2026-11-14"
   },
   "riso_ui/divider": {
     "files": {
@@ -104,6 +104,12 @@
       "crates/riso_ui/src/icon.rs": "7e47f64da69b65ce"
     },
     "promoted": "2026-11-13"
+  },
+  "riso_ui/modal": {
+    "files": {
+      "crates/riso_ui/src/modal.rs": "b1f2126591c74361"
+    },
+    "promoted": "2026-11-14"
   },
   "riso_ui/stack": {
     "files": {

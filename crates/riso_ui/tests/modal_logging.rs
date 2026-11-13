@@ -1,16 +1,10 @@
-#![cfg(feature = "dev")]
-
 // Alone in this binary: captures tracing output and installs the process-wide
 // diagnostic logger, either of which would race with another test reaching the
 // same log lines.
 use gpui::{ParentElement, Styled, TestAppContext};
 use riso_ui::{
-    IconName, Label,
-    dev::{
-        Button, ButtonStyle, ElevationIndex, IconButton, Modal, ModalFooter, ModalHeader, Section,
-        SectionHeader,
-    },
-    h_flex, v_flex,
+    Button, ButtonStyle, ElevationIndex, IconButton, IconName, Label, Modal, ModalFooter,
+    ModalHeader, Section, SectionHeader, h_flex, v_flex,
 };
 use std::{
     collections::BTreeMap,
@@ -190,7 +184,7 @@ fn modal_draw_lines(captured: &Captured) -> Vec<&str> {
         .lines
         .iter()
         .map(String::as_str)
-        .filter(|line| line.contains(": TRACE riso_ui::dev::modal"))
+        .filter(|line| line.contains(": TRACE riso_ui::modal"))
         .collect()
 }
 

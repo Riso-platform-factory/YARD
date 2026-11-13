@@ -1,13 +1,10 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
 use riso_ui::{
-    Button, ButtonSize, ButtonStyle, Divider, DividerColor, Headline, HeadlineSize, Icon,
-    IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, TextColor, TintColor,
-    dev::{Modal, ModalFooter, ModalHeader, Section, SectionHeader},
-    h_flex, v_flex,
+    Button, ButtonSize, ButtonStyle, Divider, DividerColor, ElevationIndex, Headline, HeadlineSize,
+    Icon, IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, Modal, ModalFooter,
+    ModalHeader, Section, SectionHeader, TextColor, TintColor, h_flex, v_flex,
 };
 
 const HEADLINE_SIZES: [(&str, HeadlineSize); 5] = [
@@ -376,8 +373,6 @@ impl ModalPage {
 
 impl Render for ModalPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        use riso_ui::dev::{Button, ButtonStyle, ElevationIndex};
-
         tracing::trace!(page = "modal", "rendering page");
         let palette = riso_ui::palette(cx);
         let close = cx.weak_entity();

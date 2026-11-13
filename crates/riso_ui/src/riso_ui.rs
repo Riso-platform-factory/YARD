@@ -4,6 +4,7 @@ mod axis;
 mod button;
 mod divider;
 mod icon;
+mod modal;
 mod stack;
 mod tabs;
 mod text;
@@ -13,11 +14,9 @@ pub use axis::*;
 pub use button::*;
 pub use divider::*;
 pub use icon::*;
+pub use modal::*;
 pub use stack::*;
 pub use tabs::*;
 pub use text::*;
 pub use theme_setting::*;
 pub use theming::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;

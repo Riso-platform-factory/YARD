@@ -8,7 +8,7 @@ A base component is not a layout component. It has no node ID, it is not registe
 
 ## What is built
 
-In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with riso's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, and states; and `Divider`. The gallery is `examples/ui_gallery`.
+In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with riso's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, states, and layers; `Divider`; and the frame of a modal, `Modal` with `ModalHeader`, `Section`, and `ModalFooter`. The gallery is `examples/ui_gallery`.
 
 ## Rules
 
@@ -46,7 +46,7 @@ Status is one of: planned, dev, production.
 | 2 | `icon` | An icon by name, in Zed's sizes and colors. The set holds the icons the other roadmaps use, and grows by need. The startup gives GPUI the bundled files | A page with every bundled icon and its name | `Icon`, `IconName`, `assets/icons` | 1 | Window engine: `toasts` | production |
 | 3 | `button` | A button with a label, an icon, or both, in Zed's styles and sizes. It can be disabled or toggled, and it tells its owner when it is clicked | A page with every style and state. A click is logged | `Button`, `IconButton` | 2 | Window engine: `title-bar` | production |
 | 4 | `divider` | A thin line between groups, horizontal or vertical | A page with both | `Divider` | 1 | Window engine: `status-bar` | production |
-| 5 | `modal` | The frame of a modal: a header, sections, and a footer with buttons | A page with a modal drawn in place | `Modal` | 3 | Window engine: `modal-layer` | dev |
+| 5 | `modal` | The frame of a modal: a header, sections, and a footer with buttons | A page with a modal drawn in place | `Modal` | 3 | Window engine: `modal-layer` | production |
 | 6 | `list` | A list with items that can be selected or disabled, with a place for an icon before and after the text, headers, and separators | A page with a list in each state | `List`, `ListItem`, `ListHeader` | 2 | Theme engine: `theme-list` | planned |
 | 7 | `text-input` | An input of one line: typing, selecting, the clipboard, input methods, a placeholder. It tells its owner when the text changes and when it is confirmed | A page where text is typed, selected, and pasted | `gpui/examples/input.rs` | 1 | Keymap engine: `command-palette` | planned |
 | 8 | `scroll` | An area that scrolls, with Zed's scrollbar, also for lists too long to draw whole | A list of a thousand items | `Scrollbar`. `gpui`: `uniform_list` | 6 | Keymap engine: `command-palette` | planned |

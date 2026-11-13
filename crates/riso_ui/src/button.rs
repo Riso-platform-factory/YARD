@@ -96,6 +96,25 @@ impl IconButtonShape {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ElevationIndex {
+    Background,
+    Surface,
+    ElevatedSurface,
+    ModalSurface,
+}
+
+impl ElevationIndex {
+    fn zed(self) -> ui::ElevationIndex {
+        match self {
+            Self::Background => ui::ElevationIndex::Background,
+            Self::Surface => ui::ElevationIndex::Surface,
+            Self::ElevatedSurface => ui::ElevationIndex::ElevatedSurface,
+            Self::ModalSurface => ui::ElevationIndex::ModalSurface,
+        }
+    }
+}
+
 fn zed_icon_name(value: IconName) -> ui::IconName {
     match value {
         IconName::Check => ui::IconName::Check,
@@ -139,6 +158,7 @@ pub struct Button {
     id: ElementId,
     style: ButtonStyle,
     size: ButtonSize,
+    layer: Option<ElevationIndex>,
     disabled: bool,
     toggled: bool,
 }
@@ -151,6 +171,7 @@ impl Button {
             id,
             style: ButtonStyle::default(),
             size: ButtonSize::default(),
+            layer: None,
             disabled: false,
             toggled: false,
         }
@@ -165,6 +186,12 @@ impl Button {
     pub fn size(mut self, value: ButtonSize) -> Self {
         self.size = value;
         self.inner = self.inner.size(value.zed());
+        self
+    }
+
+    pub fn layer(mut self, value: ElevationIndex) -> Self {
+        self.layer = Some(value);
+        self.inner = self.inner.layer(value.zed());
         self
     }
 
@@ -211,6 +238,7 @@ impl RenderOnce for Button {
             id = %self.id,
             style = ?self.style,
             size = ?self.size,
+            layer = self.layer.map(tracing::field::debug),
             disabled = self.disabled,
             toggled = self.toggled,
             "rendering button",
@@ -226,6 +254,7 @@ pub struct IconButton {
     id: ElementId,
     style: ButtonStyle,
     size: ButtonSize,
+    layer: Option<ElevationIndex>,
     disabled: bool,
     toggled: bool,
 }
@@ -238,6 +267,7 @@ impl IconButton {
             id,
             style: ButtonStyle::default(),
             size: ButtonSize::default(),
+            layer: None,
             disabled: false,
             toggled: false,
         }
@@ -252,6 +282,12 @@ impl IconButton {
     pub fn size(mut self, value: ButtonSize) -> Self {
         self.size = value;
         self.inner = self.inner.size(value.zed());
+        self
+    }
+
+    pub fn layer(mut self, value: ElevationIndex) -> Self {
+        self.layer = Some(value);
+        self.inner = self.inner.layer(value.zed());
         self
     }
 
@@ -303,6 +339,7 @@ impl RenderOnce for IconButton {
             id = %self.id,
             style = ?self.style,
             size = ?self.size,
+            layer = self.layer.map(tracing::field::debug),
             disabled = self.disabled,
             toggled = self.toggled,
             "rendering icon button",

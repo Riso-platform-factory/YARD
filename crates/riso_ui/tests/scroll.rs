@@ -1,12 +1,9 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     InteractiveElement, IntoElement, Modifiers, MouseButton, ParentElement, ScrollDelta,
     ScrollEvent, ScrollHandle, ScrollStrategy, Styled, TestAppContext, UniformListScrollHandle,
     VisualTestContext, div, point, px, size,
 };
-use riso_ui::dev::{ScrollArea, ScrollList};
-use riso_ui::{h_flex, v_flex};
+use riso_ui::{ScrollArea, ScrollList, h_flex, v_flex};
 use std::{cell::RefCell, ops::Range, rc::Rc};
 
 // A window of a known size: 400px wide, 600px tall.

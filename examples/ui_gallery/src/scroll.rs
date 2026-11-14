@@ -2,11 +2,7 @@ use gpui::{
     App, AppContext, Context, IntoElement, ParentElement, Render, ScrollHandle, ScrollStrategy,
     Styled, UniformListScrollHandle, Window, px, rems,
 };
-use riso_ui::{
-    Button, ButtonStyle, Label, ListItem,
-    dev::{ScrollArea, ScrollList},
-    h_flex, v_flex,
-};
+use riso_ui::{Button, ButtonStyle, Label, ListItem, ScrollArea, ScrollList, h_flex, v_flex};
 
 const PARAGRAPH_COUNT: usize = 40;
 const ROW_COUNT: usize = 1000;

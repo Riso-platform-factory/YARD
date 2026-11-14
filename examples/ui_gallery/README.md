@@ -1,6 +1,6 @@
 # ui_gallery
 
-A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for `scroll`, which is under review.
+A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the UI kit again, or when the next UI kit feature is under review.
 
 Without `UI_GALLERY` it does nothing, so a plain `cargo run dev` shows only what the app really does. With `UI_GALLERY=all`, it places a tabs container as the root, with one tab per page and one page per base component. A page shows every variant of its component, each naming itself, in groups with an upper-case muted title beside a hairline, as Zed's component preview does.
 
@@ -82,7 +82,7 @@ The `text-input` page shows two inputs in frames drawn as Zed's picker draws its
 
 ## Feature 8: scroll
 
-The `scroll` page shows, on the left, a scroll area 300 px tall with forty paragraphs of text, and on the right a list 300 px tall of a thousand items, `Row 0` to `Row 999`, that draws only the rows in view, with a button `go to 500` above it. The page exists only in `cargo run dev`.
+The `scroll` page shows, on the left, a scroll area 300 px tall with forty paragraphs of text, and on the right a list 300 px tall of a thousand items, `Row 0` to `Row 999`, that draws only the rows in view, with a button `go to 500` above it.
 
 | Command and action | What to look for |
 |---|---|

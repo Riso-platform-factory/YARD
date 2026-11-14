@@ -1,4 +1,3 @@
-#[cfg(feature = "dev")]
 mod scroll;
 mod text_input;
 
@@ -59,7 +58,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let pages = 7 + usize::from(cfg!(feature = "dev"));
+            let pages = 8;
             let _group = tracing::info_span!("gallery-build", pages).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
@@ -84,7 +83,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 cx.new(|_| ListPage::new()).into()
             });
             text_input::register(cx, ext);
-            #[cfg(feature = "dev")]
             scroll::register(cx, ext);
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
@@ -111,7 +109,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 );
                 tracing::debug!(page = "text-input", "page placed");
             }
-            #[cfg(feature = "dev")]
             {
                 ext.place(cx, "scroll", "ui_gallery.scroll", "root", "children");
                 tracing::debug!(page = "scroll", "page placed");

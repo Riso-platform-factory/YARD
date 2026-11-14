@@ -141,6 +141,12 @@
     },
     "promoted": "2026-11-14"
   },
+  "riso_ui/scroll": {
+    "files": {
+      "crates/riso_ui/src/scroll.rs": "f141f2a01d88bf78"
+    },
+    "promoted": "2026-11-14"
+  },
   "riso_ui/stack": {
     "files": {
       "crates/riso_ui/src/stack.rs": "08e93a167b4de235"

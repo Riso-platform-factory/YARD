@@ -1,12 +1,10 @@
-#![cfg(feature = "dev")]
-
 // Alone in this binary: captures tracing output, which would race with any
 // other test reaching the same log lines.
 use gpui::{
     InteractiveElement, IntoElement, ParentElement, ScrollDelta, ScrollEvent, Styled,
     TestAppContext, UniformListScrollHandle, div, point, px,
 };
-use riso_ui::dev::ScrollList;
+use riso_ui::ScrollList;
 use std::{
     cell::RefCell,
     collections::BTreeMap,

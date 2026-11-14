@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "app/*", "examples/*"]
+members = ["crates/*", "app/*", "examples/*", "extensions/*"]
 default-members = ["app/riso"]
 
 [workspace.package]
@@ -22,6 +22,7 @@ riso_paths = { path = "crates/riso_paths", default-features = false }
 riso_ui = { path = "crates/riso_ui", default-features = false }
 riso_settings = { path = "crates/riso_settings", default-features = false }
 riso_keymap = { path = "crates/riso_keymap", default-features = false }
+command_palette = { path = "extensions/command_palette", default-features = false }
 dirs = "6"
 log = "0.4.35"
 tracing = "0.1.44"

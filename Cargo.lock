@@ -932,6 +932,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
+name = "command_palette"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "riso_shell",
+ "riso_ui",
+ "tracing",
+]
+
+[[package]]
 name = "component"
 version = "0.1.0"
 source = "git+https://github.com/zed-industries/zed?rev=ddb90e5e89d346f21847281727e1644b8bb2cc37#ddb90e5e89d346f21847281727e1644b8bb2cc37"
@@ -4665,8 +4676,10 @@ dependencies = [
 name = "riso"
 version = "0.1.0"
 dependencies = [
+ "command_palette",
  "gpui",
  "gpui_platform",
+ "layout_tour",
  "riso_keymap",
  "riso_layout",
  "riso_log",

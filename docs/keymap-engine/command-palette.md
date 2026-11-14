@@ -11,9 +11,9 @@ As Zed's `crates/command_palette` and its picker (GPL, so read and rebuilt from 
 - **An extension.** The crate `extensions/command_palette` is an extension like any other: it binds its key and handles its action through its handle (`bind_keys`, `on_action`), opens its view with `toggle_modal`, and is listed by the composition root. riso's own composition root lists it, so riso has a command palette.
 - **Opening.** `command_palette::Toggle`, bound to `cmd-shift-p` on macOS and `ctrl-shift-p` elsewhere in the context `Shell`, as Zed's. Pressed again while the palette is open, it closes it, as `toggle_modal` does.
 - **The commands.** The actions available from the focused element at the moment the palette opens (`Window::available_actions`), each once, without GPUI's `NoAction` and `Unbind` and without the palette's own `Toggle`. Each is shown by Zed's readable form of its name (`humanize_action_name`: `riso::ToggleZoom` reads `riso: toggle zoom`), with its keys at the right (the UI kit's `KeyHint` from the focus the palette was opened from).
-- **Narrowing.** The query is matched against the readable names, case-insensitively, as a subsequence of characters, as Zed's fuzzy matcher accepts. Matches are ranked: a match at the start of a word before one inside a word, fewer gaps before more, then by name. With an empty query, every command, by name. Matched characters are not highlighted in this feature.
+- **Narrowing.** The query is matched against the readable names, case-insensitively, as a subsequence of characters, as Zed's fuzzy matcher accepts. Matches are ranked: more matched characters at the start of a word first, then fewer gaps, then by name. With an empty query, every command, by name. Matched characters are not highlighted in this feature.
 - **Moving and running.** `up` and `down` move the selection, wrapping at the ends; the list scrolls to keep it in view. `enter` runs the selected command: the palette closes, the focus goes back to where it was, and the action is dispatched from there. A click on a row runs it too. `escape` and a click outside close the palette without running anything, as the modal layer does.
-- **Its look,** as Zed's command palette: a modal 38 rems wide, near the top of the window, the UI kit's text input with the placeholder `Execute a command...` at the top, a divider, then the list, at most about twelve rows tall, scrolling beyond. An empty match shows `No matches`.
+- **Its look,** as Zed's command palette: a modal 38 rems wide, near the top of the window, the UI kit's text input with the placeholder `Execute a command...` at the top, a divider, then the list, at most 24 rems tall as Zed's picker, scrolling beyond; moving the selection scrolls just enough to show it. An empty match shows `No matches`.
 
 ## What code can do
 
@@ -41,6 +41,7 @@ These are the only public items. For tests, the rows carry the debug selectors `
 | Part | What changes |
 |---|---|
 | `command_palette/palette` (new, dev) | The extension: its action and key, its view, the matching, the running |
+| `riso_ui/modal_surface` (new, dev) | `ModalSurface`: the elevated frame of a modal without padding, Zed's `elevation_3` (the theme's elevated surface background, border, rounded corners, shadow), a `ParentElement` and `Styled` element, as Zed's picker draws its frame. The palette draws inside it |
 | `AGENTS.md` | The rule of `extensions/`: the extensions that come with the platform are crates in `extensions/`, with stages and tests like the engines; they reach the platform only through `riso_shell`'s extension handle and the UI kit; a composition root lists the ones it wants; `cargo test -p riso` checks them as it checks the engines |
 | `app/riso/tests/stages.rs`, `gpl_boundary.rs` | They read `extensions/` as they read `crates/`: the same stage rules, and no GPL crate of Zed in an extension. These tests change; their change is listed when it is made |
 | `riso/startup` or the composition root | riso's composition root lists `("command_palette", command_palette::init)` among its extensions; at review, `review.rs` does |
@@ -70,6 +71,7 @@ The palette is shown in riso itself: `LAYOUT_TOUR=zoom cargo run dev` gives it c
 ## Under review
 
 - `command_palette/palette`, new
+- `riso_ui/modal_surface`, new
 - The `AGENTS.md` rule of `extensions/`
 
 ## Not in this feature

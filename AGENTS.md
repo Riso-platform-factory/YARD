@@ -76,6 +76,7 @@ A prompt has, in this order: the goal; the context, with the files to read and t
 - `cargo run` runs production code only.
 - `cargo run dev` runs production code and the one part under review, and nothing else. `UNDER_REVIEW` in `app/riso/src/dev/review.rs` names that part, and the same file adds only what it does. With nothing under review, it opens one empty window.
 - A test extension, in `examples/`, exercises the parts under review through the running app, with cases chosen by its own parameters. Only the list of extensions in `review.rs` names it; the app knows nothing else of it, so removing it from that list and from riso's dependencies leaves the app as it should be. A crate in `examples/` has no stage and is never in production.
+- The extensions that come with the platform, such as the command palette, are crates in `extensions/`. They have stages, parts, tests, and logging as the engines in `crates/` do, and `cargo test -p riso` checks them the same way. They reach the platform only through `riso_shell`'s extension handle and the UI kit, and never depend on a GPL crate of Zed. An application's composition root lists the ones it wants.
 - An integration test in `tests/` of a part that is not in production starts with `#![cfg(feature = "dev")]`. When the part is promoted, its tests lose that line, and `cargo test --workspace --no-default-features` runs the production parts' tests alone and must pass.
 
 ## The product

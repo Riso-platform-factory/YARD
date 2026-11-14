@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_keymap::{dev::watch_user_keymap, load_user_keymap};
+use riso_keymap::{load_user_keymap, watch_user_keymap};
 use std::{
     cell::Cell,
     fs,

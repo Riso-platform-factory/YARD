@@ -7,7 +7,13 @@
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "93eaebc60b3cbf36"
+      "app/riso/src/startup.rs": "d3bedfed57bbd7c6"
+    },
+    "promoted": "2026-11-14"
+  },
+  "riso_keymap/keymap_reload": {
+    "files": {
+      "crates/riso_keymap/src/keymap_reload.rs": "d6bee587fe04b7ca"
     },
     "promoted": "2026-11-14"
   },

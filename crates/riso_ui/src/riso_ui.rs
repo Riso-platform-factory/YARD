@@ -4,6 +4,7 @@ mod axis;
 mod button;
 mod divider;
 mod icon;
+mod key_hint;
 mod list;
 mod modal;
 mod modal_layer;
@@ -21,6 +22,7 @@ pub use axis::*;
 pub use button::*;
 pub use divider::*;
 pub use icon::*;
+pub use key_hint::*;
 pub use list::*;
 pub use modal::*;
 pub use modal_layer::*;
@@ -34,6 +36,3 @@ pub use theme_setting::*;
 pub use theming::*;
 pub use title_bar::*;
 pub use toast_layer::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;

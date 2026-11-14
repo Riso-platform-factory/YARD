@@ -1,13 +1,8 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     FocusHandle, InteractiveElement, KeyBinding, ParentElement, Styled, TestAppContext,
     VisualTestContext, div, px, size,
 };
-use riso_ui::{
-    dev::{KeyHint, key_hint_text},
-    v_flex,
-};
+use riso_ui::{KeyHint, key_hint_text, v_flex};
 
 gpui::actions!(
     key_hint_test,

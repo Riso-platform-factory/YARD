@@ -1,5 +1,4 @@
-#[cfg(feature = "dev")]
-mod dev;
+mod key_hint;
 mod scroll;
 mod text_input;
 
@@ -60,7 +59,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let pages = 8 + usize::from(cfg!(feature = "dev"));
+            let pages = 9;
             let _group = tracing::info_span!("gallery-build", pages).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
@@ -86,8 +85,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             });
             text_input::register(cx, ext);
             scroll::register(cx, ext);
-            #[cfg(feature = "dev")]
-            dev::register(cx, ext);
+            key_hint::register(cx, ext);
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
@@ -117,8 +115,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 ext.place(cx, "scroll", "ui_gallery.scroll", "root", "children");
                 tracing::debug!(page = "scroll", "page placed");
             }
-            #[cfg(feature = "dev")]
-            dev::place(cx, ext);
+            key_hint::place(cx, ext);
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),
     }

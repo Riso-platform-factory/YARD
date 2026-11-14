@@ -123,6 +123,12 @@
     },
     "promoted": "2026-11-14"
   },
+  "riso_ui/key_hint": {
+    "files": {
+      "crates/riso_ui/src/key_hint.rs": "40f172a2a9870ee6"
+    },
+    "promoted": "2026-11-14"
+  },
   "riso_ui/list": {
     "files": {
       "crates/riso_ui/src/list.rs": "59b8e5a1a3e6c5d8"

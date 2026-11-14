@@ -167,7 +167,6 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             "TAB-list",
             "TAB-text-input",
             "TAB-scroll",
-            #[cfg(feature = "dev")]
             "TAB-key-hint",
         ];
         for &selector in selectors {
@@ -218,7 +217,6 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
                 "list",
                 "text-input",
                 "scroll",
-                #[cfg(feature = "dev")]
                 "key-hint",
             ];
             let expected_span = format!("gallery-build pages={}", expected_pages.len());

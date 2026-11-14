@@ -1,11 +1,7 @@
 use gpui::{
     Action, App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, rems,
 };
-use riso_ui::{
-    Label, ListItem, ListItemSpacing,
-    dev::{KeyHint, KeyHintStyle},
-    h_flex, v_flex,
-};
+use riso_ui::{KeyHint, KeyHintStyle, Label, ListItem, ListItemSpacing, h_flex, v_flex};
 
 pub(crate) fn register(cx: &mut App, ext: &riso_shell::Extension) {
     ext.register(cx, "ui_gallery.key_hint", &[], |_, _, _, cx| {

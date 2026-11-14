@@ -1,9 +1,7 @@
-#![cfg(feature = "dev")]
-
 // Alone in this binary: captures tracing output, which would race with any
 // other test reaching the same log lines.
 use gpui::{InteractiveElement, KeyBinding, ParentElement, Styled};
-use riso_ui::{dev::KeyHint, v_flex};
+use riso_ui::{KeyHint, v_flex};
 use std::sync::{Arc, Mutex};
 
 gpui::actions!(key_hint_test, [ToggleZoom]);

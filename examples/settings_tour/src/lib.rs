@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! The settings tour extension, loaded as `settings_tour` and `settings_guest` in `cargo run dev`.
 //! Without `SETTINGS_TOUR`, it contributes nothing.
 //! `SETTINGS_TOUR=card cargo run dev`: a card showing the values of `settings_tour`.
@@ -31,7 +29,7 @@ impl Settings for TourSettings {
     const KEY: &'static str = "settings_tour";
 }
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("SETTINGS_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -61,7 +59,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     }
 }
 
-pub fn guest_init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn guest_init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("SETTINGS_TOUR").unwrap_or_default();
     if case != "guest" {
         return;

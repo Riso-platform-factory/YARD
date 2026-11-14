@@ -11,7 +11,7 @@ risoapp is a platform: engines on which applications are built. This file lists 
 | Files | `riso_paths` | Its directories, the names of its files, and writing a file in one step | built | `docs/foundations/roadmap.md` |
 | Startup | `app/riso` | The order of a start: the log, the files, the extensions, the window | built | `docs/foundations/roadmap.md` |
 | Layout | `riso_layout`, `riso_shell` | A tree of components that extensions fill and the user rearranges, saved between runs | first part built, second part planned | `docs/layout-engine/roadmap.md` |
-| Settings | `riso_settings` | Everything that can be configured: declared in sections, read from one file, changed while the application runs | reading built: sections, the user's file, live reload. Extension sections and writing are missing | `docs/settings-engine/roadmap.md` |
+| Settings | `riso_settings` | Everything that can be configured: declared in sections, read from one file, changed while the application runs | reading built: sections, the user's file, live reload, and extension sections. Writing is missing | `docs/settings-engine/roadmap.md` |
 | Theme | `riso_ui` | The colors, fonts, and density of everything, chosen in the settings | the theme chosen in the settings, switched while running, and following the OS, the UI font, and the density built; more themes and a list of them are missing | `docs/theme-engine/roadmap.md` |
 | UI kit | `riso_ui` | The base components everything is drawn with: text, icons, buttons, lists, inputs, menus | tabs, the split's axis, text, the row and column helpers, icons, buttons, dividers, and the modal frame built, with the gallery; the rest is missing | `docs/ui-kit/roadmap.md` |
 | Keymap | `riso_keymap`, `riso_shell` | The keyboard: focus, actions, default keys, the user's keys, commands by name | the focused node, the shell's actions on it, moving the focus by direction, their default keys, and extensions' own actions and keys built; the user's keys and the command palette are missing | `docs/keymap-engine/roadmap.md` |
@@ -65,7 +65,7 @@ An extension is a Rust crate compiled into the application. The application's co
 | Register components, place nodes, and fill slots of other extensions' components | Layout engine | built |
 | Change the layout while the application runs, and reset it | Layout engine | built |
 | Draw with the theme and the base components | Theme engine, UI kit | partly built |
-| Declare its settings | Settings engine: `extension-sections` | missing |
+| Declare its settings | Settings engine: `extension-sections` | built |
 | Declare actions and their default keys | Keymap engine: `extension-actions` | built |
 | Put items in the title bar and the status bar, and show a modal or a message | Window engine | partly built: the title bar, the status bar, modals, and toasts |
 | Give a model to everything under one of its nodes, or to a whole window | Layout engine: `contexts` | missing |

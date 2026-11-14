@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use riso_settings::Settings;
 use std::{
@@ -248,19 +246,19 @@ fn section_declarations_log_their_groups_lines_and_refusals(cx: &mut TestAppCont
             // The startup wraps each extension's setup in `extension-init`.
             {
                 let _init = tracing::info_span!("extension-init", extension = "tour").entered();
-                let tour = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+                let tour = riso_shell::Extension::new(cx, "tour").unwrap();
                 tour.register_settings::<Tour>(cx);
                 // The engine refuses the same section a second time.
                 tour.register_settings::<Tour>(cx);
             }
             {
                 let _init = tracing::info_span!("extension-init", extension = "guest").entered();
-                let guest = riso_shell::dev::Extension::new(cx, "guest").unwrap();
+                let guest = riso_shell::Extension::new(cx, "guest").unwrap();
                 guest.register_settings::<Tour>(cx);
             }
             {
                 let _init = tracing::info_span!("extension-init", extension = "other").entered();
-                let other = riso_shell::dev::Extension::new(cx, "other").unwrap();
+                let other = riso_shell::Extension::new(cx, "other").unwrap();
                 other.register_settings::<OtherTheme>(cx);
             }
         });

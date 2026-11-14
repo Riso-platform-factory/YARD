@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use riso_settings::Settings;
 use std::{
@@ -138,7 +136,7 @@ fn the_extension_named_section_gets_the_files_values(cx: &mut TestAppContext) {
     cx.update(|cx| {
         riso_settings::init(cx);
         riso_settings::load(cx, path);
-        let tour = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let tour = riso_shell::Extension::new(cx, "tour").unwrap();
         tour.register_settings::<Tour>(cx);
     });
     cx.read(|cx| {
@@ -162,7 +160,7 @@ fn the_extension_named_section_gets_its_defaults_without_the_files_section(
     cx.update(|cx| {
         riso_settings::init(cx);
         riso_settings::load(cx, path);
-        let tour = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let tour = riso_shell::Extension::new(cx, "tour").unwrap();
         tour.register_settings::<Tour>(cx);
     });
     cx.read(|cx| {
@@ -180,10 +178,10 @@ fn a_refused_key_leaves_the_section_free_for_its_extension(cx: &mut TestAppConte
     cx.update(|cx| {
         riso_settings::init(cx);
         riso_settings::load(cx, path);
-        let guest = riso_shell::dev::Extension::new(cx, "guest").unwrap();
+        let guest = riso_shell::Extension::new(cx, "guest").unwrap();
         guest.register_settings::<Tour>(cx);
         assert_unregistered::<Tour>(cx);
-        let tour = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let tour = riso_shell::Extension::new(cx, "tour").unwrap();
         tour.register_settings::<Tour>(cx);
     });
     cx.read(|cx| {
@@ -206,7 +204,7 @@ fn an_extension_cannot_take_a_section_an_engine_registered(cx: &mut TestAppConte
         riso_settings::init(cx);
         riso_settings::load(cx, path);
         riso_settings::register::<Theme>(cx);
-        let other = riso_shell::dev::Extension::new(cx, "other").unwrap();
+        let other = riso_shell::Extension::new(cx, "other").unwrap();
         other.register_settings::<OtherTheme>(cx);
         assert_unregistered::<OtherTheme>(cx);
     });
@@ -227,7 +225,7 @@ fn a_second_registration_of_the_same_section_is_refused(cx: &mut TestAppContext)
     cx.update(|cx| {
         riso_settings::init(cx);
         riso_settings::load(cx, path);
-        let tour = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+        let tour = riso_shell::Extension::new(cx, "tour").unwrap();
         tour.register_settings::<Counted>(cx);
         tour.register_settings::<Counted>(cx);
     });

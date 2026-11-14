@@ -47,7 +47,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 4 | `extension-sections` | An extension declares its section through its handle. The section's key is the extension's name, so an extension cannot take the section of an engine or of another extension | The tour's section is `settings_tour`. The guest extension asks for another key and is refused with an `ERROR` | none | 2 | dev |
+| 4 | `extension-sections` | An extension declares its section through its handle. The section's key is the extension's name, so an extension cannot take the section of an engine or of another extension | The tour's section is `settings_tour`. The guest extension asks for another key and is refused with an `ERROR` | none | 2 | production |
 
 ### Writing
 

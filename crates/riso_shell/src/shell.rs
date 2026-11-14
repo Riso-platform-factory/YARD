@@ -2391,6 +2391,19 @@ impl Extension {
             layer.hide_modal(riso_ui::ModalHideReason::HideModal, window, cx);
         });
     }
+
+    /// Registers the section `T`, whose key must be this extension's name.
+    pub fn register_settings<T: riso_settings::Settings>(&self, cx: &mut App) {
+        if T::KEY != self.name {
+            log::error!(
+                "extension {} cannot declare the section {}",
+                self.name,
+                T::KEY
+            );
+            return;
+        }
+        riso_settings::register::<T>(cx);
+    }
 }
 
 fn toast_layer(window: &Window, cx: &App) -> Option<Entity<riso_ui::ToastLayer>> {

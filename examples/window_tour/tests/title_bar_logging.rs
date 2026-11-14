@@ -1,3 +1,5 @@
+#![cfg(feature = "dev")]
+
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -44,7 +46,10 @@ impl tracing::Subscriber for Trace {
         attributes.record(&mut fields);
         let label = format!("{}{}", attributes.metadata().name(), fields.0);
         let target = attributes.metadata().target();
-        if target.starts_with("riso_shell") || target.starts_with("window_tour") {
+        if target.starts_with("riso_shell")
+            || target.starts_with("riso_ui")
+            || target.starts_with("window_tour")
+        {
             let mut stack: Vec<String> = captured
                 .entered
                 .iter()
@@ -64,6 +69,7 @@ impl tracing::Subscriber for Trace {
         let target = event.metadata().target();
         if !target.starts_with("riso_shell")
             && !target.starts_with("riso_layout")
+            && !target.starts_with("riso_ui")
             && !target.starts_with("window_tour")
         {
             return;
@@ -144,6 +150,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
         run_child(Some("title-bar"));
         run_child(Some("status-bar"));
         run_child(Some("status-items"));
+        run_child(Some("modal-layer"));
         run_child(Some("unknown"));
         return;
     };
@@ -155,18 +162,22 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         let ext = cx.update(|cx| {
-            let ext = riso_shell::Extension::new(cx, "window_tour").unwrap();
+            riso_shell::dev::bind_default_keys(cx);
+            let ext = riso_shell::dev::Extension::new(cx, "window_tour").unwrap();
             window_tour::init(cx, &ext);
             ext
         });
-        if matches!(mode.as_str(), "title-bar" | "status-bar" | "status-items") {
+        if matches!(
+            mode.as_str(),
+            "title-bar" | "status-bar" | "status-items" | "modal-layer"
+        ) {
             let window = cx.update(|cx| {
                 cx.open_window(
                     gpui::WindowOptions {
                         titlebar: Some(riso_ui::titlebar_options("riso")),
                         ..Default::default()
                     },
-                    riso_shell::new_shell,
+                    riso_shell::dev::new_shell,
                 )
                 .unwrap()
             });
@@ -179,49 +190,109 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 })
                 .unwrap();
             let mut visual = gpui::VisualTestContext::from_window(handle, cx);
-            let ping = visual
-                .debug_bounds("BAR-PING")
-                .expect("ping button is drawn in the title bar");
-            visual.simulate_click(ping.center(), Default::default());
-            if mode == "status-bar" {
-                let before = visual.debug_bounds("CARD-root").unwrap();
-                let toggle = visual
-                    .debug_bounds("STATUS-VISIBILITY")
-                    .expect("visibility toggle");
-                assert!(
-                    toggle.size.width < before.size.width / 2.,
-                    "the toggle keeps its own width"
+            if mode == "modal-layer" {
+                let card = visual.debug_bounds("CARD-root").unwrap();
+                visual.simulate_click(
+                    gpui::point(card.right() - gpui::px(10.), card.bottom() - gpui::px(10.)),
+                    Default::default(),
                 );
-                visual.simulate_click(toggle.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
                 });
-                assert!(visual.debug_bounds("BAR-PING").is_none());
-                assert!(visual.debug_bounds("CARD-root").unwrap().size.height > before.size.height);
-                visual.simulate_click(toggle.center(), Default::default());
+
+                let open = visual.debug_bounds("OPEN-MODAL").expect("open modal");
+                visual.simulate_click(open.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
+                    assert!(riso_shell::dev::has_modal(window, cx));
                 });
-                assert!(visual.debug_bounds("BAR-PING").is_some());
-                assert_eq!(visual.debug_bounds("CARD-root").unwrap(), before);
-                for hidden in ["title", "ping"] {
-                    visual.update(|window, cx| {
-                        ext.set_hidden(cx, hidden, true);
-                        window.refresh();
-                        let _ = window.draw(cx);
-                    });
-                    let toggle = visual.debug_bounds("STATUS-VISIBILITY").unwrap();
+                let done = visual.debug_bounds("MODAL-DONE").expect("done button");
+                visual.simulate_click(done.center(), Default::default());
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                    assert!(!riso_shell::dev::has_modal(window, cx));
+                });
+
+                let open = visual.debug_bounds("OPEN-MODAL").unwrap();
+                visual.simulate_click(open.center(), Default::default());
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                    assert!(riso_shell::dev::has_modal(window, cx));
+                });
+                let close = visual.debug_bounds("ICON-Close").expect("close button");
+                visual.simulate_click(close.center(), Default::default());
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                    assert!(!riso_shell::dev::has_modal(window, cx));
+                });
+
+                let dimmed = visual
+                    .debug_bounds("OPEN-DIMMED-MODAL")
+                    .expect("open dimmed modal");
+                visual.simulate_click(dimmed.center(), Default::default());
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                    assert!(riso_shell::dev::has_modal(window, cx));
+                });
+                visual.simulate_keystrokes("escape");
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                    assert!(!riso_shell::dev::has_modal(window, cx));
+                });
+            } else {
+                let ping = visual
+                    .debug_bounds("BAR-PING")
+                    .expect("ping button is drawn in the title bar");
+                visual.simulate_click(ping.center(), Default::default());
+                if mode == "status-bar" {
+                    let before = visual.debug_bounds("CARD-root").unwrap();
+                    let toggle = visual
+                        .debug_bounds("STATUS-VISIBILITY")
+                        .expect("visibility toggle");
+                    assert!(
+                        toggle.size.width < before.size.width / 2.,
+                        "the toggle keeps its own width"
+                    );
                     visual.simulate_click(toggle.center(), Default::default());
                     visual.update(|window, cx| {
                         window.refresh();
                         let _ = window.draw(cx);
-                        assert!(!riso_shell::is_hidden(cx, "title"));
-                        assert!(!riso_shell::is_hidden(cx, "ping"));
                     });
-                    assert!(visual.debug_bounds("BAR-TITLE").is_some());
+                    assert!(visual.debug_bounds("BAR-PING").is_none());
+                    assert!(
+                        visual.debug_bounds("CARD-root").unwrap().size.height > before.size.height
+                    );
+                    visual.simulate_click(toggle.center(), Default::default());
+                    visual.update(|window, cx| {
+                        window.refresh();
+                        let _ = window.draw(cx);
+                    });
                     assert!(visual.debug_bounds("BAR-PING").is_some());
+                    assert_eq!(visual.debug_bounds("CARD-root").unwrap(), before);
+                    for hidden in ["title", "ping"] {
+                        visual.update(|window, cx| {
+                            ext.set_hidden(cx, hidden, true);
+                            window.refresh();
+                            let _ = window.draw(cx);
+                        });
+                        let toggle = visual.debug_bounds("STATUS-VISIBILITY").unwrap();
+                        visual.simulate_click(toggle.center(), Default::default());
+                        visual.update(|window, cx| {
+                            window.refresh();
+                            let _ = window.draw(cx);
+                            assert!(!riso_shell::dev::is_hidden(cx, "title"));
+                            assert!(!riso_shell::dev::is_hidden(cx, "ping"));
+                        });
+                        assert!(visual.debug_bounds("BAR-TITLE").is_some());
+                        assert!(visual.debug_bounds("BAR-PING").is_some());
+                    }
                 }
             }
         }
@@ -300,6 +371,69 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 "unexpected diagnostics: {diagnostics:?}"
             );
         }
+        "modal-layer" => {
+            assert!(
+                captured
+                    .lines
+                    .iter()
+                    .any(|line| line.contains("node=root component=window_tour.card")),
+                "missing root card placement in {:#?}",
+                captured.lines
+            );
+            for span in [
+                "modal-show modal=\"TourModal\"",
+                "modal-show modal=\"DimmedTourModal\"",
+                "modal-hide modal=\"TourModal\" reason=\"dismiss-event\"",
+                "modal-hide modal=\"DimmedTourModal\" reason=\"escape\"",
+            ] {
+                assert!(
+                    captured
+                        .spans
+                        .values()
+                        .any(|recorded| recorded.contains(span)),
+                    "missing `{span}` in {:#?}",
+                    captured.spans
+                );
+            }
+            assert_eq!(
+                captured
+                    .lines
+                    .iter()
+                    .filter(|line| line.contains("INFO message=modal closed"))
+                    .count(),
+                2,
+                "expected two `modal closed` lines (Done and Close) in {:#?}",
+                captured.lines
+            );
+            assert!(
+                captured
+                    .lines
+                    .iter()
+                    .any(|line| line.contains("focus restored")),
+                "missing `focus restored` in {:#?}",
+                captured.lines
+            );
+            assert!(
+                captured
+                    .lines
+                    .iter()
+                    .any(|line| line.contains("dimmed=false")),
+                "missing non-dimmed draw trace in {:#?}",
+                captured.lines
+            );
+            assert!(
+                captured
+                    .lines
+                    .iter()
+                    .any(|line| line.contains("dimmed=true")),
+                "missing dimmed draw trace in {:#?}",
+                captured.lines
+            );
+            assert!(
+                diagnostics.is_empty(),
+                "unexpected diagnostics: {diagnostics:?}"
+            );
+        }
         "unknown" => {
             assert_eq!(
                 diagnostics.len(),
@@ -309,7 +443,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
             assert!(
                 diagnostics[0].starts_with("WARN ")
                     && diagnostics[0].contains("unknown")
-                    && diagnostics[0].contains("title-bar, status-bar, status-items"),
+                    && diagnostics[0].contains("title-bar, status-bar, status-items, modal-layer"),
                 "unexpected diagnostic: {}",
                 diagnostics[0]
             );

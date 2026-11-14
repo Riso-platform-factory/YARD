@@ -51,7 +51,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 3 | `modal-layer` | A layer above the tree that shows one modal at a time over a dimmed window. The modal takes the focus, closes with escape or with a click outside, and gives the focus back | A button opens a modal with a line of text and a close button | `modal_layer.rs` | UI kit: `modal`. Keymap engine: `default-keys` | planned |
+| 3 | `modal-layer` | A layer above the tree that shows one modal at a time, over a dimmed window when the modal asks for it, as in Zed. The modal takes the focus, closes with escape or with a click outside, and gives the focus back | A button opens a modal with a line of text and a close button | `modal_layer.rs` | UI kit: `modal`. Keymap engine: `default-keys` | dev |
 | 4 | `toasts` | An extension shows a short message over the window: information, a warning, or an error. It goes away by itself or with a click, and can carry one button | Three buttons show the three kinds | `toast_layer.rs`, `notifications.rs` | UI kit: `button`, `icon` | planned |
 | 5 | `prompts` | A question that must be answered, drawn by the OS: a message, a detail, and buttons | A button asks a question and logs the answer | `gpui`: `prompt` | none | planned |
 

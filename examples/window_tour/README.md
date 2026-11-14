@@ -1,6 +1,6 @@
 # window_tour
 
-A test extension for the window engine. When `app/riso/src/dev/review.rs` lists it as `("window_tour", window_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back when the next window engine feature is under review.
+A test extension for the window engine. When `app/riso/src/dev/review.rs` lists it as `("window_tour", window_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for `modal-layer`, which is under review.
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: the window's frame, with the title bar drawn by riso and an empty body. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
 It grows with the window engine, one case per feature. Its components are test items: a card shows its node ID and its own size, and the bar items stand for no feature.
@@ -36,3 +36,16 @@ The case is chosen with the environment variable `WINDOW_TOUR`. An unknown case 
 | Click `hide status items`, then `show status items` | The bar goes and the card grows to the bottom, then the bar comes back and the card shrinks. |
 | `LAYOUT_TOUR=zoom WINDOW_TOUR=status-items cargo run dev`, zoom `b` | `b` fills the body, between the title bar and the status bar. |
 | `{"theme": {"mode": "light"}}`, and `{"theme": {"ui_density": "compact"}}` | The bar follows the theme, and its padding the density. |
+
+### Feature 3: modal-layer
+
+`WINDOW_TOUR=modal-layer` places a card as the root with two buttons, `open modal` and `open dimmed modal`. Each opens a modal drawn with the UI kit's `Modal`: the headline `window_tour`, a line of text, a close button, and a footer button `Done`. Its close button and `Done` each log `modal closed`.
+
+| Command and action | What to look for |
+|---|---|
+| `WINDOW_TOUR=modal-layer cargo run dev`, click `open modal` | The modal, centred near the top of the window, over the card; the window is not dimmed. `modal-show{modal=…}` in the log. |
+| Press escape | It closes. `modal-hide{…, reason=escape}`, then `focus restored`. |
+| Open it, click outside it | It closes, `reason=click-outside`, and the button under the click is not pressed. |
+| Open it, click `Done`, then open it and click its close button | It closes each time, `reason=dismiss-event`, with `modal closed` from the extension. |
+| Click `open dimmed modal` | The window behind is dimmed, as Zed's faded background. |
+| `{"theme": {"mode": "light"}}` | The modal and the dimmed background follow the theme. |

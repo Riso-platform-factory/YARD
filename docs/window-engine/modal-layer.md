@@ -53,7 +53,7 @@ pub fn has_modal(window: &Window, cx: &App) -> bool;
 | A toggle closes the open modal of the same type | `modal-hide` with `reason=toggle`, and no `modal-show` |
 | `hide_modal` or escape with no modal open | Nothing |
 | The layer draws a modal | One `trace` line per draw: the modal's name and whether the background is dimmed. Nothing while no modal is open |
-| The default keys are bound | `keys-bind` counts one more key, `escape` for `Dismiss`, as its other keys |
+| The default keys are bound | `keys-bind` counts one more key, `escape` for `riso::Dismiss`, logged as its other keys are, with the action's full name |
 
 ## Where the code changes
 
@@ -73,14 +73,16 @@ The startup does not change.
   - `hide_modal` closes it; `hide_modal` and escape with no modal open change nothing;
   - opening the same type again closes it; opening another type replaces it, and closing that one gives the focus back to the node focused before the first;
   - a modal that dims the background draws the faded background over the whole window; one that does not, draws none;
+  - after one modal replaces another, a `DismissEvent` from the replaced modal's view closes nothing;
   - with no modal open, the layer takes no room and blocks nothing: a click on a card's button reaches it;
   - the modal is drawn over the title bar and the status bar: a click on a bar item while a modal is open closes the modal and does not reach the item.
+  - a click outside the modal reaches no mouse-down handler of the views below it either, only the layer's.
 - A logging test alone in its file: every row of the table, with exact field values, and the draw line counted over every crate's lines.
 - **Existing tests:** only a test that counts or lists the default keys changes: it now has `escape` for `Dismiss`. Each change is listed when it is made.
 
 ## Test extension: `examples/window_tour`
 
-A new case, `WINDOW_TOUR=modal-layer`. It places a card as the root with two buttons, `open modal` and `open dimmed modal`. Each opens a modal drawn with the UI kit's `Modal`: the headline `window_tour`, a line of text, a close button, and a footer button `Done` that also closes it. Each close logs `modal closed` from the extension. Use a fresh home: `RISO_HOME=/tmp/riso-window`.
+A new case, `WINDOW_TOUR=modal-layer`. It places a card as the root with two buttons, `open modal` and `open dimmed modal`. Each opens a modal drawn with the UI kit's `Modal`: the headline `window_tour`, a line of text, a close button, and a footer button `Done` that also closes it. Its close button and `Done` each log `modal closed` from the extension; escape and a click outside are the layer's, and log only the layer's lines. Use a fresh home: `RISO_HOME=/tmp/riso-window`.
 
 | Command and action | What to look for |
 |---|---|

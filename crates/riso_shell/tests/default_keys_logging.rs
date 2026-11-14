@@ -105,6 +105,7 @@ const BINDINGS: &[(&str, &str)] = &[
     ("cmd-k cmd-up", "FocusUp"),
     ("cmd-k cmd-down", "FocusDown"),
     ("escape", "Dismiss"),
+    ("cmd-q", "Quit"),
 ];
 
 #[cfg(not(target_os = "macos"))]
@@ -117,6 +118,7 @@ const BINDINGS: &[(&str, &str)] = &[
     ("ctrl-k ctrl-up", "FocusUp"),
     ("ctrl-k ctrl-down", "FocusDown"),
     ("escape", "Dismiss"),
+    ("ctrl-q", "Quit"),
 ];
 
 // Alone in this binary: all calls reaching the captured lines use one subscriber.
@@ -165,6 +167,8 @@ fn bind_default_keys_logs_a_keys_bind_group_with_a_debug_line_per_binding(cx: &m
                         && line.contains(action)
                         && line.contains(if *action == "Dismiss" {
                             "ModalLayer"
+                        } else if *action == "Quit" {
+                            ""
                         } else {
                             "Shell"
                         })

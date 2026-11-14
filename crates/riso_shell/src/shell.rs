@@ -15,6 +15,7 @@ gpui::actions!(
 );
 
 gpui::actions!(riso, [Dismiss]);
+gpui::actions!(riso, [Quit]);
 use gpui::{
     Action, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div, DragMoveEvent,
     Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding,
@@ -1107,7 +1108,7 @@ pub fn set_window_title(cx: &mut App, title: impl Into<SharedString>) {
     cx.refresh_windows();
 }
 
-/// Binds the shell's default keys in the `Shell` and `ModalLayer` key contexts.
+/// Binds the shell's default keys, including the application-wide quit key.
 pub fn bind_default_keys(cx: &mut App) {
     #[cfg(target_os = "macos")]
     const DEFAULT_KEYS: &[(&str, LayoutAction)] = &[
@@ -1131,7 +1132,7 @@ pub fn bind_default_keys(cx: &mut App) {
         ("ctrl-k ctrl-up", LayoutAction::FocusUp),
         ("ctrl-k ctrl-down", LayoutAction::FocusDown),
     ];
-    let count = DEFAULT_KEYS.len() + 1;
+    let count = DEFAULT_KEYS.len() + 2;
     let _group = tracing::info_span!("keys-bind", count).entered();
     let mut logged = Vec::with_capacity(count);
     let mut bindings: Vec<KeyBinding> = DEFAULT_KEYS
@@ -1156,6 +1157,13 @@ pub fn bind_default_keys(cx: &mut App) {
     let dismiss = KeyBinding::new("escape", Dismiss, Some("ModalLayer"));
     logged.push(("escape", dismiss.action().name(), "ModalLayer"));
     bindings.push(dismiss);
+    #[cfg(target_os = "macos")]
+    let quit_key = "cmd-q";
+    #[cfg(not(target_os = "macos"))]
+    let quit_key = "ctrl-q";
+    let quit = KeyBinding::new(quit_key, Quit, None);
+    logged.push((quit_key, quit.action().name(), ""));
+    bindings.push(quit);
     cx.bind_keys(bindings);
     for (keys, action, context) in logged {
         tracing::debug!(keys, action, context, "bound");
@@ -2745,4 +2753,21 @@ impl Render for Shell {
                     .child(self.modal_layer.clone()),
             )
     }
+}
+
+/// Handles `riso::Quit` for the whole application: it quits.
+pub fn handle_quit(cx: &mut App) {
+    cx.on_action(|_: &Quit, cx| {
+        let _group = tracing::info_span!("app-quit").entered();
+        cx.quit();
+    });
+}
+
+/// Sets the application's menus.
+pub fn set_menus(cx: &mut App, menus: Vec<gpui::Menu>) {
+    let _group = tracing::info_span!("menus-set", count = menus.len()).entered();
+    for menu in &menus {
+        tracing::debug!(name = %menu.name, items = menu.items.len() as u64, "menu");
+    }
+    cx.set_menus(menus);
 }

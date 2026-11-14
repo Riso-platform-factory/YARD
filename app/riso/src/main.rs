@@ -1,5 +1,6 @@
 #[cfg(feature = "dev")]
 mod dev;
+mod menus;
 mod startup;
 
 fn main() {
@@ -13,5 +14,6 @@ fn main() {
             version: env!("PRODUCT_VERSION"),
         },
         &[],
+        menus::menus,
     );
 }

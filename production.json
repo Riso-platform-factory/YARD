@@ -1,7 +1,13 @@
 {
+  "riso/menus": {
+    "files": {
+      "app/riso/src/menus.rs": "73d702762c3f3097"
+    },
+    "promoted": "2026-11-14"
+  },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "eeb60f131488147e"
+      "app/riso/src/startup.rs": "fd6977098e20521e"
     },
     "promoted": "2026-11-14"
   },
@@ -83,7 +89,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "26fc98db3e6c4410"
+      "crates/riso_shell/src/shell.rs": "0b7d0de46d69bfed"
     },
     "promoted": "2026-11-14"
   },

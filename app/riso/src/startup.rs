@@ -2,7 +2,11 @@ use gpui::{App, WindowOptions};
 
 type Init = fn(&mut App, &riso_shell::Extension);
 
-pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)]) {
+pub(crate) fn run(
+    product: riso_log::Product,
+    extensions: &[(&'static str, Init)],
+    menus: fn(&riso_log::Product) -> Vec<gpui::Menu>,
+) {
     riso_log::start(product);
     let paths = riso_paths::Paths::from_env(product.name);
     {
@@ -24,6 +28,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
                 riso_shell::set_window_title(cx, product.name);
                 riso_shell::set_layout_file(cx, paths.layout_file());
                 riso_shell::bind_default_keys(cx);
+                riso_shell::handle_quit(cx);
                 cx.on_window_closed(|cx, _| {
                     if cx.windows().is_empty() {
                         cx.quit();
@@ -41,6 +46,7 @@ pub(crate) fn run(product: riso_log::Product, extensions: &[(&'static str, Init)
                     }
                 }
             }
+            riso_shell::set_menus(cx, menus(&product));
             {
                 let _group = tracing::info_span!("window-open").entered();
                 cx.open_window(

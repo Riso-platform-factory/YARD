@@ -1,26 +1,21 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 
 /// The menus the application's composition root gives the startup: the
 /// application's own menu and `View` with the shell's actions.
 fn menus() -> Vec<gpui::Menu> {
     vec![
-        gpui::Menu::new("riso").items(vec![gpui::MenuItem::action(
-            "Quit riso",
-            riso_shell::dev::Quit,
-        )]),
+        gpui::Menu::new("riso").items(vec![gpui::MenuItem::action("Quit riso", riso_shell::Quit)]),
         gpui::Menu::new("View").items(vec![
-            gpui::MenuItem::action("Zoom", riso_shell::dev::ToggleZoom),
-            gpui::MenuItem::action("Hide Node", riso_shell::dev::Hide),
+            gpui::MenuItem::action("Zoom", riso_shell::ToggleZoom),
+            gpui::MenuItem::action("Hide Node", riso_shell::Hide),
             gpui::MenuItem::separator(),
-            gpui::MenuItem::action("Select Next Tab", riso_shell::dev::SelectNextTab),
-            gpui::MenuItem::action("Select Previous Tab", riso_shell::dev::SelectPreviousTab),
+            gpui::MenuItem::action("Select Next Tab", riso_shell::SelectNextTab),
+            gpui::MenuItem::action("Select Previous Tab", riso_shell::SelectPreviousTab),
             gpui::MenuItem::separator(),
-            gpui::MenuItem::action("Focus Left", riso_shell::dev::FocusLeft),
-            gpui::MenuItem::action("Focus Right", riso_shell::dev::FocusRight),
-            gpui::MenuItem::action("Focus Up", riso_shell::dev::FocusUp),
-            gpui::MenuItem::action("Focus Down", riso_shell::dev::FocusDown),
+            gpui::MenuItem::action("Focus Left", riso_shell::FocusLeft),
+            gpui::MenuItem::action("Focus Right", riso_shell::FocusRight),
+            gpui::MenuItem::action("Focus Up", riso_shell::FocusUp),
+            gpui::MenuItem::action("Focus Down", riso_shell::FocusDown),
         ]),
     ]
 }
@@ -38,7 +33,7 @@ fn item(item: &gpui::OwnedMenuItem) -> (&'static str, &str, &'static str) {
 #[gpui::test]
 fn set_menus_gives_gpui_the_menus_unchanged(cx: &mut TestAppContext) {
     cx.update(|cx| {
-        riso_shell::dev::set_menus(cx, menus());
+        riso_shell::set_menus(cx, menus());
         let shown = cx.get_menus().expect("the test platform keeps the menus");
         let names: Vec<&str> = shown.iter().map(|menu| menu.name.as_ref()).collect();
         assert_eq!(names, ["riso", "View"]);
@@ -68,11 +63,11 @@ fn set_menus_gives_gpui_the_menus_unchanged(cx: &mut TestAppContext) {
 /// Asserts `riso::Quit` has exactly one binding, `keys`, with no key context.
 fn quit_is_bound(cx: &mut TestAppContext, keys: &str) {
     cx.update(|cx| {
-        riso_shell::dev::bind_default_keys(cx);
+        riso_shell::bind_default_keys(cx);
         let os = cx.platform_info().os;
         let keymap = cx.key_bindings();
         let keymap = keymap.borrow();
-        let bindings: Vec<_> = keymap.bindings_for_action(&riso_shell::dev::Quit).collect();
+        let bindings: Vec<_> = keymap.bindings_for_action(&riso_shell::Quit).collect();
         assert_eq!(bindings.len(), 1, "exactly one binding for riso::Quit");
         let bound: Vec<String> = bindings[0]
             .keystrokes()

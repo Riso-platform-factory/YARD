@@ -4,19 +4,19 @@ pub(crate) fn menus(product: &riso_log::Product) -> Vec<Menu> {
     vec![
         Menu::new(product.name).items(vec![MenuItem::action(
             format!("Quit {}", product.name),
-            riso_shell::dev::Quit,
+            riso_shell::Quit,
         )]),
         Menu::new("View").items(vec![
-            MenuItem::action("Zoom", riso_shell::dev::ToggleZoom),
-            MenuItem::action("Hide Node", riso_shell::dev::Hide),
+            MenuItem::action("Zoom", riso_shell::ToggleZoom),
+            MenuItem::action("Hide Node", riso_shell::Hide),
             MenuItem::separator(),
-            MenuItem::action("Select Next Tab", riso_shell::dev::SelectNextTab),
-            MenuItem::action("Select Previous Tab", riso_shell::dev::SelectPreviousTab),
+            MenuItem::action("Select Next Tab", riso_shell::SelectNextTab),
+            MenuItem::action("Select Previous Tab", riso_shell::SelectPreviousTab),
             MenuItem::separator(),
-            MenuItem::action("Focus Left", riso_shell::dev::FocusLeft),
-            MenuItem::action("Focus Right", riso_shell::dev::FocusRight),
-            MenuItem::action("Focus Up", riso_shell::dev::FocusUp),
-            MenuItem::action("Focus Down", riso_shell::dev::FocusDown),
+            MenuItem::action("Focus Left", riso_shell::FocusLeft),
+            MenuItem::action("Focus Right", riso_shell::FocusRight),
+            MenuItem::action("Focus Up", riso_shell::FocusUp),
+            MenuItem::action("Focus Down", riso_shell::FocusDown),
         ]),
     ]
 }

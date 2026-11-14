@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use std::{
     collections::BTreeMap,
@@ -127,21 +125,18 @@ fn spans_named(trace: &Trace, prefix: &str) -> Vec<String> {
 /// application's own menu and `View` with the shell's actions.
 fn menus() -> Vec<gpui::Menu> {
     vec![
-        gpui::Menu::new("riso").items(vec![gpui::MenuItem::action(
-            "Quit riso",
-            riso_shell::dev::Quit,
-        )]),
+        gpui::Menu::new("riso").items(vec![gpui::MenuItem::action("Quit riso", riso_shell::Quit)]),
         gpui::Menu::new("View").items(vec![
-            gpui::MenuItem::action("Zoom", riso_shell::dev::ToggleZoom),
-            gpui::MenuItem::action("Hide Node", riso_shell::dev::Hide),
+            gpui::MenuItem::action("Zoom", riso_shell::ToggleZoom),
+            gpui::MenuItem::action("Hide Node", riso_shell::Hide),
             gpui::MenuItem::separator(),
-            gpui::MenuItem::action("Select Next Tab", riso_shell::dev::SelectNextTab),
-            gpui::MenuItem::action("Select Previous Tab", riso_shell::dev::SelectPreviousTab),
+            gpui::MenuItem::action("Select Next Tab", riso_shell::SelectNextTab),
+            gpui::MenuItem::action("Select Previous Tab", riso_shell::SelectPreviousTab),
             gpui::MenuItem::separator(),
-            gpui::MenuItem::action("Focus Left", riso_shell::dev::FocusLeft),
-            gpui::MenuItem::action("Focus Right", riso_shell::dev::FocusRight),
-            gpui::MenuItem::action("Focus Up", riso_shell::dev::FocusUp),
-            gpui::MenuItem::action("Focus Down", riso_shell::dev::FocusDown),
+            gpui::MenuItem::action("Focus Left", riso_shell::FocusLeft),
+            gpui::MenuItem::action("Focus Right", riso_shell::FocusRight),
+            gpui::MenuItem::action("Focus Up", riso_shell::FocusUp),
+            gpui::MenuItem::action("Focus Down", riso_shell::FocusDown),
         ]),
     ]
 }
@@ -175,23 +170,23 @@ fn the_shell_logs_menus_set_keys_bind_and_app_quit(cx: &mut TestAppContext) {
             cx.update(|cx| {
                 {
                     let _init = tracing::info_span!("app-init").entered();
-                    riso_shell::dev::bind_default_keys(cx);
-                    riso_shell::dev::handle_quit(cx);
+                    riso_shell::bind_default_keys(cx);
+                    riso_shell::handle_quit(cx);
                 }
                 {
                     let _load = tracing::info_span!("extensions-load").entered();
                 }
-                riso_shell::dev::set_menus(cx, menus());
+                riso_shell::set_menus(cx, menus());
             });
         }
-        cx.update(|cx| cx.dispatch_action(&riso_shell::dev::Quit));
+        cx.update(|cx| cx.dispatch_action(&riso_shell::Quit));
         assert_eq!(
             spans_named(&trace, "INFO app-quit").len(),
             1,
             "`Quit` with no window opens `app-quit` once"
         );
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         window
@@ -206,7 +201,7 @@ fn the_shell_logs_menus_set_keys_bind_and_app_quit(cx: &mut TestAppContext) {
         });
         window
             .update(cx, |_, window, cx| {
-                window.dispatch_action(Box::new(riso_shell::dev::Quit), cx)
+                window.dispatch_action(Box::new(riso_shell::Quit), cx)
             })
             .unwrap();
         assert_eq!(

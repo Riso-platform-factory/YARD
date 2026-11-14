@@ -17,9 +17,9 @@ struct ConfiguredUiFont {
 
 impl Global for ConfiguredUiFont {}
 
-#[derive(Clone, Copy, serde::Deserialize)]
+#[derive(Clone, Copy, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
-enum Mode {
+pub(crate) enum Mode {
     System,
     Dark,
     Light,
@@ -35,7 +35,7 @@ impl std::fmt::Display for Mode {
     }
 }
 
-#[derive(Clone, Copy, Default, serde::Deserialize)]
+#[derive(Clone, Copy, Default, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "lowercase")]
 enum Density {
     Compact,
@@ -64,10 +64,10 @@ impl From<Density> for theme::UiDensity {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-struct ThemeSettings {
-    mode: Mode,
+pub(crate) struct ThemeSettings {
+    pub(crate) mode: Mode,
     dark: String,
     light: String,
     ui_font_family: Option<String>,

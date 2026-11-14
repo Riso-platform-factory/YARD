@@ -4674,6 +4674,7 @@ dependencies = [
  "riso_shell",
  "riso_ui",
  "serde_json",
+ "settings_tour",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
 ]

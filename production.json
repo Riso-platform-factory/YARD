@@ -193,9 +193,9 @@
   },
   "riso_ui/theme_setting": {
     "files": {
-      "crates/riso_ui/src/theme_setting.rs": "dda7c4575cf73ea8"
+      "crates/riso_ui/src/theme_setting.rs": "b298c46a4bf2ac8a"
     },
-    "promoted": "2026-11-13"
+    "promoted": "2026-11-14"
   },
   "riso_ui/theming": {
     "files": {

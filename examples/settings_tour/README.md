@@ -1,6 +1,6 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings or theme feature is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
+A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for the theme engine's `theme-list`, which is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own through its handle and places one card that shows the section's values, read from the engine while the card draws.
 
@@ -86,3 +86,14 @@ The tour carries Zed's Ayu theme file in `fixtures/ayu.json`, with its license a
 | Change the setting to `{"theme": {"mode": "light", "light": "Ayu Light"}}` while it runs | The window switches. |
 | Put a broken copy beside it, `broken.json`, and start again | The `WARN` names `broken.json`; Ayu still loads. |
 | Remove the folder and start | `no themes folder`; One Dark, with the `WARN` that the named theme is not registered. |
+
+## Theme feature 7: theme-list
+
+`SETTINGS_TOUR=themes` shows the registered themes as a list: a header `Themes`, one item per theme with its appearance at the end, dark themes first, the active theme selected. A click chooses the theme, as Zed's theme selector does. The case exists only in `cargo run dev`.
+
+| Command and action | What to look for |
+|---|---|
+| `SETTINGS_TOUR=themes cargo run dev` | The list, dark themes first: One Dark selected. |
+| Click `One Light` | The window turns light at once, and `One Light` is selected. `settings.json` holds `"light": "One Light"` and `"mode": "light"`. `theme-choose{name=One Light}` with `settings-write` inside it. |
+| Copy `fixtures/ayu.json` to `config/themes/`, start again, click `Ayu Mirage` | The Ayu themes are in the list; the window turns Ayu Mirage; the file holds `"dark": "Ayu Mirage"` and `"mode": "dark"`. |
+| Set `"mode": "system"` by hand, then click a theme of the system's appearance | `mode` stays `system`. |

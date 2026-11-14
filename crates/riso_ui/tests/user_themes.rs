@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{Hsla, Rgba, TestAppContext};
-use riso_ui::dev::load_user_themes;
+use riso_ui::load_user_themes;
 use std::{
     fs,
     path::{Path, PathBuf},

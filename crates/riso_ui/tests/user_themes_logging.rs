@@ -1,9 +1,7 @@
-#![cfg(feature = "dev")]
-
 // Alone in this binary: installs the process-wide diagnostic logger and
 // captures every callsite.
 use gpui::TestAppContext;
-use riso_ui::dev::load_user_themes;
+use riso_ui::load_user_themes;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,

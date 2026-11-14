@@ -7,7 +7,7 @@
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "6c63f964d0d41584"
+      "app/riso/src/startup.rs": "ea9bf98ced870d13"
     },
     "promoted": "2026-11-14"
   },
@@ -68,6 +68,12 @@
       "crates/riso_paths/src/settings_file.rs": "2a4eb2f8441264c6"
     },
     "promoted": "2026-11-12"
+  },
+  "riso_paths/themes_dir": {
+    "files": {
+      "crates/riso_paths/src/themes_dir.rs": "c43c4b602859145e"
+    },
+    "promoted": "2026-11-14"
   },
   "riso_paths/write_atomic": {
     "files": {
@@ -207,6 +213,12 @@
   "riso_ui/toast_layer": {
     "files": {
       "crates/riso_ui/src/toast_layer.rs": "7c68b1efabd73a51"
+    },
+    "promoted": "2026-11-14"
+  },
+  "riso_ui/user_themes": {
+    "files": {
+      "crates/riso_ui/src/user_themes.rs": "2b41c1d33d199b2c"
     },
     "promoted": "2026-11-14"
   }

@@ -18,6 +18,7 @@ mod theme_setting;
 mod theming;
 mod title_bar;
 mod toast_layer;
+mod user_themes;
 pub use axis::*;
 pub use button::*;
 pub use divider::*;
@@ -36,6 +37,4 @@ pub use theme_setting::*;
 pub use theming::*;
 pub use title_bar::*;
 pub use toast_layer::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;
+pub use user_themes::*;

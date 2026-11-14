@@ -24,6 +24,7 @@ pub(crate) fn run(
                 riso_settings::load(cx, paths.settings_file());
                 riso_settings::watch(cx);
                 riso_ui::init(cx);
+                riso_ui::load_user_themes(cx, &paths.themes_dir());
                 riso_ui::apply_theme_setting(cx);
                 riso_shell::set_window_title(cx, product.name);
                 riso_shell::set_layout_file(cx, paths.layout_file());

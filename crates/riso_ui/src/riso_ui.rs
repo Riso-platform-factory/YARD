@@ -5,6 +5,7 @@ mod button;
 mod divider;
 mod icon;
 mod modal;
+mod modal_layer;
 mod stack;
 mod status_bar;
 mod tabs;
@@ -17,6 +18,7 @@ pub use button::*;
 pub use divider::*;
 pub use icon::*;
 pub use modal::*;
+pub use modal_layer::*;
 pub use stack::*;
 pub use status_bar::*;
 pub use tabs::*;
@@ -24,6 +26,3 @@ pub use text::*;
 pub use theme_setting::*;
 pub use theming::*;
 pub use title_bar::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;

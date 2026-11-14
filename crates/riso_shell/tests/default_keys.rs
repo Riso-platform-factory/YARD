@@ -177,6 +177,11 @@ fn bind_default_keys_binds_the_macos_keys_of_each_action_in_the_shell_context(
                 );
             }
         }
-        assert_eq!(keymap.bindings().len(), 9, "every bound key");
+        let modal_layer = gpui::KeyBindingContextPredicate::parse("ModalLayer").unwrap();
+        let bindings: Vec<_> = keymap.bindings_for_action(&riso_shell::Dismiss).collect();
+        assert_eq!(bindings.len(), 1);
+        assert_eq!(bindings[0].keystrokes()[0].unparse(os), "escape");
+        assert_eq!(bindings[0].predicate().as_deref(), Some(&modal_layer));
+        assert_eq!(keymap.bindings().len(), 10, "every bound key");
     });
 }

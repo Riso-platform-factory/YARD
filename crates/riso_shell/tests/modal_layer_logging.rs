@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -137,7 +135,7 @@ impl gpui::Focusable for TestModal {
         self.focus.clone()
     }
 }
-impl riso_ui::dev::ModalView for TestModal {}
+impl riso_ui::ModalView for TestModal {}
 impl gpui::Render for TestModal {
     fn render(&mut self, _: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         surface("MODAL-TEST", &self.focus, cx.entity())
@@ -162,7 +160,7 @@ impl gpui::Focusable for OtherModal {
         self.focus.clone()
     }
 }
-impl riso_ui::dev::ModalView for OtherModal {}
+impl riso_ui::ModalView for OtherModal {}
 impl gpui::Render for OtherModal {
     fn render(&mut self, _: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         surface("MODAL-OTHER", &self.focus, cx.entity())
@@ -187,7 +185,7 @@ impl gpui::Focusable for DimmedModal {
         self.focus.clone()
     }
 }
-impl riso_ui::dev::ModalView for DimmedModal {
+impl riso_ui::ModalView for DimmedModal {
     fn dims_background(&self) -> bool {
         true
     }
@@ -198,7 +196,7 @@ impl gpui::Render for DimmedModal {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, app: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, app: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(app, |_, window, cx| {
             window.refresh();
@@ -208,9 +206,9 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, app: &mut TestAppCon
 }
 
 /// Shows a modal of type `V` through the extension.
-fn toggle<V: riso_ui::dev::ModalView>(
-    ext: &riso_shell::dev::Extension,
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+fn toggle<V: riso_ui::ModalView>(
+    ext: &riso_shell::Extension,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     app: &mut TestAppContext,
     build: impl FnOnce(&mut gpui::Window, &mut gpui::Context<V>) -> V,
 ) {
@@ -223,8 +221,8 @@ fn toggle<V: riso_ui::dev::ModalView>(
 
 /// Closes the open modal through the extension.
 fn hide(
-    ext: &riso_shell::dev::Extension,
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+    ext: &riso_shell::Extension,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     app: &mut TestAppContext,
 ) {
     gpui::AnyWindowHandle::from(window)
@@ -330,11 +328,11 @@ fn the_modal_layer_logs_shows_hides_reasons_focus_and_draws(cx: &mut TestAppCont
         {
             // The startup binds the default keys in `app-init`, before extensions run.
             let _group = tracing::info_span!("app-init").entered();
-            app.update(riso_shell::dev::bind_default_keys);
+            app.update(riso_shell::bind_default_keys);
         }
         app.update(riso_ui::init);
         let ext = app.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.register(cx, "tour.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -346,7 +344,7 @@ fn the_modal_layer_logs_shows_hides_reasons_focus_and_draws(cx: &mut TestAppCont
             ext
         });
         let window = app.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         app.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));

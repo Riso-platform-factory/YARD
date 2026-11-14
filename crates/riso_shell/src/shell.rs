@@ -13,6 +13,8 @@ gpui::actions!(
         FocusDown
     ]
 );
+
+gpui::actions!(riso, [Dismiss]);
 use gpui::{
     Action, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div, DragMoveEvent,
     Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding,
@@ -1105,7 +1107,7 @@ pub fn set_window_title(cx: &mut App, title: impl Into<SharedString>) {
     cx.refresh_windows();
 }
 
-/// Binds the shell's default keys in the `Shell` key context.
+/// Binds the shell's default keys in the `Shell` and `ModalLayer` key contexts.
 pub fn bind_default_keys(cx: &mut App) {
     #[cfg(target_os = "macos")]
     const DEFAULT_KEYS: &[(&str, LayoutAction)] = &[
@@ -1129,9 +1131,10 @@ pub fn bind_default_keys(cx: &mut App) {
         ("ctrl-k ctrl-up", LayoutAction::FocusUp),
         ("ctrl-k ctrl-down", LayoutAction::FocusDown),
     ];
-    let _group = tracing::info_span!("keys-bind", count = DEFAULT_KEYS.len()).entered();
-    let mut logged = Vec::with_capacity(DEFAULT_KEYS.len());
-    let bindings: Vec<KeyBinding> = DEFAULT_KEYS
+    let count = DEFAULT_KEYS.len() + 1;
+    let _group = tracing::info_span!("keys-bind", count).entered();
+    let mut logged = Vec::with_capacity(count);
+    let mut bindings: Vec<KeyBinding> = DEFAULT_KEYS
         .iter()
         .map(|&(keys, action)| {
             let binding = match action {
@@ -1141,19 +1144,21 @@ pub fn bind_default_keys(cx: &mut App) {
                 LayoutAction::FocusRight => KeyBinding::new(keys, FocusRight, Some("Shell")),
                 LayoutAction::FocusUp => KeyBinding::new(keys, FocusUp, Some("Shell")),
                 LayoutAction::FocusDown => KeyBinding::new(keys, FocusDown, Some("Shell")),
-
                 LayoutAction::SelectNextTab => KeyBinding::new(keys, SelectNextTab, Some("Shell")),
                 LayoutAction::SelectPreviousTab => {
                     KeyBinding::new(keys, SelectPreviousTab, Some("Shell"))
                 }
             };
-            logged.push((keys, binding.action().name()));
+            logged.push((keys, binding.action().name(), "Shell"));
             binding
         })
         .collect();
+    let dismiss = KeyBinding::new("escape", Dismiss, Some("ModalLayer"));
+    logged.push(("escape", dismiss.action().name(), "ModalLayer"));
+    bindings.push(dismiss);
     cx.bind_keys(bindings);
-    for (keys, action) in logged {
-        tracing::debug!(keys, action, context = "Shell", "bound");
+    for (keys, action, context) in logged {
+        tracing::debug!(keys, action, context, "bound");
     }
 }
 
@@ -2337,12 +2342,48 @@ impl Extension {
             }));
         tracing::debug!(extension = self.name.as_str(), action, "action handled");
     }
+
+    /// Toggles a modal of type `V` in the window's modal layer.
+    pub fn toggle_modal<V: riso_ui::ModalView>(
+        &self,
+        window: &mut Window,
+        cx: &mut App,
+        build: impl FnOnce(&mut Window, &mut Context<V>) -> V,
+    ) {
+        let Some(layer) = modal_layer(window, cx) else {
+            return;
+        };
+        layer.update(cx, |layer, cx| {
+            layer.toggle_modal(window, cx, build);
+        });
+    }
+
+    /// Closes the active modal in the window's modal layer, if one is open.
+    pub fn hide_modal(&self, window: &mut Window, cx: &mut App) {
+        let Some(layer) = modal_layer(window, cx) else {
+            return;
+        };
+        layer.update(cx, |layer, cx| {
+            layer.hide_modal(riso_ui::ModalHideReason::HideModal, window, cx);
+        });
+    }
+}
+
+fn modal_layer(window: &Window, cx: &App) -> Option<Entity<riso_ui::ModalLayer>> {
+    let shell = window.root::<Shell>().flatten()?;
+    Some(shell.read(cx).modal_layer.clone())
+}
+
+/// Returns whether the window's modal layer currently shows a modal.
+pub fn has_modal(window: &Window, cx: &App) -> bool {
+    modal_layer(window, cx).is_some_and(|layer| layer.read(cx).has_active_modal())
 }
 
 /// The window's root view. All views live in the shell's global map.
 pub struct Shell {
     handle: FocusHandle,
     root: Option<AnyView>,
+    modal_layer: Entity<riso_ui::ModalLayer>,
     last_focused: Option<NodeId>,
     _focus_lost: Subscription,
 }
@@ -2404,6 +2445,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     }
     // Initialize split children and tab selections early so visibility checks work before the first draw.
     reconcile_containers(cx);
+    let modal_layer = cx.new(|_| riso_ui::ModalLayer::new());
     cx.new(|cx| {
         let handle = cx.focus_handle();
         cx.default_global::<Registry>().root_focus_handle = Some(handle.clone());
@@ -2413,6 +2455,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
         Shell {
             handle,
             root,
+            modal_layer,
             last_focused: None,
             _focus_lost: cx.on_focus_lost(window, |shell: &mut Shell, window, cx| {
                 shell.handle.focus(window, cx);
@@ -2609,6 +2652,7 @@ impl Render for Shell {
             .map(|registry| registry.action_handlers.clone())
             .unwrap_or_default();
         let view = self.root.clone();
+        let modal_layer = self.modal_layer.clone();
         let mut root = div();
         for attach in action_handlers {
             root = attach(root);
@@ -2640,6 +2684,7 @@ impl Render for Shell {
             .on_action(|_: &SelectPreviousTab, window, cx| {
                 layout_action(LayoutAction::SelectPreviousTab, None, window, cx);
             })
+            .relative()
             .size_full()
             .grid()
             .grid_cols(1)
@@ -2651,5 +2696,17 @@ impl Render for Shell {
                 tracing::debug!(node = %dragged.node, "drop ignored");
             })
             .children(view)
+            .child(
+                div()
+                    .absolute()
+                    .inset_0()
+                    .size_full()
+                    .on_action(move |_: &Dismiss, window, cx| {
+                        modal_layer.update(cx, |layer, cx| {
+                            layer.hide_modal(riso_ui::ModalHideReason::Escape, window, cx);
+                        });
+                    })
+                    .child(self.modal_layer.clone()),
+            )
     }
 }

@@ -5,6 +5,7 @@
 //! `WINDOW_TOUR=status-items cargo run dev`: status bar items only, for use beside the layout tour.
 //! `WINDOW_TOUR=toasts cargo run dev`: a root card with information, warning, and error toast buttons.
 //! `WINDOW_TOUR=modal-layer cargo run dev`: a root card with buttons opening a modal and a dimmed modal.
+//! `WINDOW_TOUR=prompts cargo run dev`: a root card with buttons asking one or two questions.
 
 use gpui::{
     App, AppContext, Bounds, Context, DismissEvent, EventEmitter, FocusHandle, Focusable,
@@ -31,6 +32,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                     status,
                     modals: false,
                     toasts: false,
+                    #[cfg(feature = "dev")]
+                    prompts: false,
                     ext: card_ext.clone(),
                     node: node.to_string(),
                     size: Size::default(),
@@ -59,6 +62,25 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                     status: false,
                     modals,
                     toasts,
+                    #[cfg(feature = "dev")]
+                    prompts: false,
+                    ext: card_ext.clone(),
+                    node: node.to_string(),
+                    size: Size::default(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "window_tour.card");
+        }
+        #[cfg(feature = "dev")]
+        "prompts" => {
+            let card_ext = ext.clone();
+            ext.register(cx, "window_tour.card", &[], move |node, _, _, cx| {
+                cx.new(|_| Card {
+                    status: false,
+                    modals: false,
+                    toasts: false,
+                    prompts: true,
                     ext: card_ext.clone(),
                     node: node.to_string(),
                     size: Size::default(),
@@ -68,7 +90,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.place_root(cx, "root", "window_tour.card");
         }
         _ => log::warn!(
-            "unknown WINDOW_TOUR case {case:?}; known cases: title-bar, status-bar, status-items, modal-layer, toasts"
+            "unknown WINDOW_TOUR case {case:?}; known cases: title-bar, status-bar, status-items, modal-layer, toasts, prompts"
         ),
     }
 }
@@ -215,10 +237,20 @@ impl Render for DimmedTourModal {
     }
 }
 
+#[cfg(feature = "dev")]
+fn log_answer(answers: &'static [&'static str], answer: Option<usize>) {
+    match answer.and_then(|ix| answers.get(ix).copied()) {
+        Some(label) => tracing::info!(label, "answered"),
+        None => tracing::info!("no answer"),
+    }
+}
+
 struct Card {
     status: bool,
     modals: bool,
     toasts: bool,
+    #[cfg(feature = "dev")]
+    prompts: bool,
     ext: riso_shell::Extension,
     node: String,
     size: Size<Pixels>,
@@ -337,6 +369,62 @@ impl Render for Card {
                                 },
                             ),
                         ),
+                );
+        }
+        #[cfg(feature = "dev")]
+        if self.prompts {
+            let ask_ext = self.ext.clone();
+            let twice_ext = self.ext.clone();
+            card = card
+                .child(
+                    div()
+                        .debug_selector(|| "ASK-PROMPT".into())
+                        .self_start()
+                        .child(Button::new("ask", "ask").on_click(move |window, cx| {
+                            const ANSWERS: &[&str] = &["Save", "Don't Save", "Cancel"];
+                            ask_ext.prompt(
+                                riso_shell::dev::Prompt::new(
+                                    gpui::PromptLevel::Warning,
+                                    "Save changes?",
+                                    ANSWERS,
+                                )
+                                .detail("Your changes will be lost if you don't save them."),
+                                window,
+                                cx,
+                                |answer, _| log_answer(ANSWERS, answer),
+                            );
+                        })),
+                )
+                .child(
+                    div()
+                        .debug_selector(|| "ASK-TWICE".into())
+                        .self_start()
+                        .child(Button::new("ask-twice", "ask twice").on_click(
+                            move |window, cx| {
+                                const FIRST: &[&str] = &["OK"];
+                                const SECOND: &[&str] = &["Yes", "No"];
+                                twice_ext.prompt(
+                                    riso_shell::dev::Prompt::new(
+                                        gpui::PromptLevel::Info,
+                                        "First question",
+                                        FIRST,
+                                    ),
+                                    window,
+                                    cx,
+                                    |answer, _| log_answer(FIRST, answer),
+                                );
+                                twice_ext.prompt(
+                                    riso_shell::dev::Prompt::new(
+                                        gpui::PromptLevel::Info,
+                                        "Second question",
+                                        SECOND,
+                                    ),
+                                    window,
+                                    cx,
+                                    |answer, _| log_answer(SECOND, answer),
+                                );
+                            },
+                        )),
                 );
         }
         card.debug_selector(|| format!("CARD-{}", self.node))

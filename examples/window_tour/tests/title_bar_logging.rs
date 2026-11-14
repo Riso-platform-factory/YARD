@@ -150,6 +150,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
         run_child(Some("status-items"));
         run_child(Some("modal-layer"));
         run_child(Some("toasts"));
+        #[cfg(feature = "dev")]
+        run_child(Some("prompts"));
         run_child(Some("unknown"));
         return;
     };
@@ -168,7 +170,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
         });
         if matches!(
             mode.as_str(),
-            "title-bar" | "status-bar" | "status-items" | "modal-layer" | "toasts"
+            "title-bar" | "status-bar" | "status-items" | "modal-layer" | "toasts" | "prompts"
         ) {
             let window = cx.update(|cx| {
                 cx.open_window(
@@ -189,6 +191,25 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 })
                 .unwrap();
             let mut visual = gpui::VisualTestContext::from_window(handle, cx);
+            #[cfg(feature = "dev")]
+            if mode == "prompts" {
+                let ask = visual.debug_bounds("ASK-PROMPT").expect("ask button");
+                visual.simulate_click(ask.center(), Default::default());
+                assert!(visual.has_pending_prompt());
+                visual.simulate_prompt_answer("Don't Save");
+                visual.run_until_parked();
+                assert!(!visual.has_pending_prompt());
+
+                let twice = visual.debug_bounds("ASK-TWICE").expect("ask twice button");
+                visual.simulate_click(twice.center(), Default::default());
+                assert!(visual.has_pending_prompt());
+                visual.simulate_prompt_answer("OK");
+                visual.run_until_parked();
+                assert!(visual.has_pending_prompt());
+                visual.simulate_prompt_answer("No");
+                visual.run_until_parked();
+                assert!(!visual.has_pending_prompt());
+            }
             if mode == "toasts" {
                 for selector in ["SHOW-TOAST-info", "SHOW-TOAST-warning", "SHOW-TOAST-error"] {
                     let button = visual.debug_bounds(selector).unwrap();
@@ -262,7 +283,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                     let _ = window.draw(cx);
                     assert!(!riso_shell::has_modal(window, cx));
                 });
-            } else {
+            } else if mode != "prompts" {
                 let ping = visual
                     .debug_bounds("BAR-PING")
                     .expect("ping button is drawn in the title bar");
@@ -481,6 +502,46 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 "unexpected diagnostics: {diagnostics:?}"
             );
         }
+        #[cfg(feature = "dev")]
+        "prompts" => {
+            assert!(
+                captured
+                    .lines
+                    .iter()
+                    .any(|line| line.contains("node=root component=window_tour.card")),
+                "missing root card placement in {:#?}",
+                captured.lines
+            );
+            for span in [
+                "prompt level=\"warning\" buttons=3",
+                "prompt level=\"info\" buttons=1",
+                "prompt level=\"info\" buttons=2",
+            ] {
+                assert!(
+                    captured.spans.values().any(|recorded| recorded == span),
+                    "missing `{span}` in {:#?}",
+                    captured.spans
+                );
+            }
+            for expected in [
+                "prompt level=\"warning\" buttons=3: DEBUG message=answered answer=1 label=\"Don't Save\"",
+                "prompt level=\"warning\" buttons=3: INFO message=answered label=\"Don't Save\"",
+                "prompt level=\"info\" buttons=1: DEBUG message=answered answer=0 label=\"OK\"",
+                "prompt level=\"info\" buttons=1: INFO message=answered label=\"OK\"",
+                "prompt level=\"info\" buttons=2: DEBUG message=answered answer=1 label=\"No\"",
+                "prompt level=\"info\" buttons=2: INFO message=answered label=\"No\"",
+            ] {
+                assert!(
+                    captured.lines.iter().any(|line| line == expected),
+                    "missing `{expected}` in {:#?}",
+                    captured.lines
+                );
+            }
+            assert!(
+                diagnostics.is_empty(),
+                "unexpected diagnostics: {diagnostics:?}"
+            );
+        }
         "unknown" => {
             assert_eq!(
                 diagnostics.len(),
@@ -490,8 +551,9 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
             assert!(
                 diagnostics[0].starts_with("WARN ")
                     && diagnostics[0].contains("unknown")
-                    && diagnostics[0]
-                        .contains("title-bar, status-bar, status-items, modal-layer, toasts"),
+                    && diagnostics[0].contains(
+                        "title-bar, status-bar, status-items, modal-layer, toasts, prompts"
+                    ),
                 "unexpected diagnostic: {}",
                 diagnostics[0]
             );

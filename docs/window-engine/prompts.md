@@ -8,10 +8,10 @@ An extension asks the user a question that must be answered before the window ca
 
 As Zed does with GPUI's `Window::prompt`:
 
-- **Drawn by the OS.** On macOS, the question is a sheet that slides down from the window's title bar, with the level's icon: information, a warning, or critical. The message is in bold, the detail below it in smaller text, and the buttons at the bottom in the order given, the first on the right.
+- **Drawn by the OS.** On macOS, the question is an alert attached to the window, drawn by macOS in its own style, with the level as the alert's style: information, a warning, or critical. On macOS 26 it is a panel in the middle of the window: the message in bold, the detail below it, then the buttons; the first button is the default, drawn in the accent color. Two buttons sit side by side, the first on the right; three or more are stacked, the first on top.
 - **The window waits.** While the sheet is shown, the window takes no keys and no clicks. Other windows of the application still work.
 - **The keys,** as GPUI sets them on macOS: return chooses the first button; a button named `Cancel` is chosen with escape; the keyboard focus starts on the last button that is neither the first nor `Cancel`, so that space reaches it.
-- **The answer** is the index of the chosen button in the order given. The extension gets it in a callback. If the question goes away without an answer, because its window closed, the callback gets none.
+- **The answer** is the index of the chosen button in the order given. The extension gets it in a callback. If the question goes away without an answer, because its window went away, the callback gets none. macOS does not let the user close a window while its question is shown, so this happens only when code closes the window.
 - **One at a time per window.** A second question asked in a window that already shows one waits, and appears when the first is answered.
 
 ## What code can do
@@ -62,7 +62,7 @@ The shell does not change, and the startup does not change.
   - asking shows one pending prompt (`has_pending_prompt`); choosing a button by its label (`simulate_prompt_answer`) gives the callback that button's index, once, for the first, a middle, and the last button;
   - the detail is optional: a question without it works the same;
   - two questions asked one after the other are answered in order, each callback getting its own answer.
-- The answer `None` cannot be produced on GPUI's test platform, which never drops a pending prompt: it is checked in the app.
+- The answer `None` cannot be produced on GPUI's test platform, which never drops a pending prompt, nor in the app until code can close a window: its test comes with `new-window`.
 - A logging test alone in its file: every row of the table that the test platform can produce, with exact field values, and the callback's own line inside the group.
 - **Existing tests:** none changes.
 
@@ -72,11 +72,10 @@ A new case, `WINDOW_TOUR=prompts`. It places a card as the root with two buttons
 
 | Command and action | What to look for |
 |---|---|
-| `WINDOW_TOUR=prompts cargo run dev`, click `ask` | A sheet slides down from the title bar with the warning icon, the message in bold, the detail, and `Save`, `Don't Save`, `Cancel`. Clicking the card does nothing while it is shown. `prompt{level=warning, buttons=3}` opens in the log. |
+| `WINDOW_TOUR=prompts cargo run dev`, click `ask` | An alert in the middle of the window: the message in bold, the detail, and `Save`, `Don't Save`, `Cancel` stacked, `Save` in the accent color and the keyboard focus on `Don't Save`. Clicking `ask` again does nothing while it is shown. `prompt{level=warning, buttons=3}` opens in the log. |
 | Click `Don't Save` | The sheet goes. `answered{answer=1, label=Don't Save}`, then the tour's own line, inside the group, which closes. |
 | Click `ask`, press return; click `ask`, press escape | `Save` is chosen, then `Cancel`. |
-| Click `ask twice` | `First question`; once it is answered, `Second question` appears. Two groups, each with its own answer. |
-| Click `ask`, then quit with cmd-q while the sheet is shown | The application quits, or macOS asks to close the sheet first; if the question goes away without an answer, `no answer` is logged and nothing fails. |
+| Click `ask twice` | `First question`; once it is answered, `Second question` appears, with `No` and `Yes` side by side, `Yes` on the right. Two groups, each with its own answer. |
 
 ## Under review
 

@@ -2,11 +2,7 @@ use gpui::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription,
     Window, div, rems,
 };
-use riso_ui::{
-    Divider, Label, TextColor,
-    dev::{TextInput, TextInputEvent},
-    h_flex, v_flex,
-};
+use riso_ui::{Divider, Label, TextColor, TextInput, TextInputEvent, h_flex, v_flex};
 
 pub(super) fn register(cx: &mut App, ext: &riso_shell::Extension) {
     ext.register(cx, "ui_gallery.text_input", &[], |_, _, window, cx| {

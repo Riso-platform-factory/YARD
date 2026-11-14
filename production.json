@@ -7,7 +7,7 @@
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "fd6977098e20521e"
+      "app/riso/src/startup.rs": "6c63f964d0d41584"
     },
     "promoted": "2026-11-14"
   },
@@ -164,6 +164,14 @@
       "crates/riso_ui/src/text.rs": "433e112c4caa28a2"
     },
     "promoted": "2026-11-13"
+  },
+  "riso_ui/text_input": {
+    "files": {
+      "crates/riso_ui/src/text_input.rs": "bbdfaac6411a8d1d",
+      "crates/riso_ui/src/text_input/editing.rs": "e2b5311acf788493",
+      "crates/riso_ui/src/text_input/failure.rs": "ac76ae1ac650aa0d"
+    },
+    "promoted": "2026-11-14"
   },
   "riso_ui/theme_setting": {
     "files": {

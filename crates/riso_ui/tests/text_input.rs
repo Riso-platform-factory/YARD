@@ -1,14 +1,9 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AppContext, Bounds, ClipboardItem, Entity, EntityInputHandler, Focusable, InteractiveElement,
     KeyBinding, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, ParentElement, Pixels, Point,
     Styled, TestAppContext, VisualTestContext, div, point, px, size,
 };
-use riso_ui::{
-    dev::{TextInput, TextInputEvent, bind_text_input_keys},
-    v_flex,
-};
+use riso_ui::{TextInput, TextInputEvent, bind_text_input_keys, v_flex};
 use std::{
     cell::{Cell, RefCell},
     ops::Range,

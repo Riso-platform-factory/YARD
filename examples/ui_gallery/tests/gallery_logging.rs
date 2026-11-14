@@ -165,7 +165,6 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             "TAB-divider",
             "TAB-modal",
             "TAB-list",
-            #[cfg(feature = "dev")]
             "TAB-text-input",
         ];
         for &selector in selectors {
@@ -214,7 +213,6 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
                 "divider",
                 "modal",
                 "list",
-                #[cfg(feature = "dev")]
                 "text-input",
             ];
             let expected_span = format!("gallery-build pages={}", expected_pages.len());

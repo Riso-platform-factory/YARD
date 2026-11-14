@@ -8,7 +8,7 @@ A base component is not a layout component. It has no node ID, it is not registe
 
 ## What is built
 
-In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with riso's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, states, and layers; `Divider`; the frame of a modal, `Modal` with `ModalHeader`, `Section`, and `ModalFooter`; and the parts of a list, `List`, `ListItem`, `ListHeader`, and `ListSeparator`. The gallery is `examples/ui_gallery`.
+In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with riso's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, states, and layers; `Divider`; the frame of a modal, `Modal` with `ModalHeader`, `Section`, and `ModalFooter`; the parts of a list, `List`, `ListItem`, `ListHeader`, and `ListSeparator`; and `TextInput`, an input of one line. The gallery is `examples/ui_gallery`.
 
 ## Rules
 
@@ -48,7 +48,7 @@ Status is one of: planned, dev, production.
 | 4 | `divider` | A thin line between groups, horizontal or vertical | A page with both | `Divider` | 1 | Window engine: `status-bar` | production |
 | 5 | `modal` | The frame of a modal: a header, sections, and a footer with buttons | A page with a modal drawn in place | `Modal` | 3 | Window engine: `modal-layer` | production |
 | 6 | `list` | A list with items that can be selected or disabled, with a place for an icon before and after the text, headers, and separators | A page with a list in each state | `List`, `ListItem`, `ListHeader` | 2 | Theme engine: `theme-list` | production |
-| 7 | `text-input` | An input of one line: typing, selecting, the clipboard, input methods, a placeholder. It tells its owner when the text changes and when it is confirmed | A page where text is typed, selected, and pasted | `gpui/examples/input.rs` | 1 | Keymap engine: `command-palette` | dev |
+| 7 | `text-input` | An input of one line: typing, selecting, the clipboard, input methods, a placeholder. It tells its owner when the text changes and when it is confirmed | A page where text is typed, selected, and pasted | `gpui/examples/input.rs` | 1 | Keymap engine: `command-palette` | production |
 | 8 | `scroll` | An area that scrolls, with Zed's scrollbar, also for lists too long to draw whole | A list of a thousand items | `Scrollbar`. `gpui`: `uniform_list` | 6 | Keymap engine: `command-palette` | planned |
 | 9 | `key-hint` | The keys bound to an action, drawn as Zed draws them | A page with the keys of the shell's actions | `KeyBinding` | 1. Keymap engine: `default-keys` | Keymap engine: `command-palette` | planned |
 | 10 | `tooltip` | A short text shown when the pointer rests on an element | Tooltips on the buttons of the button page | `Tooltip` | 3 | Layout engine: `close-tab` | planned |

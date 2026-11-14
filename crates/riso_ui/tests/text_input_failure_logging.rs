@@ -1,8 +1,6 @@
-#![cfg(feature = "dev")]
-
 // This separate binary owns the diagnostic logger. It exercises the exact
 // shared shape/paint failure policy without a public error-injection API.
-#[path = "../src/dev/text_input/failure.rs"]
+#[path = "../src/text_input/failure.rs"]
 mod failure;
 
 use std::sync::Mutex;

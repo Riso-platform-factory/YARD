@@ -28,6 +28,7 @@ pub(crate) fn run(
                 riso_shell::set_window_title(cx, product.name);
                 riso_shell::set_layout_file(cx, paths.layout_file());
                 riso_shell::bind_default_keys(cx);
+                riso_ui::bind_text_input_keys(cx);
                 riso_shell::handle_quit(cx);
                 cx.on_window_closed(|cx, _| {
                     if cx.windows().is_empty() {

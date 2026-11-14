@@ -11,6 +11,7 @@ mod stack;
 mod status_bar;
 mod tabs;
 mod text;
+mod text_input;
 mod theme_setting;
 mod theming;
 mod title_bar;
@@ -26,10 +27,8 @@ pub use stack::*;
 pub use status_bar::*;
 pub use tabs::*;
 pub use text::*;
+pub use text_input::*;
 pub use theme_setting::*;
 pub use theming::*;
 pub use title_bar::*;
 pub use toast_layer::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;

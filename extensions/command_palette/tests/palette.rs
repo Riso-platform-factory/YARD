@@ -1,6 +1,3 @@
-#![cfg(feature = "dev")]
-
-use command_palette::dev;
 use gpui::{
     Action, AppContext, InteractiveElement, IntoElement, Styled, TestAppContext, VisualTestContext,
 };
@@ -121,13 +118,13 @@ fn expected_commands(visual: &mut VisualTestContext) -> Vec<String> {
             .collect();
         names.retain(|name| {
             let name = name.as_str();
-            name != dev::Toggle::name_for_type()
+            name != command_palette::Toggle::name_for_type()
                 && !name.ends_with("::NoAction")
                 && !name.ends_with("::Unbind")
         });
         names.sort();
         names.dedup();
-        names.sort_by_key(|name| dev::humanize_action_name(name));
+        names.sort_by_key(|name| command_palette::humanize_action_name(name));
         names
     })
 }
@@ -155,7 +152,7 @@ fn open_cards_app(cx: &mut TestAppContext, runs: Runs) -> gpui::WindowHandle<ris
         riso_shell::bind_default_keys(cx);
         riso_ui::bind_text_input_keys(cx);
         let palette = Extension::new(cx, "command_palette").unwrap();
-        dev::init(cx, &palette);
+        command_palette::init(cx, &palette);
         let test = Extension::new(cx, "palette_test").unwrap();
         test.register(cx, "palette_test.card", &[], move |node, _, _, cx| {
             cx.new(|_| Card {

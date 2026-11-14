@@ -1,4 +1,11 @@
 {
+  "command_palette/palette": {
+    "files": {
+      "extensions/command_palette/src/palette.rs": "eea4e79089092321",
+      "extensions/command_palette/src/palette/matching.rs": "8b9eae7a278af041"
+    },
+    "promoted": "2026-11-15"
+  },
   "riso/menus": {
     "files": {
       "app/riso/src/menus.rs": "73d702762c3f3097"
@@ -170,6 +177,12 @@
       "crates/riso_ui/src/modal_layer.rs": "56fc8ecfd2981307"
     },
     "promoted": "2026-11-14"
+  },
+  "riso_ui/modal_surface": {
+    "files": {
+      "crates/riso_ui/src/modal_surface.rs": "02bd9e65be1bf385"
+    },
+    "promoted": "2026-11-15"
   },
   "riso_ui/scroll": {
     "files": {

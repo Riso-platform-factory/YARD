@@ -11,7 +11,7 @@ use gpui::{
 };
 use matching::rank_candidates;
 use riso_shell::Extension;
-use riso_ui::dev::ModalSurface;
+use riso_ui::ModalSurface;
 use riso_ui::{
     Divider, KeyHint, Label, List, ListItem, ListItemSpacing, ModalView, ScrollList, TextInput,
     TextInputEvent, h_flex,

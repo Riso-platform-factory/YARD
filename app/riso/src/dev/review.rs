@@ -1,5 +1,5 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &["command_palette/palette", "riso_ui/modal_surface"];
+pub(crate) const UNDER_REVIEW: &[&str] = &[];
 
 pub(crate) fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -26,8 +26,7 @@ pub(crate) fn run() -> bool {
         product,
         &[
             ("review", announce),
-            ("command_palette", command_palette::dev::init),
-            ("layout_tour", layout_tour::init),
+            ("command_palette", command_palette::init),
         ],
         crate::menus::menus,
     );

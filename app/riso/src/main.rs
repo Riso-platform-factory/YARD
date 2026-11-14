@@ -13,7 +13,7 @@ fn main() {
             name: env!("PRODUCT_NAME"),
             version: env!("PRODUCT_VERSION"),
         },
-        &[],
+        &[("command_palette", command_palette::init)],
         menus::menus,
     );
 }

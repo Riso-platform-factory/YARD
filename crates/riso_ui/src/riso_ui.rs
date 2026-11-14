@@ -8,6 +8,7 @@ mod key_hint;
 mod list;
 mod modal;
 mod modal_layer;
+mod modal_surface;
 mod scroll;
 mod stack;
 mod status_bar;
@@ -28,6 +29,7 @@ pub use key_hint::*;
 pub use list::*;
 pub use modal::*;
 pub use modal_layer::*;
+pub use modal_surface::*;
 pub use scroll::*;
 pub use stack::*;
 pub use status_bar::*;
@@ -40,6 +42,3 @@ pub use theming::*;
 pub use title_bar::*;
 pub use toast_layer::*;
 pub use user_themes::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;

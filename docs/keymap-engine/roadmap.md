@@ -63,7 +63,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 8 | `command-palette` | An extension that comes with the platform. It lists every action available where the focus is, by a readable name and with its keys, narrows the list as the user types, and runs the chosen action | Its key opens the palette. Typing `zoom` and pressing enter zooms the focused card | `gpui`: `available_actions`, `bindings_for_action`. Zed's palette, as reference | UI kit: `text-input`, `list`, `scroll`, `key-hint`. Window engine: `modal-layer` | dev |
+| 8 | `command-palette` | An extension that comes with the platform. It lists every action available where the focus is, by a readable name and with its keys, narrows the list as the user types, and runs the chosen action | Its key opens the palette. Typing `zoom` and pressing enter zooms the focused card | `gpui`: `available_actions`, `bindings_for_action`. Zed's palette, as reference | UI kit: `text-input`, `list`, `scroll`, `key-hint`. Window engine: `modal-layer` | production |
 
 ## Later
 

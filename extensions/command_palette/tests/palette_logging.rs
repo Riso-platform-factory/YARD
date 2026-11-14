@@ -1,6 +1,3 @@
-#![cfg(feature = "dev")]
-
-use command_palette::dev;
 use gpui::{Action, AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
 use riso_shell::Extension;
 use std::{
@@ -181,7 +178,7 @@ fn expected_commands(visual: &mut gpui::VisualTestContext) -> Vec<String> {
             .collect();
         names.retain(|name| {
             let name = name.as_str();
-            name != dev::Toggle::name_for_type()
+            name != command_palette::Toggle::name_for_type()
                 && !name.ends_with("::NoAction")
                 && !name.ends_with("::Unbind")
         });
@@ -210,7 +207,7 @@ fn listing_matching_and_running_commands_log_what_the_contract_tables(cx: &mut T
             let _group =
                 tracing::info_span!("extension-init", extension = "command_palette").entered();
             let ext = Extension::new(cx, "command_palette").unwrap();
-            dev::init(cx, &ext);
+            command_palette::init(cx, &ext);
         });
         cx.update(|cx| {
             let test = Extension::new(cx, "palette_test").unwrap();

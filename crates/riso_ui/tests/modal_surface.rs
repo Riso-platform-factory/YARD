@@ -1,10 +1,8 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     Context, InteractiveElement, IntoElement, ParentElement, Render, Styled, TestAppContext,
     VisualTestContext, Window, div, px, size,
 };
-use riso_ui::dev::ModalSurface;
+use riso_ui::ModalSurface;
 
 struct Surface;
 

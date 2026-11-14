@@ -1,2 +1,2 @@
-#[cfg(feature = "dev")]
-pub mod dev;
+mod palette;
+pub use palette::*;

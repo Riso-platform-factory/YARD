@@ -1,8 +1,15 @@
 //! Loads the user's keymap file in Zed's format after the default bindings.
 
-use gpui::{Action, App, KeyBinding, KeyBindingContextPredicate, NoAction};
+use gpui::{Action, App, Global, KeyBinding, KeyBindingContextPredicate, NoAction};
 use serde_json::{Map, Value};
 use std::{fs, io, path::Path, rc::Rc};
+
+pub(crate) struct DefaultBindings(
+    #[allow(dead_code, reason = "used by keymap_reload while it is in dev")]
+    pub(crate)  Vec<KeyBinding>,
+);
+
+impl Global for DefaultBindings {}
 
 fn parse_context(
     section: &Map<String, Value>,
@@ -35,6 +42,10 @@ fn build_action(value: &Value, cx: &App) -> Result<Box<dyn Action>, String> {
 /// Reads `path` and binds its keys after the defaults. Returns how many bindings were bound.
 pub fn load_user_keymap(cx: &mut App, path: &Path) -> usize {
     let _group = tracing::info_span!("keymap-load", path = %path.display()).entered();
+    if !cx.has_global::<DefaultBindings>() {
+        let defaults = cx.key_bindings().borrow().bindings().cloned().collect();
+        cx.set_global(DefaultBindings(defaults));
+    }
     let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {

@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the layout engine again, or when the next feature that it shows is under review.
+A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for the keymap engine's `keymap-reload`, which is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -219,3 +219,13 @@ With a `keymap.json` in the fresh home's `config/`, the user's keys act on the `
 | Write `[{"context": "Shell", "bindings": {"cmd-shift-z": "riso::ToggleZoom", "shift-escape": null}}]` to `config/keymap.json`; `LAYOUT_TOUR=zoom cargo run dev`; click card `b`; press `cmd-shift-z` | `b` zooms. `keymap-load` with two `bound` lines and `user keys bound {count=2, skipped=0}`. |
 | Press `shift-escape` | Nothing: the default key is removed. |
 | Add an entry with an unknown action and one with keys `cmd-+-x` | Each a `WARN` naming it; the good entries still work. |
+
+## Keymap feature 7: keymap-reload
+
+`keymap.json` is read again within a second of a change, while riso runs.
+
+| Command and action | What to look for |
+|---|---|
+| `LAYOUT_TOUR=zoom cargo run dev` with no `keymap.json`; click card `b`; write `[{"context": "Shell", "bindings": {"cmd-shift-z": "riso::ToggleZoom"}}]` to `config/keymap.json`; press `cmd-shift-z` | `b` zooms, without restarting. `keymap-reload` with `defaults bound` and `keymap-load` inside it. |
+| Remove that binding from the file; press `cmd-shift-z` | Nothing. `shift-escape` still zooms. |
+| Break the file (delete a bracket) | The `WARN`; the default keys still work. |

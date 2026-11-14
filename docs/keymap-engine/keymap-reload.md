@@ -10,7 +10,7 @@
 - **Bound again.** GPUI cannot remove some bindings and keep others, so the keymap is rebuilt: every binding is cleared (`App::clear_key_bindings`), the default bindings are bound again as they were before the user's file was first read, and then the user's file is bound as `user-keymap` binds it. The default bindings are the ones bound when the file was first read at startup: the shell's, the text input's, and every extension's from its `init`.
 - **A broken edit** follows the rules of `user-keymap`: a file that is not valid JSON binds none of the user's keys, so the defaults alone are bound; a bad entry is skipped with its `WARN` and the others are bound.
 - **A deleted file:** the defaults alone.
-- **What does not follow.** The menus keep the keys they showed when they were set; they show the new keys at the next start. A key bound by code after startup, outside an extension's `init`, is not among the defaults and is lost at the first reload: nothing in riso does that today.
+- **What does not follow.** The menus keep the keys they showed when they were set; they show the new keys at the next start. A key bound by code after startup, outside an extension's `init`, is not among the defaults and is lost at the first reload: nothing in riso does that today. An edit made in the instant between the first read of the file at startup and the start of the check is seen only at the next edit.
 
 ## What code can do
 
@@ -27,7 +27,7 @@ This is the only new public item. The startup calls it after `load_user_keymap`.
 | Situation | Log |
 |---|---|
 | The watching starts | A group `keymap-watch{path}` that lasts while the application runs, as `settings-watch` does; `debug`: `started` |
-| The file changed | Inside it, a group `keymap-reload{path}`, with `debug`: `defaults bound` with `count`, then the lines of `user-keymap` for the file (`bound`, each `WARN`, `user keys bound`, or `no keymap file`) |
+| The file changed | Inside it, a group `keymap-reload{path}`, with `debug`: `defaults bound` with `count`, then `user-keymap`'s own group `keymap-load{path}` for the file, with its lines (`bound`, each `WARN`, `user keys bound`, or `no keymap file`) |
 | A check finds nothing new | Nothing |
 
 ## Where the code changes

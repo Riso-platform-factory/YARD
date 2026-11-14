@@ -12,6 +12,7 @@ GPUI already has actions, key contexts, key bindings, and the dispatch of an act
 - Default keys are bound in code: by the shell for its own actions, and by each extension in its `init`, inside the key context that its views set.
 - The user's keys are in a file that is loaded after the defaults, so it wins. Its entries are turned into bindings with GPUI's `build_action`.
 - The command palette is an extension. It lists the actions that GPUI knows.
+- The extensions that come with the platform, the command palette first, are in a folder of their own, `extensions/`, beside `crates/` and `examples/`. Their crates have stages like the engines, and an application's composition root lists the ones it wants. `AGENTS.md` gets this rule when the command palette is built.
 - The shell's own actions work on the focused node: zoom it, hide it, go to the next or previous tab of its container, and move the focus to the node on the left, on the right, above, or below, by the nodes' places on screen.
 
 ## How this roadmap is followed
@@ -56,17 +57,13 @@ Status is one of: planned, dev, production.
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 6 | `user-keymap` | `keymap.json` in the config directory, in Zed's format, is loaded after the defaults. It adds bindings, replaces them, and removes them. An entry that cannot be read is a `WARN` that names it, and the others still load. `riso_paths` names the file | A file that moves zoom to another key: the new key zooms, the old one does not | `gpui`: `KeyBinding::load`, `build_action` | 3 | production |
-| 7 | `keymap-reload` | The file is read again when it changes while the application runs, with the check the settings engine uses | Editing the file changes the key at once | `gpui`: `clear_key_bindings` | 6. Settings engine: `live-reload` | planned |
+| 7 | `keymap-reload` | The file is read again when it changes while the application runs, with the check the settings engine uses | Editing the file changes the key at once | `gpui`: `clear_key_bindings` | 6. Settings engine: `live-reload` | dev |
 
 ### Commands by name
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 8 | `command-palette` | An extension that comes with the platform. It lists every action available where the focus is, by a readable name and with its keys, narrows the list as the user types, and runs the chosen action | Its key opens the palette. Typing `zoom` and pressing enter zooms the focused card | `gpui`: `available_actions`, `bindings_for_action`. Zed's palette, as reference | UI kit: `text-input`, `list`, `scroll`, `key-hint`. Window engine: `modal-layer` | planned |
-
-## Open decisions
-
-- **A folder for the platform's extensions.** The command palette is a feature, so it is an extension, not part of an engine. It is the first extension that comes with the platform. Proposed: a new folder, `extensions/`, beside `crates/` and `examples/`. Its crates have stages like the engines, and an application's composition root lists the ones it wants. `AGENTS.md` gets this rule when feature 8 is built. The other choice is to keep the palette in `examples/`, where it has no stage and never reaches production.
 
 ## Later
 

@@ -13,7 +13,7 @@
   },
   "riso_keymap/user_keymap": {
     "files": {
-      "crates/riso_keymap/src/user_keymap.rs": "03f0f395db27b5cf"
+      "crates/riso_keymap/src/user_keymap.rs": "ddaa888736102aa9"
     },
     "promoted": "2026-11-14"
   },

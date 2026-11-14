@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -163,8 +161,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         let ext = cx.update(|cx| {
-            riso_shell::dev::bind_default_keys(cx);
-            let ext = riso_shell::dev::Extension::new(cx, "window_tour").unwrap();
+            riso_shell::bind_default_keys(cx);
+            let ext = riso_shell::Extension::new(cx, "window_tour").unwrap();
             window_tour::init(cx, &ext);
             ext
         });
@@ -178,7 +176,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                         titlebar: Some(riso_ui::titlebar_options("riso")),
                         ..Default::default()
                     },
-                    riso_shell::dev::new_shell,
+                    riso_shell::new_shell,
                 )
                 .unwrap()
             });
@@ -198,7 +196,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                     visual.update(|window, cx| {
                         window.refresh();
                         let _ = window.draw(cx);
-                        assert!(riso_shell::dev::has_toast(window, cx));
+                        assert!(riso_shell::has_toast(window, cx));
                     });
                 }
                 let action = visual.debug_bounds("TOAST-ACTION").unwrap();
@@ -206,7 +204,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::dev::has_toast(window, cx));
+                    assert!(!riso_shell::has_toast(window, cx));
                 });
             } else if mode == "modal-layer" {
                 let card = visual.debug_bounds("CARD-root").unwrap();
@@ -224,14 +222,14 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::dev::has_modal(window, cx));
+                    assert!(riso_shell::has_modal(window, cx));
                 });
                 let done = visual.debug_bounds("MODAL-DONE").expect("done button");
                 visual.simulate_click(done.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::dev::has_modal(window, cx));
+                    assert!(!riso_shell::has_modal(window, cx));
                 });
 
                 let open = visual.debug_bounds("OPEN-MODAL").unwrap();
@@ -239,14 +237,14 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::dev::has_modal(window, cx));
+                    assert!(riso_shell::has_modal(window, cx));
                 });
                 let close = visual.debug_bounds("ICON-Close").expect("close button");
                 visual.simulate_click(close.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::dev::has_modal(window, cx));
+                    assert!(!riso_shell::has_modal(window, cx));
                 });
 
                 let dimmed = visual
@@ -256,13 +254,13 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::dev::has_modal(window, cx));
+                    assert!(riso_shell::has_modal(window, cx));
                 });
                 visual.simulate_keystrokes("escape");
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::dev::has_modal(window, cx));
+                    assert!(!riso_shell::has_modal(window, cx));
                 });
             } else {
                 let ping = visual
@@ -305,8 +303,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                         visual.update(|window, cx| {
                             window.refresh();
                             let _ = window.draw(cx);
-                            assert!(!riso_shell::dev::is_hidden(cx, "title"));
-                            assert!(!riso_shell::dev::is_hidden(cx, "ping"));
+                            assert!(!riso_shell::is_hidden(cx, "title"));
+                            assert!(!riso_shell::is_hidden(cx, "ping"));
                         });
                         assert!(visual.debug_bounds("BAR-TITLE").is_some());
                         assert!(visual.debug_bounds("BAR-PING").is_some());

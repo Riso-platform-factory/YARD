@@ -6,7 +6,7 @@ The window engine gives every window its frame: a title bar and a status bar tha
 
 ## What is built
 
-The startup opens one window with a transparent system title bar, and the shell places the window's frame: a title bar drawn by riso, with the slots `left`, `center`, and `right` and the product's name as the title, a body below it, and a status bar at the bottom, as Zed's, with the slots `left` and `right`, which takes no room while nothing in it is shown. Above the frame, a modal layer shows one modal at a time, as Zed's: an extension opens it with `toggle_modal`, the modal takes the focus, closes on escape, a click outside, or its own buttons, and gives the focus back, and the window is dimmed behind it only when the modal asks. An extension's root fills the body, and a zoomed node fills the body. The frame belongs to the shell: extensions put items only in the bars' slots. The application quits when the last window closes. The layout tree is kept once for the application, not per window.
+The startup opens one window with a transparent system title bar, and the shell places the window's frame: a title bar drawn by riso, with the slots `left`, `center`, and `right` and the product's name as the title, a body below it, and a status bar at the bottom, as Zed's, with the slots `left` and `right`, which takes no room while nothing in it is shown. Above the frame, a modal layer shows one modal at a time, as Zed's: an extension opens it with `toggle_modal`, the modal takes the focus, closes on escape, a click outside, or its own buttons, and gives the focus back, and the window is dimmed behind it only when the modal asks. Above the frame and below the modals, a toast layer shows one short message at a time near the bottom of the window, as Zed's: information, a warning, or an error, with at most one button; it goes away after 10 seconds, waits while the pointer is over it, and never takes the focus. An extension's root fills the body, and a zoomed node fills the body. The frame belongs to the shell: extensions put items only in the bars' slots. The application quits when the last window closes. The layout tree is kept once for the application, not per window.
 
 ## Decisions already made
 
@@ -52,7 +52,7 @@ Status is one of: planned, dev, production.
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 3 | `modal-layer` | A layer above the tree that shows one modal at a time, over a dimmed window when the modal asks for it, as in Zed. The modal takes the focus, closes with escape or with a click outside, and gives the focus back | A button opens a modal with a line of text and a close button | `modal_layer.rs` | UI kit: `modal`. Keymap engine: `default-keys` | production |
-| 4 | `toasts` | An extension shows a short message over the window: information, a warning, or an error. It goes away by itself or with a click, and can carry one button | Three buttons show the three kinds | `toast_layer.rs`, `notifications.rs` | UI kit: `button`, `icon` | dev |
+| 4 | `toasts` | An extension shows a short message over the window: information, a warning, or an error. It goes away by itself or with a click, and can carry one button | Three buttons show the three kinds | `toast_layer.rs`, `notifications.rs` | UI kit: `button`, `icon` | production |
 | 5 | `prompts` | A question that must be answered, drawn by the OS: a message, a detail, and buttons | A button asks a question and logs the answer | `gpui`: `prompt` | none | planned |
 
 ### The menu bar

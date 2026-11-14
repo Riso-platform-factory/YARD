@@ -2343,6 +2343,22 @@ impl Extension {
         tracing::debug!(extension = self.name.as_str(), action, "action handled");
     }
 
+    /// Shows a toast in this window.
+    pub fn show_toast(&self, toast: riso_ui::Toast, window: &mut Window, cx: &mut App) {
+        if let Some(layer) = toast_layer(window, cx) {
+            layer.update(cx, |layer, cx| layer.show_toast(toast, cx));
+        }
+    }
+
+    /// Closes the toast in this window, if one is shown.
+    pub fn hide_toast(&self, window: &mut Window, cx: &mut App) {
+        if let Some(layer) = toast_layer(window, cx) {
+            layer.update(cx, |layer, cx| {
+                layer.hide_toast(riso_ui::ToastHideReason::HideToast, cx)
+            });
+        }
+    }
+
     /// Toggles a modal of type `V` in the window's modal layer.
     pub fn toggle_modal<V: riso_ui::ModalView>(
         &self,
@@ -2369,6 +2385,22 @@ impl Extension {
     }
 }
 
+fn toast_layer(window: &Window, cx: &App) -> Option<Entity<riso_ui::ToastLayer>> {
+    Some(
+        window
+            .root::<Shell>()
+            .flatten()?
+            .read(cx)
+            .toast_layer
+            .clone(),
+    )
+}
+
+/// Returns whether this window shows a toast.
+pub fn has_toast(window: &Window, cx: &App) -> bool {
+    toast_layer(window, cx).is_some_and(|layer| layer.read(cx).has_active_toast())
+}
+
 fn modal_layer(window: &Window, cx: &App) -> Option<Entity<riso_ui::ModalLayer>> {
     let shell = window.root::<Shell>().flatten()?;
     Some(shell.read(cx).modal_layer.clone())
@@ -2384,6 +2416,7 @@ pub struct Shell {
     handle: FocusHandle,
     root: Option<AnyView>,
     modal_layer: Entity<riso_ui::ModalLayer>,
+    toast_layer: Entity<riso_ui::ToastLayer>,
     last_focused: Option<NodeId>,
     _focus_lost: Subscription,
 }
@@ -2445,6 +2478,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     }
     // Initialize split children and tab selections early so visibility checks work before the first draw.
     reconcile_containers(cx);
+    let toast_layer = cx.new(|_| riso_ui::ToastLayer::new());
     let modal_layer = cx.new(|_| riso_ui::ModalLayer::new());
     cx.new(|cx| {
         let handle = cx.focus_handle();
@@ -2456,6 +2490,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
             handle,
             root,
             modal_layer,
+            toast_layer,
             last_focused: None,
             _focus_lost: cx.on_focus_lost(window, |shell: &mut Shell, window, cx| {
                 shell.handle.focus(window, cx);
@@ -2696,6 +2731,7 @@ impl Render for Shell {
                 tracing::debug!(node = %dragged.node, "drop ignored");
             })
             .children(view)
+            .child(self.toast_layer.clone())
             .child(
                 div()
                     .absolute()

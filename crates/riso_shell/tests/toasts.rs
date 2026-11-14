@@ -1,8 +1,6 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
-use riso_shell::dev::Extension;
-use riso_ui::dev::{Toast, ToastKind};
+use riso_shell::Extension;
+use riso_ui::{Toast, ToastKind};
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 const WIDTH: f32 = 800.;
@@ -120,7 +118,7 @@ impl gpui::Render for TestModal {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -134,11 +132,11 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, cx: &mut TestAppCont
 fn open_app(
     cx: &mut TestAppContext,
     place: impl FnOnce(&mut gpui::App, &Extension),
-) -> (Extension, gpui::WindowHandle<riso_shell::dev::Shell>) {
+) -> (Extension, gpui::WindowHandle<riso_shell::Shell>) {
     cx.update(riso_ui::init);
     let ext = cx.update(|cx| {
         // The startup binds the default keys in `app-init`, before extensions run.
-        riso_shell::dev::bind_default_keys(cx);
+        riso_shell::bind_default_keys(cx);
         let ext = Extension::new(cx, "tour").unwrap();
         ext.register(cx, "tour.card", &[], |node, _, _, cx| {
             cx.new(|_| Card {
@@ -150,7 +148,7 @@ fn open_app(
         ext
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(WIDTH), gpui::px(HEIGHT)));
@@ -163,23 +161,22 @@ fn node_bounds(
     visual: &mut gpui::VisualTestContext,
     node: &str,
 ) -> Option<gpui::Bounds<gpui::Pixels>> {
-    visual.update(|_, cx| riso_shell::dev::node_bounds(cx, node))
+    visual.update(|_, cx| riso_shell::node_bounds(cx, node))
 }
 
 /// The node the dev shell says has the focus, if any.
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
-    visual
-        .update(|window, cx| riso_shell::dev::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 /// Whether the dev shell's layer shows a modal.
 fn has_modal(visual: &mut gpui::VisualTestContext) -> bool {
-    visual.update(|window, cx| riso_shell::dev::has_modal(window, cx))
+    visual.update(|window, cx| riso_shell::has_modal(window, cx))
 }
 
 /// Whether the dev shell's layer shows a toast.
 fn has_toast(visual: &mut gpui::VisualTestContext) -> bool {
-    visual.update(|window, cx| riso_shell::dev::has_toast(window, cx))
+    visual.update(|window, cx| riso_shell::has_toast(window, cx))
 }
 
 /// Clicks the center of the element with `selector`.
@@ -201,7 +198,7 @@ fn bounds_of(
 /// Shows `toast` through the extension.
 fn show_toast(
     ext: &Extension,
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     cx: &mut TestAppContext,
     toast: Toast,
 ) {
@@ -213,7 +210,7 @@ fn show_toast(
 /// Closes the shown toast through the extension.
 fn hide_toast(
     ext: &Extension,
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     cx: &mut TestAppContext,
 ) {
     gpui::AnyWindowHandle::from(window)
@@ -224,7 +221,7 @@ fn hide_toast(
 /// Shows a modal of type `V` through the extension.
 fn show_modal<V: riso_ui::ModalView>(
     ext: &Extension,
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     cx: &mut TestAppContext,
     build: impl FnOnce(&mut gpui::Window, &mut gpui::Context<V>) -> V,
 ) {
@@ -281,7 +278,7 @@ fn open_over_focused_card(
     cx: &mut TestAppContext,
 ) -> (
     Extension,
-    gpui::WindowHandle<riso_shell::dev::Shell>,
+    gpui::WindowHandle<riso_shell::Shell>,
     gpui::VisualTestContext,
 ) {
     let (ext, window) = open_app(cx, |cx, ext| {

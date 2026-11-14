@@ -77,7 +77,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "2ef09aaba4d736ee"
+      "crates/riso_shell/src/shell.rs": "26fc98db3e6c4410"
     },
     "promoted": "2026-11-14"
   },
@@ -157,6 +157,12 @@
   "riso_ui/title_bar": {
     "files": {
       "crates/riso_ui/src/title_bar.rs": "abc728b1265e5bd2"
+    },
+    "promoted": "2026-11-14"
+  },
+  "riso_ui/toast_layer": {
+    "files": {
+      "crates/riso_ui/src/toast_layer.rs": "7c68b1efabd73a51"
     },
     "promoted": "2026-11-14"
   }

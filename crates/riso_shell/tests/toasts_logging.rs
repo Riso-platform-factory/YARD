@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_ui::dev::{Toast, ToastKind};
+use riso_ui::{Toast, ToastKind};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -95,7 +93,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, app: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<riso_shell::Shell>, app: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(app, |_, window, cx| {
             window.refresh();
@@ -106,8 +104,8 @@ fn draw(window: gpui::WindowHandle<riso_shell::dev::Shell>, app: &mut TestAppCon
 
 /// Shows `toast` through the extension.
 fn show_toast(
-    ext: &riso_shell::dev::Extension,
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+    ext: &riso_shell::Extension,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     app: &mut TestAppContext,
     toast: Toast,
 ) {
@@ -118,8 +116,8 @@ fn show_toast(
 
 /// Closes the shown toast through the extension.
 fn hide_toast(
-    ext: &riso_shell::dev::Extension,
-    window: gpui::WindowHandle<riso_shell::dev::Shell>,
+    ext: &riso_shell::Extension,
+    window: gpui::WindowHandle<riso_shell::Shell>,
     app: &mut TestAppContext,
 ) {
     gpui::AnyWindowHandle::from(window)
@@ -246,11 +244,11 @@ fn the_toast_layer_logs_shows_hides_reasons_pause_resume_and_draws(cx: &mut Test
         {
             // The startup binds the default keys in `app-init`, before extensions run.
             let _group = tracing::info_span!("app-init").entered();
-            app.update(riso_shell::dev::bind_default_keys);
+            app.update(riso_shell::bind_default_keys);
         }
         app.update(riso_ui::init);
         let ext = app.update(|cx| {
-            let ext = riso_shell::dev::Extension::new(cx, "tour").unwrap();
+            let ext = riso_shell::Extension::new(cx, "tour").unwrap();
             ext.register(cx, "tour.card", &[], |node, _, _, cx| {
                 cx.new(|_| Card {
                     node: node.to_string(),
@@ -262,7 +260,7 @@ fn the_toast_layer_logs_shows_hides_reasons_pause_resume_and_draws(cx: &mut Test
             ext
         });
         let window = app.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::dev::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
                 .unwrap()
         });
         app.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));

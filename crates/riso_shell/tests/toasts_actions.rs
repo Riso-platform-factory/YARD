@@ -1,8 +1,6 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext};
-use riso_shell::dev as shell;
-use riso_ui::dev::{Toast, ToastKind};
+use riso_shell as shell;
+use riso_ui::{Toast, ToastKind};
 use std::{cell::Cell, rc::Rc};
 
 #[gpui::test]

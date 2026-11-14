@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
-use riso_settings::{Settings, dev::write, get, init, load, register};
+use riso_settings::{Settings, get, init, load, register, write};
 use serde_json::json;
 use std::{
     collections::{BTreeMap, BTreeSet},

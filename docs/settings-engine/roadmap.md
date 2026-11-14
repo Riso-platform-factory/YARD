@@ -53,7 +53,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 5 | `write` | Code changes one value of a section. The engine writes the file in one step, and keeps the other sections and the keys that nothing declared. The change then arrives like any edit of the file | A button on the card changes a value. The file changes, and the card follows | none | 3. Foundation 6: atomic file write | dev |
+| 5 | `write` | Code changes one value of a section. The engine writes the file in one step, and keeps the other sections and the keys that nothing declared. The change then arrives like any edit of the file | A button on the card changes a value. The file changes, and the card follows | none | 3. Foundation 6: atomic file write | production |
 
 ## Later
 

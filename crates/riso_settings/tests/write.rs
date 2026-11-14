@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
-use riso_settings::{Settings, dev::write, get, init, load, observe, register, watch};
+use riso_settings::{Settings, get, init, load, observe, register, watch, write};
 use serde_json::json;
 use std::{
     cell::Cell,

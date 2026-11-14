@@ -81,6 +81,12 @@
     },
     "promoted": "2026-11-14"
   },
+  "riso_settings/write": {
+    "files": {
+      "crates/riso_settings/src/write.rs": "fd0145e4fa353e97"
+    },
+    "promoted": "2026-11-14"
+  },
   "riso_shell/prompt": {
     "files": {
       "crates/riso_shell/src/prompt.rs": "14d4cba5ee0573e7"

@@ -37,12 +37,10 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     let _group = tracing::info_span!("settings-tour", case).entered();
     let show_card = matches!(case.as_str(), "card" | "guest" | "twice");
-    #[cfg(feature = "dev")]
     let show_card = show_card || case == "write";
     match case.as_str() {
         _ if show_card => {
             ext.register_settings::<TourSettings>(cx);
-            #[cfg(feature = "dev")]
             let write = case == "write";
             ext.register(cx, "settings_tour.card", &[], move |_, _, _, cx| {
                 cx.new(|cx| {
@@ -51,7 +49,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                         let _ = card.update(cx, |_, cx| cx.notify());
                     });
                     Card {
-                        #[cfg(feature = "dev")]
                         write,
                         _subscription: subscription,
                     }
@@ -79,7 +76,6 @@ pub fn guest_init(cx: &mut App, ext: &riso_shell::Extension) {
 }
 
 struct Card {
-    #[cfg(feature = "dev")]
     write: bool,
     _subscription: gpui::Subscription,
 }
@@ -105,26 +101,20 @@ impl Render for Card {
             .child(format!("greeting: {}", settings.greeting))
             .child(format!("size: {}", settings.size))
             .child(format!("enabled: {}", settings.enabled));
-        #[cfg(feature = "dev")]
-        let card = if self.write {
+        if self.write {
             let size = settings.size;
             card.child(
                 riso_ui::Button::new("size-plus-one", "size +1").on_click(move |_, cx| {
-                    riso_settings::dev::write::<TourSettings>(
-                        cx,
-                        "size",
-                        serde_json::json!(size + 1),
-                    );
+                    riso_settings::write::<TourSettings>(cx, "size", serde_json::json!(size + 1));
                 }),
             )
             .child(
                 riso_ui::Button::new("wrong-type", "wrong type").on_click(|_, cx| {
-                    riso_settings::dev::write::<TourSettings>(cx, "size", serde_json::json!("big"));
+                    riso_settings::write::<TourSettings>(cx, "size", serde_json::json!("big"));
                 }),
             )
         } else {
             card
-        };
-        card
+        }
     }
 }

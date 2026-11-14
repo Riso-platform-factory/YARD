@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::{Extension, dev::Prompt};
+use riso_shell::{Extension, Prompt};
 use std::{cell::RefCell, rc::Rc};
 
 struct Card {

@@ -150,7 +150,6 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
         run_child(Some("status-items"));
         run_child(Some("modal-layer"));
         run_child(Some("toasts"));
-        #[cfg(feature = "dev")]
         run_child(Some("prompts"));
         run_child(Some("unknown"));
         return;
@@ -191,7 +190,6 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 })
                 .unwrap();
             let mut visual = gpui::VisualTestContext::from_window(handle, cx);
-            #[cfg(feature = "dev")]
             if mode == "prompts" {
                 let ask = visual.debug_bounds("ASK-PROMPT").expect("ask button");
                 visual.simulate_click(ask.center(), Default::default());
@@ -502,7 +500,6 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 "unexpected diagnostics: {diagnostics:?}"
             );
         }
-        #[cfg(feature = "dev")]
         "prompts" => {
             assert!(
                 captured

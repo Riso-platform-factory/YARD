@@ -32,7 +32,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                     status,
                     modals: false,
                     toasts: false,
-                    #[cfg(feature = "dev")]
                     prompts: false,
                     ext: card_ext.clone(),
                     node: node.to_string(),
@@ -62,7 +61,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                     status: false,
                     modals,
                     toasts,
-                    #[cfg(feature = "dev")]
                     prompts: false,
                     ext: card_ext.clone(),
                     node: node.to_string(),
@@ -72,7 +70,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             });
             ext.place_root(cx, "root", "window_tour.card");
         }
-        #[cfg(feature = "dev")]
         "prompts" => {
             let card_ext = ext.clone();
             ext.register(cx, "window_tour.card", &[], move |node, _, _, cx| {
@@ -237,7 +234,6 @@ impl Render for DimmedTourModal {
     }
 }
 
-#[cfg(feature = "dev")]
 fn log_answer(answers: &'static [&'static str], answer: Option<usize>) {
     match answer.and_then(|ix| answers.get(ix).copied()) {
         Some(label) => tracing::info!(label, "answered"),
@@ -249,7 +245,6 @@ struct Card {
     status: bool,
     modals: bool,
     toasts: bool,
-    #[cfg(feature = "dev")]
     prompts: bool,
     ext: riso_shell::Extension,
     node: String,
@@ -371,7 +366,6 @@ impl Render for Card {
                         ),
                 );
         }
-        #[cfg(feature = "dev")]
         if self.prompts {
             let ask_ext = self.ext.clone();
             let twice_ext = self.ext.clone();
@@ -383,7 +377,7 @@ impl Render for Card {
                         .child(Button::new("ask", "ask").on_click(move |window, cx| {
                             const ANSWERS: &[&str] = &["Save", "Don't Save", "Cancel"];
                             ask_ext.prompt(
-                                riso_shell::dev::Prompt::new(
+                                riso_shell::Prompt::new(
                                     gpui::PromptLevel::Warning,
                                     "Save changes?",
                                     ANSWERS,
@@ -404,7 +398,7 @@ impl Render for Card {
                                 const FIRST: &[&str] = &["OK"];
                                 const SECOND: &[&str] = &["Yes", "No"];
                                 twice_ext.prompt(
-                                    riso_shell::dev::Prompt::new(
+                                    riso_shell::Prompt::new(
                                         gpui::PromptLevel::Info,
                                         "First question",
                                         FIRST,
@@ -414,7 +408,7 @@ impl Render for Card {
                                     |answer, _| log_answer(FIRST, answer),
                                 );
                                 twice_ext.prompt(
-                                    riso_shell::dev::Prompt::new(
+                                    riso_shell::Prompt::new(
                                         gpui::PromptLevel::Info,
                                         "Second question",
                                         SECOND,

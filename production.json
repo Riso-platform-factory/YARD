@@ -75,6 +75,12 @@
     },
     "promoted": "2026-11-12"
   },
+  "riso_shell/prompt": {
+    "files": {
+      "crates/riso_shell/src/prompt.rs": "14d4cba5ee0573e7"
+    },
+    "promoted": "2026-11-14"
+  },
   "riso_shell/shell": {
     "files": {
       "crates/riso_shell/src/shell.rs": "26fc98db3e6c4410"

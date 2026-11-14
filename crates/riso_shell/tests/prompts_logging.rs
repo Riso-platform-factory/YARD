@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::dev::Prompt;
+use riso_shell::Prompt;
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},

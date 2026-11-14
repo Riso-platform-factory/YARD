@@ -1,3 +1,5 @@
+#![cfg(feature = "dev")]
+
 use gpui::{AnyWindowHandle, TestAppContext};
 use std::{
     collections::BTreeMap,
@@ -149,6 +151,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
         run_child(Some("status-bar"));
         run_child(Some("status-items"));
         run_child(Some("modal-layer"));
+        run_child(Some("toasts"));
         run_child(Some("unknown"));
         return;
     };
@@ -160,14 +163,14 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         let ext = cx.update(|cx| {
-            riso_shell::bind_default_keys(cx);
-            let ext = riso_shell::Extension::new(cx, "window_tour").unwrap();
+            riso_shell::dev::bind_default_keys(cx);
+            let ext = riso_shell::dev::Extension::new(cx, "window_tour").unwrap();
             window_tour::init(cx, &ext);
             ext
         });
         if matches!(
             mode.as_str(),
-            "title-bar" | "status-bar" | "status-items" | "modal-layer"
+            "title-bar" | "status-bar" | "status-items" | "modal-layer" | "toasts"
         ) {
             let window = cx.update(|cx| {
                 cx.open_window(
@@ -175,7 +178,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                         titlebar: Some(riso_ui::titlebar_options("riso")),
                         ..Default::default()
                     },
-                    riso_shell::new_shell,
+                    riso_shell::dev::new_shell,
                 )
                 .unwrap()
             });
@@ -188,7 +191,24 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 })
                 .unwrap();
             let mut visual = gpui::VisualTestContext::from_window(handle, cx);
-            if mode == "modal-layer" {
+            if mode == "toasts" {
+                for selector in ["SHOW-TOAST-info", "SHOW-TOAST-warning", "SHOW-TOAST-error"] {
+                    let button = visual.debug_bounds(selector).unwrap();
+                    visual.simulate_click(button.center(), Default::default());
+                    visual.update(|window, cx| {
+                        window.refresh();
+                        let _ = window.draw(cx);
+                        assert!(riso_shell::dev::has_toast(window, cx));
+                    });
+                }
+                let action = visual.debug_bounds("TOAST-ACTION").unwrap();
+                visual.simulate_click(action.center(), Default::default());
+                visual.update(|window, cx| {
+                    window.refresh();
+                    let _ = window.draw(cx);
+                    assert!(!riso_shell::dev::has_toast(window, cx));
+                });
+            } else if mode == "modal-layer" {
                 let card = visual.debug_bounds("CARD-root").unwrap();
                 visual.simulate_click(
                     gpui::point(card.right() - gpui::px(10.), card.bottom() - gpui::px(10.)),
@@ -204,14 +224,14 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::has_modal(window, cx));
+                    assert!(riso_shell::dev::has_modal(window, cx));
                 });
                 let done = visual.debug_bounds("MODAL-DONE").expect("done button");
                 visual.simulate_click(done.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::has_modal(window, cx));
+                    assert!(!riso_shell::dev::has_modal(window, cx));
                 });
 
                 let open = visual.debug_bounds("OPEN-MODAL").unwrap();
@@ -219,14 +239,14 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::has_modal(window, cx));
+                    assert!(riso_shell::dev::has_modal(window, cx));
                 });
                 let close = visual.debug_bounds("ICON-Close").expect("close button");
                 visual.simulate_click(close.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::has_modal(window, cx));
+                    assert!(!riso_shell::dev::has_modal(window, cx));
                 });
 
                 let dimmed = visual
@@ -236,13 +256,13 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::has_modal(window, cx));
+                    assert!(riso_shell::dev::has_modal(window, cx));
                 });
                 visual.simulate_keystrokes("escape");
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::has_modal(window, cx));
+                    assert!(!riso_shell::dev::has_modal(window, cx));
                 });
             } else {
                 let ping = visual
@@ -285,8 +305,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                         visual.update(|window, cx| {
                             window.refresh();
                             let _ = window.draw(cx);
-                            assert!(!riso_shell::is_hidden(cx, "title"));
-                            assert!(!riso_shell::is_hidden(cx, "ping"));
+                            assert!(!riso_shell::dev::is_hidden(cx, "title"));
+                            assert!(!riso_shell::dev::is_hidden(cx, "ping"));
                         });
                         assert!(visual.debug_bounds("BAR-TITLE").is_some());
                         assert!(visual.debug_bounds("BAR-PING").is_some());
@@ -432,6 +452,37 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 "unexpected diagnostics: {diagnostics:?}"
             );
         }
+        "toasts" => {
+            for span in [
+                "toast-show kind=\"info\"",
+                "toast-show kind=\"warning\"",
+                "toast-show kind=\"error\"",
+                "toast-hide kind=\"info\" reason=\"replaced\"",
+                "toast-hide kind=\"warning\" reason=\"replaced\"",
+                "toast-action kind=\"error\" label=\"Retry\"",
+                "toast-hide kind=\"error\" reason=\"action\"",
+            ] {
+                assert!(
+                    captured
+                        .spans
+                        .values()
+                        .any(|recorded| recorded.contains(span)),
+                    "missing {span} in {:?}",
+                    captured.spans
+                );
+            }
+            let retry: Vec<_> = captured
+                .lines
+                .iter()
+                .filter(|line| line.contains("INFO message=retry clicked"))
+                .collect();
+            assert_eq!(retry.len(), 1);
+            assert!(retry[0].contains("toast-action"));
+            assert!(
+                diagnostics.is_empty(),
+                "unexpected diagnostics: {diagnostics:?}"
+            );
+        }
         "unknown" => {
             assert_eq!(
                 diagnostics.len(),
@@ -441,7 +492,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
             assert!(
                 diagnostics[0].starts_with("WARN ")
                     && diagnostics[0].contains("unknown")
-                    && diagnostics[0].contains("title-bar, status-bar, status-items, modal-layer"),
+                    && diagnostics[0]
+                        .contains("title-bar, status-bar, status-items, modal-layer, toasts"),
                 "unexpected diagnostic: {}",
                 diagnostics[0]
             );

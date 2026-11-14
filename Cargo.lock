@@ -4667,6 +4667,7 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
+ "layout_tour",
  "riso_layout",
  "riso_log",
  "riso_paths",
@@ -4676,6 +4677,7 @@ dependencies = [
  "serde_json",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
+ "window_tour",
 ]
 
 [[package]]

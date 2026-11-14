@@ -1,6 +1,6 @@
 # window_tour
 
-A test extension for the window engine. When `app/riso/src/dev/review.rs` lists it as `("window_tour", window_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back when the next window engine feature is under review.
+A test extension for the window engine. When `app/riso/src/dev/review.rs` lists it as `("window_tour", window_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for `toasts`, which is under review.
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: the window's frame, with the title bar drawn by riso and an empty body. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
 It grows with the window engine, one case per feature. Its components are test items: a card shows its node ID and its own size, and the bar items stand for no feature.
@@ -49,3 +49,17 @@ The case is chosen with the environment variable `WINDOW_TOUR`. An unknown case 
 | Open it, click `Done`, then open it and click its close button | It closes each time, `reason=dismiss-event`, with `modal closed` from the extension. |
 | Click `open dimmed modal` | The window behind is dimmed, as Zed's faded background. |
 | `{"theme": {"mode": "light"}}` | The modal and the dimmed background follow the theme. |
+
+### Feature 4: toasts
+
+`WINDOW_TOUR=toasts` places a card as the root with three buttons, `info`, `warning`, and `error`, which show a toast of each kind with a line of text. The error toast has a button `Retry`, which logs `retry clicked`.
+
+| Command and action | What to look for |
+|---|---|
+| `WINDOW_TOUR=toasts cargo run dev`, click `info` | The toast rises near the bottom of the window, centred, with the muted `Info` icon. `toast-show{kind=info}` in the log. |
+| Wait 10 seconds | It goes away. `toast-hide{kind=info, reason=timeout}`. |
+| Click `warning`, keep the pointer over the toast for 15 seconds, then move it away | It stays while the pointer is over it, and goes away a few seconds after. `timer paused`, `timer resumed`. |
+| Click `error`, then `Retry` | `toast-action{kind=error, label=Retry}` with `retry clicked` inside, then `reason=action`. |
+| Click `info`, then `warning` | The warning replaces the information, `reason=replaced`. |
+| Click a toast's close button | It closes, `reason=dismiss-button`. |
+| `{"theme": {"mode": "light"}}` | The toast follows the theme. |

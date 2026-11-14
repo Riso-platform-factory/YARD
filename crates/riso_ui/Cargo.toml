@@ -22,6 +22,7 @@ serde.workspace = true
 serde_json.workspace = true
 log.workspace = true
 tracing.workspace = true
+unicode-segmentation.workspace = true
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }

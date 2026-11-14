@@ -1,6 +1,6 @@
 # ui_gallery
 
-A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the UI kit again, or when the next UI kit feature is under review.
+A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for `text-input`, which is under review.
 
 Without `UI_GALLERY` it does nothing, so a plain `cargo run dev` shows only what the app really does. With `UI_GALLERY=all`, it places a tabs container as the root, with one tab per page and one page per base component. A page shows every variant of its component, each naming itself, in groups with an upper-case muted title beside a hairline, as Zed's component preview does.
 
@@ -66,3 +66,16 @@ The `list` page shows, top to bottom: a list with a header `Themes` and five ite
 | Hover the items | Zed's hover color on enabled items; none on the disabled one. |
 | Click an item | It becomes the selected one. `list-item-click{id=…}` in the log. Clicking the disabled item does nothing. |
 | `{"theme": {"mode": "light"}}` | The page follows the theme. |
+
+## Feature 7: text-input
+
+The `text-input` page shows two inputs in frames drawn as Zed's picker draws its editor: the first empty with the placeholder `Search…`, the second with the text `hello world`. Under each, a muted label shows the last event: `changed: <text>` or `confirmed: <text>`. The page exists only in `cargo run dev`.
+
+| Command and action | What to look for |
+|---|---|
+| `UI_GALLERY=all cargo run dev`, open the `text-input` tab, click the first input | The cursor blinks at its start; the placeholder stays until the first character. |
+| Type `xin chào` with the macOS Vietnamese input method (Telex), then press enter | The composed letters appear underlined, then final: `xin chào`. The label: `confirmed: xin chào`. |
+| In the second input, `alt-left`, `shift-cmd-left`, `cmd-c`, click the first input, `cmd-a`, `cmd-v` | The first input reads `hello `, as copied. |
+| Type until the text is wider than the input | The text scrolls; the cursor stays visible. |
+| `cmd-z` several times | The edits come back word by word. |
+| `{"theme": {"mode": "light"}}` | The text, the placeholder, the selection, and the cursor follow the theme. |

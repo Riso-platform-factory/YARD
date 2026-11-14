@@ -87,11 +87,11 @@ pub fn bind_text_input_keys(cx: &mut App);
 
 ## Test extension: `examples/ui_gallery`
 
-A new page, `text input`. It shows two inputs in frames drawn as Zed's picker draws its editor: the first empty with the placeholder `Search…`, the second with the text `hello world`. Under each, a muted label shows the last event: `changed: <text>` or `confirmed: <text>`.
+A new page, `text-input`. It shows two inputs in frames drawn as Zed's picker draws its editor: the first empty with the placeholder `Search…`, the second with the text `hello world`. Under each, a muted label shows the last event: `changed: <text>` or `confirmed: <text>`.
 
 | Command and action | What to look for |
 |---|---|
-| `UI_GALLERY=all cargo run dev`, open the `text input` tab, click the first input | The cursor blinks at its start; the placeholder stays until the first character. |
+| `UI_GALLERY=all cargo run dev`, open the `text-input` tab, click the first input | The cursor blinks at its start; the placeholder stays until the first character. |
 | Type `xin chào` with the macOS Vietnamese input method (Telex), then press enter | The composed letters appear underlined, then final: `xin chào`. The label: `confirmed: xin chào`. |
 | In the second input, `alt-left`, `shift-cmd-left`, `cmd-c`, click the first input, `cmd-a`, `cmd-v` | The first input reads `hello `, as copied. |
 | Type until the text is wider than the input | The text scrolls; the cursor stays visible. |

@@ -165,10 +165,14 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             "TAB-divider",
             "TAB-modal",
             "TAB-list",
+            #[cfg(feature = "dev")]
+            "TAB-text-input",
         ];
         for &selector in selectors {
-            let Some(bounds) = visual.debug_bounds(selector) else {
-                continue;
+            let bounds = match visual.debug_bounds(selector) {
+                Some(bounds) => bounds,
+                None if mode != "all" => continue,
+                None => panic!("expected gallery tab {selector} to be placed"),
             };
             visual.simulate_click(bounds.center(), Default::default());
             handle
@@ -203,7 +207,16 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             );
         }
         "all" => {
-            let expected_pages: &[&str] = &["text", "icon", "button", "divider", "modal", "list"];
+            let expected_pages: &[&str] = &[
+                "text",
+                "icon",
+                "button",
+                "divider",
+                "modal",
+                "list",
+                #[cfg(feature = "dev")]
+                "text-input",
+            ];
             let expected_span = format!("gallery-build pages={}", expected_pages.len());
             assert!(
                 captured.spans.values().any(|span| span == &expected_span),

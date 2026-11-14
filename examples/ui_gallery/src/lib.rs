@@ -1,3 +1,6 @@
+#[cfg(feature = "dev")]
+mod text_input;
+
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
@@ -55,7 +58,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let pages = 6;
+            let pages = 6 + usize::from(cfg!(feature = "dev"));
             let _group = tracing::info_span!("gallery-build", pages).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
@@ -79,6 +82,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.register(cx, "ui_gallery.list", &[], |_, _, _, cx| {
                 cx.new(|_| ListPage::new()).into()
             });
+            #[cfg(feature = "dev")]
+            text_input::register(cx, ext);
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
@@ -93,6 +98,17 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             {
                 ext.place(cx, "list", "ui_gallery.list", "root", "children");
                 tracing::debug!(page = "list", "page placed");
+            }
+            #[cfg(feature = "dev")]
+            {
+                ext.place(
+                    cx,
+                    "text-input",
+                    "ui_gallery.text_input",
+                    "root",
+                    "children",
+                );
+                tracing::debug!(page = "text-input", "page placed");
             }
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),

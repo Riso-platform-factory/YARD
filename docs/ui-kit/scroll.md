@@ -9,8 +9,8 @@ Two areas that scroll vertically, with Zed's scrollbar: one for any content, and
 As Zed's `crates/ui/src/components/scrollbar.rs` and its pickers:
 
 - **`ScrollArea`** holds any children in a column, as tall as its content, inside a box of the height its owner gives it. The wheel and the trackpad scroll it.
-- **`ScrollList`** holds `count` rows of the same height. On each frame it asks its owner to draw only the rows in view, by their range of indices. A thousand rows cost what twenty cost.
-- **The scrollbar** is Zed's: a thin thumb at the right edge, Zed's regular width, in the theme's scrollbar colors. As Zed's default (`auto`), it follows macOS's setting "Show scroll bars": when the system hides scroll bars until scrolling, the thumb appears while the area scrolls or its content changes, and fades after a moment; otherwise it stays. Dragging the thumb scrolls; clicking the track jumps toward the click. There is no scrollbar when the content fits.
+- **`ScrollList`** holds `count` rows of the same height. On each frame it asks its owner to draw only the rows in view, by their range of indices; GPUI may also ask once for the first row alone, to measure the row height. A thousand rows cost what twenty cost.
+- **The scrollbar** is Zed's: a thin thumb at the right edge, Zed's regular width, in the theme's scrollbar colors. As Zed's default (`auto`), the thumb appears while the area scrolls or its content changes, and fades after a moment, whatever macOS's setting "Show scroll bars" is: Zed follows that setting only in its `system` mode. Dragging the thumb scrolls; clicking the track jumps toward the click. There is no scrollbar when the content fits.
 - **The owner holds the scroll state,** a GPUI handle (`ScrollHandle` for an area, `UniformListScrollHandle` for a list), so it keeps the position from frame to frame and can scroll by code: `UniformListScrollHandle::scroll_to_item` brings a row into view, as Zed's pickers do when the selection moves with the keys.
 
 ## What code can do
@@ -64,7 +64,7 @@ A new page, `scroll`. On the left, a `ScrollArea` 300 px tall with forty paragra
 
 | Command and action | What to look for |
 |---|---|
-| `UI_GALLERY=all cargo run dev`, open the `scroll` tab, scroll each side | Both scroll smoothly. With macOS's "Show scroll bars: automatically", the thumb appears while scrolling and fades; with "Always", it stays. |
+| `UI_GALLERY=all cargo run dev`, open the `scroll` tab, scroll each side | Both scroll smoothly. The thumb appears while scrolling and fades after a moment. |
 | Scroll the list fast to the end | `Row 999` at the bottom. With `RISO_LIFECYCLE=info,riso_ui=trace`, `rows drawn` in the trace with small counts. |
 | Click `go to 500` | `Row 500` is in view. |
 | Drag the list's thumb | The rows follow. |
@@ -78,4 +78,4 @@ A new page, `scroll`. On the left, a `ScrollArea` 300 px tall with forty paragra
 
 - Horizontal scrolling, and scrollbars on both axes: when a feature first needs them.
 - Lists whose rows have different heights (GPUI's `list`): by need.
-- Zed's scrollbar setting in riso's settings: the system's behavior is followed.
+- Zed's scrollbar setting (`always`, `system`, `never`) in riso's settings: when a feature first needs it.

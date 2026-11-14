@@ -166,6 +166,8 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             "TAB-modal",
             "TAB-list",
             "TAB-text-input",
+            #[cfg(feature = "dev")]
+            "TAB-scroll",
         ];
         for &selector in selectors {
             let bounds = match visual.debug_bounds(selector) {
@@ -214,6 +216,8 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
                 "modal",
                 "list",
                 "text-input",
+                #[cfg(feature = "dev")]
+                "scroll",
             ];
             let expected_span = format!("gallery-build pages={}", expected_pages.len());
             assert!(

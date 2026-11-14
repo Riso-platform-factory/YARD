@@ -1,6 +1,6 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings feature is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
+A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for `write`, which is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own through its handle and places one card that shows the section's values, read from the engine while the card draws.
 
@@ -64,3 +64,14 @@ The tour declares its section with `ext.register_settings`, whose key must be th
 | `SETTINGS_TOUR=card cargo run dev` | The card with the three defaults, as before. `settings-register{section=settings_tour}` inside `extension-init{extension=settings_tour}`. |
 | `SETTINGS_TOUR=guest cargo run dev` | The card, as with `card`. Inside `extension-init{extension=settings_guest}`, the `ERROR` `extension settings_guest cannot declare the section settings_tour`, and no second `settings-register`. |
 | `SETTINGS_TOUR=twice cargo run dev` | As before: the second `settings-register{section=settings_tour}` fails with `section settings_tour is already registered`. |
+
+## Feature 5: write
+
+`SETTINGS_TOUR=write` shows the card as in `card`, with two buttons under the values: `size +1` writes `size` as the shown value plus one, and `wrong type` writes `size` as the text `"big"`. The case exists only in `cargo run dev`.
+
+| Command and action | What to look for |
+|---|---|
+| `SETTINGS_TOUR=write cargo run dev`, click `size +1` | `size: 15` at once. `config/settings.json` is created with only `{"settings_tour": {"size": 15}}`. `settings-write{section=settings_tour, field=size}`, `written`, then `settings-reload` with `changed`. |
+| Add `"theme": {"mode": "light"}` and a key `"x": 1` to the file by hand, then click `size +1` | `size: 16`. The file keeps `theme` and `x`, in their places. |
+| Click `wrong type` | Nothing changes. The `ERROR` `section settings_tour cannot take size: …`. |
+| Break the file by hand (delete a brace), then click `size +1` | The file is left as broken. The `WARN` `the settings file is not written: …`. The card keeps the last good value. |

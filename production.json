@@ -77,9 +77,9 @@
   },
   "riso_settings/sections": {
     "files": {
-      "crates/riso_settings/src/sections.rs": "261778013b653bf3"
+      "crates/riso_settings/src/sections.rs": "b2be6630dd5b40c4"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-14"
   },
   "riso_shell/prompt": {
     "files": {

@@ -24,6 +24,7 @@ struct Entry {
 struct Store {
     entries: Vec<Entry>,
     check: Option<(PathBuf, FileCheck)>,
+    path: Option<PathBuf>,
     watching: bool,
     content: Map<String, Value>,
     loaded: bool,
@@ -37,6 +38,7 @@ pub fn init(cx: &mut App) {
     cx.set_global(Store {
         entries: Vec::new(),
         check: None,
+        path: None,
         watching: false,
         content: Map::new(),
         loaded: false,
@@ -74,6 +76,7 @@ pub fn load(cx: &mut App, path: PathBuf) {
             Map::new()
         }
     };
+    store.path = Some(path.clone());
     store.check = Some((path, check));
 }
 
@@ -185,6 +188,10 @@ fn reload(cx: &mut App, path: &Path, state: FileState) {
             return;
         }
     };
+    apply_content(cx, content);
+}
+
+pub(crate) fn apply_content(cx: &mut App, content: Map<String, Value>) {
     let applied: Vec<_> = cx
         .global::<Store>()
         .entries
@@ -213,6 +220,18 @@ fn reload(cx: &mut App, path: &Path, state: FileState) {
     }
     cx.global_mut::<Store>().content = content;
     tracing::debug!(changed, "reloaded");
+}
+
+#[allow(dead_code, reason = "used by the write part while it is in dev")]
+pub(crate) fn file_path(cx: &App) -> Option<PathBuf> {
+    cx.try_global::<Store>()
+        .and_then(|store| store.path.clone())
+}
+
+#[allow(dead_code, reason = "used by the write part while it is in dev")]
+pub(crate) fn is_registered(cx: &App, key: &str) -> bool {
+    cx.try_global::<Store>()
+        .is_some_and(|store| store.entries.iter().any(|entry| entry.key == key))
 }
 
 /// Checks the loaded settings file once a second for the lifetime of the app.

@@ -1,10 +1,7 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     InteractiveElement, ParentElement, Styled, TestAppContext, VisualTestContext, div, px, size,
 };
-use riso_ui::dev::{List, ListHeader, ListItem, ListItemSpacing, ListSeparator};
-use riso_ui::{Label, v_flex};
+use riso_ui::{Label, List, ListHeader, ListItem, ListItemSpacing, ListSeparator, v_flex};
 use std::{cell::Cell, rc::Rc};
 use theme::ActiveTheme;
 

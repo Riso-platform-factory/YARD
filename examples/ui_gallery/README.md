@@ -1,6 +1,6 @@
 # ui_gallery
 
-A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for `list`, which is under review.
+A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the UI kit again, or when the next UI kit feature is under review.
 
 Without `UI_GALLERY` it does nothing, so a plain `cargo run dev` shows only what the app really does. With `UI_GALLERY=all`, it places a tabs container as the root, with one tab per page and one page per base component. A page shows every variant of its component, each naming itself, in groups with an upper-case muted title beside a hairline, as Zed's component preview does.
 
@@ -58,7 +58,7 @@ Remove it from the list of extensions in `app/riso/src/dev/review.rs` and from t
 
 ## Feature 6: list
 
-The `list` page shows, top to bottom: a list with a header `Themes` and five items, the second selected and the fourth disabled with its label in the disabled color, each with an icon in its start slot and the last with a key-like label in its end slot; a separator; a list of sparse, inset items, as Zed's pickers draw them; items at indent levels 0, 1, and 2; and an empty list with its message. Clicking an enabled item selects it. The page exists only in `cargo run dev`.
+The `list` page shows, top to bottom: a list with a header `Themes` and five items, the second selected and the fourth disabled with its label in the disabled color, each with an icon in its start slot and the last with a key-like label in its end slot; a separator; a list of sparse, inset items, as Zed's pickers draw them; items at indent levels 0, 1, and 2; and an empty list with its message. Clicking an enabled item selects it.
 
 | Command and action | What to look for |
 |---|---|

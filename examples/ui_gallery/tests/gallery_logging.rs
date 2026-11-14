@@ -159,17 +159,13 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             })
             .unwrap();
         let mut visual = gpui::VisualTestContext::from_window(handle, cx);
-        let selectors: &[&str] = if cfg!(feature = "dev") {
-            &[
-                "TAB-icon",
-                "TAB-button",
-                "TAB-divider",
-                "TAB-modal",
-                "TAB-list",
-            ]
-        } else {
-            &["TAB-icon", "TAB-button", "TAB-divider", "TAB-modal"]
-        };
+        let selectors: &[&str] = &[
+            "TAB-icon",
+            "TAB-button",
+            "TAB-divider",
+            "TAB-modal",
+            "TAB-list",
+        ];
         for &selector in selectors {
             let Some(bounds) = visual.debug_bounds(selector) else {
                 continue;
@@ -207,11 +203,7 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             );
         }
         "all" => {
-            let expected_pages: &[&str] = if cfg!(feature = "dev") {
-                &["text", "icon", "button", "divider", "modal", "list"]
-            } else {
-                &["text", "icon", "button", "divider", "modal"]
-            };
+            let expected_pages: &[&str] = &["text", "icon", "button", "divider", "modal", "list"];
             let expected_span = format!("gallery-build pages={}", expected_pages.len());
             assert!(
                 captured.spans.values().any(|span| span == &expected_span),

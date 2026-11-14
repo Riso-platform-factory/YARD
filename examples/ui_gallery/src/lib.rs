@@ -1,12 +1,11 @@
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
-#[cfg(feature = "dev")]
-use riso_ui::dev::{List, ListHeader, ListItem, ListItemSpacing, ListSeparator};
 use riso_ui::{
     Button, ButtonSize, ButtonStyle, Divider, DividerColor, ElevationIndex, Headline, HeadlineSize,
-    Icon, IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, Modal, ModalFooter,
-    ModalHeader, Section, SectionHeader, TextColor, TintColor, h_flex, v_flex,
+    Icon, IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, List, ListHeader,
+    ListItem, ListItemSpacing, ListSeparator, Modal, ModalFooter, ModalHeader, Section,
+    SectionHeader, TextColor, TintColor, h_flex, v_flex,
 };
 
 const HEADLINE_SIZES: [(&str, HeadlineSize); 5] = [
@@ -56,7 +55,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let pages = if cfg!(feature = "dev") { 6 } else { 5 };
+            let pages = 6;
             let _group = tracing::info_span!("gallery-build", pages).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
@@ -77,7 +76,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.register(cx, "ui_gallery.modal", &[], |_, _, _, cx| {
                 cx.new(|_| ModalPage { dismissals: 0 }).into()
             });
-            #[cfg(feature = "dev")]
             ext.register(cx, "ui_gallery.list", &[], |_, _, _, cx| {
                 cx.new(|_| ListPage::new()).into()
             });
@@ -92,7 +90,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             tracing::debug!(page = "divider", "page placed");
             ext.place(cx, "modal", "ui_gallery.modal", "root", "children");
             tracing::debug!(page = "modal", "page placed");
-            #[cfg(feature = "dev")]
             {
                 ext.place(cx, "list", "ui_gallery.list", "root", "children");
                 tracing::debug!(page = "list", "page placed");
@@ -509,7 +506,6 @@ impl Render for ModalPage {
     }
 }
 
-#[cfg(feature = "dev")]
 struct ThemeRow {
     id: &'static str,
     label: &'static str,
@@ -518,7 +514,6 @@ struct ThemeRow {
     shortcut: Option<&'static str>,
 }
 
-#[cfg(feature = "dev")]
 const THEME_ROWS: [ThemeRow; 5] = [
     ThemeRow {
         id: "one-dark",
@@ -557,28 +552,24 @@ const THEME_ROWS: [ThemeRow; 5] = [
     },
 ];
 
-#[cfg(feature = "dev")]
 const SPARSE_ROWS: [(&str, &str); 3] = [
     ("sparse-one-dark", "One Dark"),
     ("sparse-one-light", "One Light"),
     ("sparse-ayu-dark", "Ayu Dark"),
 ];
 
-#[cfg(feature = "dev")]
 const INDENT_ROWS: [(usize, &str, &str); 3] = [
     (0, "indent-0", "Level 0"),
     (1, "indent-1", "Level 1"),
     (2, "indent-2", "Level 2"),
 ];
 
-#[cfg(feature = "dev")]
 struct ListPage {
     selected: usize,
     sparse_selected: usize,
     indent_selected: Option<usize>,
 }
 
-#[cfg(feature = "dev")]
 impl ListPage {
     fn new() -> Self {
         Self {
@@ -589,7 +580,6 @@ impl ListPage {
     }
 }
 
-#[cfg(feature = "dev")]
 impl Render for ListPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "list", "rendering page");

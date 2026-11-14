@@ -123,6 +123,12 @@
     },
     "promoted": "2026-11-13"
   },
+  "riso_ui/list": {
+    "files": {
+      "crates/riso_ui/src/list.rs": "59b8e5a1a3e6c5d8"
+    },
+    "promoted": "2026-11-14"
+  },
   "riso_ui/modal": {
     "files": {
       "crates/riso_ui/src/modal.rs": "b1f2126591c74361"

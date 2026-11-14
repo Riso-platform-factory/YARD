@@ -1,10 +1,7 @@
-#![cfg(feature = "dev")]
-
 // Alone in this binary: captures tracing output, which would race with any
 // other test reaching the same log lines.
 use gpui::{InteractiveElement, ParentElement, Styled, TestAppContext, div};
-use riso_ui::dev::{List, ListHeader, ListItem, ListSeparator};
-use riso_ui::{Label, v_flex};
+use riso_ui::{Label, List, ListHeader, ListItem, ListSeparator, v_flex};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -149,7 +146,7 @@ fn a_draw_logs_nothing_and_each_click_opens_a_group_around_the_owners_line(
             !captured
                 .lines
                 .iter()
-                .any(|line| line.contains("riso_ui::dev::list")),
+                .any(|line| line.contains("riso_ui::list")),
             "drawing a list, a header, items, and a separator logs nothing: {:?}",
             captured.lines
         );

@@ -55,7 +55,7 @@ Its cases `card` and `twice` declare the tour's section through the handle, inst
 
 | Command | What to look for |
 |---|---|
-| `SETTINGS_TOUR=card cargo run dev` | The card with the three defaults, as before. `settings-register{section=settings_tour}` inside `extension-init{extension=settings_tour}`, with `registered`. |
+| `SETTINGS_TOUR=card cargo run dev` | The card with the three defaults, as before. `settings-register{section=settings_tour}` inside `extension-init{extension=settings_tour}`. |
 | `SETTINGS_TOUR=guest cargo run dev` | The card, as with `card`. Inside `extension-init{extension=settings_guest}`, the `ERROR` `extension settings_guest cannot declare the section settings_tour`, and no second `settings-register`. |
 | `SETTINGS_TOUR=twice cargo run dev` | As before: the second `settings-register{section=settings_tour}` fails with `section settings_tour is already registered`. |
 

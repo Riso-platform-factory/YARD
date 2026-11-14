@@ -1,8 +1,8 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings feature is under review.
+A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for `extension-sections`, which is under review, with its second extension `settings_guest`, listed as `("settings_guest", settings_tour::guest_init)`.
 
-Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own and places one card that shows the section's values, read from the engine while the card draws.
+Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own through its handle and places one card that shows the section's values, read from the engine while the card draws.
 
 Its section:
 
@@ -54,3 +54,13 @@ The trace gets no line for the checks themselves; they are at `trace`.
 ## Removing it
 
 Remove it from the list of extensions in `app/riso/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/riso/Cargo.toml`, and the app runs as it should without it.
+
+## Feature 4: extension-sections
+
+The tour declares its section with `ext.register_settings`, whose key must be the extension's name. A second extension of the tour, `settings_guest`, declares the same section type through its own handle when `SETTINGS_TOUR=guest`.
+
+| Command | What to look for |
+|---|---|
+| `SETTINGS_TOUR=card cargo run dev` | The card with the three defaults, as before. `settings-register{section=settings_tour}` inside `extension-init{extension=settings_tour}`. |
+| `SETTINGS_TOUR=guest cargo run dev` | The card, as with `card`. Inside `extension-init{extension=settings_guest}`, the `ERROR` `extension settings_guest cannot declare the section settings_tour`, and no second `settings-register`. |
+| `SETTINGS_TOUR=twice cargo run dev` | As before: the second `settings-register{section=settings_tour}` fails with `section settings_tour is already registered`. |

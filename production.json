@@ -119,9 +119,9 @@
   },
   "riso_ui/icon": {
     "files": {
-      "crates/riso_ui/src/icon.rs": "7e47f64da69b65ce"
+      "crates/riso_ui/src/icon.rs": "e72625b9231c8d6c"
     },
-    "promoted": "2026-11-13"
+    "promoted": "2026-11-14"
   },
   "riso_ui/list": {
     "files": {

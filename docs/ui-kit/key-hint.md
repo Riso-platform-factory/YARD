@@ -10,14 +10,14 @@ As Zed's `crates/ui/src/components/keybinding.rs`:
 
 - **Which binding.** For an action, the hint shows the binding that would run it now: the one of highest precedence for the action from a given focus (`KeyHint::for_action_in`), as Zed's command palette asks from the focus that was there before the palette opened, or from the window's focus (`KeyHint::for_action`). A binding of several keystrokes (`cmd-k cmd-left`) is drawn as its keystrokes in order, with a space between them.
 - **No binding.** An action with no binding draws nothing and takes no room.
-- **Its look.** Zed's: each key in a key cap with the theme's colors, at Zed's default size, which follows the UI font size; `KeyHintStyle::Outlined` draws the caps with a border, as Zed's outlined style. A disabled hint is drawn in the disabled color.
-- **Text.** `key_hint_text(action, window, cx)` gives the same keys as text, as Zed's `text_for_action`, for a tooltip or a log line.
+- **Its look.** Zed's two styles: `KeyHintStyle::Default` draws each key compactly in muted colors, as beside a command in the palette; `KeyHintStyle::Label` draws the keys and the modifier symbols with the metrics and colors of a label, as in running text. The size follows the UI font size. A disabled hint is drawn in the disabled color.
+- **Text.** `key_hint_text(action, window, cx)` gives the same keys as words, as Zed's `text_for_action`, for a tooltip or a log line: on macOS `Shift-Escape`, `Command-Q`, `Command-K Command-Left`; the drawn hint shows the symbols.
 
 ## What code can do
 
 ```rust
 // riso_ui
-pub enum KeyHintStyle { Default, Outlined }
+pub enum KeyHintStyle { Default, Label }
 
 pub struct KeyHint;
 impl KeyHint {
@@ -45,11 +45,12 @@ A hint reads the keymap and changes nothing, so it has no group and no line. Wha
 | Part | What changes |
 |---|---|
 | `riso_ui/key_hint` (new, dev) | `KeyHint`, `KeyHintStyle`, `key_hint_text`, wrapping Zed's, with Zed's notice |
+| `riso_ui/icon` (production, changed and stamped again) | `Assets` bundles the icon files Zed's `KeyBinding` draws (the modifiers, escape, return, backspace, the arrows, and the others it names), copied from Zed's `assets/icons` with their license, as the roadmap's "grows by need" says. Nothing else changes |
 
 ## Tests
 
 - GPUI tests, with the shell's default keys bound (`riso_shell::bind_default_keys`) in a test that depends on `riso_shell` as a dev-dependency of `riso_ui` only if that does not make a cycle; otherwise with test bindings of the same shapes bound in the test:
-  - `key_hint_text` for an action bound to `shift-escape` gives Zed's text for it on the OS the test runs on (on macOS `⇧⎋`, as Zed's `text_for_keystroke` gives);
+  - `key_hint_text` for an action bound to `shift-escape` gives Zed's text for it on the OS the test runs on (on macOS `Shift-Escape`, as Zed's `text_for_action` gives);
   - for an action bound to two keystrokes, the text holds both, in order;
   - for an action with no binding, `None`, and a hint drawn for it takes no room;
   - with two bindings for an action, one in a context deeper than the other, `for_action_in` from a focus inside that context shows the deeper one;
@@ -58,11 +59,11 @@ A hint reads the keymap and changes nothing, so it has no group and no line. Wha
 
 ## Test extension: `examples/ui_gallery`
 
-A new page, `key-hint`. It lists every action of the shell with a default key, each as a row: the action's name in a label, then its hint at the right, as Zed's command palette shows a command. A second group shows the same hints in the outlined style, and one disabled.
+A new page, `key-hint`. It lists every action of the shell with a default key in the window's context (all but `riso::Dismiss`, whose key works only inside a modal), each as a row: the action's name in a label, then its hint at the right, as Zed's command palette shows a command. A second group shows the same hints in the label style, and one disabled.
 
 | Command and action | What to look for |
 |---|---|
-| `UI_GALLERY=all cargo run dev`, open the `key-hint` tab | `riso::ToggleZoom` with `⇧⎋`, `riso::SelectNextTab` with `⌘}`, `riso::FocusLeft` with `⌘K ⌘←`, `riso::Quit` with `⌘Q`, and the others. |
+| `UI_GALLERY=all cargo run dev`, open the `key-hint` tab | `riso::ToggleZoom` with `⇧⎋`, `riso::SelectNextTab` with `⌥⌘→` (the binding of highest precedence, the last bound, as Zed shows it), `riso::FocusLeft` with `⌘K ⌘←`, `riso::Quit` with `⌘Q`, and the others. |
 | Beside Zed's command palette (`cmd-shift-p`) | The key caps match in size, spacing, rounding, and colors. |
 | `{"theme": {"mode": "light"}}` | The caps follow the theme. |
 

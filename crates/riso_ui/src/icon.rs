@@ -153,6 +153,67 @@ pub struct Assets;
 
 const FILES: &[(&str, &[u8])] = &[
     (
+        "icons/arrow_down.svg",
+        include_bytes!("../assets/icons/arrow_down.svg"),
+    ),
+    (
+        "icons/arrow_left.svg",
+        include_bytes!("../assets/icons/arrow_left.svg"),
+    ),
+    (
+        "icons/arrow_right.svg",
+        include_bytes!("../assets/icons/arrow_right.svg"),
+    ),
+    (
+        "icons/arrow_up.svg",
+        include_bytes!("../assets/icons/arrow_up.svg"),
+    ),
+    (
+        "icons/backspace.svg",
+        include_bytes!("../assets/icons/backspace.svg"),
+    ),
+    (
+        "icons/command.svg",
+        include_bytes!("../assets/icons/command.svg"),
+    ),
+    (
+        "icons/control.svg",
+        include_bytes!("../assets/icons/control.svg"),
+    ),
+    (
+        "icons/delete.svg",
+        include_bytes!("../assets/icons/delete.svg"),
+    ),
+    (
+        "icons/escape.svg",
+        include_bytes!("../assets/icons/escape.svg"),
+    ),
+    (
+        "icons/option.svg",
+        include_bytes!("../assets/icons/option.svg"),
+    ),
+    (
+        "icons/page_down.svg",
+        include_bytes!("../assets/icons/page_down.svg"),
+    ),
+    (
+        "icons/page_up.svg",
+        include_bytes!("../assets/icons/page_up.svg"),
+    ),
+    (
+        "icons/return.svg",
+        include_bytes!("../assets/icons/return.svg"),
+    ),
+    (
+        "icons/shift.svg",
+        include_bytes!("../assets/icons/shift.svg"),
+    ),
+    (
+        "icons/space.svg",
+        include_bytes!("../assets/icons/space.svg"),
+    ),
+    ("icons/tab.svg", include_bytes!("../assets/icons/tab.svg")),
+    (
         "icons/check.svg",
         include_bytes!("../assets/icons/check.svg"),
     ),

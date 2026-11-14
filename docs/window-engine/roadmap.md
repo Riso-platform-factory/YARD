@@ -59,7 +59,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 6 | `app-menu` | The application's menu bar. The composition root gives the menus as lists of actions. An item runs its action and shows its key | A menu with the shell's actions: choosing `Zoom` zooms the focused card | `gpui`: `set_menus` | Keymap engine: `layout-actions`, `default-keys` | planned |
+| 6 | `app-menu` | The application's menu bar. The composition root gives the menus as lists of actions. An item runs its action and shows its key | A menu with the shell's actions: choosing `Zoom` zooms the focused card | `gpui`: `set_menus` | Keymap engine: `layout-actions`, `default-keys` | dev |
 
 ### Remembered windows
 

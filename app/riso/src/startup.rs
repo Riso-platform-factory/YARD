@@ -48,6 +48,7 @@ pub(crate) fn run(
                     }
                 }
             }
+            riso_keymap::load_user_keymap(cx, &paths.keymap_file());
             riso_shell::set_menus(cx, menus(&product));
             {
                 let _group = tracing::info_span!("window-open").entered();

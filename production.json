@@ -7,7 +7,13 @@
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "ea9bf98ced870d13"
+      "app/riso/src/startup.rs": "93eaebc60b3cbf36"
+    },
+    "promoted": "2026-11-14"
+  },
+  "riso_keymap/user_keymap": {
+    "files": {
+      "crates/riso_keymap/src/user_keymap.rs": "03f0f395db27b5cf"
     },
     "promoted": "2026-11-14"
   },
@@ -56,6 +62,12 @@
       "crates/riso_paths/src/file_check.rs": "c90740584b27f254"
     },
     "promoted": "2026-11-12"
+  },
+  "riso_paths/keymap_file": {
+    "files": {
+      "crates/riso_paths/src/keymap_file.rs": "463c0d40af210250"
+    },
+    "promoted": "2026-11-14"
   },
   "riso_paths/layout_file": {
     "files": {

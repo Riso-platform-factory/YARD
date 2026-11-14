@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
-use riso_keymap::dev::load_user_keymap;
+use riso_keymap::load_user_keymap;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,

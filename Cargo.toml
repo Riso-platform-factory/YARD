@@ -21,11 +21,13 @@ riso_log = { path = "crates/riso_log", default-features = false }
 riso_paths = { path = "crates/riso_paths", default-features = false }
 riso_ui = { path = "crates/riso_ui", default-features = false }
 riso_settings = { path = "crates/riso_settings", default-features = false }
+riso_keymap = { path = "crates/riso_keymap", default-features = false }
 dirs = "6"
 log = "0.4.35"
 tracing = "0.1.44"
 tracing-log = { version = "0.2", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "registry", "env-filter"] }
+schemars = "1.2.3"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 libc = "0.2"

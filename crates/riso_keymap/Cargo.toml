@@ -1,0 +1,27 @@
+[package]
+name = "riso_keymap"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/riso_keymap.rs"
+
+[features]
+default = ["dev"]
+dev = ["riso_paths/dev"]
+
+[dependencies]
+gpui.workspace = true
+log.workspace = true
+riso_paths = { workspace = true, default-features = false }
+serde_json.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
+log.workspace = true
+schemars.workspace = true
+serde.workspace = true
+tracing.workspace = true

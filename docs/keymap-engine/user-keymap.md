@@ -49,8 +49,8 @@ These are the only new public items. `riso_keymap` is the keymap engine's crate;
 | The startup loads the file | A group `keymap-load{path}` |
 | No file | Inside it, `debug`: `no keymap file`, and nothing more |
 | A binding is bound | Inside it, `debug`: `bound` with `keys`, `action`, and `context` (empty when none), as the default keys are logged |
-| Something cannot be read | Inside it, `WARN`: `keymap.json: <what>: <reason>`, `<what>` naming the section by its index and the binding by its keystrokes |
-| The end, with a file | Inside it, `debug`: `user keys bound` with `count` and `skipped` |
+| Something cannot be read | Inside it, `WARN`: `keymap.json: <what>: <reason>`, `<what>` naming a section by its index (`section 2`), or a binding by its keystrokes |
+| The end, when the file is a JSON array | Inside it, `debug`: `user keys bound` with `count` and `skipped`. A file that is not JSON or not an array ends with its `WARN` |
 
 ## Where the code changes
 
@@ -73,9 +73,9 @@ These are the only new public items. `riso_keymap` is the keymap engine's crate;
 - A logging test alone in its file: every row of the table, with exact fields and messages.
 - **Existing tests:** none changes.
 
-## Test extension: `examples/keys_tour`
+## Test extension: `examples/layout_tour`
 
-The tour's existing cases show the default keys; with a `keymap.json` in the fresh home, they show the user's. Use `RISO_HOME=/tmp/riso-keys`.
+The layout tour's `zoom` case gives cards to act on with the shell's keys; with a `keymap.json` in the fresh home, the user's keys act on them. Use `RISO_HOME=/tmp/riso-keys`.
 
 | Command and action | What to look for |
 |---|---|

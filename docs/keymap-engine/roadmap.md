@@ -55,7 +55,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 6 | `user-keymap` | `keymap.json` in the config directory, in Zed's format, is loaded after the defaults. It adds bindings, replaces them, and removes them. An entry that cannot be read is a `WARN` that names it, and the others still load. `riso_paths` names the file | A file that moves zoom to another key: the new key zooms, the old one does not | `gpui`: `KeyBinding::load`, `build_action` | 3 | planned |
+| 6 | `user-keymap` | `keymap.json` in the config directory, in Zed's format, is loaded after the defaults. It adds bindings, replaces them, and removes them. An entry that cannot be read is a `WARN` that names it, and the others still load. `riso_paths` names the file | A file that moves zoom to another key: the new key zooms, the old one does not | `gpui`: `KeyBinding::load`, `build_action` | 3 | dev |
 | 7 | `keymap-reload` | The file is read again when it changes while the application runs, with the check the settings engine uses | Editing the file changes the key at once | `gpui`: `clear_key_bindings` | 6. Settings engine: `live-reload` | planned |
 
 ### Commands by name

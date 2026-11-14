@@ -4667,6 +4667,8 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "gpui_platform",
+ "layout_tour",
+ "riso_keymap",
  "riso_layout",
  "riso_log",
  "riso_paths",
@@ -4675,6 +4677,19 @@ dependencies = [
  "riso_ui",
  "serde_json",
  "toml 0.9.12+spec-1.1.0",
+ "tracing",
+]
+
+[[package]]
+name = "riso_keymap"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "riso_paths",
+ "schemars",
+ "serde",
+ "serde_json",
  "tracing",
 ]
 

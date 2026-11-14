@@ -5,7 +5,7 @@
 //! ddb90e5e89d346f21847281727e1644b8bb2cc37, licensed GPL-3.0-or-later.
 //! Copyright Zed Industries, Inc.
 
-mod themes;
+pub(crate) mod themes;
 
 use gpui::{App, Font, Global, Hsla, Pixels, SharedString, font, px};
 use std::borrow::Cow;

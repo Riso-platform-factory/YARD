@@ -1,6 +1,6 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings feature is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
+A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for the theme engine's `user-themes`, which is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own through its handle and places one card that shows the section's values, read from the engine while the card draws.
 
@@ -75,3 +75,14 @@ The tour declares its section with `ext.register_settings`, whose key must be th
 | Add `"theme": {"mode": "light"}` and a key `"x": 1` to the file by hand, then click `size +1` | `size: 16`. The file keeps `theme` and `x`, in their places. |
 | Click `wrong type` | Nothing changes. The `ERROR` `section settings_tour cannot take size: …`. |
 | Break the file by hand (delete a brace), then click `size +1` | The file is left as broken. The `WARN` `the settings file is not written: …`. The card keeps the last good value. |
+
+## Theme feature 6: user-themes
+
+The tour carries Zed's Ayu theme file in `fixtures/ayu.json`, with its license and `NOTICE`, for the user to copy into the themes folder.
+
+| Command and action | What to look for |
+|---|---|
+| Copy `fixtures/ayu.json` to `$RISO_HOME/config/themes/`, write `{"theme": {"mode": "dark", "dark": "Ayu Dark"}}`, `SETTINGS_TOUR=card cargo run dev` | The window in Ayu Dark from the first frame. `themes-load` with `theme file loaded {file=ayu.json, themes=3}`, `user themes loaded {count=3}`. |
+| Change the setting to `{"theme": {"mode": "light", "light": "Ayu Light"}}` while it runs | The window switches. |
+| Put a broken copy beside it, `broken.json`, and start again | The `WARN` names `broken.json`; Ayu still loads. |
+| Remove the folder and start | `no themes folder`; One Dark, with the `WARN` that the named theme is not registered. |

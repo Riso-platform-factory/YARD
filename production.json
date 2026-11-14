@@ -193,10 +193,10 @@
   },
   "riso_ui/theming": {
     "files": {
-      "crates/riso_ui/src/theming.rs": "606862a5bbd5d16c",
-      "crates/riso_ui/src/theming/themes.rs": "6e115181e4dbf18c"
+      "crates/riso_ui/src/theming.rs": "a6260fb6ad613af3",
+      "crates/riso_ui/src/theming/themes.rs": "008f29caa14ce46f"
     },
-    "promoted": "2026-11-13"
+    "promoted": "2026-11-14"
   },
   "riso_ui/title_bar": {
     "files": {

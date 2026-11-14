@@ -46,8 +46,9 @@ fn theme(content: &Value) -> Option<Theme> {
     } else {
         PlayerColors::dark()
     };
-    for (index, listed) in style["players"]
-        .as_array()
+    for (index, listed) in style
+        .get("players")
+        .and_then(Value::as_array)
         .into_iter()
         .flatten()
         .enumerate()
@@ -78,8 +79,9 @@ fn theme(content: &Value) -> Option<Theme> {
     };
     theme_colors.refine(&colors_refinement);
 
-    let syntax = style["syntax"]
-        .as_object()
+    let syntax = style
+        .get("syntax")
+        .and_then(Value::as_object)
         .into_iter()
         .flatten()
         .map(|(token, highlight)| {
@@ -127,7 +129,7 @@ fn theme(content: &Value) -> Option<Theme> {
 }
 
 /// Reads one theme file: a family with its themes.
-fn family(bytes: &[u8]) -> Option<ThemeFamily> {
+pub(crate) fn family(bytes: &[u8]) -> Option<ThemeFamily> {
     let content: Value = serde_json::from_slice(bytes).ok()?;
     let name = content["name"].as_str()?;
     Some(ThemeFamily {

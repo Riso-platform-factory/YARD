@@ -1,6 +1,8 @@
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
+#[cfg(feature = "dev")]
+use riso_ui::dev::{List, ListHeader, ListItem, ListItemSpacing, ListSeparator};
 use riso_ui::{
     Button, ButtonSize, ButtonStyle, Divider, DividerColor, ElevationIndex, Headline, HeadlineSize,
     Icon, IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, Modal, ModalFooter,
@@ -54,7 +56,8 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let _group = tracing::info_span!("gallery-build", pages = 5).entered();
+            let pages = if cfg!(feature = "dev") { 6 } else { 5 };
+            let _group = tracing::info_span!("gallery-build", pages).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
             });
@@ -74,6 +77,10 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.register(cx, "ui_gallery.modal", &[], |_, _, _, cx| {
                 cx.new(|_| ModalPage { dismissals: 0 }).into()
             });
+            #[cfg(feature = "dev")]
+            ext.register(cx, "ui_gallery.list", &[], |_, _, _, cx| {
+                cx.new(|_| ListPage::new()).into()
+            });
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
@@ -85,6 +92,11 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             tracing::debug!(page = "divider", "page placed");
             ext.place(cx, "modal", "ui_gallery.modal", "root", "children");
             tracing::debug!(page = "modal", "page placed");
+            #[cfg(feature = "dev")]
+            {
+                ext.place(cx, "list", "ui_gallery.list", "root", "children");
+                tracing::debug!(page = "list", "page placed");
+            }
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),
     }
@@ -494,5 +506,179 @@ impl Render for ModalPage {
                         ),
                     ),
             ))
+    }
+}
+
+#[cfg(feature = "dev")]
+struct ThemeRow {
+    id: &'static str,
+    label: &'static str,
+    icon: IconName,
+    disabled: bool,
+    shortcut: Option<&'static str>,
+}
+
+#[cfg(feature = "dev")]
+const THEME_ROWS: [ThemeRow; 5] = [
+    ThemeRow {
+        id: "one-dark",
+        label: "One Dark",
+        icon: IconName::Check,
+        disabled: false,
+        shortcut: None,
+    },
+    ThemeRow {
+        id: "one-light",
+        label: "One Light",
+        icon: IconName::Info,
+        disabled: false,
+        shortcut: None,
+    },
+    ThemeRow {
+        id: "ayu-dark",
+        label: "Ayu Dark",
+        icon: IconName::Plus,
+        disabled: false,
+        shortcut: None,
+    },
+    ThemeRow {
+        id: "ayu-mirage",
+        label: "Ayu Mirage",
+        icon: IconName::Warning,
+        disabled: true,
+        shortcut: None,
+    },
+    ThemeRow {
+        id: "gruvbox-dark",
+        label: "Gruvbox Dark",
+        icon: IconName::ChevronRight,
+        disabled: false,
+        shortcut: Some("cmd-k cmd-t"),
+    },
+];
+
+#[cfg(feature = "dev")]
+const SPARSE_ROWS: [(&str, &str); 3] = [
+    ("sparse-one-dark", "One Dark"),
+    ("sparse-one-light", "One Light"),
+    ("sparse-ayu-dark", "Ayu Dark"),
+];
+
+#[cfg(feature = "dev")]
+const INDENT_ROWS: [(usize, &str, &str); 3] = [
+    (0, "indent-0", "Level 0"),
+    (1, "indent-1", "Level 1"),
+    (2, "indent-2", "Level 2"),
+];
+
+#[cfg(feature = "dev")]
+struct ListPage {
+    selected: usize,
+    sparse_selected: usize,
+    indent_selected: Option<usize>,
+}
+
+#[cfg(feature = "dev")]
+impl ListPage {
+    fn new() -> Self {
+        Self {
+            selected: 1,
+            sparse_selected: 0,
+            indent_selected: None,
+        }
+    }
+}
+
+#[cfg(feature = "dev")]
+impl Render for ListPage {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!(page = "list", "rendering page");
+        let palette = riso_ui::palette(cx);
+        let selected = self.selected;
+        let sparse_selected = self.sparse_selected;
+        let indent_selected = self.indent_selected;
+        let page = cx.weak_entity();
+        let sparse_page = cx.weak_entity();
+        let indent_page = cx.weak_entity();
+
+        let themes = List::new().header(ListHeader::new("Themes")).children(
+            THEME_ROWS.into_iter().enumerate().map(|(index, row)| {
+                let page = page.clone();
+                let icon_color = if row.disabled {
+                    TextColor::Disabled
+                } else {
+                    TextColor::Muted
+                };
+                let label_color = if row.disabled {
+                    TextColor::Disabled
+                } else {
+                    TextColor::Default
+                };
+                let mut item = ListItem::new(row.id)
+                    .toggle_state(selected == index)
+                    .disabled(row.disabled)
+                    .start_slot(Icon::new(row.icon).size(IconSize::Small).color(icon_color))
+                    .child(Label::new(row.label).color(label_color))
+                    .on_click(move |_, cx| {
+                        let _ = page.update(cx, |this, cx| {
+                            this.selected = index;
+                            tracing::info!(id = row.id, index, "list item selected");
+                            cx.notify();
+                        });
+                    });
+                if let Some(shortcut) = row.shortcut {
+                    item = item.end_slot(
+                        Label::new(shortcut)
+                            .size(LabelSize::Small)
+                            .color(TextColor::Muted),
+                    );
+                }
+                item
+            }),
+        );
+
+        let sparse = List::new().children(SPARSE_ROWS.into_iter().enumerate().map(
+            |(index, (id, label))| {
+                let sparse_page = sparse_page.clone();
+                ListItem::new(id)
+                    .spacing(ListItemSpacing::Sparse)
+                    .inset(true)
+                    .toggle_state(sparse_selected == index)
+                    .child(Label::new(label))
+                    .on_click(move |_, cx| {
+                        let _ = sparse_page.update(cx, |this, cx| {
+                            this.sparse_selected = index;
+                            tracing::info!(id, index, "sparse list item selected");
+                            cx.notify();
+                        });
+                    })
+            },
+        ));
+
+        let indented = List::new().children(INDENT_ROWS.into_iter().map(|(level, id, label)| {
+            let indent_page = indent_page.clone();
+            ListItem::new(id)
+                .indent_level(level)
+                .toggle_state(indent_selected == Some(level))
+                .child(Label::new(label))
+                .on_click(move |_, cx| {
+                    let _ = indent_page.update(cx, |this, cx| {
+                        this.indent_selected = Some(level);
+                        tracing::info!(id, level, "indented list item selected");
+                        cx.notify();
+                    });
+                })
+        }));
+
+        v_flex()
+            .size_full()
+            .p(rems(1.))
+            .gap(rems(0.75))
+            .bg(palette.background)
+            .child(group("Items", themes))
+            .child(group("Separator", ListSeparator))
+            .child(group("Sparse", sparse))
+            .child(group("Indent", indented))
+            .child(group("Empty", List::new()))
     }
 }

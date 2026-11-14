@@ -8,7 +8,7 @@ The base components of a list, wrapped from Zed's `ui` crate: a list, its items,
 
 As Zed's `crates/ui/src/components/list/`:
 
-- **`List`** is a column of children with an optional header. With no child, it shows its empty message: `No items` unless another is given, in Zed's muted small label.
+- **`List`** is a column of children with an optional header. With no child, it shows its empty message: `No items` unless another is given, in Zed's muted label.
 - **`ListItem`** is one row, full width, with Zed's height for its spacing (`Dense` by default, `ExtraDense`, `Sparse`). Its children are its text, usually a `Label`. Before them, a start slot; after them, at the right edge, an end slot.
   - **Selected** (`toggle_state(true)`): Zed's selected background, `ghost_element_selected`.
   - **Disabled**: it does not react to the pointer and its click does nothing; Zed draws its children as they are given, so a disabled item's label is given the disabled color by its owner, as in Zed.

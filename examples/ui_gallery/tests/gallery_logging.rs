@@ -159,7 +159,18 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             })
             .unwrap();
         let mut visual = gpui::VisualTestContext::from_window(handle, cx);
-        for selector in ["TAB-icon", "TAB-button", "TAB-divider", "TAB-modal"] {
+        let selectors: &[&str] = if cfg!(feature = "dev") {
+            &[
+                "TAB-icon",
+                "TAB-button",
+                "TAB-divider",
+                "TAB-modal",
+                "TAB-list",
+            ]
+        } else {
+            &["TAB-icon", "TAB-button", "TAB-divider", "TAB-modal"]
+        };
+        for &selector in selectors {
             let Some(bounds) = visual.debug_bounds(selector) else {
                 continue;
             };
@@ -196,43 +207,39 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             );
         }
         "all" => {
+            let expected_pages: &[&str] = if cfg!(feature = "dev") {
+                &["text", "icon", "button", "divider", "modal", "list"]
+            } else {
+                &["text", "icon", "button", "divider", "modal"]
+            };
+            let expected_span = format!("gallery-build pages={}", expected_pages.len());
             assert!(
-                captured
-                    .spans
-                    .values()
-                    .any(|span| span == "gallery-build pages=5"),
-                "expected gallery-build pages=5, got {:?}",
+                captured.spans.values().any(|span| span == &expected_span),
+                "expected {expected_span}, got {:?}",
                 captured.spans
             );
             let build_lines: Vec<_> = captured
                 .lines
                 .iter()
                 .filter(|line| !line.contains(": TRACE "))
+                .cloned()
+                .collect();
+            let expected_build_lines: Vec<_> = expected_pages
+                .iter()
+                .map(|page| format!("{expected_span}: DEBUG message=page placed page={page}"))
                 .collect();
             assert_eq!(
-                build_lines,
-                vec![
-                    "gallery-build pages=5: DEBUG message=page placed page=text",
-                    "gallery-build pages=5: DEBUG message=page placed page=icon",
-                    "gallery-build pages=5: DEBUG message=page placed page=button",
-                    "gallery-build pages=5: DEBUG message=page placed page=divider",
-                    "gallery-build pages=5: DEBUG message=page placed page=modal",
-                ],
+                build_lines, expected_build_lines,
                 "unexpected non-trace lines: {:?}",
                 captured.lines
             );
-            for page in [
-                "page=text",
-                "page=icon",
-                "page=button",
-                "page=divider",
-                "page=modal",
-            ] {
+            for name in expected_pages {
+                let page = format!("page={name}");
                 assert!(
                     captured
                         .lines
                         .iter()
-                        .any(|line| line.contains(": TRACE") && line.contains(page)),
+                        .any(|line| line.contains(": TRACE") && line.contains(&page)),
                     "expected {page} render trace in {:?}",
                     captured.lines
                 );

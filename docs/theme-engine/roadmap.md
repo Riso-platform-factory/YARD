@@ -62,7 +62,7 @@ Status is one of: planned, dev, production.
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 6 | `user-themes` | Theme files in Zed's format, in the folder `themes` of the config directory, are registered at startup. A file that cannot be read is a `WARN` that names it, and the others still load. `riso_paths` names the folder | Zed's Ayu file dropped in the folder and named in `settings.json` | `riso_ui`'s loader of Zed's theme files, which reads One today. `load_user_theme`, as reference | 1 | production |
-| 7 | `theme-list` | The engine lists the registered themes, each with its name and whether it is light or dark. With the settings engine's `write`, a component can offer the choice | The tour lists the themes. A click on one writes the setting, and the window changes | `theme`'s registry | Settings engine: `write`. UI kit: `list` | dev |
+| 7 | `theme-list` | The engine lists the registered themes, each with its name and whether it is light or dark. With the settings engine's `write`, a component can offer the choice | The tour lists the themes. A click on one writes the setting, and the window changes | `theme`'s registry | Settings engine: `write`. UI kit: `list` | production |
 
 ### By need
 

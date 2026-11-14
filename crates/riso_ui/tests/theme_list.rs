@@ -1,8 +1,7 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
-use riso_ui::dev::{ThemeAppearance, choose_theme, theme_list};
-use riso_ui::{active_theme, apply_theme_setting, load_user_themes};
+use riso_ui::{
+    ThemeAppearance, active_theme, apply_theme_setting, choose_theme, load_user_themes, theme_list,
+};
 use std::{
     fs,
     path::{Path, PathBuf},

@@ -1,6 +1,6 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. It is loaded now, for the theme engine's `theme-list`, which is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
+A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings or theme feature is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own through its handle and places one card that shows the section's values, read from the engine while the card draws.
 
@@ -89,7 +89,7 @@ The tour carries Zed's Ayu theme file in `fixtures/ayu.json`, with its license a
 
 ## Theme feature 7: theme-list
 
-`SETTINGS_TOUR=themes` shows the registered themes as a list: a header `Themes`, one item per theme with its appearance at the end, dark themes first, the active theme selected. A click chooses the theme, as Zed's theme selector does. The case exists only in `cargo run dev`.
+`SETTINGS_TOUR=themes` shows the registered themes as a list: a header `Themes`, one item per theme with its appearance at the end, dark themes first, the active theme selected. A click chooses the theme, as Zed's theme selector does.
 
 | Command and action | What to look for |
 |---|---|

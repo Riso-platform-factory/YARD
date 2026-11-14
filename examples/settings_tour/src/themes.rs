@@ -1,6 +1,6 @@
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
-use riso_ui::dev::{ThemeAppearance, choose_theme, theme_list};
 use riso_ui::{Label, LabelSize, List, ListHeader, ListItem, TextColor};
+use riso_ui::{ThemeAppearance, choose_theme, theme_list};
 
 pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("SETTINGS_TOUR").unwrap_or_default();

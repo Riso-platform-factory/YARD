@@ -7,12 +7,7 @@
 
 //! `SETTINGS_TOUR=themes cargo run dev`: a card choosing the registered theme.
 
+mod themes;
 mod tour;
+pub use themes::init;
 pub use tour::guest_init;
-
-#[cfg(feature = "dev")]
-mod dev;
-#[cfg(feature = "dev")]
-pub use dev::init;
-#[cfg(not(feature = "dev"))]
-pub use tour::init;

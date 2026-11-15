@@ -47,7 +47,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -281,6 +284,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         }
         "titles" => {
             register_card(cx, ext);
+            ext.require(cx, "layout_tour.card");
             ext.register_with_props::<TintedProps, TintedCard>(
                 cx,
                 "layout_tour.tinted",

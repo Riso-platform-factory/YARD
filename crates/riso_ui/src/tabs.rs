@@ -7,7 +7,8 @@ use gpui::{
     ParentElement, Pixels, Render, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
     Styled, Window, div,
 };
-use ui::{LabelCommon, Toggleable};
+use std::rc::Rc;
+use ui::{ButtonCommon, Clickable, LabelCommon, Toggleable, VisibleOnHover};
 
 /// The height a tab bar gives itself, as Zed's `TabBar` does.
 pub fn tab_bar_height(cx: &App) -> Pixels {
@@ -15,6 +16,7 @@ pub fn tab_bar_height(cx: &App) -> Pixels {
 }
 
 type OnClick = Box<dyn Fn(&mut Window, &mut App)>;
+type OnClose = Rc<dyn Fn(&mut Window, &mut App)>;
 type TabModifier = Box<dyn FnOnce(ui::Tab) -> ui::Tab>;
 type BarModifier = Box<dyn FnOnce(Stateful<Div>) -> Stateful<Div>>;
 
@@ -26,7 +28,7 @@ impl Render for DragPreview {
     }
 }
 
-/// A tab with a label, selection state, click handler, and drag-and-drop hooks.
+/// A tab with a label, selection state, click handler, optional close button, and drag-and-drop hooks.
 #[derive(IntoElement)]
 pub struct Tab {
     id: ElementId,
@@ -34,6 +36,7 @@ pub struct Tab {
     selected: bool,
     icon: Option<crate::IconName>,
     on_click: Option<OnClick>,
+    on_close: Option<OnClose>,
     modifiers: Vec<TabModifier>,
 }
 
@@ -45,6 +48,7 @@ impl Tab {
             selected: false,
             icon: None,
             on_click: None,
+            on_close: None,
             modifiers: Vec::new(),
         }
     }
@@ -61,6 +65,11 @@ impl Tab {
 
     pub fn on_click(mut self, on_click: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         self.on_click = Some(Box::new(on_click));
+        self
+    }
+
+    pub fn on_close(mut self, on_close: impl Fn(&mut Window, &mut App) + 'static) -> Self {
+        self.on_close = Some(Rc::new(on_close));
         self
     }
 
@@ -111,6 +120,7 @@ impl Tab {
                         ui::Color::Muted
                     }),
             );
+        let close_id = self.id.clone();
         let tab = ui::Tab::new(self.id)
             .position(position)
             .toggle_state(self.selected)
@@ -119,6 +129,32 @@ impl Tab {
             Some(on_click) => tab.on_click(move |_, window, cx| on_click(window, cx)),
             None => tab,
         };
+        if let Some(on_close) = self.on_close {
+            let close = on_close.clone();
+            let button = ui::IconButton::new("close tab", ui::IconName::Close)
+                .shape(ui::IconButtonShape::Square)
+                .icon_color(ui::Color::Muted)
+                .size(ui::ButtonSize::None)
+                .icon_size(ui::IconSize::Small)
+                .tooltip(crate::Tooltip::text("Close Tab"))
+                .on_click(move |_, window, cx| {
+                    cx.stop_propagation();
+                    close(window, cx);
+                })
+                .visible_on_hover("");
+            tab = tab
+                .end_slot(
+                    div()
+                        .debug_selector(move || format!("CLOSE-{close_id}"))
+                        .child(button),
+                )
+                .on_aux_click(move |event, window, cx| {
+                    if event.is_middle_click() {
+                        cx.stop_propagation();
+                        on_close(window, cx);
+                    }
+                });
+        }
         for modify in self.modifiers {
             tab = modify(tab);
         }

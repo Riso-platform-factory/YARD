@@ -295,6 +295,18 @@ Dragging a split's line past half a child's minimum hides that child; a hidden c
 | Click `add to top` | `left` comes back with `top`. |
 | `user layer: 0` all along | Nothing was recorded. |
 
+### Feature 24: close-tab
+
+A tab has a close button, shown when the pointer is over the tab, as in Zed; a middle click on a tab closes it too. In the `titles` case, `gamma` is required, so its tab has no button. Use a fresh home: `RISO_HOME=/tmp/riso-close`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-close LAYOUT_TOUR=titles cargo run dev`, rest the pointer on tab `Beta` | A close button appears at its right; resting on it shows `Close Tab`. The selected tab `Alpha` shows none until the pointer is over it, as in Zed. |
+| Click `Beta`'s close button | `Beta` goes; `tab close {node=beta}`, `layout-op{op=remove, node=beta, extension=riso}`, `view dropped {node=beta}`. |
+| Middle-click tab `Alpha` | `Alpha` goes, and `gamma` is selected. |
+| Rest on `gamma` | No close button: it is required. |
+| Quit and start again, then `reset layout` | The closed tabs are still closed; after the reset, all three are back. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

@@ -1,11 +1,23 @@
 use gpui::{Along, AppContext, IntoElement, ParentElement, Styled};
-use riso_ui::{AxisSize, Resized};
+use riso_ui::{AxisChild, AxisSize, Resized};
 use std::{cell::RefCell, rc::Rc};
+
+// The minimums these tests rely on: 80 px across and 100 px down.
+fn with_minimums(axis: gpui::Axis, sizes: Vec<AxisSize>) -> Vec<AxisChild> {
+    let min = match axis {
+        gpui::Axis::Horizontal => gpui::px(80.),
+        gpui::Axis::Vertical => gpui::px(100.),
+    };
+    sizes
+        .into_iter()
+        .map(|size| AxisChild { size, min })
+        .collect()
+}
 
 // The probe records every `on_resized` call with the resize event it was given.
 struct Probe {
     axis: gpui::Axis,
-    shares: Rc<RefCell<Vec<AxisSize>>>,
+    shares: Rc<RefCell<Vec<AxisChild>>>,
     resized: Rc<RefCell<Vec<Resized>>>,
 }
 
@@ -42,7 +54,10 @@ fn position(axis: gpui::Axis, along: f32) -> gpui::Point<gpui::Pixels> {
 fn on_resized_is_called_once_on_a_changed_drag_and_a_double_click(cx: &mut gpui::TestAppContext) {
     cx.update(riso_ui::init);
     for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-        let shares = Rc::new(RefCell::new(vec![AxisSize::Flex(1.); 3]));
+        let shares = Rc::new(RefCell::new(with_minimums(
+            axis,
+            vec![AxisSize::Flex(1.); 3],
+        )));
         let resized = Rc::new(RefCell::new(Vec::new()));
         let window = cx.update(|cx| {
             cx.open_window(gpui::WindowOptions::default(), |_, cx| {

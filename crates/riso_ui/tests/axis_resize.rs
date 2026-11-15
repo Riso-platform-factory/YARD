@@ -1,6 +1,18 @@
 use gpui::{Along, AppContext, IntoElement, ParentElement, Styled};
-use riso_ui::AxisSize;
+use riso_ui::{AxisChild, AxisSize};
 use std::{cell::RefCell, rc::Rc};
+
+// The minimums these tests rely on: 80 px across and 100 px down.
+fn with_minimums(axis: gpui::Axis, sizes: Vec<AxisSize>) -> Vec<AxisChild> {
+    let min = match axis {
+        gpui::Axis::Horizontal => gpui::px(80.),
+        gpui::Axis::Vertical => gpui::px(100.),
+    };
+    sizes
+        .into_iter()
+        .map(|size| AxisChild { size, min })
+        .collect()
+}
 
 #[derive(Clone, Default)]
 struct Trace(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
@@ -40,7 +52,7 @@ impl tracing::Subscriber for Trace {
 struct Probe {
     axis: gpui::Axis,
     count: usize,
-    shares: Rc<RefCell<Vec<AxisSize>>>,
+    shares: Rc<RefCell<Vec<AxisChild>>>,
     bounds: Rc<RefCell<Vec<gpui::Bounds<gpui::Pixels>>>>,
 }
 
@@ -100,7 +112,10 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-            let mut shares = Rc::new(RefCell::new(vec![AxisSize::Flex(1.); 3]));
+            let mut shares = Rc::new(RefCell::new(with_minimums(
+                axis,
+                vec![AxisSize::Flex(1.); 3],
+            )));
             let bounds = Rc::new(RefCell::new(Vec::new()));
             let window = cx.update(|cx| {
                 cx.open_window(gpui::WindowOptions::default(), |_, cx| {
@@ -117,7 +132,10 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
                 gpui::size(gpui::px(180.), gpui::px(180.)).apply_along(axis, |_| gpui::px(600.));
             cx.simulate_window_resize(window.into(), initial);
             draw(window, cx);
-            assert_eq!(*shares.borrow(), [AxisSize::Flex(1.); 3]);
+            assert_eq!(
+                *shares.borrow(),
+                with_minimums(axis, vec![AxisSize::Flex(1.); 3])
+            );
             let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
             // Three pixels from the divider is outside the centered 4px hitbox.
             visual.simulate_mouse_move(position(axis, 197.), None, Default::default());
@@ -136,7 +154,10 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
                 gpui::MouseButton::Left,
                 Default::default(),
             );
-            assert_eq!(*shares.borrow(), [AxisSize::Flex(1.); 3]);
+            assert_eq!(
+                *shares.borrow(),
+                with_minimums(axis, vec![AxisSize::Flex(1.); 3])
+            );
             visual.simulate_mouse_move(position(axis, 200.), None, Default::default());
             visual.simulate_mouse_down(
                 position(axis, 200.),
@@ -198,7 +219,10 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
                 first_mouse: false,
             });
             draw(window, cx);
-            assert_eq!(*shares.borrow(), [AxisSize::Flex(1.); 3]);
+            assert_eq!(
+                *shares.borrow(),
+                with_minimums(axis, vec![AxisSize::Flex(1.); 3])
+            );
             assert_sizes(&bounds, axis, &[400., 400., 400.]);
             visual.simulate_mouse_up(at, gpui::MouseButton::Left, Default::default());
             // The second handle pushes predecessors when dragged backwards.
@@ -224,7 +248,10 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
             let previous = shares.clone();
             let retained = previous.borrow().clone();
             for count in [1, 0, 3] {
-                shares = Rc::new(RefCell::new(vec![AxisSize::Flex(1.); count]));
+                shares = Rc::new(RefCell::new(with_minimums(
+                    axis,
+                    vec![AxisSize::Flex(1.); count],
+                )));
                 window
                     .update(cx, |probe, _, _| {
                         probe.count = count;
@@ -249,7 +276,10 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
                 Default::default(),
             );
             draw(window, cx);
-            assert_eq!(*shares.borrow(), [AxisSize::Flex(1.); 3]);
+            assert_eq!(
+                *shares.borrow(),
+                with_minimums(axis, vec![AxisSize::Flex(1.); 3])
+            );
             visual.simulate_mouse_up(
                 position(axis, 90.),
                 gpui::MouseButton::Left,
@@ -260,7 +290,7 @@ fn handles_resize_reset_and_log(cx: &mut gpui::TestAppContext) {
     let lines = trace.0.lock().unwrap();
     let resize: Vec<_> = lines
         .iter()
-        .filter(|line| !line.contains("axis child size"))
+        .filter(|line| !line.contains("axis child size") && !line.contains("child minimums"))
         .collect();
     assert_eq!(
         resize

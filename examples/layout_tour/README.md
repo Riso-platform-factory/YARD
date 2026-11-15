@@ -259,6 +259,18 @@ A child of a split is fixed when the split's `sizes` prop gives it a size in pix
 | Drag the line between `side` and `main` | `side` gets the new width; one `layout-op{op=props, node=row}` with `props set` naming `sizes`. Quit and start: the same width. |
 | `reset layout` | `side` is `240px` again. |
 
+### Feature 21: component-sizes
+
+`layout_tour.wide` declares a minimum of 20 rems across, and `layout_tour.panel` a preferred width of 15 rems. The case places the controls above a row with `panel`, `wide`, and `plain`, a card with no hints (its minimum is the default 5 rems). Use a fresh home: `RISO_HOME=/tmp/riso-sizes2`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-sizes2 LAYOUT_TOUR=component-sizes cargo run dev` | `panel` 240 px wide (15 rems at the default font), `wide` and `plain` sharing the rest. `size-hints` for both components. |
+| Drag the line between `wide` and `plain` to the left | It stops when `wide` is 320 px (20 rems). |
+| Drag it to the right | `plain` stops at 80 px (5 rems). |
+| With `{"theme": {"ui_font_size": 20}}` in `settings.json` and a fresh home | `panel` is 300 px, and `wide` is held at its minimum of 400 px. |
+| `reset layout` | `panel` is back at its preferred width. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

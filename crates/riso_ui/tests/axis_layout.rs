@@ -1,6 +1,18 @@
 use gpui::{Along, AppContext, IntoElement, ParentElement, Styled};
-use riso_ui::AxisSize;
+use riso_ui::{AxisChild, AxisSize};
 use std::{cell::RefCell, rc::Rc};
+
+// The minimums these tests rely on: 80 px across and 100 px down.
+fn with_minimums(axis: gpui::Axis, sizes: Vec<AxisSize>) -> Vec<AxisChild> {
+    let min = match axis {
+        gpui::Axis::Horizontal => gpui::px(80.),
+        gpui::Axis::Vertical => gpui::px(100.),
+    };
+    sizes
+        .into_iter()
+        .map(|size| AxisChild { size, min })
+        .collect()
+}
 
 #[derive(Clone, Default)]
 struct Trace(std::sync::Arc<std::sync::Mutex<Vec<String>>>);
@@ -60,7 +72,10 @@ impl gpui::Render for Probe {
         gpui::div().size_full().child(riso_ui::axis(
             "probe",
             self.axis,
-            Rc::new(RefCell::new(vec![AxisSize::Flex(1.); self.count])),
+            Rc::new(RefCell::new(with_minimums(
+                self.axis,
+                vec![AxisSize::Flex(1.); self.count],
+            ))),
             children,
         ))
     }
@@ -125,13 +140,24 @@ fn equal_shares_and_dividers(cx: &mut gpui::TestAppContext) {
             (size.along(axis) / count as f32).round()
         };
         let child_size = size.apply_along(axis, |_| share);
-        let expected: Vec<_> = (0..count)
-            .map(|index| {
+        let minimum = match axis {
+            gpui::Axis::Horizontal => 80.,
+            gpui::Axis::Vertical => 100.,
+        };
+        let expected: Vec<_> = (count > 0)
+            .then(|| {
+                format!(
+                    "TRACE message=child minimums split=probe mins={:?}",
+                    vec![minimum as f32; count]
+                )
+            })
+            .into_iter()
+            .chain((0..count).map(|index| {
                 format!(
                     "TRACE message=axis child size id=probe index={index} width={} height={}",
                     child_size.width, child_size.height
                 )
-            })
+            }))
             .collect();
         assert_eq!(*trace.0.lock().unwrap(), expected);
     }

@@ -126,13 +126,13 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "97c25b0c4350dacd"
+      "crates/riso_shell/src/shell.rs": "ab8725386a9ae094"
     },
     "promoted": "2026-11-15"
   },
   "riso_ui/axis": {
     "files": {
-      "crates/riso_ui/src/axis.rs": "3c8cd5fd47b89faa"
+      "crates/riso_ui/src/axis.rs": "c67a9f2430aebc80"
     },
     "promoted": "2026-11-15"
   },
@@ -204,7 +204,7 @@
   },
   "riso_ui/tabs": {
     "files": {
-      "crates/riso_ui/src/tabs.rs": "05bed6b81f21646d"
+      "crates/riso_ui/src/tabs.rs": "17470f4ce69b68be"
     },
     "promoted": "2026-11-15"
   },

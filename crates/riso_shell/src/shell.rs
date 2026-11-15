@@ -907,7 +907,7 @@ struct Split {
     shares: BTreeMap<String, f32>,
     sizes: BTreeMap<String, Pixels>,
     shown_nodes: Vec<NodeId>,
-    shown_shares: Rc<RefCell<Vec<riso_ui::AxisSize>>>,
+    shown_shares: Rc<RefCell<Vec<riso_ui::AxisChild>>>,
     edges: BTreeMap<NodeId, Edge>,
     child_bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     axis: Axis,
@@ -923,7 +923,7 @@ impl Split {
             .iter()
             .zip(self.shown_shares.borrow().iter())
         {
-            match share {
+            match &share.size {
                 riso_ui::AxisSize::Flex(share) => {
                     self.shares.insert(node.to_string(), *share);
                 }
@@ -948,14 +948,20 @@ impl Split {
     }
 
     /// Chooses a fixed size before consulting the child's flexible share.
-    fn size_for(&self, node: &NodeId) -> riso_ui::AxisSize {
-        self.sizes
+    fn size_for(&self, node: &NodeId) -> riso_ui::AxisChild {
+        let size = self
+            .sizes
             .get(node.as_str())
             .copied()
             .map(riso_ui::AxisSize::Fixed)
             .unwrap_or_else(|| {
                 riso_ui::AxisSize::Flex(self.shares.get(node.as_str()).copied().unwrap_or(1.))
-            })
+            });
+        let min = match self.axis {
+            Axis::Horizontal => gpui::px(80.),
+            Axis::Vertical => gpui::px(100.),
+        };
+        riso_ui::AxisChild { size, min }
     }
 
     fn set_sizes(&mut self, shares: BTreeMap<String, f32>, sizes: BTreeMap<String, Pixels>) {

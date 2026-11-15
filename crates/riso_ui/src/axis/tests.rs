@@ -3,7 +3,13 @@ use super::*;
 fn resized(sizes: &[f32], handle: usize, change: f32, minimum: f32) -> Vec<f32> {
     let length = sizes.iter().sum::<f32>();
     let mut shares: Vec<_> = sizes.to_vec();
-    compute_resize(&mut shares, handle, length, sizes[handle] + change, minimum);
+    compute_resize(
+        &mut shares,
+        handle,
+        length,
+        sizes[handle] + change,
+        &vec![minimum; sizes.len()],
+    );
     shares
         .iter()
         .map(|share| length * share / shares.iter().sum::<f32>())
@@ -57,7 +63,7 @@ fn shares_sum_is_preserved() {
     for handle in 0..3 {
         let mut shares = vec![1.; 4];
         for change in [-900., -90., 0., 25., 900.] {
-            compute_resize(&mut shares, handle, 800., 200. + change, 80.);
+            compute_resize(&mut shares, handle, 800., 200. + change, &[80.; 4]);
             assert!((shares.iter().sum::<f32>() - 4.).abs() < 0.001);
             assert!(shares.iter().all(|share| 800. * share / 4. >= 79.999));
         }
@@ -67,7 +73,7 @@ fn shares_sum_is_preserved() {
 #[test]
 fn resizing_uses_the_supplied_sum_instead_of_the_child_count() {
     let mut shares = vec![2., 3.];
-    assert!(compute_resize(&mut shares, 0, 500., 250., 80.));
+    assert!(compute_resize(&mut shares, 0, 500., 250., &[80.; 2]));
     assert_sizes(&shares, &[2.5, 2.5]);
-    assert!(!compute_resize(&mut shares, 0, 500., 250., 80.));
+    assert!(!compute_resize(&mut shares, 0, 500., 250., &[80.; 2]));
 }

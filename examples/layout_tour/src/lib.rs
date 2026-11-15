@@ -27,6 +27,7 @@
 //! `LAYOUT_TOUR=zoom cargo run dev`: zoom a counted card and restore shares and selection.
 //! `LAYOUT_TOUR=zoom-root cargo run dev`: zooming the root is refused.
 //! `LAYOUT_TOUR=fixed-sizes cargo run dev`: a fixed side card and a flexible main card.
+//! `LAYOUT_TOUR=component-sizes cargo run dev`: a card with a preferred width, one with a wide minimum, and a plain card.
 //! `LAYOUT_TOUR=user-layer cargo run dev`: rearrange, hide, and reset to the default layout.
 //! `LAYOUT_TOUR=actions cargo run dev`: send layout actions to the focused card.
 //! `LAYOUT_TOUR=props cargo run dev`: configure cards with props, change them, and reset.
@@ -45,7 +46,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -403,6 +407,45 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place(cx, "side", "layout_tour.card", "row", "children");
             ext.place(cx, "main", "layout_tour.card", "row", "children");
         }
+        #[cfg(feature = "dev")]
+        "component-sizes" => {
+            register_card(cx, ext);
+            register_card_as(cx, ext, "layout_tour.wide");
+            register_card_as(cx, ext, "layout_tour.panel");
+            ext.size_hints(
+                cx,
+                "layout_tour.wide",
+                shell::SizeHints {
+                    min: gpui::size(gpui::rems(20.), gpui::rems(6.25)),
+                    preferred: gpui::size(None, None),
+                },
+            );
+            ext.size_hints(
+                cx,
+                "layout_tour.panel",
+                shell::SizeHints {
+                    min: gpui::size(gpui::rems(5.), gpui::rems(6.25)),
+                    preferred: gpui::size(Some(gpui::rems(15.)), None),
+                },
+            );
+            let buttons = vec![Button::action("reset layout", |ext, window, cx| {
+                ext.reset_layout(window, cx)
+            })];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.column");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            ext.place(cx, "row", "riso.row", "root", "children");
+            ext.place(cx, "panel", "layout_tour.panel", "row", "children");
+            ext.place(cx, "wide", "layout_tour.wide", "row", "children");
+            ext.place(cx, "plain", "layout_tour.card", "row", "children");
+        }
         "user-layer" => {
             register_card(cx, ext);
             let buttons = vec![
@@ -572,12 +615,18 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             });
             ext.place_root(cx, "root", "Layout Tour.Card");
         }
-        _ => log::warn!(
-            "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
+        _ => {
+            #[cfg(feature = "dev")]
+            let dev_cases = ", component-sizes";
+            #[cfg(not(feature = "dev"))]
+            let dev_cases = "";
+            log::warn!(
+                "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, actions, props, required, slot-count, placement-order, contexts"
-        ),
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes{dev_cases}, actions, props, required, slot-count, placement-order, contexts"
+            )
+        }
     }
 }
 

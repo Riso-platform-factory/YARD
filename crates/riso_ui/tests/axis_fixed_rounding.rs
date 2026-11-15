@@ -27,7 +27,13 @@ impl gpui::Render for Probe {
             Rc::new(RefCell::new(
                 self.preferred
                     .iter()
-                    .map(|size| riso_ui::AxisSize::Fixed(gpui::px(*size)))
+                    .map(|size| riso_ui::AxisChild {
+                        size: riso_ui::AxisSize::Fixed(gpui::px(*size)),
+                        min: match self.direction {
+                            gpui::Axis::Horizontal => gpui::px(80.),
+                            gpui::Axis::Vertical => gpui::px(100.),
+                        },
+                    })
                     .collect(),
             )),
             children,

@@ -1,6 +1,18 @@
 use gpui::{Along, AppContext, IntoElement, ParentElement, Styled};
-use riso_ui::{AxisSize, Resized};
+use riso_ui::{AxisChild, AxisSize, Resized};
 use std::{cell::RefCell, rc::Rc};
+
+// The minimums these tests rely on: 80 px across and 100 px down.
+fn with_minimums(axis: gpui::Axis, sizes: Vec<AxisSize>) -> Vec<AxisChild> {
+    let min = match axis {
+        gpui::Axis::Horizontal => gpui::px(80.),
+        gpui::Axis::Vertical => gpui::px(100.),
+    };
+    sizes
+        .into_iter()
+        .map(|size| AxisChild { size, min })
+        .collect()
+}
 
 // What `on_resized` reports, read without relying on `AxisSize`'s own traits.
 #[derive(Debug, PartialEq)]
@@ -17,7 +29,7 @@ enum SeenSize {
 
 struct Probe {
     axis: gpui::Axis,
-    sizes: Rc<RefCell<Vec<AxisSize>>>,
+    sizes: Rc<RefCell<Vec<AxisChild>>>,
     reports: Rc<RefCell<Vec<Seen>>>,
     bounds: Rc<RefCell<Vec<gpui::Bounds<gpui::Pixels>>>>,
 }
@@ -71,7 +83,7 @@ fn draw(window: gpui::WindowHandle<Probe>, cx: &mut gpui::TestAppContext) {
 fn open(
     cx: &mut gpui::TestAppContext,
     axis: gpui::Axis,
-    sizes: Rc<RefCell<Vec<AxisSize>>>,
+    sizes: Rc<RefCell<Vec<AxisChild>>>,
     reports: Rc<RefCell<Vec<Seen>>>,
     bounds: Rc<RefCell<Vec<gpui::Bounds<gpui::Pixels>>>>,
     length: f32,
@@ -132,15 +144,15 @@ fn handle_at(
         .apply_along(axis, |_| child.origin.along(axis) + child.size.along(axis))
 }
 
-fn fixed_at(sizes: &Rc<RefCell<Vec<AxisSize>>>, index: usize) -> Option<f32> {
-    match &sizes.borrow()[index] {
+fn fixed_at(sizes: &Rc<RefCell<Vec<AxisChild>>>, index: usize) -> Option<f32> {
+    match &sizes.borrow()[index].size {
         AxisSize::Fixed(pixels) => Some(f32::from(pixels)),
         AxisSize::Flex(_) => None,
     }
 }
 
-fn flex_at(sizes: &Rc<RefCell<Vec<AxisSize>>>, index: usize) -> Option<f32> {
-    match &sizes.borrow()[index] {
+fn flex_at(sizes: &Rc<RefCell<Vec<AxisChild>>>, index: usize) -> Option<f32> {
+    match &sizes.borrow()[index].size {
         AxisSize::Flex(share) => Some(*share),
         AxisSize::Fixed(_) => None,
     }
@@ -152,11 +164,14 @@ fn flex_at(sizes: &Rc<RefCell<Vec<AxisSize>>>, index: usize) -> Option<f32> {
 fn a_fixed_child_keeps_its_size_as_the_axis_grows(cx: &mut gpui::TestAppContext) {
     cx.update(riso_ui::init);
     for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-        let sizes = Rc::new(RefCell::new(vec![
-            AxisSize::Flex(1.),
-            AxisSize::Fixed(gpui::px(240.)),
-            AxisSize::Flex(1.),
-        ]));
+        let sizes = Rc::new(RefCell::new(with_minimums(
+            axis,
+            vec![
+                AxisSize::Flex(1.),
+                AxisSize::Fixed(gpui::px(240.)),
+                AxisSize::Flex(1.),
+            ],
+        )));
         let bounds = Rc::new(RefCell::new(Vec::new()));
         let window = open(
             cx,
@@ -202,11 +217,14 @@ fn the_flexible_children_shrink_first_then_the_fixed_shrink_in_proportion(
             ],
         ),
     ] {
-        let sizes = Rc::new(RefCell::new(vec![
-            AxisSize::Flex(1.),
-            AxisSize::Fixed(gpui::px(240.)),
-            AxisSize::Fixed(gpui::px(160.)),
-        ]));
+        let sizes = Rc::new(RefCell::new(with_minimums(
+            axis,
+            vec![
+                AxisSize::Flex(1.),
+                AxisSize::Fixed(gpui::px(240.)),
+                AxisSize::Fixed(gpui::px(160.)),
+            ],
+        )));
         let bounds = Rc::new(RefCell::new(Vec::new()));
         let window = open(
             cx,
@@ -243,11 +261,14 @@ fn dragging_handles_between_fixed_and_flexible_children(cx: &mut gpui::TestAppCo
         } else {
             100.
         };
-        let sizes = Rc::new(RefCell::new(vec![
-            AxisSize::Fixed(gpui::px(240.)),
-            AxisSize::Fixed(gpui::px(160.)),
-            AxisSize::Flex(1.),
-        ]));
+        let sizes = Rc::new(RefCell::new(with_minimums(
+            axis,
+            vec![
+                AxisSize::Fixed(gpui::px(240.)),
+                AxisSize::Fixed(gpui::px(160.)),
+                AxisSize::Flex(1.),
+            ],
+        )));
         let reports = Rc::new(RefCell::new(Vec::new()));
         let bounds = Rc::new(RefCell::new(Vec::new()));
         let window = open(
@@ -338,7 +359,10 @@ fn dragging_handles_between_fixed_and_flexible_children(cx: &mut gpui::TestAppCo
 fn a_drag_that_ends_on_equal_shares_reports_dragged_not_reset(cx: &mut gpui::TestAppContext) {
     cx.update(riso_ui::init);
     for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-        let sizes = Rc::new(RefCell::new(vec![AxisSize::Flex(2.), AxisSize::Flex(1.)]));
+        let sizes = Rc::new(RefCell::new(with_minimums(
+            axis,
+            vec![AxisSize::Flex(2.), AxisSize::Flex(1.)],
+        )));
         let reports = Rc::new(RefCell::new(Vec::new()));
         let bounds = Rc::new(RefCell::new(Vec::new()));
         let window = open(
@@ -394,11 +418,10 @@ fn a_drag_that_ends_on_equal_shares_reports_dragged_not_reset(cx: &mut gpui::Tes
 fn a_caller_that_passes_only_flex_sees_todays_layout(cx: &mut gpui::TestAppContext) {
     cx.update(riso_ui::init);
     for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-        let sizes = Rc::new(RefCell::new(vec![
-            AxisSize::Flex(1.),
-            AxisSize::Flex(1.),
-            AxisSize::Flex(1.),
-        ]));
+        let sizes = Rc::new(RefCell::new(with_minimums(
+            axis,
+            vec![AxisSize::Flex(1.), AxisSize::Flex(1.), AxisSize::Flex(1.)],
+        )));
         let reports = Rc::new(RefCell::new(Vec::new()));
         let bounds = Rc::new(RefCell::new(Vec::new()));
         let window = open(
@@ -411,7 +434,10 @@ fn a_caller_that_passes_only_flex_sees_todays_layout(cx: &mut gpui::TestAppConte
         );
         assert_sizes(&bounds, axis, &[200., 200., 200.]);
         // Shares need not be equal: a caller may pass its own proportions.
-        *sizes.borrow_mut() = vec![AxisSize::Flex(3.), AxisSize::Flex(1.), AxisSize::Flex(1.)];
+        *sizes.borrow_mut() = with_minimums(
+            axis,
+            vec![AxisSize::Flex(3.), AxisSize::Flex(1.), AxisSize::Flex(1.)],
+        );
         draw(window, cx);
         assert_sizes(&bounds, axis, &[360., 120., 120.]);
         // Resizing the window keeps the fractions.
@@ -464,10 +490,13 @@ fn a_caller_that_passes_only_flex_sees_todays_layout(cx: &mut gpui::TestAppConte
 fn an_axis_of_fixed_children_gives_the_last_child_what_is_left(cx: &mut gpui::TestAppContext) {
     cx.update(riso_ui::init);
     for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-        let sizes = Rc::new(RefCell::new(vec![
-            AxisSize::Fixed(gpui::px(200.)),
-            AxisSize::Fixed(gpui::px(300.)),
-        ]));
+        let sizes = Rc::new(RefCell::new(with_minimums(
+            axis,
+            vec![
+                AxisSize::Fixed(gpui::px(200.)),
+                AxisSize::Fixed(gpui::px(300.)),
+            ],
+        )));
         let bounds = Rc::new(RefCell::new(Vec::new()));
         let window = open(
             cx,

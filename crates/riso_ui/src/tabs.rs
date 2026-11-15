@@ -4,10 +4,15 @@
 
 use gpui::{
     AnyView, App, AppContext, Context, Div, ElementId, InteractiveElement, IntoElement,
-    ParentElement, Render, RenderOnce, SharedString, Stateful, StatefulInteractiveElement, Styled,
-    Window, div,
+    ParentElement, Pixels, Render, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
+    Styled, Window, div,
 };
 use ui::{LabelCommon, Toggleable};
+
+/// The height a tab bar gives itself, as Zed's `TabBar` does.
+pub fn tab_bar_height(cx: &App) -> Pixels {
+    ui::Tab::container_height(cx)
+}
 
 type OnClick = Box<dyn Fn(&mut Window, &mut App)>;
 type TabModifier = Box<dyn FnOnce(ui::Tab) -> ui::Tab>;

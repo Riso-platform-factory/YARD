@@ -17,16 +17,17 @@ gpui::actions!(
 gpui::actions!(riso, [Dismiss]);
 gpui::actions!(riso, [Quit]);
 use gpui::{
-    Action, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div, DragMoveEvent,
-    Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding,
-    KeyBindingContextPredicate, ParentElement, Pixels, Point, Render, SharedString, Styled,
-    Subscription, WeakEntity, Window, canvas, div,
+    Action, AnyEntity, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div,
+    DragMoveEvent, Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement,
+    KeyBinding, KeyBindingContextPredicate, ParentElement, Pixels, Point, Render, SharedString,
+    Styled, Subscription, WeakEntity, Window, canvas, div,
 };
 use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Position, Props, SlotName, Tree};
 use riso_layout::{decode, encode};
 use riso_paths::write_atomic;
 use std::{
+    any::{TypeId, type_name},
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     path::PathBuf,
@@ -58,6 +59,15 @@ type TitleReader = Rc<dyn Fn(&AnyView, &App) -> Option<(SharedString, Option<ris
 type ActionHandler = Rc<dyn Fn(Div) -> Div>;
 type Factory = Rc<dyn Fn(&Node, Slots, &mut Window, &mut App) -> AnyView>;
 type Teller = Rc<dyn Fn(&Props, &mut App)>;
+type ContextFactory = Rc<dyn Fn(&NodeId, &mut App) -> AnyEntity>;
+
+#[derive(Clone)]
+struct Provider {
+    model: TypeId,
+    name: &'static str,
+    create: ContextFactory,
+}
+
 type ViewMap = BTreeMap<NodeId, AnyView>;
 
 const FRAME_NODES: &[&str] = &["window", "title_bar", "body", "status_bar"];
@@ -401,6 +411,10 @@ struct Registry {
     titles: BTreeMap<ComponentId, TitleReader>,
     required: BTreeSet<ComponentId>,
     slots_for_one: Vec<(ComponentId, SlotName)>,
+    providers: BTreeMap<ComponentId, Vec<Provider>>,
+    requirements: BTreeMap<ComponentId, Vec<(TypeId, &'static str)>>,
+    contexts: BTreeMap<NodeId, BTreeMap<TypeId, AnyEntity>>,
+    window_contexts: BTreeMap<TypeId, AnyEntity>,
     title_errors: RefCell<BTreeSet<NodeId>>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
@@ -600,6 +614,10 @@ impl Default for Registry {
             titles: BTreeMap::new(),
             required: BTreeSet::new(),
             slots_for_one: Vec::new(),
+            providers: BTreeMap::new(),
+            requirements: BTreeMap::new(),
+            contexts: BTreeMap::new(),
+            window_contexts: BTreeMap::new(),
             title_errors: RefCell::new(BTreeSet::new()),
             tree: Rc::new(RefCell::new(Layers::new(tree))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
@@ -1815,6 +1833,7 @@ fn run_op(
                     registry.focus_handles.remove(&id);
                     registry.bounds.remove(&id);
                     registry.tellers.remove(&id);
+                    registry.contexts.remove(&id);
                     registry.views.borrow_mut().remove(&id)
                 };
                 if dropped.is_some() {
@@ -1853,6 +1872,129 @@ fn run_op(
     reconcile_containers(cx);
     cx.refresh_windows();
     save(cx);
+}
+
+fn model_name<M: 'static>() -> &'static str {
+    type_name::<M>().rsplit("::").next().unwrap()
+}
+
+/// Returns the nearest ancestor's model, falling back to the window's.
+pub fn context<M: 'static>(cx: &App, node: &str) -> Option<Entity<M>> {
+    let model = model_name::<M>();
+    let mut from = String::from("none");
+    let result = (|| {
+        let registry = cx.try_global::<Registry>()?;
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let mut current = NodeId::parse(node).ok()?;
+        node_of(tree, &current)?;
+        while let Some((parent, _, _, _)) = current_location(tree, &current) {
+            if let Some(value) = registry
+                .contexts
+                .get(&parent)
+                .and_then(|models| models.get(&TypeId::of::<M>()))
+            {
+                from = parent.to_string();
+                return value.clone().downcast::<M>().ok();
+            }
+            current = parent;
+        }
+        let value = registry.window_contexts.get(&TypeId::of::<M>())?;
+        from = String::from("window");
+        value.clone().downcast::<M>().ok()
+    })();
+    tracing::trace!(node, model, from = from.as_str(), "context");
+    result
+}
+
+fn operation_context_error(registry: &Registry, operation: &Operation) -> Option<String> {
+    match operation {
+        Operation::Add { node, parent, .. } => {
+            context_rule_error(registry, &node.id, &node.component, parent, false)
+        }
+        Operation::Move { node, parent, .. } => {
+            let layers = registry.tree.borrow();
+            let component = component_of(layers.current(), node)?;
+            context_rule_error(registry, node, component, parent, true)
+        }
+        _ => None,
+    }
+}
+
+fn context_rule_error(
+    registry: &Registry,
+    node: &NodeId,
+    component: &ComponentId,
+    parent: &NodeId,
+    subtree: bool,
+) -> Option<String> {
+    let layers = registry.tree.borrow();
+    let tree = layers.current();
+    // Let the tree report a duplicate ID; a new node has no descendants.
+    if !subtree && node_of(tree, node).is_some() {
+        return None;
+    }
+    // Invalid targets and cycles are refused by the existing tree rules.
+    node_of(tree, parent)?;
+    let mut available: BTreeSet<TypeId> = registry.window_contexts.keys().copied().collect();
+    let mut current = parent.clone();
+    loop {
+        if &current == node {
+            return None;
+        }
+        if let Some(providers) =
+            component_of(tree, &current).and_then(|id| registry.providers.get(id))
+        {
+            available.extend(providers.iter().map(|provider| provider.model));
+        }
+        let Some((ancestor, _, _, _)) = current_location(tree, &current) else {
+            break;
+        };
+        current = ancestor;
+    }
+    fn missing(
+        registry: &Registry,
+        tree: Option<&Tree>,
+        node: &NodeId,
+        component: &ComponentId,
+        available: &BTreeSet<TypeId>,
+        parent: &NodeId,
+    ) -> Option<String> {
+        if let Some(requirements) = registry.requirements.get(component) {
+            for (model, name) in requirements {
+                if !available.contains(model) {
+                    return Some(format!(
+                        "{node} requires a {name} model, and none is above {parent}"
+                    ));
+                }
+            }
+        }
+        let tree = tree?;
+        let mut available = available.clone();
+        if let Some(providers) = registry.providers.get(component) {
+            available.extend(providers.iter().map(|provider| provider.model));
+        }
+        tree.slots(node)
+            .flat_map(|(_, children)| children)
+            .find_map(|child| {
+                missing(
+                    registry,
+                    Some(tree),
+                    &child.id,
+                    &child.component,
+                    &available,
+                    parent,
+                )
+            })
+    }
+    missing(
+        registry,
+        subtree.then_some(tree),
+        node,
+        component,
+        &available,
+        parent,
+    )
 }
 
 fn slot_count_rule_error(
@@ -1940,6 +2082,10 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
                 );
                 return false;
             }
+            if let Some(reason) = operation_context_error(registry, operation) {
+                tracing::info!("{reason}");
+                return false;
+            }
             true
         }
         Operation::Move {
@@ -1987,6 +2133,10 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
                     slot = %slot,
                     "parent component does not declare slot",
                 );
+                return false;
+            }
+            if let Some(reason) = operation_context_error(registry, operation) {
+                tracing::info!("{reason}");
                 return false;
             }
             true
@@ -2061,7 +2211,7 @@ fn shell_rule_error(extension: &str, cx: &mut App, operation: &Operation) -> Res
             {
                 return Err("parent component does not declare slot".into());
             }
-            Ok(())
+            operation_context_error(registry, operation).map_or(Ok(()), Err)
         }
         Operation::Move {
             node, parent, slot, ..
@@ -2085,7 +2235,7 @@ fn shell_rule_error(extension: &str, cx: &mut App, operation: &Operation) -> Res
             {
                 return Err("parent component does not declare slot".into());
             }
-            Ok(())
+            operation_context_error(registry, operation).map_or(Ok(()), Err)
         }
         Operation::Remove { node } | Operation::SetHidden { node, .. } => {
             if is_frame_node(node) {
@@ -2449,6 +2599,7 @@ impl Extension {
                 registry.focus_handles.remove(&id);
                 registry.bounds.remove(&id);
                 registry.tellers.remove(&id);
+                registry.contexts.remove(&id);
                 let dropped = registry.views.borrow_mut().remove(&id);
                 drop(dropped);
                 tracing::debug!(node = %id, "view dropped");
@@ -2524,6 +2675,101 @@ impl Extension {
             slots,
             Rc::new(move |node, slots, window, cx| create(&node.id, slots, window, cx)),
         );
+    }
+
+    /// Gives a model from each node of this component to its descendants.
+    pub fn provide<M: 'static>(
+        &self,
+        cx: &mut App,
+        component: &str,
+        create: impl Fn(&NodeId, &mut App) -> Entity<M> + 'static,
+    ) {
+        let model = model_name::<M>();
+        let _group =
+            tracing::info_span!("context-declare", component, model, kind = "provide").entered();
+        let Some(component) = self.context_component(component) else {
+            return;
+        };
+        let providers = cx
+            .default_global::<Registry>()
+            .providers
+            .entry(component.clone())
+            .or_default();
+        if providers
+            .iter()
+            .any(|provider| provider.model == TypeId::of::<M>())
+        {
+            log::error!("component {component} already provides a {model} model");
+            return;
+        }
+        providers.push(Provider {
+            model: TypeId::of::<M>(),
+            name: model,
+            create: Rc::new(move |node, cx| create(node, cx).into()),
+        });
+        tracing::debug!("declared");
+    }
+
+    /// Gives a model to the whole window, retaining the first of its type.
+    pub fn provide_window<M: 'static>(&self, cx: &mut App, model: Entity<M>) {
+        let name = model_name::<M>();
+        let _group = tracing::info_span!(
+            "context-declare",
+            component = "window",
+            model = name,
+            kind = "window"
+        )
+        .entered();
+        match cx
+            .default_global::<Registry>()
+            .window_contexts
+            .entry(TypeId::of::<M>())
+        {
+            Entry::Vacant(entry) => {
+                entry.insert(model.into());
+                tracing::debug!("declared");
+            }
+            Entry::Occupied(_) => log::error!("the window already provides a {name} model"),
+        }
+    }
+
+    /// Requires a model above each node of this component.
+    pub fn require_context<M: 'static>(&self, cx: &mut App, component: &str) {
+        let model = model_name::<M>();
+        let _group =
+            tracing::info_span!("context-declare", component, model, kind = "require").entered();
+        let Some(component) = self.context_component(component) else {
+            return;
+        };
+        let requirements = cx
+            .default_global::<Registry>()
+            .requirements
+            .entry(component.clone())
+            .or_default();
+        if requirements.iter().any(|(id, _)| *id == TypeId::of::<M>()) {
+            log::error!("component {component} already requires a {model} model");
+            return;
+        }
+        requirements.push((TypeId::of::<M>(), model));
+        tracing::debug!("declared");
+    }
+
+    fn context_component(&self, component: &str) -> Option<ComponentId> {
+        let id = match ComponentId::parse(component) {
+            Ok(id) => id,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return None;
+            }
+        };
+        if id.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot declare contexts for component {component}",
+                self.name
+            );
+            return None;
+        }
+        Some(id)
     }
 
     /// Declares a slot of this extension's component a slot for one node.
@@ -2802,6 +3048,10 @@ impl Extension {
         }
         let body = NodeId::parse("body").unwrap();
         let children = SlotName::parse("children").unwrap();
+        if let Some(reason) = context_rule_error(registry, &id, &component, &body, false) {
+            tracing::info!("{reason}");
+            return;
+        }
         let placed = registry
             .tree
             .borrow_mut()
@@ -2961,6 +3211,16 @@ impl Extension {
         if let Some(reason) =
             slot_count_rule_error(cx.default_global::<Registry>(), &parent, &slot, None)
         {
+            tracing::info!("{reason}");
+            return;
+        }
+        if let Some(reason) = context_rule_error(
+            cx.default_global::<Registry>(),
+            &id,
+            &component,
+            &parent,
+            false,
+        ) {
             tracing::info!("{reason}");
             return;
         }
@@ -3383,6 +3643,21 @@ fn create_view(
                 .insert(node.id.clone(), handle.clone());
             handle
         });
+        let providers = cx
+            .default_global::<Registry>()
+            .providers
+            .get(&node.component)
+            .cloned()
+            .unwrap_or_default();
+        for provider in providers {
+            let model = (provider.create)(&node.id, cx);
+            cx.default_global::<Registry>()
+                .contexts
+                .entry(node.id.clone())
+                .or_default()
+                .insert(provider.model, model);
+            tracing::debug!(node = %node.id, model = provider.name, "context created");
+        }
         let view = (component.create)(node, slots.clone(), window, cx);
         let wrapped: AnyView = cx
             .new(|_| NodeView {

@@ -33,6 +33,7 @@ pub fn axis(
         shares,
         children,
         on_resized: None,
+        can_collapse: None,
     }
 }
 
@@ -48,14 +49,21 @@ pub enum AxisSize {
 pub struct AxisChild {
     pub size: AxisSize,
     pub min: Pixels,
+    pub collapsed: bool,
 }
 
 /// The result of completing a resize gesture.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Resized {
-    Dragged(Vec<AxisSize>),
+    Dragged {
+        sizes: Vec<AxisSize>,
+        snapped_shut: Vec<usize>,
+        snapped_open: Vec<usize>,
+    },
     Reset,
 }
+
+type CollapseGuard = Rc<dyn Fn(usize, &App) -> bool>;
 
 type ResizedHandler = Rc<dyn Fn(Resized, &mut Window, &mut App)>;
 
@@ -65,9 +73,16 @@ pub struct Axis {
     shares: Rc<RefCell<Vec<AxisChild>>>,
     children: Vec<AnyElement>,
     on_resized: Option<ResizedHandler>,
+    can_collapse: Option<CollapseGuard>,
 }
 
 impl Axis {
+    /// Chooses which children may snap shut; without a guard none may collapse.
+    pub fn can_collapse(mut self, f: impl Fn(usize, &App) -> bool + 'static) -> Self {
+        self.can_collapse = Some(Rc::new(f));
+        self
+    }
+
     /// Called once when a drag that changed the shares ends, and once when a
     /// double click resets them, with the resulting sizes or an explicit reset.
     pub fn on_resized(mut self, f: impl Fn(Resized, &mut Window, &mut App) + 'static) -> Self {
@@ -79,12 +94,15 @@ impl Axis {
 struct DragState {
     shares: Weak<RefCell<Vec<AxisChild>>>,
     handle: Rc<RefCell<Option<usize>>>,
-    start: Rc<RefCell<Vec<AxisSize>>>,
+    start: Rc<RefCell<Vec<AxisChild>>>,
+    open: Rc<RefCell<Option<(usize, bool)>>>,
+    refused: Rc<RefCell<Vec<usize>>>,
 }
 
 struct HandleLayout {
     hitbox: Hitbox,
     divider: Bounds<Pixels>,
+    open: Option<(usize, bool)>,
 }
 
 struct ChildLayout {
@@ -96,7 +114,9 @@ struct ChildLayout {
 pub struct AxisLayout {
     children: Vec<ChildLayout>,
     dragged_handle: Rc<RefCell<Option<usize>>>,
-    drag_start: Rc<RefCell<Vec<AxisSize>>>,
+    drag_start: Rc<RefCell<Vec<AxisChild>>>,
+    drag_open: Rc<RefCell<Option<(usize, bool)>>>,
+    refused: Rc<RefCell<Vec<usize>>>,
 }
 
 impl IntoElement for Axis {
@@ -151,13 +171,14 @@ impl Element for Axis {
                 AxisChild {
                     size: AxisSize::Flex(1.),
                     min: px(0.),
+                    collapsed: false,
                 };
                 count
             ]));
         }
         let shares_identity = Rc::downgrade(&self.shares);
-        let (dragged_handle, drag_start) =
-            window.with_element_state::<DragState, _>(global_id.unwrap(), |state, _| {
+        let (dragged_handle, drag_start, drag_open, refused) = window
+            .with_element_state::<DragState, _>(global_id.unwrap(), |state, _| {
                 // A new vector identifies a new child set. A positional drag
                 // must never carry over to different children, even at the same count.
                 let state = state
@@ -166,41 +187,67 @@ impl Element for Axis {
                         shares: shares_identity,
                         handle: Rc::new(RefCell::new(None)),
                         start: Rc::new(RefCell::new(Vec::new())),
+                        open: Rc::new(RefCell::new(None)),
+                        refused: Rc::new(RefCell::new(Vec::new())),
                     });
-                ((state.handle.clone(), state.start.clone()), state)
+                (
+                    (
+                        state.handle.clone(),
+                        state.start.clone(),
+                        state.open.clone(),
+                        state.refused.clone(),
+                    ),
+                    state,
+                )
             });
-        let (shares, mins) = split_children(&self.shares.borrow());
+        let (_, mins) = split_children(&self.shares.borrow());
         let mut layout = AxisLayout {
             children: Vec::new(),
             dragged_handle,
             drag_start,
+            drag_open,
+            refused,
         };
         if count == 0 {
             return layout;
         }
         tracing::trace!(split = %self.id, mins = ?mins, "child minimums");
         let length = f32::from(bounds.size.along(self.axis));
-        let (lengths, missing) = layout_sizes(&shares, length, &mins);
-        let total_minimum: f32 = mins.iter().sum();
+        let (lengths, missing) = child_lengths(&self.shares.borrow(), length);
+        let collapsed: Vec<bool> = self
+            .shares
+            .borrow()
+            .iter()
+            .map(|child| child.collapsed)
+            .collect();
+        let last_shown = collapsed.iter().rposition(|collapsed| !collapsed);
+        let minimum_at = |index: usize| {
+            if collapsed[index] { 0. } else { mins[index] }
+        };
+        let total_minimum: f32 = (0..count).map(minimum_at).sum();
         if missing > 0. {
             tracing::trace!(split = %self.id, missing, "fixed children shrunk");
         }
-        let all_fixed = shares.iter().all(|size| matches!(size, AxisSize::Fixed(_)));
+        let all_fixed = self
+            .shares
+            .borrow()
+            .iter()
+            .all(|child| child.collapsed || matches!(child.size, AxisSize::Fixed(_)));
         let mut origin = bounds.origin;
         for (index, mut child) in std::mem::take(&mut self.children).into_iter().enumerate() {
             let mut child_size = bounds
                 .size
                 .apply_along(self.axis, |_| px(lengths[index]))
                 .map(|dimension| dimension.round());
-            if all_fixed && missing > 0. && length >= total_minimum {
+            if all_fixed && !collapsed[index] && missing > 0. && length >= total_minimum {
                 // Rounding an earlier child up must not consume the room
                 // reserved for the remaining children's minimums.
                 let remaining =
                     bounds.size.along(self.axis) - (origin - bounds.origin).along(self.axis);
-                let available = remaining - px(mins[index + 1..].iter().sum::<f32>());
+                let available = remaining - px((index + 1..count).map(minimum_at).sum::<f32>());
                 child_size = child_size.apply_along(self.axis, |size| size.min(available));
             }
-            if all_fixed && index + 1 == count {
+            if all_fixed && Some(index) == last_shown {
                 // Absorb the earlier children's rounding so fixed-only splits
                 // fill their bounds, while retaining minimums when too small.
                 let remaining =
@@ -220,8 +267,10 @@ impl Element for Axis {
                 height = %child_size.height,
                 "axis child size"
             );
-            child.layout_as_root(child_size.into(), window, cx);
-            child.prepaint_at(origin, window, cx);
+            if !self.shares.borrow()[index].collapsed {
+                child.layout_as_root(child_size.into(), window, cx);
+                child.prepaint_at(origin, window, cx);
+            }
             layout.children.push(ChildLayout {
                 bounds: Bounds {
                     origin,
@@ -232,22 +281,93 @@ impl Element for Axis {
             });
             origin = origin.apply_along(self.axis, |value| value + child_size.along(self.axis));
         }
-        for child in layout.children.iter_mut().take(count - 1) {
+        for (index, child) in layout.children.iter_mut().enumerate() {
+            // Only boundaries between shown neighbours have ordinary handles.
+            if !collapsed[index] && !collapsed[index + 1..].iter().any(|hidden| !hidden) {
+                continue;
+            }
+            let forward = collapsed[index + 1..].iter().any(|collapsed| !collapsed)
+                || collapsed[..index].iter().all(|collapsed| *collapsed);
+            let open = collapsed[index].then_some((index, forward));
+            let edge = if open.is_some() {
+                child.bounds.origin.along(self.axis)
+                    + if forward {
+                        child.bounds.size.along(self.axis)
+                    } else {
+                        px(0.)
+                    }
+            } else {
+                child.bounds.origin.along(self.axis) + child.bounds.size.along(self.axis)
+            };
+            // Minimum-constrained children may extend beyond the split. An
+            // outer line and its hitbox still belong to the visible split edge.
+            let outer =
+                open.is_some() && (!forward || collapsed[..index].iter().all(|hidden| *hidden));
+            let edge = if open.is_some() && !forward {
+                bounds.origin.along(self.axis) + bounds.size.along(self.axis)
+            } else if open.is_some() && collapsed[..index].iter().all(|hidden| *hidden) {
+                bounds.origin.along(self.axis)
+            } else {
+                edge
+            };
+            let following_hidden = collapsed[index + 1..]
+                .iter()
+                .take_while(|hidden| **hidden)
+                .count();
+            let hit_size = if outer {
+                2. * HANDLE_HITBOX_SIZE
+            } else {
+                HANDLE_HITBOX_SIZE
+            };
+            let hit_start = if open.is_some() {
+                // Keep the last hidden child nearest the boundary. Each earlier
+                // line gets its own adjacent strip on the side it opens into.
+                let offset = following_hidden as f32 * hit_size;
+                if forward {
+                    edge + px(offset)
+                } else {
+                    edge - px(offset + hit_size)
+                }
+            } else if following_hidden > 0 {
+                edge - px(HANDLE_HITBOX_SIZE)
+            } else {
+                edge - px(HANDLE_HITBOX_SIZE / 2.)
+            };
+            let (hit_start, hit_size) = if outer {
+                let start = bounds.origin.along(self.axis);
+                let end = start + bounds.size.along(self.axis);
+                let hit_end = (hit_start + px(hit_size)).clamp(start, end);
+                let hit_start = hit_start.clamp(start, end);
+                (hit_start, hit_end - hit_start)
+            } else {
+                (hit_start, px(hit_size))
+            };
             let handle_bounds = Bounds {
-                origin: child.bounds.origin.apply_along(self.axis, |origin| {
-                    origin + child.bounds.size.along(self.axis) - px(HANDLE_HITBOX_SIZE / 2.)
-                }),
-                size: child
-                    .bounds
-                    .size
-                    .apply_along(self.axis, |_| px(HANDLE_HITBOX_SIZE)),
+                origin: child.bounds.origin.apply_along(self.axis, |_| hit_start),
+                size: child.bounds.size.apply_along(self.axis, |_| hit_size),
+            };
+            let divider_edge = if outer {
+                let start = bounds.origin.along(self.axis);
+                let end = start + bounds.size.along(self.axis);
+                if forward {
+                    (start + px(1.)).min((end - px(DIVIDER_SIZE)).max(start))
+                } else {
+                    (end - px(1. + DIVIDER_SIZE)).max(start)
+                }
+            } else if open.is_some() {
+                edge.min(
+                    bounds.origin.along(self.axis) + bounds.size.along(self.axis)
+                        - px(DIVIDER_SIZE),
+                )
+                .max(bounds.origin.along(self.axis))
+            } else {
+                edge
             };
             child.handle = Some(HandleLayout {
                 hitbox: window.insert_hitbox(handle_bounds, HitboxBehavior::BlockMouse),
+                open,
                 divider: Bounds {
-                    origin: child.bounds.origin.apply_along(self.axis, |origin| {
-                        origin + child.bounds.size.along(self.axis)
-                    }),
+                    origin: child.bounds.origin.apply_along(self.axis, |_| divider_edge),
                     size: child
                         .bounds
                         .size
@@ -268,8 +388,16 @@ impl Element for Axis {
         window: &mut Window,
         cx: &mut App,
     ) {
-        for child in &mut layout.children {
-            child.element.paint(window, cx);
+        for (index, child) in layout.children.iter_mut().enumerate() {
+            if !self.shares.borrow()[index].collapsed {
+                child.element.paint(window, cx);
+            }
+        }
+        if layout.dragged_handle.borrow().is_some() {
+            window.set_window_cursor_style(match self.axis {
+                Direction::Horizontal => CursorStyle::ResizeColumn,
+                Direction::Vertical => CursorStyle::ResizeRow,
+            });
         }
         for (index, child) in layout.children.iter().enumerate() {
             let Some(handle) = &child.handle else {
@@ -288,6 +416,9 @@ impl Element for Axis {
             window.on_mouse_event({
                 let dragged_handle = layout.dragged_handle.clone();
                 let drag_start = layout.drag_start.clone();
+                let drag_open = layout.drag_open.clone();
+                let refused = layout.refused.clone();
+                let open = handle.open;
                 let shares = self.shares.clone();
                 let hitbox = handle.hitbox.clone();
                 let id = self.id.to_string();
@@ -295,6 +426,8 @@ impl Element for Axis {
                 move |event: &MouseDownEvent, phase, window, cx| {
                     if phase.bubble() && hitbox.is_hovered(window) {
                         dragged_handle.replace(Some(index));
+                        drag_open.replace(open);
+                        refused.borrow_mut().clear();
                         tracing::debug!(id, handle = index, "resize started");
                         if event.click_count >= 2 {
                             for child in shares.borrow_mut().iter_mut() {
@@ -307,40 +440,57 @@ impl Element for Axis {
                                 on_resized(Resized::Reset, window, cx);
                             }
                         }
-                        drag_start.replace(split_children(&shares.borrow()).0);
+                        drag_start.replace(shares.borrow().clone());
                         window.refresh();
                         cx.stop_propagation();
                     }
                 }
             });
-            window.on_mouse_event({
+        }
+        window.on_mouse_event({
                 let dragged_handle = layout.dragged_handle.clone();
                 let shares = self.shares.clone();
-                let child_start = child.bounds.origin;
+                let drag_start = layout.drag_start.clone();
+                let drag_open = layout.drag_open.clone();
+                let can_collapse = self.can_collapse.clone();
+                let refused = layout.refused.clone();
                 let axis = self.axis;
                 let id = self.id.to_string();
                 move |event: &MouseMoveEvent, phase, window, cx| {
-                    if phase.bubble() && *dragged_handle.borrow() == Some(index) {
+                    if phase.bubble() && let Some(index) = *dragged_handle.borrow() {
+                        let start = drag_start.borrow();
                         let mut children = shares.borrow_mut();
-                        let (mut sizes, mins) = split_children(&children);
-                        if resize_sizes(
-                            &mut sizes,
-                            index,
+                        // A refusal belongs to this threshold crossing, even
+                        // across redraws; crossing back clears it on this move.
+                        let mut next_refused = Vec::new();
+                        let next = preview_resize(
+                            &start, index, *drag_open.borrow(),
                             bounds.size.along(axis).into(),
-                            (event.position - child_start).along(axis).into(),
-                            &mins,
-                        ) {
-                            for (child, size) in children.iter_mut().zip(&sizes) {
-                                child.size = *size;
+                            (event.position - bounds.origin).along(axis).into(),
+                            |child| {
+                                let allowed = !refused.borrow().contains(&child)
+                                    && can_collapse.as_ref().is_some_and(|guard| guard(child, cx));
+                                if !allowed {
+                                    next_refused.push(child);
+                                }
+                                allowed
+                            },
+                        );
+                        refused.replace(next_refused);
+                        for (child, (before, after)) in children.iter().zip(&next).enumerate() {
+                            if before.collapsed != after.collapsed {
+                                tracing::debug!(split = id, child, shut = after.collapsed, "snap preview");
                             }
-                            tracing::trace!(id, shares = ?sizes, "shares changed");
+                        }
+                        if *children != next {
+                            *children = next;
+                            tracing::trace!(id, shares = ?split_children(&children).0, "shares changed");
                             window.refresh();
                         }
                         cx.stop_propagation();
                     }
                 }
             });
-        }
         window.on_mouse_event({
             let dragged_handle = layout.dragged_handle.clone();
             let drag_start = layout.drag_start.clone();
@@ -349,19 +499,247 @@ impl Element for Axis {
             let on_resized = self.on_resized.clone();
             move |_: &MouseUpEvent, phase, window, cx| {
                 if phase.bubble() && dragged_handle.replace(None).is_some() {
-                    let shares = split_children(&shares.borrow()).0;
-                    tracing::debug!(id, shares = ?shares, "resize ended");
+                    let children = shares.borrow().clone();
+                    let sizes = split_children(&children).0;
+                    tracing::debug!(id, shares = ?sizes, "resize ended");
                     let start = drag_start.take();
                     if let Some(on_resized) = &on_resized
-                        && shares != start
+                        && children != start
                     {
-                        on_resized(Resized::Dragged(shares), window, cx);
+                        on_resized(
+                            Resized::Dragged {
+                                sizes,
+                                snapped_shut: children
+                                    .iter()
+                                    .zip(&start)
+                                    .enumerate()
+                                    .filter_map(|(i, (now, was))| {
+                                        (now.collapsed && !was.collapsed).then_some(i)
+                                    })
+                                    .collect(),
+                                snapped_open: children
+                                    .iter()
+                                    .zip(&start)
+                                    .enumerate()
+                                    .filter_map(|(i, (now, was))| {
+                                        (!now.collapsed && was.collapsed).then_some(i)
+                                    })
+                                    .collect(),
+                            },
+                            window,
+                            cx,
+                        );
                     }
                     window.refresh();
                 }
             }
         });
     }
+}
+
+// Collapsed children take no layout space; their lines overlay the boundary.
+fn child_lengths(children: &[AxisChild], length: f32) -> (Vec<f32>, f32) {
+    let shown: Vec<_> = children
+        .iter()
+        .filter(|child| !child.collapsed)
+        .copied()
+        .collect();
+    let (sizes, mins) = split_children(&shown);
+    let (lengths, missing) = layout_sizes(&sizes, length, &mins);
+    let mut shown = lengths.into_iter();
+    (
+        children
+            .iter()
+            .map(|child| {
+                if child.collapsed {
+                    0.
+                } else {
+                    shown.next().unwrap()
+                }
+            })
+            .collect(),
+        missing,
+    )
+}
+
+// Every move is evaluated from the mouse-down snapshot, so reversing a preview
+// restores both the original hidden state and the preferred sizes.
+fn preview_resize(
+    start: &[AxisChild],
+    handle: usize,
+    open: Option<(usize, bool)>,
+    length: f32,
+    target: f32,
+    mut can_collapse: impl FnMut(usize) -> bool,
+) -> Vec<AxisChild> {
+    let mut result = start.to_vec();
+    let (original_lengths, _) = child_lengths(start, length);
+    if start
+        .iter()
+        .zip(&original_lengths)
+        .any(|(child, length)| !child.collapsed && *length < f32::from(child.min) - 1.)
+    {
+        return result;
+    }
+    let mut active: Vec<usize> = start
+        .iter()
+        .enumerate()
+        .filter_map(|(index, child)| (!child.collapsed).then_some(index))
+        .collect();
+    let mut lengths: Vec<f32> = active
+        .iter()
+        .map(|index| original_lengths[*index])
+        .collect();
+    let mut shut = None;
+    let (handle, local_target) = if let Some((child, forward)) = open {
+        let origin: f32 = original_lengths[..child].iter().sum();
+        let desired = if forward {
+            target - origin
+        } else {
+            origin - target
+        };
+        if desired <= f32::from(start[child].min) / 2. {
+            return result;
+        }
+        result[child].collapsed = false;
+        if active.is_empty() {
+            return result;
+        }
+        // Hidden entries never become donors.
+        let position = active.partition_point(|index| *index < child);
+        let desired = desired.max(start[child].min.into());
+        active.insert(position, child);
+        lengths.insert(position, 0.);
+        if forward && position + 1 < active.len() {
+            (position, desired)
+        } else {
+            (position - 1, lengths[position - 1] - desired)
+        }
+    } else {
+        let Some(position) = active.iter().position(|index| *index == handle) else {
+            return result;
+        };
+        if position + 1 >= active.len() {
+            return result;
+        }
+        let origin: f32 = original_lengths[..handle].iter().sum();
+        let local = target - origin;
+        let pair = lengths[position] + lengths[position + 1];
+        let donor = if local < lengths[position] {
+            position
+        } else {
+            position + 1
+        };
+        let child = active[donor];
+        let raw = if donor == position {
+            local
+        } else {
+            pair - local
+        };
+        if raw < f32::from(start[child].min) / 2. && can_collapse(child) {
+            result[child].collapsed = true;
+            shut = Some(child);
+            (
+                position,
+                if donor == position {
+                    local.min(0.)
+                } else {
+                    pair - raw.min(0.)
+                },
+            )
+        } else {
+            // Keep the established ordinary resize arithmetic, including
+            // successor traversal and minimum-constrained share conversion.
+            let mut sizes: Vec<_> = active.iter().map(|index| start[*index].size).collect();
+            let mins: Vec<_> = active
+                .iter()
+                .map(|index| start[*index].min.into())
+                .collect();
+            if resize_sizes(&mut sizes, position, length, local, &mins) {
+                for (index, size) in active.iter().zip(sizes) {
+                    result[*index].size = size;
+                }
+            }
+            return result;
+        }
+    };
+    let before_transfer = lengths.clone();
+    let forward = local_target > lengths[handle];
+    let receiver = if forward { handle } else { handle + 1 };
+    let mut remaining = (local_target - lengths[handle]).abs();
+    let flexible_pair = open.is_none()
+        && matches!(start[active[handle]].size, AxisSize::Flex(_))
+        && matches!(start[active[handle + 1]].size, AxisSize::Flex(_));
+    let count = if forward {
+        active.len() - handle - 1
+    } else {
+        handle + 1
+    };
+    for offset in 0..count {
+        let donor = if forward {
+            handle + 1 + offset
+        } else {
+            handle - offset
+        };
+        let index = active[donor];
+        if flexible_pair && matches!(start[index].size, AxisSize::Fixed(_)) {
+            continue;
+        }
+        let min = if Some(index) == shut {
+            0.
+        } else {
+            f32::from(start[index].min)
+        };
+        let transfer = remaining.min((lengths[donor] - min).max(0.));
+        lengths[donor] -= transfer;
+        lengths[receiver] += transfer;
+        remaining -= transfer;
+        if remaining <= 0. {
+            break;
+        }
+    }
+    // TODO(snap-hide-rounding): Roundoff can refuse reopening when the donor
+    // has exactly the minimum room. A focused rounding fix unblocks it.
+    if let Some((child, _)) = open
+        && lengths[active.iter().position(|index| *index == child).unwrap()]
+            < f32::from(start[child].min)
+    {
+        return start.to_vec();
+    }
+    let weight: f32 = active
+        .iter()
+        .filter_map(|index| match start[*index].size {
+            AxisSize::Flex(weight) if !result[*index].collapsed => Some(weight),
+            _ => None,
+        })
+        .sum();
+    let flexible_length: f32 = active
+        .iter()
+        .zip(&lengths)
+        .filter_map(|(index, length)| {
+            (matches!(start[*index].size, AxisSize::Flex(_)) && !result[*index].collapsed)
+                .then_some(*length)
+        })
+        .sum();
+    for (position, index) in active.into_iter().enumerate() {
+        if result[index].collapsed {
+            continue;
+        }
+        result[index].size = match start[index].size {
+            AxisSize::Flex(_) if flexible_length > 0. => {
+                AxisSize::Flex(lengths[position] * weight / flexible_length)
+            }
+            AxisSize::Fixed(_)
+                if position == handle
+                    || position == handle + 1
+                    || lengths[position] != before_transfer[position] =>
+            {
+                AxisSize::Fixed(px(lengths[position]))
+            }
+            size => size,
+        };
+    }
+    result
 }
 
 fn split_children(children: &[AxisChild]) -> (Vec<AxisSize>, Vec<f32>) {

@@ -10,7 +10,11 @@ fn with_minimums(axis: gpui::Axis, sizes: Vec<AxisSize>) -> Vec<AxisChild> {
     };
     sizes
         .into_iter()
-        .map(|size| AxisChild { size, min })
+        .map(|size| AxisChild {
+            size,
+            min,
+            collapsed: false,
+        })
         .collect()
 }
 
@@ -102,11 +106,15 @@ fn on_resized_is_called_once_on_a_changed_drag_and_a_double_click(cx: &mut gpui:
         );
         assert_eq!(
             *resized.borrow(),
-            [Resized::Dragged(vec![
-                AxisSize::Flex(1.25),
-                AxisSize::Flex(0.75),
-                AxisSize::Flex(1.)
-            ])]
+            [Resized::Dragged {
+                sizes: vec![
+                    AxisSize::Flex(1.25),
+                    AxisSize::Flex(0.75),
+                    AxisSize::Flex(1.)
+                ],
+                snapped_shut: vec![],
+                snapped_open: vec![]
+            }]
         );
         // The handle moved with the first child: it sits at its new edge.
         let handle = position(axis, 250.);
@@ -122,11 +130,15 @@ fn on_resized_is_called_once_on_a_changed_drag_and_a_double_click(cx: &mut gpui:
         assert_eq!(
             *resized.borrow(),
             [
-                Resized::Dragged(vec![
-                    AxisSize::Flex(1.25),
-                    AxisSize::Flex(0.75),
-                    AxisSize::Flex(1.)
-                ]),
+                Resized::Dragged {
+                    sizes: vec![
+                        AxisSize::Flex(1.25),
+                        AxisSize::Flex(0.75),
+                        AxisSize::Flex(1.)
+                    ],
+                    snapped_shut: vec![],
+                    snapped_open: vec![]
+                },
                 Resized::Reset
             ]
         );

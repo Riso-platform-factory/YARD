@@ -95,6 +95,7 @@ fn with_sizes(sizes: &[(AxisSize, f32)]) -> Rc<RefCell<Vec<AxisChild>>> {
             .map(|(size, min)| AxisChild {
                 size: *size,
                 min: gpui::px(*min),
+                collapsed: false,
             })
             .collect(),
     ))

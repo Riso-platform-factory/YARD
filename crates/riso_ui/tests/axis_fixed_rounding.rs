@@ -33,6 +33,7 @@ impl gpui::Render for Probe {
                             gpui::Axis::Horizontal => gpui::px(80.),
                             gpui::Axis::Vertical => gpui::px(100.),
                         },
+                        collapsed: false,
                     })
                     .collect(),
             )),

@@ -10,7 +10,11 @@ fn with_minimums(axis: gpui::Axis, sizes: Vec<AxisSize>) -> Vec<AxisChild> {
     };
     sizes
         .into_iter()
-        .map(|size| AxisChild { size, min })
+        .map(|size| AxisChild {
+            size,
+            min,
+            collapsed: false,
+        })
         .collect()
 }
 

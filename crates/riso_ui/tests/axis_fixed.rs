@@ -10,7 +10,11 @@ fn with_minimums(axis: gpui::Axis, sizes: Vec<AxisSize>) -> Vec<AxisChild> {
     };
     sizes
         .into_iter()
-        .map(|size| AxisChild { size, min })
+        .map(|size| AxisChild {
+            size,
+            min,
+            collapsed: false,
+        })
         .collect()
 }
 
@@ -54,7 +58,7 @@ impl gpui::Render for Probe {
             riso_ui::axis("split", self.axis, self.sizes.clone(), children).on_resized(
                 move |resized, _, _| {
                     reports.borrow_mut().push(match resized {
-                        Resized::Dragged(sizes) => Seen::Dragged(
+                        Resized::Dragged { sizes, .. } => Seen::Dragged(
                             sizes
                                 .iter()
                                 .map(|size| match size {

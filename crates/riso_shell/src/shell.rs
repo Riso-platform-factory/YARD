@@ -878,7 +878,7 @@ fn record_resize(
 ) {
     let props = match resized {
         riso_ui::Resized::Reset => serde_json::json!({"shares": null}),
-        riso_ui::Resized::Dragged(sizes) => {
+        riso_ui::Resized::Dragged { sizes, .. } => {
             let current = {
                 let registry = cx.default_global::<Registry>();
                 let layers = registry.tree.borrow();
@@ -1092,7 +1092,14 @@ impl Split {
             (riso_ui::AxisSize::Flex(1.), true)
         };
         let min = node_minimum(registry, tree, &views, node, self.rem_size, cx).along(self.axis);
-        (riso_ui::AxisChild { size, min }, given.then_some(size))
+        (
+            riso_ui::AxisChild {
+                size,
+                min,
+                collapsed: false,
+            },
+            given.then_some(size),
+        )
     }
 
     fn set_sizes(

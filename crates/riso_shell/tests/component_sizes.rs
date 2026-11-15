@@ -197,7 +197,7 @@ fn a_components_minimum_stops_a_drag_and_the_default_is_five_rems(cx: &mut TestA
     );
     // Dragging left, `wide` stops at its 20 rems: 320 px at the 16 px font.
     let at = handle(&mut visual, "CARD-wide");
-    let target = gpui::point(px(100.), at.y);
+    let target = gpui::point(px(240.), at.y);
     visual.simulate_mouse_move(at, None, Default::default());
     visual.simulate_mouse_down(at, gpui::MouseButton::Left, Default::default());
     visual.simulate_mouse_move(target, gpui::MouseButton::Left, Default::default());
@@ -209,7 +209,7 @@ fn a_components_minimum_stops_a_drag_and_the_default_is_five_rems(cx: &mut TestA
     );
     // Dragging right, `plain` stops at the default 5 rems: 80 px.
     let at = handle(&mut visual, "CARD-wide");
-    let target = gpui::point(px(890.), at.y);
+    let target = gpui::point(px(840.), at.y);
     visual.simulate_mouse_move(at, None, Default::default());
     visual.simulate_mouse_down(at, gpui::MouseButton::Left, Default::default());
     visual.simulate_mouse_move(target, gpui::MouseButton::Left, Default::default());
@@ -265,7 +265,7 @@ fn a_larger_ui_font_size_moves_the_minimums(cx: &mut TestAppContext) {
     );
     // `wide` now stops at 20 rems of 20 px: 400 px.
     let at = handle(&mut visual, "CARD-wide");
-    let target = gpui::point(px(100.), at.y);
+    let target = gpui::point(px(300.), at.y);
     visual.simulate_mouse_move(at, None, Default::default());
     visual.simulate_mouse_down(at, gpui::MouseButton::Left, Default::default());
     visual.simulate_mouse_move(target, gpui::MouseButton::Left, Default::default());
@@ -277,7 +277,7 @@ fn a_larger_ui_font_size_moves_the_minimums(cx: &mut TestAppContext) {
     );
     // and `plain` at the default 5 rems of 20 px: 100 px.
     let at = handle(&mut visual, "CARD-wide");
-    let target = gpui::point(px(890.), at.y);
+    let target = gpui::point(px(825.), at.y);
     visual.simulate_mouse_move(at, None, Default::default());
     visual.simulate_mouse_down(at, gpui::MouseButton::Left, Default::default());
     visual.simulate_mouse_move(target, gpui::MouseButton::Left, Default::default());
@@ -315,7 +315,7 @@ fn a_nested_split_stops_a_drag_in_its_parent_at_the_sum_of_its_minimums(cx: &mut
     // The handle between `nest` and `side` sits at `nest`'s right edge, where
     // `b` ends.
     let at = handle(&mut visual, "CARD-b");
-    let target = gpui::point(px(100.), at.y);
+    let target = gpui::point(px(300.), at.y);
     visual.simulate_mouse_move(at, None, Default::default());
     visual.simulate_mouse_down(at, gpui::MouseButton::Left, Default::default());
     visual.simulate_mouse_move(target, gpui::MouseButton::Left, Default::default());

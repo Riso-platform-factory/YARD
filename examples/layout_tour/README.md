@@ -266,10 +266,22 @@ A child of a split is fixed when the split's `sizes` prop gives it a size in pix
 | Command and action | What to look for |
 |---|---|
 | `RISO_HOME=/tmp/riso-sizes2 LAYOUT_TOUR=component-sizes cargo run dev` | `panel` 240 px wide (15 rems at the default font), `wide` and `plain` sharing the rest. `size-hints` for both components. |
-| Drag the line between `wide` and `plain` to the left | It stops when `wide` is 320 px (20 rems). |
+| Drag the line between `wide` and `plain` to the left, but not past half of `wide`'s minimum | It stops when `wide` is 320 px (20 rems). Further than half of it, `wide` snaps shut (feature 22). |
 | Drag it to the right | `plain` stops at 80 px (5 rems). |
 | With `{"theme": {"ui_font_size": 20}}` in `settings.json` and a fresh home | `panel` is 300 px, and `wide` is held at its minimum of 400 px. |
 | `reset layout` | `panel` is back at its preferred width. |
+
+### Feature 22: snap-hide
+
+Dragging a split's line past half a child's minimum hides that child; a hidden child of a split leaves a line that drags it out again. The `fixed-sizes` case shows it. Use a fresh home: `RISO_HOME=/tmp/riso-snap`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-snap LAYOUT_TOUR=fixed-sizes cargo run dev`, drag the line between `side` and `main` far to the left | Past half of `side`'s minimum, `snap preview {shut=true}`, and at the mouse up `layout-op{op=hide, node=side, extension=riso}`. `main` takes the whole row. |
+| Grab the window's left edge just inside it (the line's hit area is the first 8 px) and drag right | `side` comes back; `layout-op{op=show, node=side}`. |
+| Drag it shut, then back before releasing | Nothing is recorded. |
+| Drag it shut, quit, start again | `side` is still hidden; drag it out and it is back. |
+| `reset layout` | `side` shown at 240 px. |
 
 ## Keymap feature 1: focused-node
 

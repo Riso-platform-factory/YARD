@@ -126,7 +126,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "99acc46a51573abe"
+      "crates/riso_shell/src/shell.rs": "90ff2e261e09496b"
     },
     "promoted": "2026-11-15"
   },

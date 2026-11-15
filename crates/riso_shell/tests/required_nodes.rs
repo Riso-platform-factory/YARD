@@ -1,9 +1,7 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext, px,
 };
-use riso_shell::{Hide, dev as shell};
+use riso_shell::{self as shell, Hide};
 use serde_json::json;
 use std::{
     cell::RefCell,

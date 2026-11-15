@@ -392,6 +392,7 @@ struct Registry {
     components: BTreeMap<ComponentId, Component>,
     action_handlers: Vec<ActionHandler>,
     titles: BTreeMap<ComponentId, TitleReader>,
+    required: BTreeSet<ComponentId>,
     title_errors: RefCell<BTreeSet<NodeId>>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
@@ -589,6 +590,7 @@ impl Default for Registry {
             components,
             action_handlers: Vec::new(),
             titles: BTreeMap::new(),
+            required: BTreeSet::new(),
             title_errors: RefCell::new(BTreeSet::new()),
             tree: Rc::new(RefCell::new(Layers::new(tree))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
@@ -1930,6 +1932,10 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
                 tracing::info!(node = %node, "the root cannot be removed");
                 return false;
             }
+            if let Some(reason) = required_rule_error(registry, operation) {
+                tracing::info!("{reason}");
+                return false;
+            }
             true
         }
         Operation::SetHidden { node, .. } => {
@@ -1939,6 +1945,10 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             }
             if registry.extension_root.as_ref() == Some(node) {
                 tracing::info!(node = %node, "the root cannot be hidden or shown");
+                return false;
+            }
+            if let Some(reason) = required_rule_error(registry, operation) {
+                tracing::info!("{reason}");
                 return false;
             }
             true
@@ -1953,23 +1963,19 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
     }
 }
 
-fn shell_rule_error(
-    extension: &str,
-    cx: &mut App,
-    operation: &Operation,
-) -> Result<(), &'static str> {
+fn shell_rule_error(extension: &str, cx: &mut App, operation: &Operation) -> Result<(), String> {
     let registry = cx.default_global::<Registry>();
     match operation {
         Operation::Add { node, parent, slot } => {
             let namespace = node.component.as_str().split('.').next();
             if namespace != Some(extension) && namespace != Some("riso") {
-                return Err("component is not in the extension's namespace");
+                return Err("component is not in the extension's namespace".into());
             }
             if is_frame_component(&node.component) || is_frame_slot(parent, slot) {
-                return Err("the window's frame belongs to the shell");
+                return Err("the window's frame belongs to the shell".into());
             }
             if !registry.components.contains_key(&node.component) {
-                return Err("component is not registered");
+                return Err("component is not registered".into());
             }
             let layers = registry.tree.borrow();
             let tree = layers.current();
@@ -1979,7 +1985,7 @@ fn shell_rule_error(
                     .get(parent_component)
                     .is_some_and(|component| component.slots.contains(slot))
             {
-                return Err("parent component does not declare slot");
+                return Err("parent component does not declare slot".into());
             }
             Ok(())
         }
@@ -1987,10 +1993,10 @@ fn shell_rule_error(
             node, parent, slot, ..
         } => {
             if is_frame_node(node) || is_frame_slot(parent, slot) {
-                return Err("the window's frame belongs to the shell");
+                return Err("the window's frame belongs to the shell".into());
             }
             if registry.extension_root.as_ref() == Some(node) {
-                return Err("the root cannot be removed, moved, hidden, or shown");
+                return Err("the root cannot be removed, moved, hidden, or shown".into());
             }
             let layers = registry.tree.borrow();
             let tree = layers.current();
@@ -2000,26 +2006,58 @@ fn shell_rule_error(
                     .get(parent_component)
                     .is_some_and(|component| component.slots.contains(slot))
             {
-                return Err("parent component does not declare slot");
+                return Err("parent component does not declare slot".into());
             }
             Ok(())
         }
         Operation::Remove { node } | Operation::SetHidden { node, .. } => {
             if is_frame_node(node) {
-                return Err("the window's frame belongs to the shell");
+                return Err("the window's frame belongs to the shell".into());
             }
             if registry.extension_root.as_ref() == Some(node) {
-                return Err("the root cannot be removed, moved, hidden, or shown");
+                return Err("the root cannot be removed, moved, hidden, or shown".into());
             }
-            Ok(())
+            required_rule_error(registry, operation).map_or(Ok(()), Err)
         }
         Operation::SetProps { node, .. } => {
             if is_frame_node(node) {
-                return Err("the window's frame belongs to the shell");
+                return Err("the window's frame belongs to the shell".into());
             }
             Ok(())
         }
     }
+}
+
+/// Why a `hide` or `remove` would take a node of a required component off
+/// screen, if it would. The default layout is not checked.
+fn required_rule_error(registry: &Registry, operation: &Operation) -> Option<String> {
+    let (node, verb) = match operation {
+        Operation::Remove { node } => (node, "removed"),
+        Operation::SetHidden { node, hidden: true } => (node, "hidden"),
+        _ => return None,
+    };
+    if !registry.default_fixed || registry.required.is_empty() {
+        return None;
+    }
+    fn first_required<'a>(registry: &Registry, tree: &'a Tree, node: &'a Node) -> Option<&'a Node> {
+        if registry.required.contains(&node.component) {
+            return Some(node);
+        }
+        tree.slots(&node.id)
+            .flat_map(|(_, children)| children)
+            .find_map(|child| first_required(registry, tree, child))
+    }
+    let layers = registry.tree.borrow();
+    let tree = layers.current();
+    let required = first_required(registry, tree, node_of(tree, node)?)?;
+    Some(if &required.id == node {
+        format!("{node} cannot be {verb}: it is required")
+    } else {
+        format!(
+            "{node} cannot be {verb}: it holds the required node {}",
+            required.id
+        )
+    })
 }
 
 /// The application-assigned namespace for an extension's contributions.
@@ -2344,6 +2382,35 @@ impl Extension {
             slots,
             Rc::new(move |node, slots, window, cx| create(&node.id, slots, window, cx)),
         );
+    }
+
+    /// Declares a component of this extension required: its nodes, and the
+    /// nodes above them, cannot be hidden or removed.
+    pub fn require(&self, cx: &mut App, component: &str) {
+        let _group = tracing::info_span!("component-require", component).entered();
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot require component {component}",
+                self.name
+            );
+            return;
+        }
+        if cx
+            .default_global::<Registry>()
+            .required
+            .insert(component.clone())
+        {
+            tracing::debug!("required");
+        } else {
+            log::error!("component {component} is already required");
+        }
     }
 
     /// Registers the view type that supplies a component's titles.
@@ -2965,7 +3032,12 @@ fn restore(cx: &mut App) {
             _ => "riso",
         };
         if let Err(reason) = shell_rule_error(extension, cx, &operation) {
-            tracing::info!(op, node = node.as_str(), reason, "skipped");
+            tracing::info!(
+                op,
+                node = node.as_str(),
+                reason = reason.as_str(),
+                "skipped"
+            );
             skipped += 1;
             continue;
         }

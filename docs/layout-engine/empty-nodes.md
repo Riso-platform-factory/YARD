@@ -13,7 +13,7 @@ This is what Zed's docks do when they have no panel to show, and what its pane g
 - **Containers:**
   - a split gives an empty child no room and no handle, and its other children share the length as if that child were hidden; an empty child keeps its entry in `shares` and `sizes`, and gets its size back when it is no longer empty;
   - a tabs container drops an empty child's tab, and selects its first shown child when the selected one becomes empty, as it does for a hidden child;
-  - a container is empty when none of its children in its slots is shown and not empty; an empty container is treated by its own parent as above, all the way up;
+  - a container (`riso.row`, `riso.column`, `riso.tabs`) is empty when at least one of its children is empty and every other one is empty or hidden; a container whose children are all hidden and none empty is not empty, so that feature 22's collapsed lines still bring them back; a container with no children is not empty; an empty container is treated by its own parent as above, all the way up;
   - the window's root and the shell's frame (title bar, body, status bar) are never treated as empty.
 - **Not a hidden node.** An empty node is not hidden: `is_hidden` is false, the `riso::Hide` action and the operations of feature 8 see it as shown, and it has no collapsed line of feature 22, since dragging it out would show nothing. A node that is both hidden and empty stays hidden when it stops being empty.
 - **Focus.** If the focused node becomes empty, the focus moves as it does when a focused node is hidden.
@@ -76,5 +76,7 @@ A new case, `empty-nodes`. Its component `layout_tour.list` shows a number of it
 - `riso_shell/shell` and `riso/startup`, in their dev versions
 
 ## Not in this feature
+
+- Containers that extensions draw themselves: they show an empty child as any other, and are empty only if their component says so. Their slots do not read emptiness yet.
 
 - An empty state drawn in place of the content, such as Zed's "no open files" page: a component draws that itself when it chooses not to say it is empty.

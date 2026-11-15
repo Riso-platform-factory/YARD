@@ -17,6 +17,7 @@ This is what Zed's docks do when they have no panel to show, and what its pane g
   - the window's root and the shell's frame (title bar, body, status bar) are never treated as empty.
 - **Not a hidden node.** An empty node is not hidden: `is_hidden` is false, the `riso::Hide` action and the operations of feature 8 see it as shown, and it has no collapsed line of feature 22, since dragging it out would show nothing. A node that is both hidden and empty stays hidden when it stops being empty.
 - **Focus.** If the focused node becomes empty, the focus moves as it does when a focused node is hidden.
+- **Zoom.** If the zoomed node (feature 10) becomes empty, the shell zooms out after that frame, with `debug` `zoomed node is empty {node}`, so the empty node gets no room and the focus leaves it. Nothing is recorded.
 
 ## What code can do
 

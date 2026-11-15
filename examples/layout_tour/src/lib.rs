@@ -48,10 +48,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -389,7 +386,6 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 serde_json::json!({"title": "Broken", "tint": 42}),
             );
         }
-        #[cfg(feature = "dev")]
         "tab-overflow" => {
             register_card(cx, ext);
             let buttons = vec![Button::action("select t20", |_, window, cx| {
@@ -706,11 +702,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
              tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
             "empty-nodes, ",
-            if cfg!(feature = "dev") {
-                "tab-overflow, "
-            } else {
-                ""
-            }
+            "tab-overflow, "
         ),
     }
 }

@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext, px};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 
 // The window is narrow: twenty `tNN` tabs cannot fit in its width.
 const WINDOW_WIDTH: f32 = 480.;

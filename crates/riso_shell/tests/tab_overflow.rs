@@ -1,10 +1,8 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AppContext, InteractiveElement, IntoElement, ScrollDelta, ScrollEvent, Styled, TestAppContext,
     point, px,
 };
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::sync::{Mutex, Once};
 
 // Every test in this file shares one process-wide logger and runs under one

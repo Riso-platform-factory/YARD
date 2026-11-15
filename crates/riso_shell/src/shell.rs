@@ -20,7 +20,8 @@ use gpui::{
     Action, Along, AnyEntity, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div,
     DragMoveEvent, Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement,
     KeyBinding, KeyBindingContextPredicate, ParentElement, Pixels, Point, Rems, Render,
-    SharedString, Size, Styled, Subscription, WeakEntity, Window, canvas, div,
+    ScrollEvent, ScrollHandle, SharedString, Size, Styled, Subscription, WeakEntity, Window,
+    canvas, div,
 };
 use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Position, Props, SlotName, Tree};
@@ -509,6 +510,9 @@ impl Default for Registry {
                         selected: None,
                         reselect: false,
                         bar_bounds: None,
+                        scroll: ScrollHandle::new(),
+                        scrolled_to: None,
+                        seen_offset: Point::default(),
                     });
                     cx.default_global::<Registry>().tabs.push(tabs.downgrade());
                     tabs.into()
@@ -1364,6 +1368,13 @@ struct Tabs {
     /// the views say then: the selection was chosen from remembered emptiness.
     reselect: bool,
     bar_bounds: Option<Bounds<Pixels>>,
+    /// The tab bar's scroll position: view state, as the selection is.
+    scroll: ScrollHandle,
+    /// The selected tab the bar was last asked to scroll into view, and its
+    /// index among the shown tabs then: a change of either scrolls again.
+    scrolled_to: Option<(NodeId, usize)>,
+    /// The bar's offset at the end of the last layout or wheel event.
+    seen_offset: Point<Pixels>,
 }
 
 impl Tabs {
@@ -1429,6 +1440,17 @@ impl Render for Tabs {
         let selected_index = nodes
             .iter()
             .position(|node| Some(node) == self.selected.as_ref());
+        // As Zed's `Pane::update_active_tab`: a newly selected tab is scrolled
+        // into view during the next layout.
+        let mut into_view = None;
+        let selected_at = self.selected.clone().zip(selected_index);
+        if self.scrolled_to != selected_at {
+            self.scrolled_to = selected_at.clone();
+            if let Some((node, index)) = selected_at {
+                self.scroll.scroll_to_item(index);
+                into_view = Some((node, self.scroll.offset()));
+            }
+        }
         let parent = self.node.clone();
         let tabs = nodes
             .iter()
@@ -1484,6 +1506,7 @@ impl Render for Tabs {
         let bar_entity = cx.entity().downgrade();
         let bar = riso_ui::TabBar::new(SharedString::from(self.node.to_string()))
             .tabs(tabs)
+            .track_scroll(&self.scroll)
             .on_drop::<DraggedNode>(move |dragged, _, cx| {
                 drop_on_tab_bar(cx, &dragged.node, &bar_parent);
             });
@@ -1492,12 +1515,26 @@ impl Render for Tabs {
             .flex_col()
             .size_full()
             .on_children_prepainted(move |children_bounds, _, cx| {
-                if let Some(&bounds) = children_bounds.first() {
-                    let _ = bar_entity.update(cx, |tabs, _| {
+                let _ = bar_entity.update(cx, |tabs, _| {
+                    if let Some(&bounds) = children_bounds.first() {
                         tabs.bar_bounds = Some(bounds);
-                    });
-                }
+                    }
+                    let offset = tabs.scroll.offset();
+                    if let Some((node, before)) = &into_view
+                        && offset != *before
+                    {
+                        tracing::debug!(tabs = %tabs.node, node = %node, "tab scrolled into view");
+                    }
+                    tabs.seen_offset = offset;
+                });
             })
+            .on_scroll(cx.listener(|tabs, _: &ScrollEvent, _, _| {
+                let offset = tabs.scroll.offset();
+                if offset != tabs.seen_offset {
+                    tabs.seen_offset = offset;
+                    tracing::trace!(tabs = %tabs.node, offset = ?offset.x, "tab bar scrolled");
+                }
+            }))
             .child(bar)
             .children(
                 selected_index

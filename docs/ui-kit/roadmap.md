@@ -51,7 +51,7 @@ Status is one of: planned, dev, production.
 | 7 | `text-input` | An input of one line: typing, selecting, the clipboard, input methods, a placeholder. It tells its owner when the text changes and when it is confirmed | A page where text is typed, selected, and pasted | `gpui/examples/input.rs` | 1 | Keymap engine: `command-palette` | production |
 | 8 | `scroll` | An area that scrolls, with Zed's scrollbar, also for lists too long to draw whole | A list of a thousand items | `Scrollbar`. `gpui`: `uniform_list` | 6 | Keymap engine: `command-palette` | production |
 | 9 | `key-hint` | The keys bound to an action, drawn as Zed draws them | A page with the keys of the shell's actions | `KeyBinding` | 1. Keymap engine: `default-keys` | Keymap engine: `command-palette` | production |
-| 10 | `tooltip` | A short text shown when the pointer rests on an element | Tooltips on the buttons of the button page | `Tooltip` | 3 | Layout engine: `close-tab` | planned |
+| 10 | `tooltip` | A short text shown when the pointer rests on an element | A page with every kind of tooltip, on buttons | `Tooltip` | 3 | Layout engine: `close-tab` | planned |
 
 ### By need
 

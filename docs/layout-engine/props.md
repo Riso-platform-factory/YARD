@@ -92,7 +92,7 @@ Decoding checks that `props` is a JSON object. A file whose `props` is not an ob
 | `riso_layout/saved` (production, in place) | The `props` of `add` and the kind `props`. Stamped again. |
 | `riso_shell/shell` (production, in place) | Only what the new field and variant make necessary for it to compile and to keep its behavior: a node it places has empty props, and it treats `set-props` as unknown to it. Stamped again. |
 | `riso_shell/shell` dev version | `register_with_props`, `PropsView`, the `*_with_props` placements, `set_props`, reading props, telling views, and the reset. |
-| `riso/startup` | Dev copy that uses the dev shell |
+| `riso/startup` | Dev copy that uses the dev shell. While `props` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 

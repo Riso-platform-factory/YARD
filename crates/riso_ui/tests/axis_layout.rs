@@ -1,4 +1,5 @@
 use gpui::{Along, AppContext, IntoElement, ParentElement, Styled};
+use riso_ui::AxisSize;
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Default)]
@@ -59,7 +60,7 @@ impl gpui::Render for Probe {
         gpui::div().size_full().child(riso_ui::axis(
             "probe",
             self.axis,
-            Rc::new(RefCell::new(vec![1.; self.count])),
+            Rc::new(RefCell::new(vec![AxisSize::Flex(1.); self.count])),
             children,
         ))
     }

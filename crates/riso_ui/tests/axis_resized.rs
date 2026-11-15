@@ -1,11 +1,12 @@
 use gpui::{Along, AppContext, IntoElement, ParentElement, Styled};
+use riso_ui::{AxisSize, Resized};
 use std::{cell::RefCell, rc::Rc};
 
-// The probe records every `on_resized` call with the shares it was given.
+// The probe records every `on_resized` call with the resize event it was given.
 struct Probe {
     axis: gpui::Axis,
-    shares: Rc<RefCell<Vec<f32>>>,
-    resized: Rc<RefCell<Vec<Vec<f32>>>>,
+    shares: Rc<RefCell<Vec<AxisSize>>>,
+    resized: Rc<RefCell<Vec<Resized>>>,
 }
 
 impl gpui::Render for Probe {
@@ -35,13 +36,13 @@ fn position(axis: gpui::Axis, along: f32) -> gpui::Point<gpui::Pixels> {
 }
 
 // `on_resized` is called once at the mouse up of a drag that changed the
-// shares, with the new shares; it is not called by a click without a move; a
-// double click calls it once with equal shares.
+// shares, with `Resized::Dragged`; it is not called by a click without a move; a
+// double click calls it once with `Resized::Reset`.
 #[gpui::test]
 fn on_resized_is_called_once_on_a_changed_drag_and_a_double_click(cx: &mut gpui::TestAppContext) {
     cx.update(riso_ui::init);
     for axis in [gpui::Axis::Horizontal, gpui::Axis::Vertical] {
-        let shares = Rc::new(RefCell::new(vec![1.; 3]));
+        let shares = Rc::new(RefCell::new(vec![AxisSize::Flex(1.); 3]));
         let resized = Rc::new(RefCell::new(Vec::new()));
         let window = cx.update(|cx| {
             cx.open_window(gpui::WindowOptions::default(), |_, cx| {
@@ -84,7 +85,14 @@ fn on_resized_is_called_once_on_a_changed_drag_and_a_double_click(cx: &mut gpui:
             gpui::MouseButton::Left,
             Default::default(),
         );
-        assert_eq!(*resized.borrow(), [vec![1.25, 0.75, 1.]]);
+        assert_eq!(
+            *resized.borrow(),
+            [Resized::Dragged(vec![
+                AxisSize::Flex(1.25),
+                AxisSize::Flex(0.75),
+                AxisSize::Flex(1.)
+            ])]
+        );
         // The handle moved with the first child: it sits at its new edge.
         let handle = position(axis, 250.);
         visual.simulate_mouse_move(handle, None, Default::default());
@@ -96,6 +104,16 @@ fn on_resized_is_called_once_on_a_changed_drag_and_a_double_click(cx: &mut gpui:
             first_mouse: false,
         });
         visual.simulate_mouse_up(handle, gpui::MouseButton::Left, Default::default());
-        assert_eq!(*resized.borrow(), [vec![1.25, 0.75, 1.], vec![1., 1., 1.]]);
+        assert_eq!(
+            *resized.borrow(),
+            [
+                Resized::Dragged(vec![
+                    AxisSize::Flex(1.25),
+                    AxisSize::Flex(0.75),
+                    AxisSize::Flex(1.)
+                ]),
+                Resized::Reset
+            ]
+        );
     }
 }

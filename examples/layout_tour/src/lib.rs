@@ -26,6 +26,7 @@
 //! `LAYOUT_TOUR=two-tabs cargo run dev`: two tab bars in a row, for dragging tabs between them.
 //! `LAYOUT_TOUR=zoom cargo run dev`: zoom a counted card and restore shares and selection.
 //! `LAYOUT_TOUR=zoom-root cargo run dev`: zooming the root is refused.
+//! `LAYOUT_TOUR=fixed-sizes cargo run dev`: a fixed side card and a flexible main card.
 //! `LAYOUT_TOUR=user-layer cargo run dev`: rearrange, hide, and reset to the default layout.
 //! `LAYOUT_TOUR=actions cargo run dev`: send layout actions to the focused card.
 //! `LAYOUT_TOUR=props cargo run dev`: configure cards with props, change them, and reset.
@@ -44,7 +45,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -376,6 +380,32 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 ext.place(cx, node, "layout_tour.card", "right", "children");
             }
         }
+        "fixed-sizes" => {
+            register_card(cx, ext);
+            let buttons = vec![Button::action("reset layout", |ext, window, cx| {
+                ext.reset_layout(window, cx)
+            })];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.column");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            ext.place_with_props(
+                cx,
+                "row",
+                "riso.row",
+                "root",
+                "children",
+                serde_json::json!({"sizes": {"side": 240}}),
+            );
+            ext.place(cx, "side", "layout_tour.card", "row", "children");
+            ext.place(cx, "main", "layout_tour.card", "row", "children");
+        }
         "user-layer" => {
             register_card(cx, ext);
             let buttons = vec![
@@ -549,7 +579,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required, slot-count, placement-order, contexts"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, actions, props, required, slot-count, placement-order, contexts"
         ),
     }
 }

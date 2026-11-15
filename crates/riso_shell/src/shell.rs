@@ -873,7 +873,7 @@ struct Split {
     node: NodeId,
     shares: BTreeMap<String, f32>,
     shown_nodes: Vec<NodeId>,
-    shown_shares: Rc<RefCell<Vec<f32>>>,
+    shown_shares: Rc<RefCell<Vec<riso_ui::AxisSize>>>,
     edges: BTreeMap<NodeId, Edge>,
     child_bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     axis: Axis,
@@ -889,14 +889,18 @@ impl Split {
             .iter()
             .zip(self.shown_shares.borrow().iter())
         {
-            self.shares.insert(node.to_string(), *share);
+            if let riso_ui::AxisSize::Flex(share) = share {
+                self.shares.insert(node.to_string(), *share);
+            }
         }
         // Entries of children that left the split or are hidden are kept, so
         // that such a child has its share again when it is shown.
         let nodes = self.slots.nodes("children");
         let shares = nodes
             .iter()
-            .map(|node| self.shares.get(node.as_str()).copied().unwrap_or(1.))
+            .map(|node| {
+                riso_ui::AxisSize::Flex(self.shares.get(node.as_str()).copied().unwrap_or(1.))
+            })
             .collect();
         if nodes != self.shown_nodes {
             // A changed child set also ends any positional drag in the axis.
@@ -915,7 +919,9 @@ impl Split {
         let shown = self
             .shown_nodes
             .iter()
-            .map(|node| self.shares.get(node.as_str()).copied().unwrap_or(1.))
+            .map(|node| {
+                riso_ui::AxisSize::Flex(self.shares.get(node.as_str()).copied().unwrap_or(1.))
+            })
             .collect();
         *self.shown_shares.borrow_mut() = shown;
     }
@@ -1011,11 +1017,26 @@ impl Render for Split {
             self.shown_shares.clone(),
             children,
         )
-        .on_resized(move |shares, _, cx| {
-            // A double click gives every share 1, the default, so it records
-            // `null`; a drag that ends exactly there records the same default.
-            let reset = shares.iter().all(|share| *share == 1.);
-            record_resize(&split, &shown, (!reset).then_some(shares), cx);
+        .on_resized(move |resized, _, cx| {
+            let shares = match resized {
+                riso_ui::Resized::Reset => None,
+                riso_ui::Resized::Dragged(sizes) => {
+                    let shares: Vec<_> = sizes
+                        .into_iter()
+                        .map(|size| match size {
+                            riso_ui::AxisSize::Flex(share) => share,
+                            riso_ui::AxisSize::Fixed(length) => {
+                                log::warn!(
+                                    "fixed size in production split; using length as flex share"
+                                );
+                                f32::from(length)
+                            }
+                        })
+                        .collect();
+                    (!shares.iter().all(|share| *share == 1.)).then_some(shares)
+                }
+            };
+            record_resize(&split, &shown, shares, cx);
         })
     }
 }

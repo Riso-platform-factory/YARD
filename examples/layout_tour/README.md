@@ -247,6 +247,18 @@ The shares of a split are its `shares` prop, by node ID, so a resize is an opera
 | Double-click the line | Equal shares, with `shares reset` and one `layout-op{op=props}`. |
 | Drag it again, then `reset layout` | Equal shares; `user layer: 0`. |
 
+### Feature 20: fixed-sizes
+
+A child of a split is fixed when the split's `sizes` prop gives it a size in pixels. The case places the controls above a row with `side`, fixed at 240 px, and `main`, flexible. Use a fresh home: `RISO_HOME=/tmp/riso-fixed`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-fixed LAYOUT_TOUR=fixed-sizes cargo run dev` | `side` shows `240px` wide, `main` the rest. |
+| Make the window wider, then narrower | `side` stays `240px`; only `main` changes. |
+| Make the window very narrow | `main` stops at its minimum (80 px), then `side` shrinks; widen it again and `side` is `240px` again. |
+| Drag the line between `side` and `main` | `side` gets the new width; one `layout-op{op=props, node=row}` with `props set` naming `sizes`. Quit and start: the same width. |
+| `reset layout` | `side` is `240px` again. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

@@ -25,7 +25,7 @@ const VERTICAL_MIN_SIZE: f32 = 100.;
 pub fn axis(
     id: impl Into<ElementId>,
     axis: Direction,
-    shares: Rc<RefCell<Vec<f32>>>,
+    shares: Rc<RefCell<Vec<AxisSize>>>,
     children: Vec<AnyElement>,
 ) -> Axis {
     Axis {
@@ -37,29 +37,43 @@ pub fn axis(
     }
 }
 
-type ResizedHandler = Rc<dyn Fn(Vec<f32>, &mut Window, &mut App)>;
+/// A child's flexible share or preferred fixed size.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AxisSize {
+    Flex(f32),
+    Fixed(Pixels),
+}
+
+/// The result of completing a resize gesture.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Resized {
+    Dragged(Vec<AxisSize>),
+    Reset,
+}
+
+type ResizedHandler = Rc<dyn Fn(Resized, &mut Window, &mut App)>;
 
 pub struct Axis {
     id: ElementId,
     axis: Direction,
-    shares: Rc<RefCell<Vec<f32>>>,
+    shares: Rc<RefCell<Vec<AxisSize>>>,
     children: Vec<AnyElement>,
     on_resized: Option<ResizedHandler>,
 }
 
 impl Axis {
     /// Called once when a drag that changed the shares ends, and once when a
-    /// double click resets them, with the shares of the children.
-    pub fn on_resized(mut self, f: impl Fn(Vec<f32>, &mut Window, &mut App) + 'static) -> Self {
+    /// double click resets them, with the resulting sizes or an explicit reset.
+    pub fn on_resized(mut self, f: impl Fn(Resized, &mut Window, &mut App) + 'static) -> Self {
         self.on_resized = Some(Rc::new(f));
         self
     }
 }
 
 struct DragState {
-    shares: Weak<RefCell<Vec<f32>>>,
+    shares: Weak<RefCell<Vec<AxisSize>>>,
     handle: Rc<RefCell<Option<usize>>>,
-    start: Rc<RefCell<Vec<f32>>>,
+    start: Rc<RefCell<Vec<AxisSize>>>,
 }
 
 struct HandleLayout {
@@ -76,7 +90,7 @@ struct ChildLayout {
 pub struct AxisLayout {
     children: Vec<ChildLayout>,
     dragged_handle: Rc<RefCell<Option<usize>>>,
-    drag_start: Rc<RefCell<Vec<f32>>>,
+    drag_start: Rc<RefCell<Vec<AxisSize>>>,
 }
 
 impl IntoElement for Axis {
@@ -127,7 +141,7 @@ impl Element for Axis {
         debug_assert_eq!(self.shares.borrow().len(), count, "one share per child");
         if self.shares.borrow().len() != count {
             // Keep the release fallback local: never reset the caller's shares.
-            self.shares = Rc::new(RefCell::new(vec![1.; count]));
+            self.shares = Rc::new(RefCell::new(vec![AxisSize::Flex(1.); count]));
         }
         let shares_identity = Rc::downgrade(&self.shares);
         let (dragged_handle, drag_start) =
@@ -152,13 +166,43 @@ impl Element for Axis {
         if count == 0 {
             return layout;
         }
-        let space_per_share = bounds.size.along(self.axis) / shares.iter().sum::<f32>();
+        let minimum = match self.axis {
+            Direction::Horizontal => HORIZONTAL_MIN_SIZE,
+            Direction::Vertical => VERTICAL_MIN_SIZE,
+        };
+        let length = f32::from(bounds.size.along(self.axis));
+        let (lengths, missing) = layout_sizes(&shares, length, minimum);
+        if missing > 0. {
+            tracing::trace!(split = %self.id, missing, "fixed children shrunk");
+        }
+        let all_fixed = shares.iter().all(|size| matches!(size, AxisSize::Fixed(_)));
         let mut origin = bounds.origin;
         for (index, mut child) in std::mem::take(&mut self.children).into_iter().enumerate() {
-            let child_size = bounds
+            let mut child_size = bounds
                 .size
-                .apply_along(self.axis, |_| space_per_share * shares[index])
+                .apply_along(self.axis, |_| px(lengths[index]))
                 .map(|dimension| dimension.round());
+            if all_fixed && missing > 0. && length >= count as f32 * minimum {
+                // Rounding an earlier child up must not consume the room
+                // reserved for the remaining children's minimums.
+                let remaining =
+                    bounds.size.along(self.axis) - (origin - bounds.origin).along(self.axis);
+                let available = remaining - px((count - index - 1) as f32 * minimum);
+                child_size = child_size.apply_along(self.axis, |size| size.min(available));
+            }
+            if all_fixed && index + 1 == count {
+                // Absorb the earlier children's rounding so fixed-only splits
+                // fill their bounds, while retaining minimums when too small.
+                let remaining =
+                    bounds.size.along(self.axis) - (origin - bounds.origin).along(self.axis);
+                child_size = child_size.apply_along(self.axis, |_| {
+                    if missing > 0. {
+                        remaining.max(px(minimum))
+                    } else {
+                        remaining.max(px(0.))
+                    }
+                });
+            }
             tracing::trace!(
                 id = %self.id,
                 index,
@@ -243,11 +287,14 @@ impl Element for Axis {
                         dragged_handle.replace(Some(index));
                         tracing::debug!(id, handle = index, "resize started");
                         if event.click_count >= 2 {
-                            shares.borrow_mut().fill(1.);
+                            for size in shares.borrow_mut().iter_mut() {
+                                if let AxisSize::Flex(share) = size {
+                                    *share = 1.;
+                                }
+                            }
                             tracing::debug!(id, "shares reset");
                             if let Some(on_resized) = &on_resized {
-                                let shares = shares.borrow().clone();
-                                on_resized(shares, window, cx);
+                                on_resized(Resized::Reset, window, cx);
                             }
                         }
                         drag_start.replace(shares.borrow().clone());
@@ -269,7 +316,7 @@ impl Element for Axis {
                             Direction::Vertical => VERTICAL_MIN_SIZE,
                         };
                         let mut shares = shares.borrow_mut();
-                        if compute_resize(
+                        if resize_sizes(
                             &mut shares,
                             index,
                             bounds.size.along(axis).into(),
@@ -298,13 +345,190 @@ impl Element for Axis {
                     if let Some(on_resized) = &on_resized
                         && shares != start
                     {
-                        on_resized(shares, window, cx);
+                        on_resized(Resized::Dragged(shares), window, cx);
                     }
                     window.refresh();
                 }
             }
         });
     }
+}
+
+// Preferred fixed sizes remain caller-owned even when layout has to shrink them.
+fn layout_sizes(sizes: &[AxisSize], length: f32, minimum: f32) -> (Vec<f32>, f32) {
+    if sizes.iter().all(|size| matches!(size, AxisSize::Flex(_))) {
+        let sum: f32 = sizes
+            .iter()
+            .map(|size| match size {
+                AxisSize::Flex(share) => *share,
+                _ => unreachable!(),
+            })
+            .sum();
+        return (
+            sizes
+                .iter()
+                .map(|size| match size {
+                    AxisSize::Flex(share) => length * share / sum,
+                    _ => unreachable!(),
+                })
+                .collect(),
+            0.,
+        );
+    }
+    let fixed: f32 = sizes
+        .iter()
+        .filter_map(|size| match size {
+            AxisSize::Fixed(pixels) => Some(f32::from(*pixels)),
+            AxisSize::Flex(_) => None,
+        })
+        .sum();
+    let flex: f32 = sizes
+        .iter()
+        .filter_map(|size| match size {
+            AxisSize::Flex(share) => Some(*share),
+            AxisSize::Fixed(_) => None,
+        })
+        .sum();
+    let flex_count = sizes
+        .iter()
+        .filter(|size| matches!(size, AxisSize::Flex(_)))
+        .count();
+    let missing = (fixed + flex_count as f32 * minimum - length).max(0.);
+    let mut lengths: Vec<f32> = sizes
+        .iter()
+        .map(|size| match size {
+            AxisSize::Fixed(pixels) => f32::from(*pixels),
+            AxisSize::Flex(share) => {
+                if missing > 0. {
+                    minimum
+                } else {
+                    (length - fixed) * share / flex
+                }
+            }
+        })
+        .collect();
+    if missing > 0. && fixed > 0. {
+        // Freeze children that hit their minimum, then redistribute the rest.
+        let mut available = length - flex_count as f32 * minimum;
+        let mut weight = fixed;
+        let mut pending: Vec<usize> = sizes
+            .iter()
+            .enumerate()
+            .filter_map(|(index, size)| matches!(size, AxisSize::Fixed(_)).then_some(index))
+            .collect();
+        loop {
+            let clamped: Vec<usize> = pending
+                .iter()
+                .copied()
+                .filter(|index| lengths[*index] * available / weight < minimum)
+                .collect();
+            if clamped.is_empty() {
+                for index in pending {
+                    lengths[index] = (lengths[index] * available / weight).max(minimum);
+                }
+                break;
+            }
+            for index in clamped {
+                available -= minimum;
+                weight -= lengths[index];
+                lengths[index] = minimum;
+                pending.retain(|pending| *pending != index);
+            }
+            if pending.is_empty() {
+                break;
+            }
+        }
+    } else if flex_count == 0
+        && let Some(last) = lengths.last_mut()
+    {
+        *last += length - fixed;
+    }
+    (lengths, if fixed > 0. { missing } else { 0. })
+}
+
+fn resize_sizes(
+    sizes: &mut [AxisSize],
+    handle: usize,
+    length: f32,
+    target: f32,
+    minimum: f32,
+) -> bool {
+    if sizes.iter().all(|size| matches!(size, AxisSize::Flex(_))) {
+        let mut shares: Vec<f32> = sizes
+            .iter()
+            .map(|size| match size {
+                AxisSize::Flex(share) => *share,
+                AxisSize::Fixed(_) => unreachable!(),
+            })
+            .collect();
+        let changed = compute_resize(&mut shares, handle, length, target, minimum);
+        for (size, share) in sizes.iter_mut().zip(shares) {
+            *size = AxisSize::Flex(share);
+        }
+        return changed;
+    }
+    let (mut lengths, _) = layout_sizes(sizes, length, minimum);
+    if lengths.iter().any(|size| *size < minimum - 1.) || length < minimum * sizes.len() as f32 {
+        return false;
+    }
+    let original = lengths.clone();
+    let change = target - lengths[handle];
+    let forward = change > 0.;
+    let receiver = if forward { handle } else { handle + 1 };
+    let mut remaining = change.abs();
+    let flexible_pair = matches!(sizes[handle], AxisSize::Flex(_))
+        && matches!(sizes[handle + 1], AxisSize::Flex(_));
+    let count = if !flexible_pair {
+        1
+    } else if forward {
+        sizes.len() - handle - 1
+    } else {
+        handle + 1
+    };
+    for offset in 0..count {
+        let donor = if forward {
+            handle + 1 + offset
+        } else {
+            handle - offset
+        };
+        if flexible_pair && matches!(sizes[donor], AxisSize::Fixed(_)) {
+            continue;
+        }
+        let transfer = remaining.min((lengths[donor] - minimum).max(0.));
+        lengths[receiver] += transfer;
+        lengths[donor] -= transfer;
+        remaining -= transfer;
+        if remaining <= 0. {
+            break;
+        }
+    }
+    if lengths == original {
+        return false;
+    }
+    let share_sum: f32 = sizes
+        .iter()
+        .filter_map(|size| match size {
+            AxisSize::Flex(share) => Some(*share),
+            _ => None,
+        })
+        .sum();
+    let flex_length: f32 = sizes
+        .iter()
+        .zip(&lengths)
+        .filter_map(|(size, length)| matches!(size, AxisSize::Flex(_)).then_some(*length))
+        .sum();
+    for (index, size) in sizes.iter_mut().enumerate() {
+        match size {
+            AxisSize::Flex(share) => *share = lengths[index] * share_sum / flex_length,
+            // Only the adjacent fixed children adopt their dragged shown sizes;
+            // other fixed children keep their preferred sizes when cramped.
+            AxisSize::Fixed(pixels) if index == handle || index == handle + 1 => {
+                *pixels = px(lengths[index]);
+            }
+            AxisSize::Fixed(_) => {}
+        }
+    }
+    true
 }
 
 // Zed's successor traversal, using the sum of the supplied shares.
@@ -358,3 +582,6 @@ fn compute_resize(
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod fixed_tests;

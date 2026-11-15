@@ -437,12 +437,13 @@ impl Default for Registry {
                 Component {
                     slots: vec![SlotName::parse("children").unwrap()],
                     create: Rc::new(move |node, slots, _, cx| {
-                        let shares = read_shares(&node.id, &node.component, &node.props);
+                        let (shares, sizes) = read_sizes(&node.id, &node.component, &node.props);
                         let split = cx.new(|_| Split {
                             node: node.id.clone(),
                             axis,
                             slots,
                             shares,
+                            sizes,
                             shown_nodes: Vec::new(),
                             shown_shares: Rc::new(RefCell::new(Vec::new())),
                             edges: BTreeMap::new(),
@@ -457,9 +458,9 @@ impl Default for Registry {
                             let Some(split) = weak.upgrade() else {
                                 return;
                             };
-                            let shares = read_shares(&tell_node, &tell_component, props);
+                            let (shares, sizes) = read_sizes(&tell_node, &tell_component, props);
                             split.update(cx, |split, cx| {
-                                split.set_shares(shares);
+                                split.set_sizes(shares, sizes);
                                 cx.notify();
                             });
                             tracing::debug!(node = %tell_node, "view told");
@@ -814,13 +815,28 @@ fn clear_drag_edges(cx: &mut App) {
 #[derive(Default, serde::Serialize, serde::Deserialize)]
 struct SplitProps {
     shares: BTreeMap<String, serde_json::Value>,
+    sizes: BTreeMap<String, serde_json::Value>,
 }
 
-/// Reads a split's shares from its props. An entry for a node that is not a
-/// child is kept; a value that is not a positive number reads as 1.
-fn read_shares(node: &NodeId, component: &ComponentId, props: &Props) -> BTreeMap<String, f32> {
-    read_props::<SplitProps>(node, component, props)
-        .shares
+/// Reads shares and fixed sizes by child ID, keeping entries for absent children.
+/// Invalid shares default to 1; invalid fixed sizes leave the child flexible.
+fn read_sizes(
+    node: &NodeId,
+    component: &ComponentId,
+    props: &Props,
+) -> (BTreeMap<String, f32>, BTreeMap<String, Pixels>) {
+    let props = read_props::<SplitProps>(node, component, props);
+    let sizes = props.sizes.into_iter().filter_map(|(child, value)| {
+        let size = value.as_f64().map(|size| size as f32).filter(|size| size.is_finite() && *size > 0.);
+        match size {
+            Some(size) => Some((child, gpui::px(size))),
+            None => {
+                log::warn!("prop sizes of node {node} cannot be read: the size of {child} is not a positive number; the default is used");
+                None
+            }
+        }
+    }).collect();
+    let shares = props.shares
         .into_iter()
         .map(|(child, value)| {
             let share = value
@@ -835,32 +851,49 @@ fn read_shares(node: &NodeId, component: &ComponentId, props: &Props) -> BTreeMa
             });
             (child, share)
         })
-        .collect()
+        .collect();
+    (shares, sizes)
 }
 
 /// Records the end of a resize as one set-props on the split, as the shell.
-fn record_resize(split: &NodeId, shown: &[NodeId], shares: Option<Vec<f32>>, cx: &mut App) {
-    let value = match shares {
-        None => serde_json::Value::Null,
-        Some(shares) => {
-            let mut entries = {
+fn record_resize(split: &NodeId, shown: &[NodeId], resized: riso_ui::Resized, cx: &mut App) {
+    let props = match resized {
+        riso_ui::Resized::Reset => serde_json::json!({"shares": null}),
+        riso_ui::Resized::Dragged(sizes) => {
+            let current = {
                 let registry = cx.default_global::<Registry>();
                 let layers = registry.tree.borrow();
                 node_of(layers.current(), split)
-                    .and_then(|node| node.props.get("shares"))
-                    .and_then(serde_json::Value::as_object)
-                    .cloned()
+                    .map(|node| node.props.clone())
                     .unwrap_or_default()
             };
-            for (child, share) in shown.iter().zip(shares) {
-                // The shortest decimal of the f32, so that 1.5 is saved as 1.5.
-                let share = share.to_string().parse::<f64>().unwrap_or(1.);
-                entries.insert(child.to_string(), serde_json::json!(share));
+            let mut patch = Props::new();
+            for key in ["shares", "sizes"] {
+                let mut entries = current
+                    .get(key)
+                    .and_then(serde_json::Value::as_object)
+                    .cloned()
+                    .unwrap_or_default();
+                let before = entries.clone();
+                for (child, size) in shown.iter().zip(&sizes) {
+                    let value = match (key, size) {
+                        ("shares", riso_ui::AxisSize::Flex(share)) => Some(*share),
+                        ("sizes", riso_ui::AxisSize::Fixed(pixels)) => Some(f32::from(*pixels)),
+                        _ => None,
+                    };
+                    if let Some(value) = value {
+                        let value = value.to_string().parse::<f64>().unwrap_or(1.);
+                        entries.insert(child.to_string(), serde_json::json!(value));
+                    }
+                }
+                if entries != before {
+                    patch.insert(key.into(), serde_json::Value::Object(entries));
+                }
             }
-            serde_json::Value::Object(entries)
+            serde_json::Value::Object(patch)
         }
     };
-    let props = encode_props(serde_json::json!({ "shares": value }));
+    let props = encode_props(props);
     run_op("riso", None, cx, "props", split.as_str(), |_, node| {
         Ok(Operation::SetProps {
             node,
@@ -872,6 +905,7 @@ fn record_resize(split: &NodeId, shown: &[NodeId], shares: Option<Vec<f32>>, cx:
 struct Split {
     node: NodeId,
     shares: BTreeMap<String, f32>,
+    sizes: BTreeMap<String, Pixels>,
     shown_nodes: Vec<NodeId>,
     shown_shares: Rc<RefCell<Vec<riso_ui::AxisSize>>>,
     edges: BTreeMap<NodeId, Edge>,
@@ -889,19 +923,19 @@ impl Split {
             .iter()
             .zip(self.shown_shares.borrow().iter())
         {
-            if let riso_ui::AxisSize::Flex(share) = share {
-                self.shares.insert(node.to_string(), *share);
+            match share {
+                riso_ui::AxisSize::Flex(share) => {
+                    self.shares.insert(node.to_string(), *share);
+                }
+                riso_ui::AxisSize::Fixed(size) => {
+                    self.sizes.insert(node.to_string(), *size);
+                }
             }
         }
         // Entries of children that left the split or are hidden are kept, so
         // that such a child has its share again when it is shown.
         let nodes = self.slots.nodes("children");
-        let shares = nodes
-            .iter()
-            .map(|node| {
-                riso_ui::AxisSize::Flex(self.shares.get(node.as_str()).copied().unwrap_or(1.))
-            })
-            .collect();
+        let shares = nodes.iter().map(|node| self.size_for(node)).collect();
         if nodes != self.shown_nodes {
             // A changed child set also ends any positional drag in the axis.
             self.shown_shares = Rc::new(RefCell::new(shares));
@@ -913,15 +947,24 @@ impl Split {
         self.shown_nodes = nodes;
     }
 
-    /// Takes the shares read from the split's props.
-    fn set_shares(&mut self, shares: BTreeMap<String, f32>) {
+    /// Chooses a fixed size before consulting the child's flexible share.
+    fn size_for(&self, node: &NodeId) -> riso_ui::AxisSize {
+        self.sizes
+            .get(node.as_str())
+            .copied()
+            .map(riso_ui::AxisSize::Fixed)
+            .unwrap_or_else(|| {
+                riso_ui::AxisSize::Flex(self.shares.get(node.as_str()).copied().unwrap_or(1.))
+            })
+    }
+
+    fn set_sizes(&mut self, shares: BTreeMap<String, f32>, sizes: BTreeMap<String, Pixels>) {
         self.shares = shares;
+        self.sizes = sizes;
         let shown = self
             .shown_nodes
             .iter()
-            .map(|node| {
-                riso_ui::AxisSize::Flex(self.shares.get(node.as_str()).copied().unwrap_or(1.))
-            })
+            .map(|node| self.size_for(node))
             .collect();
         *self.shown_shares.borrow_mut() = shown;
     }
@@ -1018,25 +1061,7 @@ impl Render for Split {
             children,
         )
         .on_resized(move |resized, _, cx| {
-            let shares = match resized {
-                riso_ui::Resized::Reset => None,
-                riso_ui::Resized::Dragged(sizes) => {
-                    let shares: Vec<_> = sizes
-                        .into_iter()
-                        .map(|size| match size {
-                            riso_ui::AxisSize::Flex(share) => share,
-                            riso_ui::AxisSize::Fixed(length) => {
-                                log::warn!(
-                                    "fixed size in production split; using length as flex share"
-                                );
-                                f32::from(length)
-                            }
-                        })
-                        .collect();
-                    (!shares.iter().all(|share| *share == 1.)).then_some(shares)
-                }
-            };
-            record_resize(&split, &shown, shares, cx);
+            record_resize(&split, &shown, resized, cx);
         })
     }
 }

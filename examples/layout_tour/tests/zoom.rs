@@ -1,9 +1,5 @@
-#[cfg(not(feature = "dev"))]
-use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
-
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
+use riso_shell as shell;
 
 // A separate process selects the real extension case before GPUI starts threads.
 // It also keeps card renders separate from the unit binary's tracing capture.

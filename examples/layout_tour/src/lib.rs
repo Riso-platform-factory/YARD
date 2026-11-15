@@ -47,10 +47,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -60,7 +57,6 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
-        #[cfg(feature = "dev")]
         "empty-nodes" => {
             register_card(cx, ext);
             let lists: Lists = Rc::default();
@@ -661,11 +657,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
              tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
-            if cfg!(feature = "dev") {
-                "empty-nodes, "
-            } else {
-                ""
-            }
+            "empty-nodes, "
         ),
     }
 }
@@ -1133,17 +1125,14 @@ impl Render for CountCard {
 }
 
 /// The list view of each node, so that the controls can change its items.
-#[cfg(feature = "dev")]
 type Lists = Rc<std::cell::RefCell<std::collections::BTreeMap<String, WeakEntity<List>>>>;
 
 /// A list that shows its number of items, and is empty when it has none.
-#[cfg(feature = "dev")]
 struct List {
     node: String,
     items: usize,
 }
 
-#[cfg(feature = "dev")]
 impl List {
     fn button(
         lists: &Lists,
@@ -1170,14 +1159,12 @@ impl List {
     }
 }
 
-#[cfg(feature = "dev")]
 impl shell::Emptiable for List {
     fn is_empty(&self, _: &App) -> bool {
         self.items == 0
     }
 }
 
-#[cfg(feature = "dev")]
 impl Render for List {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(node = %self.node, items = self.items, "rendering list");

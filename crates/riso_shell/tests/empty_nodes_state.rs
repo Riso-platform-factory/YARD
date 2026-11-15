@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 // What the dev shell remembers about emptiness across operations: tab
 // selection after a reset, containers that lose their children, views that a
 // reset drops, a zoomed node that becomes empty, and one read per node and
@@ -7,7 +5,7 @@
 
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext, px};
 use riso_layout::NodeId;
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::{
     cell::RefCell,
     collections::BTreeMap,

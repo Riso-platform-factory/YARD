@@ -64,6 +64,13 @@ pub trait Titled: Render {
 
 type TitleReader = Rc<dyn Fn(&AnyView, &App) -> Option<(SharedString, Option<riso_ui::IconName>)>>;
 
+/// A component view that can say it has nothing to show now.
+pub trait Emptiable: Render {
+    fn is_empty(&self, cx: &App) -> bool;
+}
+
+type EmptyReader = Rc<dyn Fn(&AnyView, &App) -> Option<bool>>;
+
 type ActionHandler = Rc<dyn Fn(Div) -> Div>;
 type Factory = Rc<dyn Fn(&Node, Slots, &mut Window, &mut App) -> AnyView>;
 type Teller = Rc<dyn Fn(&Props, &mut App)>;
@@ -416,6 +423,13 @@ struct Registry {
     contexts: BTreeMap<NodeId, BTreeMap<TypeId, AnyEntity>>,
     window_contexts: BTreeMap<TypeId, AnyEntity>,
     title_errors: RefCell<BTreeSet<NodeId>>,
+    empties: BTreeMap<ComponentId, EmptyReader>,
+    empty_errors: RefCell<BTreeSet<NodeId>>,
+    /// Each node's emptiness when a container last laid it out.
+    emptiness: RefCell<BTreeMap<NodeId, bool>>,
+    /// Each node's emptiness and whether it can be empty, as read in the
+    /// frame being laid out; cleared when the shell renders.
+    laid_out: RefCell<BTreeMap<NodeId, (bool, bool)>>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
     tellers: BTreeMap<NodeId, Teller>,
@@ -493,6 +507,7 @@ impl Default for Registry {
                         node: node.id.clone(),
                         slots,
                         selected: None,
+                        reselect: false,
                         bar_bounds: None,
                     });
                     cx.default_global::<Registry>().tabs.push(tabs.downgrade());
@@ -639,6 +654,10 @@ impl Default for Registry {
             contexts: BTreeMap::new(),
             window_contexts: BTreeMap::new(),
             title_errors: RefCell::new(BTreeSet::new()),
+            empties: BTreeMap::new(),
+            empty_errors: RefCell::new(BTreeSet::new()),
+            emptiness: RefCell::new(BTreeMap::new()),
+            laid_out: RefCell::new(BTreeMap::new()),
             tree: Rc::new(RefCell::new(Layers::new(tree))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
             tellers: BTreeMap::new(),
@@ -747,31 +766,40 @@ fn inner_target_claims_cursor(
         let layers = registry.tree.borrow();
         let tree = layers.current();
         let views = registry.views.borrow();
+        let is_empty = |node: &NodeId| {
+            node_emptiness(registry, tree, &views, node, Emptiness::Remembered, cx).0
+        };
         fn collect(
             tree: &Tree,
             views: &ViewMap,
+            is_empty: &dyn Fn(&NodeId) -> bool,
             tabs_selected: &BTreeMap<NodeId, Option<NodeId>>,
             node: &NodeId,
             out: &mut BTreeSet<NodeId>,
         ) {
-            if tree.is_hidden(node) || !views.contains_key(node) || !out.insert(node.clone()) {
+            if tree.is_hidden(node)
+                || !views.contains_key(node)
+                || is_empty(node)
+                || !out.insert(node.clone())
+            {
                 return;
             }
             if let Some(selected) = tabs_selected.get(node) {
                 if let Some(child) = selected {
-                    collect(tree, views, tabs_selected, child, out);
+                    collect(tree, views, is_empty, tabs_selected, child, out);
                 }
                 return;
             }
             for (_, children) in tree.slots(node) {
                 for child in children {
-                    collect(tree, views, tabs_selected, &child.id, out);
+                    collect(tree, views, is_empty, tabs_selected, &child.id, out);
                 }
             }
         }
         collect(
             tree,
             &views,
+            &is_empty,
             &tabs_selected,
             subtree_root,
             &mut shown_subtree,
@@ -996,7 +1024,19 @@ fn node_minimum(
         .map(|(_, children)| {
             children
                 .iter()
-                .filter(|child| !tree.is_hidden(&child.id) && views.contains_key(&child.id))
+                .filter(|child| {
+                    !tree.is_hidden(&child.id)
+                        && views.contains_key(&child.id)
+                        && !node_emptiness(
+                            registry,
+                            tree,
+                            views,
+                            &child.id,
+                            Emptiness::Remembered,
+                            cx,
+                        )
+                        .0
+                })
                 .map(|child| node_minimum(registry, tree, views, &child.id, rem_size, cx))
                 .collect()
         })
@@ -1044,7 +1084,7 @@ struct Split {
 }
 
 impl Split {
-    fn reconcile(&mut self, cx: &App) {
+    fn reconcile(&mut self, cx: &App, mode: Emptiness<'_>) {
         // The axis mutates this vector during mouse events. Save it against the
         // previous IDs before replacing it with the current shown children.
         let mut carried = BTreeMap::new();
@@ -1071,19 +1111,23 @@ impl Split {
                 }
             }
         }
-        // Entries of children that left the split or are hidden are kept, so
-        // that such a child has its share again when it is shown.
+        // Entries of children that left the split, are hidden, or are empty
+        // are kept, so that such a child has its share again when it is shown.
+        // An empty child gets no room, no handle, and no collapsed line.
         let nodes: Vec<NodeId> = {
+            let registry = cx.global::<Registry>();
             let layers = self.slots.tree.borrow();
+            let tree = layers.current();
             let views = self.slots.views.borrow();
-            layers
-                .current()
-                .slots(&self.node)
+            tree.slots(&self.node)
                 .find(|(name, _)| name.as_str() == "children")
                 .map(|(_, children)| {
                     children
                         .iter()
-                        .filter(|child| views.contains_key(&child.id))
+                        .filter(|child| {
+                            views.contains_key(&child.id)
+                                && !node_emptiness(registry, tree, &views, &child.id, mode, cx).0
+                        })
                         .map(|child| child.id.clone())
                         .collect()
                 })
@@ -1213,7 +1257,7 @@ impl Split {
 impl Render for Split {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.rem_size = window.rem_size();
-        self.reconcile(cx);
+        self.reconcile(cx, Emptiness::Layout);
         if !cx.has_active_drag() {
             self.edges.clear();
         }
@@ -1316,12 +1360,45 @@ struct Tabs {
     node: NodeId,
     slots: Slots,
     selected: Option<NodeId>,
+    /// Whether the next layout selects the first child with a tab, from what
+    /// the views say then: the selection was chosen from remembered emptiness.
+    reselect: bool,
     bar_bounds: Option<Bounds<Pixels>>,
 }
 
 impl Tabs {
-    fn reconcile_selection(&mut self) {
+    /// The children that have a tab: shown and not empty.
+    fn shown(&self, cx: &App, mode: Emptiness<'_>) -> Vec<NodeId> {
+        self.slots
+            .nodes("children")
+            .into_iter()
+            .filter(|node| !empty_now(cx, node, mode))
+            .collect()
+    }
+
+    /// Outside layout: moves the selection off a child that is hidden or
+    /// gone, provisionally, and lets the next layout choose from fresh
+    /// emptiness. A selected child that only seems empty is left to it.
+    fn reconcile_selection(&mut self, cx: &App) {
         let nodes = self.slots.nodes("children");
+        if !self
+            .selected
+            .as_ref()
+            .is_some_and(|node| nodes.contains(node))
+        {
+            self.choose_first(cx);
+        }
+    }
+
+    /// Selects the first child with a tab by remembered emptiness, and lets
+    /// the next layout choose again from fresh emptiness.
+    fn choose_first(&mut self, cx: &App) {
+        self.selected = self.shown(cx, Emptiness::Remembered).first().cloned();
+        self.reselect = true;
+    }
+
+    /// Selects the first of `nodes` when the selected child is not among them.
+    fn select_shown(&mut self, nodes: &[NodeId]) {
         if !self
             .selected
             .as_ref()
@@ -1343,8 +1420,12 @@ impl Tabs {
 
 impl Render for Tabs {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.reconcile_selection();
-        let nodes = self.slots.nodes("children");
+        let nodes = self.shown(cx, Emptiness::Layout);
+        if std::mem::take(&mut self.reselect) {
+            self.selected = nodes.first().cloned();
+        } else {
+            self.select_shown(&nodes);
+        }
         let selected_index = nodes
             .iter()
             .position(|node| Some(node) == self.selected.as_ref());
@@ -1402,7 +1483,8 @@ impl Render for Tabs {
             .child(bar)
             .children(
                 selected_index
-                    .and_then(|index| self.slots.views("children").get(index).cloned())
+                    .and_then(|index| nodes.get(index))
+                    .and_then(|node| self.slots.views.borrow().get(node).cloned())
                     .map(|view| div().flex_1().min_h_0().child(view)),
             )
     }
@@ -1439,6 +1521,159 @@ fn tab_title(node: &NodeId, cx: &App) -> (SharedString, Option<riso_ui::IconName
             fallback()
         }
     }
+}
+
+/// How a node's emptiness is found.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Emptiness<'a> {
+    /// Asks the views, as a container lays out, once per node and frame, and
+    /// logs what it reads.
+    Layout,
+    /// Asks the views and logs nothing.
+    Ask,
+    /// Asks the views and logs nothing, except the view of this node, which
+    /// is being updated: its emptiness is what the last layout read.
+    AskBesides(&'a NodeId),
+    /// Takes what the last layout read, so that work which may run while an
+    /// extension's view is being updated never reads that view.
+    Remembered,
+}
+
+/// The window's root and the shell's frame are never empty.
+fn never_empty(tree: &Tree, node: &NodeId) -> bool {
+    is_frame_node(node)
+        || NodeId::parse("body").is_ok_and(|body| {
+            tree.slots(&body)
+                .any(|(_, children)| children.iter().any(|child| &child.id == node))
+        })
+}
+
+/// Whether a node is empty, and whether it can be: its component said it
+/// can be, or it is a container with a child that can be. A container is
+/// empty when it has children, at least one of them is empty, and every
+/// other one is hidden.
+fn node_emptiness(
+    registry: &Registry,
+    tree: &Tree,
+    views: &ViewMap,
+    node: &NodeId,
+    mode: Emptiness<'_>,
+    cx: &App,
+) -> (bool, bool) {
+    if mode == Emptiness::Layout
+        && let Some(laid_out) = registry.laid_out.borrow().get(node)
+    {
+        return *laid_out;
+    }
+    let component = component_of(tree, node);
+    let (mut empty, mut can) = match component.and_then(|component| registry.empties.get(component))
+    {
+        None => (false, false),
+        Some(reader) => {
+            let remembered = match mode {
+                Emptiness::Remembered => true,
+                Emptiness::AskBesides(leased) => leased == node,
+                Emptiness::Layout | Emptiness::Ask => false,
+            };
+            let empty = if remembered {
+                registry
+                    .emptiness
+                    .borrow()
+                    .get(node)
+                    .copied()
+                    .unwrap_or(false)
+            } else {
+                read_view_empty(registry, views, node, reader, cx)
+            };
+            (empty, true)
+        }
+    };
+    if component.is_some_and(|component| {
+        matches!(component.as_str(), "riso.row" | "riso.column" | "riso.tabs")
+    }) {
+        let children: Vec<NodeId> = tree
+            .slots(node)
+            .find(|(name, _)| name.as_str() == "children")
+            .map(|(_, children)| {
+                children
+                    .iter()
+                    .filter(|child| views.contains_key(&child.id))
+                    .map(|child| child.id.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut any_empty = false;
+        let mut none_shown = true;
+        for child in &children {
+            let (child_empty, child_can) = node_emptiness(registry, tree, views, child, mode, cx);
+            can |= child_can;
+            any_empty |= child_empty;
+            none_shown &= child_empty || tree.is_hidden(child);
+        }
+        empty |= !children.is_empty() && any_empty && none_shown;
+    }
+    if empty && never_empty(tree, node) {
+        empty = false;
+    }
+    if mode == Emptiness::Layout {
+        registry
+            .laid_out
+            .borrow_mut()
+            .insert(node.clone(), (empty, can));
+        if can {
+            tracing::trace!(node = %node, empty, "empty");
+            let previous = registry.emptiness.borrow_mut().insert(node.clone(), empty);
+            if previous.is_some_and(|previous| previous != empty) {
+                tracing::debug!(node = %node, empty, "emptiness changed");
+            }
+        } else if registry.emptiness.borrow_mut().remove(node) == Some(true) {
+            // A container that lost the children that could be empty is no
+            // longer empty.
+            tracing::debug!(node = %node, empty, "emptiness changed");
+        }
+    }
+    (empty, can)
+}
+
+fn read_view_empty(
+    registry: &Registry,
+    views: &ViewMap,
+    node: &NodeId,
+    reader: &EmptyReader,
+    cx: &App,
+) -> bool {
+    let Some(view) = views.get(node) else {
+        return false;
+    };
+    let wrapped = view
+        .clone()
+        .downcast::<NodeView>()
+        .expect("the registry stores node views");
+    match reader(&wrapped.read(cx).view, cx) {
+        Some(empty) => empty,
+        None => {
+            if registry.empty_errors.borrow_mut().insert(node.clone()) {
+                log::error!("view of node {node} is not the type that says whether it is empty");
+            }
+            tracing::trace!("view of node {node} is not the type that says whether it is empty");
+            false
+        }
+    }
+}
+
+fn empty_now(cx: &App, node: &NodeId, mode: Emptiness<'_>) -> bool {
+    let Some(registry) = cx.try_global::<Registry>() else {
+        return false;
+    };
+    let layers = registry.tree.borrow();
+    let views = registry.views.borrow();
+    node_emptiness(registry, layers.current(), &views, node, mode, cx).0
+}
+
+/// Returns whether a node is empty now: its view says so, or it is a
+/// container whose children are all empty or hidden.
+pub fn is_empty(cx: &App, node: &str) -> bool {
+    NodeId::parse(node).is_ok_and(|node| empty_now(cx, &node, Emptiness::Ask))
 }
 
 fn current_location(tree: &Tree, target: &NodeId) -> Option<(NodeId, SlotName, usize, usize)> {
@@ -1875,8 +2110,14 @@ fn select_adjacent_tab(
         return false;
     };
     let selected = tabs.update(cx, |tabs, cx| {
-        tabs.reconcile_selection();
-        let nodes = tabs.slots.nodes("children");
+        // The focused node's view is being updated by this action: every
+        // other child's emptiness is read now.
+        let nodes = tabs.shown(cx, Emptiness::AskBesides(node));
+        if std::mem::take(&mut tabs.reselect) {
+            tabs.selected = nodes.first().cloned();
+        } else {
+            tabs.select_shown(&nodes);
+        }
         if nodes.is_empty() {
             tracing::info!(reason = "no tabs", "refused");
             return None;
@@ -1993,35 +2234,62 @@ fn find_in_drawn<T>(
         .zoomed
         .as_ref()
         .filter(|node| views.contains_key(*node));
+    let is_empty =
+        |node: &NodeId| node_emptiness(registry, tree, &views, node, Emptiness::Remembered, cx).0;
     fn walk<T>(
         tree: &Tree,
         views: &ViewMap,
+        is_empty: &dyn Fn(&NodeId) -> bool,
         tabs_selected: &BTreeMap<NodeId, Option<NodeId>>,
         zoomed: Option<&NodeId>,
         current: &NodeId,
         visit: &mut impl FnMut(&NodeId) -> Option<T>,
     ) -> Option<T> {
-        if tree.is_hidden(current) || !views.contains_key(current) {
+        if tree.is_hidden(current) || !views.contains_key(current) || is_empty(current) {
             return None;
         }
         let from_child = if current.as_str() == "body"
             && let Some(zoomed_node) = zoomed
         {
-            walk(tree, views, tabs_selected, None, zoomed_node, visit)
+            walk(
+                tree,
+                views,
+                is_empty,
+                tabs_selected,
+                None,
+                zoomed_node,
+                visit,
+            )
         } else if let Some(selected) = tabs_selected.get(current) {
             selected
                 .as_ref()
-                .and_then(|child| walk(tree, views, tabs_selected, zoomed, child, visit))
+                .and_then(|child| walk(tree, views, is_empty, tabs_selected, zoomed, child, visit))
         } else {
             tree.slots(current).find_map(|(_, children)| {
-                children
-                    .iter()
-                    .find_map(|child| walk(tree, views, tabs_selected, zoomed, &child.id, visit))
+                children.iter().find_map(|child| {
+                    walk(
+                        tree,
+                        views,
+                        is_empty,
+                        tabs_selected,
+                        zoomed,
+                        &child.id,
+                        visit,
+                    )
+                })
             })
         };
         from_child.or_else(|| visit(current))
     }
-    walk(tree, &views, &tabs_selected, zoomed, drawn_root, &mut visit)
+    walk(
+        tree,
+        &views,
+        &is_empty,
+        &tabs_selected,
+        zoomed,
+        drawn_root,
+        &mut visit,
+    )
 }
 
 fn save(cx: &App) {
@@ -2151,7 +2419,7 @@ fn reconcile_containers(cx: &mut App) {
     };
     for split in splits {
         let _ = split.update(cx, |split, cx| {
-            split.reconcile(cx);
+            split.reconcile(cx, Emptiness::Remembered);
             let layers = split.slots.tree.borrow();
             for (node, child) in split
                 .shown_nodes
@@ -2167,7 +2435,7 @@ fn reconcile_containers(cx: &mut App) {
         });
     }
     for tabs in tabs {
-        let _ = tabs.update(cx, |tabs, _| tabs.reconcile_selection());
+        let _ = tabs.update(cx, |tabs, cx| tabs.reconcile_selection(cx));
     }
 }
 
@@ -2224,6 +2492,9 @@ fn run_op(
                     registry.bounds.remove(&id);
                     registry.tellers.remove(&id);
                     registry.contexts.remove(&id);
+                    registry.emptiness.borrow_mut().remove(&id);
+                    registry.empty_errors.borrow_mut().remove(&id);
+                    registry.laid_out.borrow_mut().remove(&id);
                     registry.views.borrow_mut().remove(&id)
                 };
                 if dropped.is_some() {
@@ -2990,6 +3261,9 @@ impl Extension {
                 registry.bounds.remove(&id);
                 registry.tellers.remove(&id);
                 registry.contexts.remove(&id);
+                registry.emptiness.borrow_mut().remove(&id);
+                registry.empty_errors.borrow_mut().remove(&id);
+                registry.laid_out.borrow_mut().remove(&id);
                 let dropped = registry.views.borrow_mut().remove(&id);
                 drop(dropped);
                 tracing::debug!(node = %id, "view dropped");
@@ -3040,12 +3314,12 @@ impl Extension {
                 split.shown_given.clear();
                 split.edges.clear();
                 split.child_bounds.clear();
-                split.reconcile(cx);
+                split.reconcile(cx, Emptiness::Remembered);
             });
         }
         for tabs in tabs {
-            let _ = tabs.update(cx, |tabs, _| {
-                tabs.selected = tabs.slots.nodes("children").first().cloned();
+            let _ = tabs.update(cx, |tabs, cx| {
+                tabs.choose_first(cx);
             });
         }
         cx.refresh_windows();
@@ -3319,6 +3593,38 @@ impl Extension {
                 tracing::debug!("gives titles");
             }
             Entry::Occupied(entry) => log::error!("component {} already gives titles", entry.key()),
+        }
+    }
+
+    /// Declares that the views of a component of this extension can say they
+    /// are empty, so that their containers give them no room while they are.
+    pub fn register_empty<V: Emptiable + 'static>(&self, cx: &mut App, component: &str) {
+        let _group = tracing::info_span!("empty-register", component).entered();
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot declare the emptiness of component {component}",
+                self.name
+            );
+            return;
+        }
+        match cx.default_global::<Registry>().empties.entry(component) {
+            Entry::Vacant(entry) => {
+                entry.insert(Rc::new(|view, cx| {
+                    let entity = view.clone().downcast::<V>().ok()?;
+                    Some(entity.read(cx).is_empty(cx))
+                }));
+                tracing::debug!("can be empty");
+            }
+            Entry::Occupied(entry) => {
+                log::error!("component {} already declares its emptiness", entry.key())
+            }
         }
     }
 
@@ -4153,6 +4459,28 @@ fn create_view(
 impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering shell");
+        let zoomed = cx.try_global::<Registry>().and_then(|registry| {
+            registry.laid_out.borrow_mut().clear();
+            registry.zoomed.clone()
+        });
+        // A zoomed node that becomes empty is zoomed out of, so that its
+        // container gives it no room and the focus leaves it.
+        if let Some(node) = zoomed
+            && empty_now(cx, &node, Emptiness::Layout)
+        {
+            cx.defer_in(window, move |_, _, cx| {
+                if cx
+                    .try_global::<Registry>()
+                    .is_some_and(|registry| registry.zoomed.as_ref() == Some(&node))
+                {
+                    tracing::debug!(node = %node, "zoomed node is empty");
+                    Extension {
+                        name: "riso".into(),
+                    }
+                    .zoom_out(cx);
+                }
+            });
+        }
         cx.defer_in(window, |shell, window, cx| shell.sync_focus(window, cx));
         window.set_rem_size(riso_ui::ui_font_size(cx));
         let action_handlers = cx

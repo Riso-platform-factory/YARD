@@ -78,7 +78,7 @@ Features 13 and later are the second part of the engine. Where the column `Needs
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 19 | `sizes-as-props` | The shares of a split are props of the split, so a resize is an operation: recorded, saved, restored, and dropped by a reset. The steps of one drag join into one operation | Drag a line, quit, start: the same shares. Reset: equal shares again | none | 13 | dev |
+| 19 | `sizes-as-props` | The shares of a split are props of the split, so a resize is an operation: recorded, saved, restored, and dropped by a reset. The steps of one drag join into one operation | Drag a line, quit, start: the same shares. Reset: equal shares again | none | 13 | production |
 | 20 | `fixed-sizes` | A child of a split is flexible, with a share, or fixed, with a size. When the split grows, only the flexible children grow. When it shrinks, they shrink first | A side card keeps its width while the window is resized | the resizing of `dock.rs`, as reference | 19 | planned |
 | 21 | `component-sizes` | A component declares a preferred and a minimum size, in rems, so that they follow the size of the UI font. The minimum of a container comes from its children. This replaces the fixed minimums of 80px and 100px | A card with a larger minimum stops the drag earlier, and a larger UI font moves the limit | none | 20. Theme engine: `ui-font` | planned |
 | 22 | `snap-hide` | Dragging a child below its minimum hides it, as a `hide` operation. Dragging the line back shows it | A side card dragged shut disappears, and comes back when the line is dragged out | none | 21 | planned |

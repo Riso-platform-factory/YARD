@@ -224,7 +224,7 @@ fn user_layer_records_and_reset_reconciles_every_contract_row(cx: &mut TestAppCo
             }
         });
 
-        // Shares, selection, and zoom alone do not enter the user layer.
+        // A drag records one set-props; tab selection and zoom stay view state.
         let mut visual = gpui::VisualTestContext::from_window(window.into(), &app);
         drag(
             &mut visual,
@@ -233,32 +233,49 @@ fn user_layer_records_and_reset_reconciles_every_contract_row(cx: &mut TestAppCo
         );
         draw(window, &mut app, &shown);
         assert_eq!(shown.borrow()[0].1.size.width, px(400.));
+        assert_eq!(app.update(|cx| shell::user_layer_len(cx)), 1);
         click(&mut visual, "TAB-c");
         draw(window, &mut app, &shown);
         assert_eq!(nodes(&shown), ["a", "inner", "c", "d"]);
-        let resized = shown.borrow().clone();
         app.update(|cx| host.set_zoomed(cx, "c"));
         draw(window, &mut app, &shown);
         assert_eq!(nodes(&shown), ["c"]);
+        assert_eq!(app.update(|cx| shell::user_layer_len(cx)), 1);
         let creates = created.borrow().len();
-        let before_empty = trace.0.lock().unwrap().lines.len();
+        let before_reset = trace.0.lock().unwrap().lines.len();
         any_window
             .update(&mut app, |_, window, cx| guest.reset_layout(window, cx))
             .unwrap();
-        assert_eq!(app.update(|cx| shell::zoomed(cx)).as_deref(), Some("c"));
+        assert_eq!(app.update(|cx| shell::zoomed(cx)), None);
         assert_eq!(app.update(|cx| shell::user_layer_len(cx)), 0);
         assert_eq!(created.borrow().len(), creates);
-        assert_eq!(
-            &trace.0.lock().unwrap().lines[before_empty..],
-            [r#"layout-reset extension="guest": DEBUG message=nothing to reset"#]
-        );
-        app.update(|cx| host.zoom_out(cx));
+        let reset_lines = trace.0.lock().unwrap().lines[before_reset..].to_vec();
+        for line in [
+            r#"layout-reset extension="guest": DEBUG message=user layer dropped dropped=1"#,
+            "props-read node=\"root\" component=\"riso.row\": DEBUG message=props read keys=\"\"",
+            r#"layout-reset extension="guest": DEBUG message=view told node=root"#,
+        ] {
+            assert!(
+                reset_lines.iter().any(|actual| actual == line),
+                "missing {line} in {reset_lines:#?}"
+            );
+        }
+        // The dropped set-props restores equal shares; zoom and selection clear too.
         draw(window, &mut app, &shown);
-        assert_eq!(
-            *shown.borrow(),
-            resized,
-            "empty reset retains shares and tab selection"
-        );
+        assert_eq!(nodes(&shown), ["a", "inner", "b", "d"]);
+        for node in ["a", "b", "d"] {
+            assert_eq!(
+                shown
+                    .borrow()
+                    .iter()
+                    .find(|(id, _)| id == node)
+                    .unwrap()
+                    .1
+                    .size
+                    .width,
+                px(300.)
+            );
+        }
 
         // A real tab drag uses the shell's layout-op and records exactly once.
         let start = visual.debug_bounds("TAB-b").unwrap().center();
@@ -385,6 +402,11 @@ fn user_layer_records_and_reset_reconciles_every_contract_row(cx: &mut TestAppCo
                 captured.span_stacks
             );
         }
+        let recorded_resize = concat!(
+            "layout-op op=\"props\" node=\"root\" extension=\"riso\": ",
+            "DEBUG message=recorded user_layer=1",
+        );
+        assert!(captured.lines.iter().any(|line| line == recorded_resize));
         let recorded_drag = concat!(
             "layout-op op=\"move\" node=\"b\" extension=\"riso\": ",
             "DEBUG message=recorded user_layer=1",

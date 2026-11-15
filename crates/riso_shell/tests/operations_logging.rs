@@ -535,14 +535,14 @@ fn splits_and_visibility_contract(cx: &mut TestAppContext) {
     draw(window, &mut app, &shown);
     widths(&shown, &[("a", 450.), ("b", 150.)]);
 
-    // Moving `b` out of `root` drops `b`'s 0.5 share while `a` keeps its 1.5 share;
-    // moving `b` back into `root` starts `b` at 1.0 -> shares [1.5, 1.0] = [360, 240].
+    // Moving `b` out of `root` keeps `b`'s entry in `root`'s `shares` prop, so
+    // moving `b` back gives it its share again -> shares [1.5, 0.5] = [450, 150].
     app.update(|cx| {
         ext.move_node(cx, "b", "a", "body", 0);
         ext.move_node(cx, "b", "root", "children", usize::MAX);
     });
     draw(window, &mut app, &shown);
-    widths(&shown, &[("a", 360.), ("b", 240.)]);
+    widths(&shown, &[("a", 450.), ("b", 150.)]);
 }
 
 fn tabs_and_visibility_contract(cx: &mut TestAppContext, trace: &Trace) {

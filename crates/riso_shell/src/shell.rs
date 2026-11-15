@@ -394,14 +394,6 @@ impl Slots {
             })
             .unwrap_or_default()
     }
-
-    fn contains_child(&self, slot: &str, child_id: &NodeId) -> bool {
-        let layers = self.tree.borrow();
-        let tree = layers.current();
-        tree.slots(&self.node)
-            .find(|(name, _)| name.as_str() == slot)
-            .is_some_and(|(_, children)| children.iter().any(|child| &child.id == child_id))
-    }
 }
 
 struct Registry {
@@ -445,19 +437,34 @@ impl Default for Registry {
                 Component {
                     slots: vec![SlotName::parse("children").unwrap()],
                     create: Rc::new(move |node, slots, _, cx| {
+                        let shares = read_shares(&node.id, &node.component, &node.props);
                         let split = cx.new(|_| Split {
                             node: node.id.clone(),
                             axis,
                             slots,
-                            shares: BTreeMap::new(),
+                            shares,
                             shown_nodes: Vec::new(),
                             shown_shares: Rc::new(RefCell::new(Vec::new())),
                             edges: BTreeMap::new(),
                             child_bounds: BTreeMap::new(),
                         });
-                        cx.default_global::<Registry>()
-                            .splits
-                            .push(split.downgrade());
+                        let registry = cx.default_global::<Registry>();
+                        registry.splits.push(split.downgrade());
+                        let weak = split.downgrade();
+                        let tell_node = node.id.clone();
+                        let tell_component = node.component.clone();
+                        let teller: Teller = Rc::new(move |props, cx| {
+                            let Some(split) = weak.upgrade() else {
+                                return;
+                            };
+                            let shares = read_shares(&tell_node, &tell_component, props);
+                            split.update(cx, |split, cx| {
+                                split.set_shares(shares);
+                                cx.notify();
+                            });
+                            tracing::debug!(node = %tell_node, "view told");
+                        });
+                        registry.tellers.insert(node.id.clone(), teller);
                         split.into()
                     }),
                 },
@@ -803,9 +810,68 @@ fn clear_drag_edges(cx: &mut App) {
     }
 }
 
+/// The props of a split: its children's shares by node ID.
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+struct SplitProps {
+    shares: BTreeMap<String, serde_json::Value>,
+}
+
+/// Reads a split's shares from its props. An entry for a node that is not a
+/// child is kept; a value that is not a positive number reads as 1.
+fn read_shares(node: &NodeId, component: &ComponentId, props: &Props) -> BTreeMap<String, f32> {
+    read_props::<SplitProps>(node, component, props)
+        .shares
+        .into_iter()
+        .map(|(child, value)| {
+            let share = value
+                .as_f64()
+                .map(|share| share as f32)
+                .filter(|share| share.is_finite() && *share > 0.);
+            let share = share.unwrap_or_else(|| {
+                log::warn!(
+                    "prop shares of node {node} cannot be read: the share of {child} is not a positive number; the default is used"
+                );
+                1.
+            });
+            (child, share)
+        })
+        .collect()
+}
+
+/// Records the end of a resize as one set-props on the split, as the shell.
+fn record_resize(split: &NodeId, shown: &[NodeId], shares: Option<Vec<f32>>, cx: &mut App) {
+    let value = match shares {
+        None => serde_json::Value::Null,
+        Some(shares) => {
+            let mut entries = {
+                let registry = cx.default_global::<Registry>();
+                let layers = registry.tree.borrow();
+                node_of(layers.current(), split)
+                    .and_then(|node| node.props.get("shares"))
+                    .and_then(serde_json::Value::as_object)
+                    .cloned()
+                    .unwrap_or_default()
+            };
+            for (child, share) in shown.iter().zip(shares) {
+                // The shortest decimal of the f32, so that 1.5 is saved as 1.5.
+                let share = share.to_string().parse::<f64>().unwrap_or(1.);
+                entries.insert(child.to_string(), serde_json::json!(share));
+            }
+            serde_json::Value::Object(entries)
+        }
+    };
+    let props = encode_props(serde_json::json!({ "shares": value }));
+    run_op("riso", None, cx, "props", split.as_str(), |_, node| {
+        Ok(Operation::SetProps {
+            node,
+            props: props?,
+        })
+    });
+}
+
 struct Split {
     node: NodeId,
-    shares: BTreeMap<NodeId, f32>,
+    shares: BTreeMap<String, f32>,
     shown_nodes: Vec<NodeId>,
     shown_shares: Rc<RefCell<Vec<f32>>>,
     edges: BTreeMap<NodeId, Edge>,
@@ -823,15 +889,14 @@ impl Split {
             .iter()
             .zip(self.shown_shares.borrow().iter())
         {
-            self.shares.insert(node.clone(), *share);
+            self.shares.insert(node.to_string(), *share);
         }
-        // A child that left the split keeps no share there; hidden children stay in the slot.
-        self.shares
-            .retain(|child, _| self.slots.contains_child("children", child));
+        // Entries of children that left the split or are hidden are kept, so
+        // that such a child has its share again when it is shown.
         let nodes = self.slots.nodes("children");
         let shares = nodes
             .iter()
-            .map(|node| *self.shares.entry(node.clone()).or_insert(1.))
+            .map(|node| self.shares.get(node.as_str()).copied().unwrap_or(1.))
             .collect();
         if nodes != self.shown_nodes {
             // A changed child set also ends any positional drag in the axis.
@@ -842,6 +907,17 @@ impl Split {
         self.edges.retain(|child, _| nodes.contains(child));
         self.child_bounds.retain(|child, _| nodes.contains(child));
         self.shown_nodes = nodes;
+    }
+
+    /// Takes the shares read from the split's props.
+    fn set_shares(&mut self, shares: BTreeMap<String, f32>) {
+        self.shares = shares;
+        let shown = self
+            .shown_nodes
+            .iter()
+            .map(|node| self.shares.get(node.as_str()).copied().unwrap_or(1.))
+            .collect();
+        *self.shown_shares.borrow_mut() = shown;
     }
 
     fn handle_drag_move(
@@ -927,12 +1003,20 @@ impl Render for Split {
                 zone.into_any_element()
             })
             .collect();
+        let split = self.node.clone();
+        let shown = self.shown_nodes.clone();
         riso_ui::axis(
             SharedString::from(self.node.to_string()),
             self.axis,
             self.shown_shares.clone(),
             children,
         )
+        .on_resized(move |shares, _, cx| {
+            // A double click gives every share 1, the default, so it records
+            // `null`; a drag that ends exactly there records the same default.
+            let reset = shares.iter().all(|share| *share == 1.);
+            record_resize(&split, &shown, (!reset).then_some(shares), cx);
+        })
     }
 }
 
@@ -2643,8 +2727,8 @@ impl Extension {
             (registry.splits.clone(), registry.tabs.clone())
         };
         for split in splits {
+            // The shares stay as read from the props, which the tellers updated.
             let _ = split.update(cx, |split, _| {
-                split.shares.clear();
                 split.shown_nodes.clear();
                 split.shown_shares = Rc::new(RefCell::new(Vec::new()));
                 split.edges.clear();

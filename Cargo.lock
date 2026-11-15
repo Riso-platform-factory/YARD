@@ -4681,7 +4681,6 @@ dependencies = [
  "command_palette",
  "gpui",
  "gpui_platform",
- "layout_tour",
  "riso_keymap",
  "riso_layout",
  "riso_log",

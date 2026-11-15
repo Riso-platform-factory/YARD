@@ -38,6 +38,16 @@ pub trait PropsView<P>: Render {
     fn set_props(&mut self, props: P, cx: &mut Context<Self>);
 }
 
+/// A component view that supplies its tab title and optional icon.
+pub trait Titled: Render {
+    fn title(&self, cx: &App) -> SharedString;
+    fn icon(&self, _cx: &App) -> Option<riso_ui::IconName> {
+        None
+    }
+}
+
+type TitleReader = Rc<dyn Fn(&AnyView, &App) -> Option<(SharedString, Option<riso_ui::IconName>)>>;
+
 type ActionHandler = Rc<dyn Fn(Div) -> Div>;
 type Factory = Rc<dyn Fn(&Node, Slots, &mut Window, &mut App) -> AnyView>;
 type Teller = Rc<dyn Fn(&Props, &mut App)>;
@@ -288,6 +298,7 @@ impl Render for NodeView {
 struct DraggedNode {
     node: NodeId,
     label: SharedString,
+    icon: Option<riso_ui::IconName>,
 }
 
 impl Render for DraggedNode {
@@ -301,7 +312,16 @@ impl Render for DraggedNode {
             .border_color(palette.border)
             .text_color(palette.text)
             .font(riso_ui::ui_font(cx))
-            .child(self.label.clone())
+            .child(
+                riso_ui::h_flex()
+                    .gap_1()
+                    .children(self.icon.map(|icon| {
+                        riso_ui::Icon::new(icon)
+                            .size(riso_ui::IconSize::Small)
+                            .color(riso_ui::TextColor::Muted)
+                    }))
+                    .child(riso_ui::Label::new(self.label.clone())),
+            )
     }
 }
 
@@ -371,6 +391,8 @@ struct Registry {
     extensions: BTreeSet<String>,
     components: BTreeMap<ComponentId, Component>,
     action_handlers: Vec<ActionHandler>,
+    titles: BTreeMap<ComponentId, TitleReader>,
+    title_errors: RefCell<BTreeSet<NodeId>>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
     tellers: BTreeMap<NodeId, Teller>,
@@ -566,6 +588,8 @@ impl Default for Registry {
             extensions: BTreeSet::new(),
             components,
             action_handlers: Vec::new(),
+            titles: BTreeMap::new(),
+            title_errors: RefCell::new(BTreeSet::new()),
             tree: Rc::new(RefCell::new(Layers::new(tree))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
             tellers: BTreeMap::new(),
@@ -927,13 +951,19 @@ impl Render for Tabs {
                 let click_node = node.clone();
                 let target_node = node.clone();
                 let target_parent = parent.clone();
-                let label = SharedString::from(node.to_string());
+                let (label, icon) = tab_title(node, cx);
                 let dragged = DraggedNode {
                     node: node.clone(),
                     label: label.clone(),
+                    icon,
                 };
-                riso_ui::Tab::new(label.clone(), label)
-                    .selected(Some(node) == self.selected.as_ref())
+                let tab = riso_ui::Tab::new(SharedString::from(node.to_string()), label);
+                let tab = if let Some(icon) = icon {
+                    tab.icon(icon)
+                } else {
+                    tab
+                };
+                tab.selected(Some(node) == self.selected.as_ref())
                     .on_click(move |_, cx| {
                         let _ = entity.update(cx, |tabs, cx| tabs.select(click_node.clone(), cx));
                     })
@@ -970,6 +1000,39 @@ impl Render for Tabs {
                     .and_then(|index| self.slots.views("children").get(index).cloned())
                     .map(|view| div().flex_1().min_h_0().child(view)),
             )
+    }
+}
+
+fn tab_title(node: &NodeId, cx: &App) -> (SharedString, Option<riso_ui::IconName>) {
+    let fallback = || (SharedString::from(node.to_string()), None);
+    let registry = cx.global::<Registry>();
+    let layers = registry.tree.borrow();
+    let Some(component) = node_of(layers.current(), node).map(|node| &node.component) else {
+        return fallback();
+    };
+    let Some(reader) = registry.titles.get(component) else {
+        return fallback();
+    };
+    let views = registry.views.borrow();
+    let Some(view) = views.get(node) else {
+        return fallback();
+    };
+    let wrapped = view
+        .clone()
+        .downcast::<NodeView>()
+        .expect("the registry stores node views");
+    match reader(&wrapped.read(cx).view, cx) {
+        Some((title, icon)) => {
+            tracing::trace!(node = %node, title = %title, "tab title");
+            (title, icon)
+        }
+        None => {
+            if registry.title_errors.borrow_mut().insert(node.clone()) {
+                log::error!("view of node {node} is not the type that gives its title");
+            }
+            tracing::trace!("view of node {node} is not the type that gives its title");
+            fallback()
+        }
     }
 }
 
@@ -2281,6 +2344,36 @@ impl Extension {
             slots,
             Rc::new(move |node, slots, window, cx| create(&node.id, slots, window, cx)),
         );
+    }
+
+    /// Registers the view type that supplies a component's titles.
+    pub fn register_title<V: Titled + 'static>(&self, cx: &mut App, component: &str) {
+        let _group = tracing::info_span!("title-register", component).entered();
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot register titles for component {component}",
+                self.name
+            );
+            return;
+        }
+        match cx.default_global::<Registry>().titles.entry(component) {
+            Entry::Vacant(entry) => {
+                entry.insert(Rc::new(|view, cx| {
+                    let entity = view.clone().downcast::<V>().ok()?;
+                    let view = entity.read(cx);
+                    Some((view.title(cx), view.icon(cx)))
+                }));
+                tracing::debug!("gives titles");
+            }
+            Entry::Occupied(entry) => log::error!("component {} already gives titles", entry.key()),
+        }
     }
 
     /// Registers a component whose view is created from and told typed props.

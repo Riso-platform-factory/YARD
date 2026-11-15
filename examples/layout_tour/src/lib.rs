@@ -30,7 +30,10 @@
 //! `LAYOUT_TOUR=actions cargo run dev`: send layout actions to the focused card.
 //! `LAYOUT_TOUR=props cargo run dev`: configure cards with props, change them, and reset.
 //! `LAYOUT_TOUR=titles cargo run dev`: show tab titles and icons, rename a card, and reset.
+//! `LAYOUT_TOUR=required cargo run dev`: a required editor cannot be hidden or removed, only moved.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -39,7 +42,7 @@ use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
-use riso_shell as shell;
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -49,6 +52,39 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "required" => {
+            register_card(cx, ext);
+            register_card_as(cx, ext, "layout_tour.editor");
+            ext.require(cx, "layout_tour.editor");
+            let buttons = vec![
+                Button::action("hide editor", |ext, _, cx| {
+                    ext.set_hidden(cx, "editor", true)
+                }),
+                Button::action("remove main", |ext, _, cx| ext.remove(cx, "main")),
+                Button::action("hide notes", |ext, _, cx| ext.set_hidden(cx, "notes", true)),
+                Button::action("hide side", |ext, _, cx| ext.set_hidden(cx, "side", true)),
+                Button::action("move editor to root", |ext, _, cx| {
+                    ext.move_node(cx, "editor", "root", "children", usize::MAX);
+                }),
+                Button::action("reset layout", |ext, window, cx| {
+                    ext.reset_layout(window, cx);
+                }),
+            ];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.row");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            ext.place(cx, "side", "layout_tour.card", "root", "children");
+            ext.place(cx, "main", "riso.column", "root", "children");
+            ext.place(cx, "editor", "layout_tour.editor", "main", "children");
+            ext.place(cx, "notes", "layout_tour.card", "main", "children");
+        }
         "titles" => {
             register_card(cx, ext);
             ext.register_with_props::<TintedProps, TintedCard>(
@@ -362,37 +398,36 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required"
         ),
     }
 }
 
 fn register_card(cx: &mut App, ext: &shell::Extension) {
+    register_card_as(cx, ext, "layout_tour.card");
+}
+
+fn register_card_as(cx: &mut App, ext: &shell::Extension, component: &str) {
     let ext_for_factory = ext.clone();
-    ext.register(
-        cx,
-        "layout_tour.card",
-        &["body"],
-        move |node, slots, _, cx| {
-            let card = cx.new(|_| Card {
-                node: node.to_string(),
-                size: Size::default(),
-                count: 0,
-                slots,
-            });
-            let ext = ext_for_factory.clone();
-            cx.subscribe(&card, move |card, _: &ToggleZoom, cx| {
-                let node = card.read(cx).node.clone();
-                if shell::zoomed(cx).as_deref() == Some(node.as_str()) {
-                    ext.zoom_out(cx);
-                } else {
-                    ext.set_zoomed(cx, &node);
-                }
-            })
-            .detach();
-            card.into()
-        },
-    );
+    ext.register(cx, component, &["body"], move |node, slots, _, cx| {
+        let card = cx.new(|_| Card {
+            node: node.to_string(),
+            size: Size::default(),
+            count: 0,
+            slots,
+        });
+        let ext = ext_for_factory.clone();
+        cx.subscribe(&card, move |card, _: &ToggleZoom, cx| {
+            let node = card.read(cx).node.clone();
+            if shell::zoomed(cx).as_deref() == Some(node.as_str()) {
+                ext.zoom_out(cx);
+            } else {
+                ext.set_zoomed(cx, &node);
+            }
+        })
+        .detach();
+        card.into()
+    });
 }
 
 fn operations_buttons() -> Vec<Button> {

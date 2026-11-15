@@ -186,6 +186,18 @@ The card `layout_tour.tinted` gives its tab a title from its `title` prop and an
 | Drag tab `Alpha` to the end of the bar | It moves, with its title and icon. |
 | `reset layout` | `Alpha`, `Beta`, `gamma` again. |
 
+### Feature 15: required-nodes
+
+The component `layout_tour.editor`, a card, is declared required. The case places the controls, then a row with `side` and `main`, a column holding `editor` and `notes`. Use a fresh home: `RISO_HOME=/tmp/riso-required`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-required LAYOUT_TOUR=required cargo run dev` | `side`, then `main` with `editor` and `notes`. `component-require{component=layout_tour.editor}` with `required`. |
+| Click `hide editor` | Refused: an `INFO`, `editor cannot be hidden: it is required`. Nothing changes. |
+| Click `remove main` | Refused: `main cannot be removed: it holds the required node editor`. |
+| Click `hide notes`, then `hide side` | Both are hidden. |
+| Click `move editor to root` | `editor` moves to the end of the row; `main` stays, empty, until feature 23 gives empty nodes no room. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

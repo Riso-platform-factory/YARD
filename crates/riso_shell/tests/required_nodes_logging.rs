@@ -1,0 +1,282 @@
+#![cfg(feature = "dev")]
+
+use gpui::{AppContext, IntoElement, Styled, TestAppContext, px};
+use riso_shell::dev as shell;
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::PathBuf,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+struct TempDir(PathBuf);
+
+impl TempDir {
+    fn new() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |since| since.as_nanos());
+        let path = std::env::temp_dir().join(format!(
+            "riso-shell-required-log-{}-{}-{nanos:x}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed),
+        ));
+        fs::create_dir_all(&path).unwrap();
+        Self(path)
+    }
+
+    fn path(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+// The diagnostic log's records are re-emitted as tracing events under this
+// target, so one subscriber sees both logs.
+const PROBE: &str = "required_nodes_probe";
+
+#[derive(Default)]
+struct Captured {
+    spans: BTreeMap<u64, String>,
+    entered: Vec<u64>,
+    lines: Vec<String>,
+}
+
+#[derive(Clone, Default)]
+struct Trace(Arc<Mutex<Captured>>);
+
+#[derive(Default)]
+struct Fields(String);
+
+impl tracing::field::Visit for Fields {
+    fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+        use std::fmt::Write;
+        let rendered = format!("{value:?}");
+        let rendered = match field.name() {
+            "path" | "file" => rendered.rsplit('/').next().unwrap().to_owned(),
+            _ => rendered,
+        };
+        write!(self.0, " {}={rendered}", field.name()).unwrap();
+    }
+}
+
+impl tracing::Subscriber for Trace {
+    fn register_callsite(
+        &self,
+        _: &'static tracing::Metadata<'static>,
+    ) -> tracing::subscriber::Interest {
+        tracing::subscriber::Interest::sometimes()
+    }
+    fn enabled(&self, _: &tracing::Metadata<'_>) -> bool {
+        true
+    }
+    fn new_span(&self, attributes: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+        let mut captured = self.0.lock().unwrap();
+        let id = captured.spans.len() as u64 + 1;
+        let mut fields = Fields::default();
+        attributes.record(&mut fields);
+        captured
+            .spans
+            .insert(id, format!("{}{}", attributes.metadata().name(), fields.0));
+        tracing::span::Id::from_u64(id)
+    }
+    fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+    fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+    fn event(&self, event: &tracing::Event<'_>) {
+        let target = event.metadata().target();
+        if (!target.starts_with("riso_shell") && target != PROBE)
+            || *event.metadata().level() == tracing::Level::TRACE
+        {
+            return;
+        }
+        let mut fields = Fields::default();
+        event.record(&mut fields);
+        let mut captured = self.0.lock().unwrap();
+        let group = captured
+            .entered
+            .last()
+            .map(|id| captured.spans[id].as_str())
+            .unwrap_or("none");
+        let line = format!("{group}: {}{}", event.metadata().level(), fields.0);
+        captured.lines.push(line);
+    }
+    fn enter(&self, id: &tracing::span::Id) {
+        self.0.lock().unwrap().entered.push(id.into_u64());
+    }
+    fn exit(&self, id: &tracing::span::Id) {
+        assert_eq!(self.0.lock().unwrap().entered.pop(), Some(id.into_u64()));
+    }
+}
+
+// The one process-wide diagnostic logger this file installs once; alone here,
+// it cannot collide with another test's logger.
+struct Diagnostics;
+
+impl log::Log for Diagnostics {
+    fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
+        metadata.target().starts_with("riso_shell")
+    }
+    fn log(&self, record: &log::Record<'_>) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        match record.level() {
+            log::Level::Error => tracing::error!(target: PROBE, "{}", record.args()),
+            log::Level::Warn => tracing::warn!(target: PROBE, "{}", record.args()),
+            log::Level::Info => tracing::info!(target: PROBE, "{}", record.args()),
+            log::Level::Debug => tracing::debug!(target: PROBE, "{}", record.args()),
+            log::Level::Trace => tracing::trace!(target: PROBE, "{}", record.args()),
+        }
+    }
+    fn flush(&self) {}
+}
+
+struct Card;
+
+impl gpui::Render for Card {
+    fn render(&mut self, _: &mut gpui::Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
+        gpui::div().size_full()
+    }
+}
+
+fn draw(window: gpui::WindowHandle<shell::Shell>, app: &mut TestAppContext) {
+    gpui::AnyWindowHandle::from(window)
+        .update(app, |_, window, cx| {
+            let _ = window.draw(cx);
+        })
+        .unwrap();
+}
+
+fn open_and_draw(app: &mut TestAppContext) -> gpui::WindowHandle<shell::Shell> {
+    let window = app.update(|cx| {
+        cx.open_window(gpui::WindowOptions::default(), shell::new_shell)
+            .unwrap()
+    });
+    app.simulate_window_resize(window.into(), gpui::size(px(900.), px(600.)));
+    window.update(app, |_, window, _| window.refresh()).unwrap();
+    draw(window, app);
+    window
+}
+
+// `side` and the required `editor` in a row.
+fn setup(app: &mut TestAppContext) -> shell::Extension {
+    app.update(|cx| {
+        riso_ui::init(cx);
+        let host = shell::Extension::new(cx, "tour").unwrap();
+        host.register(cx, "tour.editor", &[], |_, _, _, cx| {
+            cx.new(|_| Card).into()
+        });
+        host.register(cx, "tour.card", &[], |_, _, _, cx| cx.new(|_| Card).into());
+        host.require(cx, "tour.editor");
+        host.place_root(cx, "root", "riso.row");
+        host.place(cx, "side", "tour.card", "root", "children");
+        host.place(cx, "editor", "tour.editor", "root", "children");
+        host
+    })
+}
+
+// Alone in this binary: every call reaching these log lines shares this one
+// subscriber and logger.
+#[gpui::test]
+fn required_nodes_log_the_require_group_and_each_refusal(cx: &mut TestAppContext) {
+    log::set_logger(&Diagnostics).unwrap();
+    log::set_max_level(log::LevelFilter::Trace);
+    let temp = TempDir::new();
+    let trace = Trace::default();
+    tracing::subscriber::with_default(trace.clone(), || {
+        let mut app = cx.new_app();
+        let host = setup(&mut app);
+        app.update(|cx| {
+            // A `require` that is refused is a bug of the extension: an ERROR
+            // inside the component's own group.
+            host.require(cx, "bad component");
+            host.require(cx, "guest.card");
+            host.register(cx, "tour.late", &[], |_, _, _, cx| cx.new(|_| Card).into());
+            host.require(cx, "tour.late");
+            host.require(cx, "tour.late");
+        });
+        let window = open_and_draw(&mut app);
+        app.update(|cx| host.set_hidden(cx, "editor", true));
+        draw(window, &mut app);
+
+        // A saved `hide` the rule refuses is skipped at the next start.
+        let layout_path = temp.path().join("layout.json");
+        fs::write(
+            &layout_path,
+            r#"{"version": 1, "operations": [
+                {"op": "hide", "node": "editor"},
+                {"op": "hide", "node": "side"}
+            ]}"#,
+        )
+        .unwrap();
+        let mut restored = cx.new_app();
+        restored.update(|cx| shell::set_layout_file(cx, layout_path.clone()));
+        setup(&mut restored);
+        let _window = open_and_draw(&mut restored);
+    });
+    let captured = trace.0.lock().unwrap();
+    assert!(captured.entered.is_empty());
+    let lines: Vec<String> = captured
+        .lines
+        .iter()
+        .map(|line| line.replace('"', ""))
+        .collect();
+    // A component declared required says so inside its own group.
+    for component in ["tour.editor", "tour.late"] {
+        let group = format!("component-require component={component}:");
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.starts_with(&group) && line.contains("DEBUG message=required")),
+            "{component}'s group logs `required`: {lines:#?}"
+        );
+    }
+    // Each refused `require` is an ERROR inside the component's group.
+    for component in ["bad component", "guest.card", "tour.late"] {
+        assert!(
+            lines.iter().any(|line| line
+                .starts_with(&format!("component-require component={component}:"))
+                && line.contains("ERROR")),
+            "{component}'s group logs the refusal: {lines:#?}"
+        );
+    }
+    // The second `require` of tour.late gives no second `required`.
+    assert_eq!(
+        lines
+            .iter()
+            .filter(
+                |line| line.starts_with("component-require component=tour.late:")
+                    && line.contains("DEBUG message=required")
+            )
+            .count(),
+        1,
+        "{lines:#?}"
+    );
+    // The refused hide logs its INFO inside layout-op{op=hide}.
+    assert!(
+        lines.iter().any(|line| line
+            .starts_with("layout-op op=hide node=editor extension=tour: INFO")
+            && line.contains("editor cannot be hidden: it is required")),
+        "the refused hide: {lines:#?}"
+    );
+    // The saved hide of the required node is skipped, with the same reason.
+    assert!(
+        lines.iter().any(
+            |line| line.starts_with("layout-restore file=layout.json: INFO")
+                && line.contains(
+                    "skipped op=hide node=editor reason=editor cannot be hidden: it is required"
+                )
+        ),
+        "the skipped restore: {lines:#?}"
+    );
+}

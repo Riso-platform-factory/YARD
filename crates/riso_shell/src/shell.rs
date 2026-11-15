@@ -393,6 +393,7 @@ struct Registry {
     action_handlers: Vec<ActionHandler>,
     titles: BTreeMap<ComponentId, TitleReader>,
     required: BTreeSet<ComponentId>,
+    slots_for_one: Vec<(ComponentId, SlotName)>,
     title_errors: RefCell<BTreeSet<NodeId>>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
@@ -591,6 +592,7 @@ impl Default for Registry {
             action_handlers: Vec::new(),
             titles: BTreeMap::new(),
             required: BTreeSet::new(),
+            slots_for_one: Vec::new(),
             title_errors: RefCell::new(BTreeSet::new()),
             tree: Rc::new(RefCell::new(Layers::new(tree))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
@@ -1827,10 +1829,44 @@ fn run_op(
     save(cx);
 }
 
+fn slot_count_rule_error(
+    registry: &Registry,
+    parent: &NodeId,
+    slot: &SlotName,
+    moving: Option<&NodeId>,
+) -> Option<String> {
+    let layers = registry.tree.borrow();
+    let tree = layers.current();
+    let component = component_of(tree, parent)?;
+    if !registry
+        .slots_for_one
+        .contains(&(component.clone(), slot.clone()))
+    {
+        return None;
+    }
+    let held = tree
+        .slots(parent)
+        .find(|(name, _)| *name == slot)?
+        .1
+        .first()?;
+    if moving == Some(&held.id) {
+        return None;
+    }
+    Some(format!(
+        "{parent}.{slot} holds one node, and already holds {}",
+        held.id
+    ))
+}
+
 fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bool {
     let registry = cx.default_global::<Registry>();
     match operation {
         Operation::Add { node, parent, slot } => {
+            if let Some(reason) = slot_count_rule_error(registry, parent, slot, None) {
+                tracing::info!("{reason}");
+                return false;
+            }
+
             let namespace = node.component.as_str().split('.').next();
             if namespace != Some(extension) && namespace != Some("riso") {
                 tracing::info!(
@@ -1884,6 +1920,10 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             slot,
             index,
         } => {
+            if let Some(reason) = slot_count_rule_error(registry, parent, slot, Some(node)) {
+                tracing::info!("{reason}");
+                return false;
+            }
             if is_frame_node(node) || is_frame_slot(parent, slot) {
                 tracing::info!(
                     node = %node,
@@ -1967,6 +2007,10 @@ fn shell_rule_error(extension: &str, cx: &mut App, operation: &Operation) -> Res
     let registry = cx.default_global::<Registry>();
     match operation {
         Operation::Add { node, parent, slot } => {
+            if let Some(reason) = slot_count_rule_error(registry, parent, slot, None) {
+                return Err(reason);
+            }
+
             let namespace = node.component.as_str().split('.').next();
             if namespace != Some(extension) && namespace != Some("riso") {
                 return Err("component is not in the extension's namespace".into());
@@ -1992,6 +2036,9 @@ fn shell_rule_error(extension: &str, cx: &mut App, operation: &Operation) -> Res
         Operation::Move {
             node, parent, slot, ..
         } => {
+            if let Some(reason) = slot_count_rule_error(registry, parent, slot, Some(node)) {
+                return Err(reason);
+            }
             if is_frame_node(node) || is_frame_slot(parent, slot) {
                 return Err("the window's frame belongs to the shell".into());
             }
@@ -2384,6 +2431,48 @@ impl Extension {
         );
     }
 
+    /// Declares a slot of this extension's component a slot for one node.
+    pub fn slot_for_one(&self, cx: &mut App, component: &str, slot: &str) {
+        let _group = tracing::info_span!("slot-declare", component, slot).entered();
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        let slot = match SlotName::parse(slot) {
+            Ok(slot) => slot,
+            Err(error) => {
+                log::error!("invalid slot name {slot:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot declare slot {component}.{slot} for one",
+                self.name
+            );
+            return;
+        }
+        let registry = cx.default_global::<Registry>();
+        if let Some(registered) = registry.components.get(&component)
+            && !registered.slots.contains(&slot)
+        {
+            log::error!("component {component} does not declare slot {slot}");
+            return;
+        }
+        if registry
+            .slots_for_one
+            .contains(&(component.clone(), slot.clone()))
+        {
+            log::error!("slot {component}.{slot} is already declared for one");
+            return;
+        }
+        registry.slots_for_one.push((component, slot));
+        tracing::debug!("slot for one");
+    }
+
     /// Declares a component of this extension required: its nodes, and the
     /// nodes above them, cannot be hidden or removed.
     pub fn require(&self, cx: &mut App, component: &str) {
@@ -2516,7 +2605,18 @@ impl Extension {
             }
             names.push(name);
         }
-        match cx.default_global::<Registry>().components.entry(component) {
+        let registry = cx.default_global::<Registry>();
+        if !registry.components.contains_key(&component) {
+            registry.slots_for_one.retain(|(declared_component, slot)| {
+                if declared_component == &component && !names.contains(slot) {
+                    log::error!("component {component} does not declare slot {slot}");
+                    false
+                } else {
+                    true
+                }
+            });
+        }
+        match registry.components.entry(component) {
             Entry::Vacant(entry) => {
                 entry.insert(Component {
                     slots: names,
@@ -2709,6 +2809,12 @@ impl Extension {
                 slot = %slot,
                 "the window's frame belongs to the shell",
             );
+            return;
+        }
+        if let Some(reason) =
+            slot_count_rule_error(cx.default_global::<Registry>(), &parent, &slot, None)
+        {
+            tracing::info!("{reason}");
             return;
         }
         let _ = cx

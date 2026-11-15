@@ -34,8 +34,6 @@
 //! `LAYOUT_TOUR=slot-count cargo run dev`: a frame whose content slot holds one node.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -43,7 +41,7 @@ use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {

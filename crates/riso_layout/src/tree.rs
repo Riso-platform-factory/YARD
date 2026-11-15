@@ -118,6 +118,29 @@ pub struct Node {
     pub props: Props,
 }
 
+/// Where in a slot a node goes, resolved against the slot when the change is applied.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Position {
+    #[default]
+    Last,
+    First,
+    /// An index past the end means last.
+    Index(usize),
+    Before(NodeId),
+    After(NodeId),
+}
+
+/// A position as a log field: an index logs as its number.
+fn at_field(at: &Position) -> String {
+    match at {
+        Position::Last => "last".into(),
+        Position::First => "first".into(),
+        Position::Index(index) => index.to_string(),
+        Position::Before(node) => format!("before {node}"),
+        Position::After(node) => format!("after {node}"),
+    }
+}
+
 /// A runtime change to the layout tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Operation {
@@ -125,6 +148,7 @@ pub enum Operation {
         node: Node,
         parent: NodeId,
         slot: SlotName,
+        at: Position,
     },
     Remove {
         node: NodeId,
@@ -133,7 +157,7 @@ pub enum Operation {
         node: NodeId,
         parent: NodeId,
         slot: SlotName,
-        index: usize,
+        at: Position,
     },
     SetHidden {
         node: NodeId,
@@ -163,6 +187,8 @@ pub enum OpError {
     MissingNode,
     Root,
     Cycle,
+    MissingAnchor,
+    BesideItself,
 }
 
 impl fmt::Display for OpError {
@@ -173,6 +199,8 @@ impl fmt::Display for OpError {
             Self::MissingNode => "the node is not in the tree",
             Self::Root => "the root cannot be removed, moved, hidden, or shown",
             Self::Cycle => "moving a node into itself or its subtree would make a cycle",
+            Self::MissingAnchor => "the node the position names is not in the slot",
+            Self::BesideItself => "a node cannot be placed beside itself",
         })
     }
 }
@@ -190,7 +218,12 @@ impl Tree {
     /// Checks the model's rules and applies one operation.
     pub fn apply(&mut self, op: Operation) -> Result<Applied, OpError> {
         match op {
-            Operation::Add { node, parent, slot } => {
+            Operation::Add {
+                node,
+                parent,
+                slot,
+                at,
+            } => {
                 if self.contains(&node.id) {
                     tracing::info!(
                         node = %node.id,
@@ -213,15 +246,28 @@ impl Tree {
                     );
                     return Err(OpError::MissingParent);
                 }
-                tracing::debug!(
-                    node = %node.id,
-                    component = %node.component,
-                    extension = %node.extension,
-                    parent = %parent,
-                    slot = %slot,
-                    "node added",
-                );
-                self.insert_into_slot(&parent, slot, usize::MAX, node);
+                let index = self.resolve(&parent, &slot, &at, None)?;
+                let index = self.insert_into_slot(&parent, slot.clone(), index, node.clone());
+                if at == Position::Last {
+                    tracing::debug!(
+                        node = %node.id,
+                        component = %node.component,
+                        extension = %node.extension,
+                        parent = %parent,
+                        slot = %slot,
+                        "node added",
+                    );
+                } else {
+                    tracing::debug!(
+                        node = %node.id,
+                        component = %node.component,
+                        extension = %node.extension,
+                        parent = %parent,
+                        slot = %slot,
+                        index,
+                        "node added",
+                    );
+                }
                 Ok(Applied::Added)
             }
             Operation::Remove { node } => {
@@ -250,14 +296,14 @@ impl Tree {
                 node,
                 parent,
                 slot,
-                index,
+                at,
             } => {
                 if !self.contains(&node) {
                     tracing::info!(
                         node = %node,
                         parent = %parent,
                         slot = %slot,
-                        index,
+                        index = %at_field(&at),
                         "the node is not in the tree",
                     );
                     return Err(OpError::MissingNode);
@@ -267,7 +313,7 @@ impl Tree {
                         node = %node,
                         parent = %parent,
                         slot = %slot,
-                        index,
+                        index = %at_field(&at),
                         "the root cannot be moved",
                     );
                     return Err(OpError::Root);
@@ -277,7 +323,7 @@ impl Tree {
                         node = %node,
                         parent = %parent,
                         slot = %slot,
-                        index,
+                        index = %at_field(&at),
                         "the parent is not in the tree",
                     );
                     return Err(OpError::MissingParent);
@@ -287,11 +333,12 @@ impl Tree {
                         node = %node,
                         parent = %parent,
                         slot = %slot,
-                        index,
+                        index = %at_field(&at),
                         "moving a node into itself or its subtree would make a cycle",
                     );
                     return Err(OpError::Cycle);
                 }
+                let index = self.resolve(&parent, &slot, &at, Some(&node))?;
                 let taken = self
                     .slots
                     .iter_mut()
@@ -401,6 +448,17 @@ impl Tree {
     }
 
     pub fn place(&mut self, node: Node, parent: &NodeId, slot: SlotName) -> Result<(), PlaceError> {
+        self.place_at(node, parent, slot, Position::Last)
+    }
+
+    /// Places a node at startup at a position in the parent's slot.
+    pub fn place_at(
+        &mut self,
+        node: Node,
+        parent: &NodeId,
+        slot: SlotName,
+        at: Position,
+    ) -> Result<(), PlaceError> {
         if self.contains(&node.id) {
             tracing::info!(
                 node = %node.id,
@@ -423,16 +481,69 @@ impl Tree {
             );
             return Err(PlaceError::MissingParent);
         }
-        tracing::debug!(
-            node = %node.id,
-            component = %node.component,
-            extension = %node.extension,
-            parent = %parent,
-            slot = %slot,
-            "node placed",
-        );
-        self.insert_into_slot(parent, slot, usize::MAX, node);
+        let Ok(index) = self.resolve(parent, &slot, &at, None) else {
+            return Err(PlaceError::MissingAnchor);
+        };
+        let index = self.insert_into_slot(parent, slot.clone(), index, node.clone());
+        if at == Position::Last {
+            tracing::debug!(
+                node = %node.id,
+                component = %node.component,
+                extension = %node.extension,
+                parent = %parent,
+                slot = %slot,
+                "node placed",
+            );
+        } else {
+            tracing::debug!(
+                node = %node.id,
+                component = %node.component,
+                extension = %node.extension,
+                parent = %parent,
+                slot = %slot,
+                index,
+                "node placed",
+            );
+        }
         Ok(())
+    }
+
+    /// Resolves a position to an index in the slot as it is now, without
+    /// `moving`, which a move takes out first.
+    fn resolve(
+        &self,
+        parent: &NodeId,
+        slot: &SlotName,
+        at: &Position,
+        moving: Option<&NodeId>,
+    ) -> Result<usize, OpError> {
+        let (anchor, after) = match at {
+            Position::Last => return Ok(usize::MAX),
+            Position::First => return Ok(0),
+            Position::Index(index) => return Ok(*index),
+            Position::Before(anchor) => (anchor, false),
+            Position::After(anchor) => (anchor, true),
+        };
+        if let Some(node) = moving
+            && node == anchor
+        {
+            tracing::info!("{node} cannot be placed beside itself");
+            return Err(OpError::BesideItself);
+        }
+        let found = self
+            .slots(parent)
+            .find(|(name, _)| *name == slot)
+            .and_then(|(_, children)| {
+                children
+                    .iter()
+                    .filter(|child| Some(&child.id) != moving)
+                    .position(|child| &child.id == anchor)
+            });
+        let Some(position) = found else {
+            tracing::info!("{anchor} is not in {parent}.{slot}");
+            return Err(OpError::MissingAnchor);
+        };
+        Ok(if after { position + 1 } else { position })
     }
 
     pub fn slots<'a>(
@@ -531,6 +642,7 @@ pub enum PlaceError {
     RootTaken,
     DuplicateId,
     MissingParent,
+    MissingAnchor,
 }
 
 impl fmt::Display for PlaceError {
@@ -539,6 +651,7 @@ impl fmt::Display for PlaceError {
             Self::RootTaken => "a root is already placed",
             Self::DuplicateId => "the node ID is already in the tree",
             Self::MissingParent => "the parent is not in the tree",
+            Self::MissingAnchor => "the node the position names is not in the slot",
         })
     }
 }
@@ -608,6 +721,7 @@ mod tests {
                     node: node("a"),
                     parent: id("root"),
                     slot: slot("body"),
+                    at: Position::Last,
                 },
                 OpError::MissingParent,
             ),
@@ -617,7 +731,7 @@ mod tests {
                     node: id("a"),
                     parent: id("root"),
                     slot: slot("body"),
-                    index: 0,
+                    at: Position::Index(0),
                 },
                 OpError::MissingNode,
             ),
@@ -640,6 +754,7 @@ mod tests {
                 node: node("a"),
                 parent: id("root"),
                 slot: slot("body"),
+                at: Position::Last,
             }),
             Ok(Applied::Added)
         );
@@ -648,6 +763,7 @@ mod tests {
                 node: node("b"),
                 parent: id("a"),
                 slot: slot("body"),
+                at: Position::Last,
             }),
             Ok(Applied::Added)
         );
@@ -656,6 +772,7 @@ mod tests {
                 node: node("c"),
                 parent: id("b"),
                 slot: slot("body"),
+                at: Position::Last,
             }),
             Ok(Applied::Added)
         );
@@ -681,6 +798,7 @@ mod tests {
                     node: node("root"),
                     parent: id("root"),
                     slot: slot("body"),
+                    at: Position::Last,
                 },
                 OpError::DuplicateId,
             ),
@@ -689,6 +807,7 @@ mod tests {
                     node: node("c"),
                     parent: id("root"),
                     slot: slot("other"),
+                    at: Position::Last,
                 },
                 OpError::DuplicateId,
             ),
@@ -697,6 +816,7 @@ mod tests {
                     node: node("fresh"),
                     parent: id("missing"),
                     slot: slot("body"),
+                    at: Position::Last,
                 },
                 OpError::MissingParent,
             ),
@@ -712,7 +832,7 @@ mod tests {
                     node: id("missing"),
                     parent: id("root"),
                     slot: slot("body"),
-                    index: 0,
+                    at: Position::Index(0),
                 },
                 OpError::MissingNode,
             ),
@@ -721,7 +841,7 @@ mod tests {
                     node: id("root"),
                     parent: id("a"),
                     slot: slot("body"),
-                    index: 0,
+                    at: Position::Index(0),
                 },
                 OpError::Root,
             ),
@@ -730,7 +850,7 @@ mod tests {
                     node: id("a"),
                     parent: id("missing"),
                     slot: slot("body"),
-                    index: 0,
+                    at: Position::Index(0),
                 },
                 OpError::MissingParent,
             ),
@@ -739,7 +859,7 @@ mod tests {
                     node: id("a"),
                     parent: id("a"),
                     slot: slot("body"),
-                    index: 0,
+                    at: Position::Index(0),
                 },
                 OpError::Cycle,
             ),
@@ -748,7 +868,7 @@ mod tests {
                     node: id("a"),
                     parent: id("b"),
                     slot: slot("body"),
-                    index: 0,
+                    at: Position::Index(0),
                 },
                 OpError::Cycle,
             ),
@@ -757,7 +877,7 @@ mod tests {
                     node: id("a"),
                     parent: id("c"),
                     slot: slot("body"),
-                    index: 0,
+                    at: Position::Index(0),
                 },
                 OpError::Cycle,
             ),
@@ -806,6 +926,7 @@ mod tests {
                 node: node(name),
                 parent: id("root"),
                 slot: slot("children"),
+                at: Position::Last,
             })
             .unwrap();
         }
@@ -813,12 +934,14 @@ mod tests {
             node: node("sub"),
             parent: id("b"),
             slot: slot("body"),
+            at: Position::Last,
         })
         .unwrap();
         tree.apply(Operation::Add {
             node: node("deep"),
             parent: id("sub"),
             slot: slot("body"),
+            at: Position::Last,
         })
         .unwrap();
         tree.apply(Operation::SetHidden {
@@ -840,7 +963,7 @@ mod tests {
                 node: id("c"),
                 parent: id("root"),
                 slot: slot("children"),
-                index: 0,
+                at: Position::Index(0),
             }),
             Ok(Applied::Moved)
         );
@@ -851,7 +974,7 @@ mod tests {
                 node: id("c"),
                 parent: id("root"),
                 slot: slot("children"),
-                index: 1,
+                at: Position::Index(1),
             }),
             Ok(Applied::Moved)
         );
@@ -862,7 +985,7 @@ mod tests {
                 node: id("a"),
                 parent: id("root"),
                 slot: slot("children"),
-                index: usize::MAX,
+                at: Position::Last,
             }),
             Ok(Applied::Moved)
         );
@@ -874,7 +997,7 @@ mod tests {
                 node: id("b"),
                 parent: id("a"),
                 slot: slot("body"),
-                index: 99,
+                at: Position::Index(99),
             }),
             Ok(Applied::Moved)
         );
@@ -890,7 +1013,7 @@ mod tests {
                 node: id("c"),
                 parent: id("a"),
                 slot: slot("body"),
-                index: 0,
+                at: Position::Index(0),
             }),
             Ok(Applied::Moved)
         );
@@ -913,6 +1036,7 @@ mod tests {
                 node: node(name),
                 parent: id(parent),
                 slot: slot(slot_name),
+                at: Position::Last,
             })
             .unwrap();
         }
@@ -954,6 +1078,7 @@ mod tests {
                 node: node("grandchild"),
                 parent: id("right"),
                 slot: slot("body"),
+                at: Position::Last,
             }),
             Ok(Applied::Added)
         );

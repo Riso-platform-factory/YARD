@@ -6,11 +6,19 @@
 //! `LAYOUT_TOUR=row LAYOUT_GUEST=split cargo run dev`: a fourth card in the host row.
 //! `LAYOUT_TOUR=tabs LAYOUT_GUEST=tab cargo run dev`: a fourth tab in the host.
 //! `LAYOUT_GUEST=card cargo run dev`: the absent host's parent is refused.
+//! `LAYOUT_TOUR=placement-order cargo run dev`: a guest card placed before the host's `b`.
+
+#![cfg(feature = "dev")]
 
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
+use riso_layout::{NodeId, Position};
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
-    let case = std::env::var("LAYOUT_GUEST").unwrap_or_default();
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+    let mut case = std::env::var("LAYOUT_GUEST").unwrap_or_default();
+    // The guest's part of the host's placement-order case needs no case of its own.
+    if case.is_empty() && std::env::var("LAYOUT_TOUR").as_deref() == Ok("placement-order") {
+        case = "placement-order".into();
+    }
     if case.is_empty() {
         return;
     }
@@ -33,6 +41,22 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 } else {
                     "body"
                 },
+            );
+        }
+        "placement-order" => {
+            ext.register(cx, "layout_guest.card", &[], |node, _, _, cx| {
+                cx.new(|_| Card {
+                    node: node.to_string(),
+                })
+                .into()
+            });
+            ext.place_at(
+                cx,
+                "guest",
+                "layout_guest.card",
+                "root",
+                "children",
+                Position::Before(NodeId::parse("b").unwrap()),
             );
         }
         "foreign" => ext.place(cx, "guest", "layout_tour.card", "root", "body"),

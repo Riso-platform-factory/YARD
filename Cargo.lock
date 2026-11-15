@@ -2898,6 +2898,7 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
+ "riso_layout",
  "riso_shell",
  "riso_ui",
  "tracing",
@@ -2909,6 +2910,7 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
+ "riso_layout",
  "riso_shell",
  "riso_ui",
  "serde",
@@ -4681,6 +4683,8 @@ dependencies = [
  "command_palette",
  "gpui",
  "gpui_platform",
+ "layout_guest",
+ "layout_tour",
  "riso_keymap",
  "riso_layout",
  "riso_log",

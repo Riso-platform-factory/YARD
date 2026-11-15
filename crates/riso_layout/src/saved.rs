@@ -1,6 +1,6 @@
 //! JSON encoding and decoding of the saved user layer.
 
-use crate::{ComponentId, IdError, Node, NodeId, Operation, Props, SlotName};
+use crate::{ComponentId, IdError, Node, NodeId, Operation, Position, Props, SlotName};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt};
 
@@ -63,6 +63,8 @@ enum EncodedOp<'a> {
         extension: &'a str,
         parent: &'a str,
         slot: &'a str,
+        #[serde(flatten)]
+        at: EncodedPosition<'a>,
         #[serde(skip_serializing_if = "Props::is_empty")]
         props: &'a Props,
     },
@@ -73,8 +75,8 @@ enum EncodedOp<'a> {
         node: &'a str,
         parent: &'a str,
         slot: &'a str,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        index: Option<usize>,
+        #[serde(flatten)]
+        at: EncodedPosition<'a>,
     },
     Hide {
         node: &'a str,
@@ -86,6 +88,41 @@ enum EncodedOp<'a> {
         node: &'a str,
         props: &'a Props,
     },
+}
+
+/// At most one of the keys of a position; none means last.
+#[derive(Serialize, Default)]
+struct EncodedPosition<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    first: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    before: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    after: Option<&'a str>,
+}
+
+fn encode_position(at: &Position) -> EncodedPosition<'_> {
+    match at {
+        Position::Last => EncodedPosition::default(),
+        Position::First => EncodedPosition {
+            first: Some(true),
+            ..Default::default()
+        },
+        Position::Index(index) => EncodedPosition {
+            index: (*index != usize::MAX).then_some(*index),
+            ..Default::default()
+        },
+        Position::Before(node) => EncodedPosition {
+            before: Some(node.as_str()),
+            ..Default::default()
+        },
+        Position::After(node) => EncodedPosition {
+            after: Some(node.as_str()),
+            ..Default::default()
+        },
+    }
 }
 
 #[derive(Deserialize)]
@@ -137,10 +174,6 @@ struct SavedProps {
     props: Props,
 }
 
-fn last_index() -> usize {
-    usize::MAX
-}
-
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SavedMove {
@@ -149,8 +182,6 @@ struct SavedMove {
     node: String,
     parent: String,
     slot: String,
-    #[serde(default = "last_index")]
-    index: usize,
 }
 
 /// Encodes `ops` as pretty-printed version 1 JSON.
@@ -158,12 +189,18 @@ pub fn encode(ops: &[Operation]) -> String {
     let operations = ops
         .iter()
         .map(|op| match op {
-            Operation::Add { node, parent, slot } => EncodedOp::Add {
+            Operation::Add {
+                node,
+                parent,
+                slot,
+                at,
+            } => EncodedOp::Add {
                 node: node.id.as_str(),
                 component: node.component.as_str(),
                 extension: node.extension.as_str(),
                 parent: parent.as_str(),
                 slot: slot.as_str(),
+                at: encode_position(at),
                 props: &node.props,
             },
             Operation::Remove { node } => EncodedOp::Remove {
@@ -173,12 +210,12 @@ pub fn encode(ops: &[Operation]) -> String {
                 node,
                 parent,
                 slot,
-                index,
+                at,
             } => EncodedOp::Move {
                 node: node.as_str(),
                 parent: parent.as_str(),
                 slot: slot.as_str(),
-                index: (*index != usize::MAX).then_some(*index),
+                at: encode_position(at),
             },
             Operation::SetHidden { node, hidden: true } => EncodedOp::Hide {
                 node: node.as_str(),
@@ -219,7 +256,7 @@ pub fn decode(text: &str) -> Result<Vec<Operation>, DecodeError> {
     file.operations.into_iter().map(decode_operation).collect()
 }
 
-fn decode_operation(entry: serde_json::Value) -> Result<Operation, DecodeError> {
+fn decode_operation(mut entry: serde_json::Value) -> Result<Operation, DecodeError> {
     if !entry.is_object() {
         return Err(DecodeError::InvalidJson(
             "expected an operation object".into(),
@@ -229,6 +266,7 @@ fn decode_operation(entry: serde_json::Value) -> Result<Operation, DecodeError> 
         .map_err(|error| DecodeError::InvalidJson(error.to_string()))?;
     match tag.op.as_str() {
         "add" => {
+            let at = take_position(&mut entry)?;
             let saved: SavedAdd = serde_json::from_value(entry)
                 .map_err(|error| DecodeError::InvalidJson(error.to_string()))?;
             let id = parse_node_id("node", saved.node)?;
@@ -245,6 +283,7 @@ fn decode_operation(entry: serde_json::Value) -> Result<Operation, DecodeError> 
                 },
                 parent,
                 slot,
+                at,
             })
         }
         "remove" => {
@@ -255,13 +294,14 @@ fn decode_operation(entry: serde_json::Value) -> Result<Operation, DecodeError> 
             })
         }
         "move" => {
+            let at = take_position(&mut entry)?;
             let saved: SavedMove = serde_json::from_value(entry)
                 .map_err(|error| DecodeError::InvalidJson(error.to_string()))?;
             Ok(Operation::Move {
                 node: parse_node_id("node", saved.node)?,
                 parent: parse_node_id("parent", saved.parent)?,
                 slot: parse_slot_name("slot", saved.slot)?,
-                index: saved.index,
+                at,
             })
         }
         "hide" | "show" => {
@@ -282,6 +322,40 @@ fn decode_operation(entry: serde_json::Value) -> Result<Operation, DecodeError> 
             })
         }
         _ => Err(DecodeError::UnknownOp(tag.op)),
+    }
+}
+
+/// Takes the position keys out of an `add` or a `move`: at most one of them.
+fn take_position(entry: &mut serde_json::Value) -> Result<Position, DecodeError> {
+    let object = entry.as_object_mut().expect("checked to be an object");
+    let keys = ["index", "first", "before", "after"]
+        .map(|key| object.remove(key).map(|value| (key, value)));
+    let mut given = keys.into_iter().flatten();
+    let Some((key, value)) = given.next() else {
+        return Ok(Position::Last);
+    };
+    if given.next().is_some() {
+        return Err(DecodeError::InvalidJson(
+            "an operation has more than one position".into(),
+        ));
+    }
+    let invalid = |error: serde_json::Error| DecodeError::InvalidJson(error.to_string());
+    match key {
+        "index" => Ok(Position::Index(
+            serde_json::from_value(value).map_err(invalid)?,
+        )),
+        "first" => match value {
+            serde_json::Value::Bool(true) => Ok(Position::First),
+            _ => Err(DecodeError::InvalidJson("first must be true".into())),
+        },
+        "before" => Ok(Position::Before(parse_node_id(
+            "before",
+            serde_json::from_value(value).map_err(invalid)?,
+        )?)),
+        _ => Ok(Position::After(parse_node_id(
+            "after",
+            serde_json::from_value(value).map_err(invalid)?,
+        )?)),
     }
 }
 
@@ -324,6 +398,7 @@ mod tests {
                 },
                 parent: NodeId::parse("root").unwrap(),
                 slot: SlotName::parse("children").unwrap(),
+                at: Position::Last,
             },
             Operation::Remove {
                 node: NodeId::parse("old").unwrap(),
@@ -332,13 +407,13 @@ mod tests {
                 node: NodeId::parse("a").unwrap(),
                 parent: NodeId::parse("right").unwrap(),
                 slot: SlotName::parse("children").unwrap(),
-                index: 2,
+                at: Position::Index(2),
             },
             Operation::Move {
                 node: NodeId::parse("b").unwrap(),
                 parent: NodeId::parse("right").unwrap(),
                 slot: SlotName::parse("children").unwrap(),
-                index: usize::MAX,
+                at: Position::Last,
             },
             Operation::SetHidden {
                 node: NodeId::parse("d").unwrap(),
@@ -365,7 +440,7 @@ mod tests {
             node: NodeId::parse("a").unwrap(),
             parent: NodeId::parse("right").unwrap(),
             slot: SlotName::parse("children").unwrap(),
-            index: usize::MAX,
+            at: Position::Last,
         }];
         let text = encode(&ops);
         assert!(!text.contains("index"), "{text}");

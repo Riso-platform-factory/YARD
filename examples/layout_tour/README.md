@@ -210,6 +210,20 @@ The card `layout_tour.frame` has a slot `content` for one, shown under a small h
 | Click `move first to root` | `first` leaves the frame, which is now empty. |
 | Click `move loose into frame` | `loose` is in the frame. |
 
+### Feature 17: placement-order
+
+`layout_tour` places in the row the controls, then cards `a`, `b`, and `c`. `layout_guest`, loaded after it, places its card `guest` before `b`, without knowing how many cards there are. Use a fresh home: `RISO_HOME=/tmp/riso-order`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-order LAYOUT_TOUR=placement-order cargo run dev` | The row: controls, `a`, `guest`, `b`, `c`. `node placed` with `index=2` in `node-place{node=guest}`. |
+| Click `c first` | `c` moves to the front of the row, before the controls, which move one place right. |
+| Click `a after b` | `a` moves right after `b`. |
+| Click `b before ghost` | Refused with an `INFO`: `ghost is not in root.children`. |
+| Click `a after a` | Refused with an `INFO`: `a cannot be placed beside itself`. |
+| Quit and start again | `restored {applied=2, skipped=0}`; the same order. |
+| `reset layout` | Controls, `a`, `guest`, `b`, `c`. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

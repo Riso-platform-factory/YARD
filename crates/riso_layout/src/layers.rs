@@ -65,7 +65,7 @@ impl Layers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ComponentId, Node, NodeId, SlotName};
+    use crate::{ComponentId, Node, NodeId, Position, SlotName};
 
     fn id(value: &str) -> NodeId {
         NodeId::parse(value).unwrap()
@@ -132,7 +132,7 @@ mod tests {
                 node: id("right"),
                 parent: id("left"),
                 slot: SlotName::parse("body").unwrap(),
-                index: 0,
+                at: Position::Index(0),
             },
             Operation::SetHidden {
                 node: id("left"),
@@ -170,13 +170,14 @@ mod tests {
                 node: id("aside"),
                 parent: id("right"),
                 slot: SlotName::parse("body").unwrap(),
-                index: 0,
+                at: Position::Index(0),
             },
             Operation::Remove { node: id("left") },
             Operation::Add {
                 node: node("added"),
                 parent: id("root"),
                 slot: SlotName::parse("other").unwrap(),
+                at: Position::Last,
             },
         ] {
             layers.apply(operation).unwrap();

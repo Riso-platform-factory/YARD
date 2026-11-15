@@ -23,7 +23,7 @@ use gpui::{
     Subscription, WeakEntity, Window, canvas, div,
 };
 use riso_layout::Layers;
-use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Props, SlotName, Tree};
+use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Position, Props, SlotName, Tree};
 use riso_layout::{decode, encode};
 use riso_paths::write_atomic;
 use std::{
@@ -1145,6 +1145,17 @@ fn drop_on_edge(cx: &mut App, node: &NodeId, split_id: &NodeId, shown_index: usi
     shell_move(cx, node, split_id, "children", index);
 }
 
+/// A position as a log field: an index logs as its number.
+fn index_field(at: &Position) -> String {
+    match at {
+        Position::Last => "last".into(),
+        Position::First => "first".into(),
+        Position::Index(index) => index.to_string(),
+        Position::Before(node) => format!("before {node}"),
+        Position::After(node) => format!("after {node}"),
+    }
+}
+
 fn shell_move(cx: &mut App, node: &NodeId, parent: &NodeId, slot: &str, index: usize) {
     run_op("riso", None, cx, "move", node.as_str(), |_, node| {
         let slot = SlotName::parse(slot)
@@ -1153,7 +1164,7 @@ fn shell_move(cx: &mut App, node: &NodeId, parent: &NodeId, slot: &str, index: u
             node,
             parent: parent.clone(),
             slot,
-            index,
+            at: Position::Index(index),
         })
     });
 }
@@ -1861,7 +1872,9 @@ fn slot_count_rule_error(
 fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bool {
     let registry = cx.default_global::<Registry>();
     match operation {
-        Operation::Add { node, parent, slot } => {
+        Operation::Add {
+            node, parent, slot, ..
+        } => {
             if let Some(reason) = slot_count_rule_error(registry, parent, slot, None) {
                 tracing::info!("{reason}");
                 return false;
@@ -1918,7 +1931,7 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             node,
             parent,
             slot,
-            index,
+            at,
         } => {
             if let Some(reason) = slot_count_rule_error(registry, parent, slot, Some(node)) {
                 tracing::info!("{reason}");
@@ -1929,7 +1942,7 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
                     node = %node,
                     parent = %parent,
                     slot = %slot,
-                    index,
+                    index = %index_field(at),
                     "the window's frame belongs to the shell",
                 );
                 return false;
@@ -1939,7 +1952,7 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
                     node = %node,
                     parent = %parent,
                     slot = %slot,
-                    index,
+                    index = %index_field(at),
                     "the root cannot be moved",
                 );
                 return false;
@@ -2006,7 +2019,9 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
 fn shell_rule_error(extension: &str, cx: &mut App, operation: &Operation) -> Result<(), String> {
     let registry = cx.default_global::<Registry>();
     match operation {
-        Operation::Add { node, parent, slot } => {
+        Operation::Add {
+            node, parent, slot, ..
+        } => {
             if let Some(reason) = slot_count_rule_error(registry, parent, slot, None) {
                 return Err(reason);
             }
@@ -2206,6 +2221,7 @@ impl Extension {
                     },
                     parent,
                     slot,
+                    at: Position::Last,
                 })
             },
         );
@@ -2240,7 +2256,7 @@ impl Extension {
                 node,
                 parent,
                 slot,
-                index,
+                at: Position::Index(index),
             })
         });
     }

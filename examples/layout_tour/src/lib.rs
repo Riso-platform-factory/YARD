@@ -32,7 +32,10 @@
 //! `LAYOUT_TOUR=titles cargo run dev`: show tab titles and icons, rename a card, and reset.
 //! `LAYOUT_TOUR=required cargo run dev`: a required editor cannot be hidden or removed, only moved.
 //! `LAYOUT_TOUR=slot-count cargo run dev`: a frame whose content slot holds one node.
+//! `LAYOUT_TOUR=placement-order cargo run dev`: cards placed and moved beside named cards.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -41,7 +44,8 @@ use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
-use riso_shell as shell;
+use riso_layout::{NodeId, Position};
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -51,6 +55,46 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "placement-order" => {
+            register_card(cx, ext);
+            let named = |node: &str| NodeId::parse(node).unwrap();
+            let buttons = vec![
+                Button::action("c first", |ext, _, cx| {
+                    ext.move_to(cx, "c", "root", "children", Position::First);
+                }),
+                Button::action("a after b", move |ext, _, cx| {
+                    ext.move_to(cx, "a", "root", "children", Position::After(named("b")));
+                }),
+                Button::action("b before ghost", move |ext, _, cx| {
+                    ext.move_to(
+                        cx,
+                        "b",
+                        "root",
+                        "children",
+                        Position::Before(named("ghost")),
+                    );
+                }),
+                Button::action("a after a", move |ext, _, cx| {
+                    ext.move_to(cx, "a", "root", "children", Position::After(named("a")));
+                }),
+                Button::action("reset layout", |ext, window, cx| {
+                    ext.reset_layout(window, cx);
+                }),
+            ];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.row");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            for node in ["a", "b", "c"] {
+                ext.place(cx, node, "layout_tour.card", "root", "children");
+            }
+        }
         "slot-count" => {
             register_card(cx, ext);
             ext.register(
@@ -442,7 +486,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required, slot-count"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required, slot-count, placement-order"
         ),
     }
 }

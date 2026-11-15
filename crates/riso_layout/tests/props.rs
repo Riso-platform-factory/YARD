@@ -1,6 +1,6 @@
 use riso_layout::{
-    Applied, ComponentId, DecodeError, Layers, Node, NodeId, OpError, Operation, Props, SlotName,
-    Tree, decode, encode,
+    Applied, ComponentId, DecodeError, Layers, Node, NodeId, OpError, Operation, Position, Props,
+    SlotName, Tree, decode, encode,
 };
 use serde_json::json;
 
@@ -198,7 +198,7 @@ fn props_stay_through_move_hide_and_show_and_go_with_remove() {
             node: id("alpha"),
             parent: id("right"),
             slot: slot("body"),
-            index: 0,
+            at: Position::Index(0),
         },
         Operation::SetHidden {
             node: id("alpha"),
@@ -212,7 +212,7 @@ fn props_stay_through_move_hide_and_show_and_go_with_remove() {
             node: id("alpha"),
             parent: id("root"),
             slot: slot("children"),
-            index: usize::MAX,
+            at: Position::Last,
         },
     ] {
         assert!(tree.apply(op).is_ok());
@@ -235,6 +235,7 @@ fn props_stay_through_move_hide_and_show_and_go_with_remove() {
         node: node("alpha"),
         parent: id("root"),
         slot: slot("children"),
+        at: Position::Last,
     })
     .unwrap();
     assert_eq!(props_of(&tree, "alpha"), Some(Props::new()));
@@ -308,11 +309,13 @@ fn add_and_props_encode_and_decode_back_to_the_same_operations() {
             },
             parent: id("root"),
             slot: slot("children"),
+            at: Position::Last,
         },
         Operation::Add {
             node: node("plain"),
             parent: id("root"),
             slot: slot("children"),
+            at: Position::Last,
         },
         Operation::SetProps {
             node: id("extra"),

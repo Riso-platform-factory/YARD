@@ -15,10 +15,10 @@ This is how a Zed panel reaches its `Workspace` and its `Project` without being 
 
 | Change | Refused when | Log |
 |---|---|---|
-| `place` at startup, `add` | the component of the node, or of a node under it, requires a model that no node above the target place gives, and the window does not | `INFO`: `{node} requires a {model} model, and none is above {parent}` (`{model}` is the type's short name) |
+| `place` at startup, `add` | the component of the node, or of a node under it, requires a model that no node above the target place gives, and the window does not | `INFO`: `{node} requires a {model} model, and none is above {parent}`, where `{node}` is the requiring node (the node changed, or the first requiring node under it in tree order), `{parent}` is the parent the changed node would have, and `{model}` is the type's short name |
 | `move` (also a drag, and a restored move) | the same, for the node's new place | the same `INFO` |
 
-- **Declarations** are refused with an `ERROR`, a bug of the extension, when the component ID is invalid, is not in the extension's namespace, or already gives or requires that type. They can be made before or after the component is registered. A window model given twice for one type is an `ERROR`; the first stays.
+- **Declarations** are refused with an `ERROR`, a bug of the extension, when the component ID is invalid, is not in the extension's namespace, or the same declaration was already made: `provide` of a type the component already gives, or `require_context` of a type it already requires. A component may both give and require the same type: its nodes then need one above them, and give their own to the nodes below. They can be made before or after the component is registered. A window model given twice for one type is an `ERROR`; the first stays.
 
 ## What code can do
 

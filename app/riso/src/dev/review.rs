@@ -1,5 +1,5 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &[];
+pub(crate) const UNDER_REVIEW: &[&str] = &["riso_ui/tooltip", "riso_ui/button"];
 
 pub(crate) fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -27,6 +27,7 @@ pub(crate) fn run() -> bool {
         &[
             ("review", announce),
             ("command_palette", command_palette::init),
+            ("ui_gallery", ui_gallery::init),
         ],
         crate::menus::menus,
     );

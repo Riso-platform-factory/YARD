@@ -3,7 +3,7 @@
 //! Copyright Zed Industries, Inc.
 
 use crate::{IconName, IconSize, TextColor};
-use gpui::{App, ElementId, IntoElement, Rems, RenderOnce, SharedString, Window, rems};
+use gpui::{AnyView, App, ElementId, IntoElement, Rems, RenderOnce, SharedString, Window, rems};
 use ui::{ButtonCommon, Clickable, Disableable, SelectableButton, Toggleable};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -222,6 +222,11 @@ impl Button {
         self
     }
 
+    pub fn tooltip(mut self, tooltip: impl Fn(&mut Window, &mut App) -> AnyView + 'static) -> Self {
+        self.inner = self.inner.tooltip(tooltip);
+        self
+    }
+
     pub fn on_click(mut self, callback: impl Fn(&mut Window, &mut App) + 'static) -> Self {
         let id = self.id.clone();
         self.inner = self.inner.on_click(move |_, window, cx| {
@@ -320,6 +325,11 @@ impl IconButton {
 
     pub fn shape(mut self, value: IconButtonShape) -> Self {
         self.inner = self.inner.shape(value.zed());
+        self
+    }
+
+    pub fn tooltip(mut self, tooltip: impl Fn(&mut Window, &mut App) -> AnyView + 'static) -> Self {
+        self.inner = self.inner.tooltip(tooltip);
         self
     }
 

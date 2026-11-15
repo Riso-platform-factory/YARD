@@ -168,6 +168,8 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
             "TAB-text-input",
             "TAB-scroll",
             "TAB-key-hint",
+            #[cfg(feature = "dev")]
+            "TAB-tooltip",
         ];
         for &selector in selectors {
             let bounds = match visual.debug_bounds(selector) {
@@ -218,6 +220,8 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
                 "text-input",
                 "scroll",
                 "key-hint",
+                #[cfg(feature = "dev")]
+                "tooltip",
             ];
             let expected_span = format!("gallery-build pages={}", expected_pages.len());
             assert!(

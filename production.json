@@ -138,9 +138,9 @@
   },
   "riso_ui/button": {
     "files": {
-      "crates/riso_ui/src/button.rs": "7f970617e3a2341b"
+      "crates/riso_ui/src/button.rs": "ef50685ad5d69b12"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-15"
   },
   "riso_ui/divider": {
     "files": {

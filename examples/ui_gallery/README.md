@@ -101,3 +101,17 @@ The `key-hint` page lists every action of the shell with a default key in the wi
 | `UI_GALLERY=all cargo run dev`, open the `key-hint` tab | `riso::ToggleZoom` with `⇧⎋`, `riso::SelectNextTab` with `⌥⌘→` (the last binding, as Zed shows it), `riso::FocusLeft` with `⌘K ⌘←`, `riso::Quit` with `⌘Q`, and the others. |
 | Beside Zed's command palette (`cmd-shift-p`) | The keys match in size, spacing, and colors. |
 | `{"theme": {"mode": "light"}}` | The keys follow the theme. |
+
+## Feature 10: tooltip
+
+The `tooltip` page has buttons with every kind of tooltip: a title, a title with the keys of an action, a title with a detail line, an icon button, a disabled button, and a title long enough to wrap.
+
+| Command and action | What to look for |
+|---|---|
+| `UI_GALLERY=all cargo run dev`, open the `tooltip` tab, rest the pointer on `Text` | After half a second, `Save the file` in a small raised box below the pointer. `tooltip-show{title=Save the file}` with `tooltip built`. |
+| Rest on `Keys` | `Quit the gallery` with `⌘ Q` at its right, and `keys=Command-Q` in the log. |
+| Rest on `Detail` | The title, and below it a muted line; `meta=true` in the log. |
+| Rest on the icon button, and on `Disabled` | Each shows its tooltip. |
+| Rest on `Long` | The title wrapped to two lines. |
+| Move away, or press the button | The tooltip goes. |
+| `{"theme": {"mode": "light"}}` | The box follows the theme. |

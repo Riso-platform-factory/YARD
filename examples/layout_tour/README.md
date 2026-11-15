@@ -224,6 +224,18 @@ The card `layout_tour.frame` has a slot `content` for one, shown under a small h
 | Quit and start again | `restored {applied=2, skipped=0}`; the same order. |
 | `reset layout` | Controls, `a`, `guest`, `b`, `c`. |
 
+### Feature 18: contexts
+
+`layout_tour.counter` gives a model `Count`, a number, shown under its header with a `+1` button. `layout_tour.count_card` requires a `Count` and shows the number it receives. The case places the controls, then a row with `counter` holding `left` and `right` (count cards) and `outside`, a plain card. Use a fresh home: `RISO_HOME=/tmp/riso-contexts`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-contexts LAYOUT_TOUR=contexts cargo run dev` | `counter` with `left` and `right`, both showing `0`, and `outside`. `context-declare` for `provide` and `require`; `context created {node=counter, model=Count}`. |
+| Click `+1` twice | `left` and `right` both show `2`. |
+| Click `move left to root` | Refused: `left requires a Count model, and none is above root`. |
+| Click `move outside into counter` | `outside` moves into the counter: it requires nothing. |
+| `reset layout` | The default layout; the counter keeps `2`. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

@@ -33,7 +33,10 @@
 //! `LAYOUT_TOUR=required cargo run dev`: a required editor cannot be hidden or removed, only moved.
 //! `LAYOUT_TOUR=slot-count cargo run dev`: a frame whose content slot holds one node.
 //! `LAYOUT_TOUR=placement-order cargo run dev`: cards placed and moved beside named cards.
+//! `LAYOUT_TOUR=contexts cargo run dev`: shared models from the nearest giving ancestor.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -43,7 +46,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-use riso_shell as shell;
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -53,6 +56,70 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "contexts" => {
+            register_card(cx, ext);
+            let models = Rc::new(std::cell::RefCell::new(std::collections::BTreeMap::<
+                NodeId,
+                WeakEntity<Count>,
+            >::new()));
+            let provided = models.clone();
+            ext.provide::<Count>(cx, "layout_tour.counter", move |node, cx| {
+                let model = cx.new(|_| Count(0));
+                provided
+                    .borrow_mut()
+                    .insert(node.clone(), model.downgrade());
+                model
+            });
+            ext.register(
+                cx,
+                "layout_tour.counter",
+                &["body"],
+                move |node, slots, _, cx| {
+                    let model = models.borrow()[node]
+                        .upgrade()
+                        .expect("the node's model is created before its view");
+                    cx.new(|_| Counter {
+                        node: node.to_string(),
+                        model,
+                        slots,
+                    })
+                    .into()
+                },
+            );
+            ext.require_context::<Count>(cx, "layout_tour.count_card");
+            ext.register(cx, "layout_tour.count_card", &[], |node, _, _, cx| {
+                cx.new(|_| CountCard {
+                    node: node.to_string(),
+                })
+                .into()
+            });
+            let buttons = vec![
+                Button::action("move left to root", |ext, _, cx| {
+                    ext.move_node(cx, "left", "root", "children", usize::MAX);
+                }),
+                Button::action("move outside into counter", |ext, _, cx| {
+                    ext.move_node(cx, "outside", "counter", "body", usize::MAX);
+                }),
+                Button::action("reset layout", |ext, window, cx| {
+                    ext.reset_layout(window, cx)
+                }),
+            ];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "layout", "riso.column");
+            ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
+            ext.place(cx, "root", "riso.row", "layout", "children");
+            ext.place(cx, "counter", "layout_tour.counter", "root", "children");
+            ext.place(cx, "left", "layout_tour.count_card", "counter", "body");
+            ext.place(cx, "right", "layout_tour.count_card", "counter", "body");
+            ext.place(cx, "outside", "layout_tour.card", "root", "children");
+        }
         "placement-order" => {
             register_card(cx, ext);
             let named = |node: &str| NodeId::parse(node).unwrap();
@@ -484,7 +551,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required, slot-count, placement-order"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required, slot-count, placement-order, contexts"
         ),
     }
 }
@@ -873,5 +940,80 @@ impl Render for Controls {
                     })
                     .on_click(move |_, window, cx| action(&ext, window, cx))
             }))
+    }
+}
+
+struct Count(usize);
+
+struct Counter {
+    node: String,
+    model: gpui::Entity<Count>,
+    slots: shell::Slots,
+}
+
+impl Render for Counter {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!(node = %self.node, "rendering counter");
+        let palette = riso_ui::palette(cx);
+        let model = self.model.clone();
+        riso_ui::v_flex()
+            .size_full()
+            .p_2()
+            .gap_1()
+            .border_1()
+            .border_color(palette.border)
+            .bg(palette.background)
+            .child(
+                riso_ui::h_flex()
+                    .gap_2()
+                    .child(riso_ui::Label::new(self.node.clone()))
+                    .child(div().debug_selector(|| "CONTEXT-PLUS".into()).child(
+                        riso_ui::Button::new("context-plus", "+1").on_click(move |window, cx| {
+                            let _group = tracing::info_span!("count-increment").entered();
+                            model.update(cx, |count, cx| {
+                                count.0 += 1;
+                                tracing::debug!(count = count.0, "counted");
+                                cx.notify();
+                            });
+                            window.refresh();
+                        }),
+                    )),
+            )
+            .child(riso_ui::Label::new(format!(
+                "count: {}",
+                self.model.read(cx).0
+            )))
+            .children(
+                self.slots
+                    .views("body")
+                    .into_iter()
+                    .map(|view| div().flex_1().min_h_0().w_full().child(view)),
+            )
+    }
+}
+
+struct CountCard {
+    node: String,
+}
+
+impl Render for CountCard {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!(node = %self.node, "rendering count card");
+        let count = shell::context::<Count>(cx, &self.node).map(|model| model.read(cx).0);
+        let palette = riso_ui::palette(cx);
+        let node = self.node.clone();
+        let label = count.map_or_else(|| "none".into(), |count| count.to_string());
+        riso_ui::v_flex()
+            .size_full()
+            .p_2()
+            .gap_1()
+            .border_1()
+            .border_color(palette.border)
+            .bg(palette.background)
+            .debug_selector(move || format!("CONTEXT-{node}-{label}"))
+            .child(riso_ui::Label::new(self.node.clone()))
+            .child(riso_ui::Label::new(
+                count.map_or_else(|| "none".into(), |count| count.to_string()),
+            ))
     }
 }

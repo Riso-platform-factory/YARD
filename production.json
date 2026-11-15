@@ -204,7 +204,7 @@
   },
   "riso_ui/tabs": {
     "files": {
-      "crates/riso_ui/src/tabs.rs": "a2f737b9bc7acf67"
+      "crates/riso_ui/src/tabs.rs": "6c5eb6431c936435"
     },
     "promoted": "2026-11-16"
   },

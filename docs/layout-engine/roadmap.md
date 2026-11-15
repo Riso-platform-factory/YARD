@@ -89,7 +89,7 @@ Features 13 and later are the second part of the engine. Where the column `Needs
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 24 | `close-tab` | A tab has a close button. Closing removes the node. The tab of a required node has no button | Closing a tab removes its card, and `view dropped` is logged | the end slot of `ui`'s `Tab` | 15. UI kit: `icon`, `button`, `tooltip` | production |
-| 25 | `tab-overflow` | A tab bar scrolls when its tabs do not fit, and selecting a tab scrolls it into view | Twenty tabs in a narrow window | the scrolling of `ui`'s `TabBar` | 6 | planned |
+| 25 | `tab-overflow` | A tab bar scrolls when its tabs do not fit, and selecting a tab scrolls it into view | Twenty tabs in a narrow window | the scrolling of `ui`'s `TabBar` | 6 | dev |
 | 26 | `split-on-drop` | Dropping a tab on any edge of a container puts a new split around that container, with the node in a new tabs container beside it. Dropping on the center of a container moves the node into it | A tab dropped on the top edge of a card becomes a row above the card | split on drop of `pane.rs` | 9, 13 | planned |
 | 27 | `toggle` | A component of the shell: a button that shows or hides the node that its props name. With `alone`, showing that node hides the others in its slot | Two buttons in the status bar show and hide two side cards, one at a time | the panel buttons of Zed's status bar, as reference | 13. UI kit: `button`, `icon`. Window engine: `status-bar` | planned |
 

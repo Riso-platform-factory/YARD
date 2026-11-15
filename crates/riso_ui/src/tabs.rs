@@ -4,8 +4,8 @@
 
 use gpui::{
     AnyView, App, AppContext, Context, Div, ElementId, InteractiveElement, IntoElement,
-    ParentElement, Pixels, Render, RenderOnce, SharedString, Stateful, StatefulInteractiveElement,
-    Styled, Window, div,
+    ParentElement, Pixels, Render, RenderOnce, ScrollHandle, SharedString, Stateful,
+    StatefulInteractiveElement, Styled, Window, div,
 };
 use std::rc::Rc;
 use ui::{ButtonCommon, Clickable, LabelCommon, Toggleable, VisibleOnHover};
@@ -174,6 +174,7 @@ pub struct TabBar {
     id: ElementId,
     tabs: Vec<Tab>,
     drop_handlers: Vec<BarModifier>,
+    scroll_handle: Option<ScrollHandle>,
 }
 
 impl TabBar {
@@ -182,7 +183,14 @@ impl TabBar {
             id: id.into(),
             tabs: Vec::new(),
             drop_handlers: Vec::new(),
+            scroll_handle: None,
         }
+    }
+
+    /// Lays the tabs in a row that scrolls along `handle`, as Zed's `TabBar` does.
+    pub fn track_scroll(mut self, handle: &ScrollHandle) -> Self {
+        self.scroll_handle = Some(handle.clone());
+        self
     }
 
     pub fn tabs(mut self, tabs: Vec<Tab>) -> Self {
@@ -219,6 +227,10 @@ impl RenderOnce for TabBar {
                 tab.element(position)
             },
         ));
+        let bar = match &self.scroll_handle {
+            Some(handle) => bar.track_scroll(handle),
+            None => bar,
+        };
         if self.drop_handlers.is_empty() {
             bar
         } else {

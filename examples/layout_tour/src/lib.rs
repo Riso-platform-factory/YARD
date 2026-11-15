@@ -32,6 +32,7 @@
 //! `LAYOUT_TOUR=actions cargo run dev`: send layout actions to the focused card.
 //! `LAYOUT_TOUR=props cargo run dev`: configure cards with props, change them, and reset.
 //! `LAYOUT_TOUR=titles cargo run dev`: show tab titles and icons, rename a card, and reset.
+//! `LAYOUT_TOUR=tab-overflow cargo run dev`: twenty tabs that scroll along their bar, and select the last.
 //! `LAYOUT_TOUR=required cargo run dev`: a required editor cannot be hidden or removed, only moved.
 //! `LAYOUT_TOUR=slot-count cargo run dev`: a frame whose content slot holds one node.
 //! `LAYOUT_TOUR=placement-order cargo run dev`: cards placed and moved beside named cards.
@@ -47,7 +48,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -385,6 +389,49 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 serde_json::json!({"title": "Broken", "tint": 42}),
             );
         }
+        #[cfg(feature = "dev")]
+        "tab-overflow" => {
+            register_card(cx, ext);
+            let buttons = vec![Button::action("select t20", |_, window, cx| {
+                // Steps to t20 with the shell's tab actions from the focused
+                // selected card, the shorter way round.
+                let Some(selected) = shell::selected_tab(cx, "tabs") else {
+                    return;
+                };
+                let Some(index) = (1..=20)
+                    .map(|index| format!("t{index:02}"))
+                    .position(|node| node == selected.to_string())
+                else {
+                    return;
+                };
+                if let Some(handle) = shell::focus_handle(cx, &selected.to_string()) {
+                    handle.focus(window, cx);
+                }
+                let (steps, action): (usize, fn() -> Box<dyn gpui::Action>) = if index == 0 {
+                    (1, || Box::new(shell::SelectPreviousTab))
+                } else {
+                    (19 - index, || Box::new(shell::SelectNextTab))
+                };
+                for _ in 0..steps {
+                    window.dispatch_action(action(), cx);
+                }
+            })];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.column");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            ext.place(cx, "tabs", "riso.tabs", "root", "children");
+            for index in 1..=20 {
+                let node = format!("t{index:02}");
+                ext.place(cx, &node, "layout_tour.card", "tabs", "children");
+            }
+        }
         "actions" => {
             register_card(cx, ext);
             let mut buttons = vec![
@@ -654,11 +701,16 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place_root(cx, "root", "Layout Tour.Card");
         }
         _ => log::warn!(
-            "unknown LAYOUT_TOUR case {case:?}; known cases: {}titles, host, card, missing, twice, \
+            "unknown LAYOUT_TOUR case {case:?}; known cases: {}{}titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
              tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
-            "empty-nodes, "
+            "empty-nodes, ",
+            if cfg!(feature = "dev") {
+                "tab-overflow, "
+            } else {
+                ""
+            }
         ),
     }
 }

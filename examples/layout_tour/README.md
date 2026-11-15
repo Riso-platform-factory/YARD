@@ -307,6 +307,18 @@ A tab has a close button, shown when the pointer is over the tab, as in Zed; a m
 | Rest on `gamma` | No close button: it is required. |
 | Quit and start again, then `reset layout` | The closed tabs are still closed; after the reset, all three are back. |
 
+### Feature 25: tab-overflow
+
+A tab bar scrolls sideways when its tabs do not fit, and the selected tab is scrolled into view. The case places the controls above a tabs container with twenty cards, `t01` to `t20`. `select t20` reaches `t20` with the shell's tab actions (one `SelectPreviousTab` from `t01`, which wraps). Use a fresh home: `RISO_HOME=/tmp/riso-overflow`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-overflow LAYOUT_TOUR=tab-overflow cargo run dev` | The bar shows the first tabs; the rest are past its end. |
+| Scroll over the bar with the trackpad or the wheel | The tabs slide. With `RISO_LIFECYCLE=info,riso_shell=trace`, `tab bar scrolled {tabs, offset}`. |
+| Click `select t20` | The bar scrolls so that `t20` is whole at its end; `tab scrolled into view {node=t20}`. |
+| Press `alt-cmd-right` (`riso::SelectNextTab`) | `t01` is selected and the bar scrolls back to the start. |
+| `user layer: 0` all along | Nothing was recorded. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

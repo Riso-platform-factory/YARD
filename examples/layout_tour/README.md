@@ -283,6 +283,18 @@ Dragging a split's line past half a child's minimum hides that child; a hidden c
 | Drag it shut, quit, start again | `side` is still hidden; drag it out and it is back. |
 | `reset layout` | `side` shown at 240 px. |
 
+### Feature 23: empty-nodes
+
+`layout_tour.list` shows its items and says it is empty when it has none. The case places the controls above a row with `left`, a column of two lists, `top` (two items) and `bottom` (none), and `right`, a plain card. Use a fresh home: `RISO_HOME=/tmp/riso-empty`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-empty LAYOUT_TOUR=empty-nodes cargo run dev` | `left` shows only `top`, at the column's full height; `bottom` takes no room. `empty-register{component=layout_tour.list}` with `can be empty`. |
+| Click `add to bottom` | `bottom` appears under `top`, and they share the column; `emptiness changed {node=bottom, empty=false}`. |
+| Click `clear top`, then `clear bottom` | `top` disappears, then `bottom`, and then the whole `left` column: `right` takes the row (`emptiness changed {node=left, empty=true}`). |
+| Click `add to top` | `left` comes back with `top`. |
+| `user layer: 0` all along | Nothing was recorded. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

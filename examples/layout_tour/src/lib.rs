@@ -37,6 +37,7 @@
 //! `LAYOUT_TOUR=placement-order cargo run dev`: cards placed and moved beside named cards.
 //! `LAYOUT_TOUR=contexts cargo run dev`: shared models from the nearest giving ancestor.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+//! `LAYOUT_TOUR=empty-nodes cargo run dev`: lists with no items take no room, and come back with items.
 
 #[cfg(test)]
 mod tests;
@@ -46,7 +47,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -56,6 +60,47 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        #[cfg(feature = "dev")]
+        "empty-nodes" => {
+            register_card(cx, ext);
+            let lists: Lists = Rc::default();
+            let created = lists.clone();
+            ext.register(cx, "layout_tour.list", &[], move |node, _, _, cx| {
+                let list = cx.new(|_| List {
+                    node: node.to_string(),
+                    items: if node.as_str() == "top" { 2 } else { 0 },
+                });
+                created
+                    .borrow_mut()
+                    .insert(node.to_string(), list.downgrade());
+                list.into()
+            });
+            ext.register_empty::<List>(cx, "layout_tour.list");
+            let buttons = ["top", "bottom"]
+                .into_iter()
+                .flat_map(|node| {
+                    [
+                        List::button(&lists, "add to", node, |items| items + 1),
+                        List::button(&lists, "clear", node, |_| 0),
+                    ]
+                })
+                .collect::<Vec<_>>();
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "layout", "riso.column");
+            ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
+            ext.place(cx, "root", "riso.row", "layout", "children");
+            ext.place(cx, "left", "riso.column", "root", "children");
+            ext.place(cx, "top", "layout_tour.list", "left", "children");
+            ext.place(cx, "bottom", "layout_tour.list", "left", "children");
+            ext.place(cx, "right", "layout_tour.card", "root", "children");
+        }
         "contexts" => {
             register_card(cx, ext);
             let models = Rc::new(std::cell::RefCell::new(std::collections::BTreeMap::<
@@ -612,10 +657,15 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place_root(cx, "root", "Layout Tour.Card");
         }
         _ => log::warn!(
-            "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
+            "unknown LAYOUT_TOUR case {case:?}; known cases: {}titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
+            if cfg!(feature = "dev") {
+                "empty-nodes, "
+            } else {
+                ""
+            }
         ),
     }
 }
@@ -1079,5 +1129,72 @@ impl Render for CountCard {
             .child(riso_ui::Label::new(
                 count.map_or_else(|| "none".into(), |count| count.to_string()),
             ))
+    }
+}
+
+/// The list view of each node, so that the controls can change its items.
+#[cfg(feature = "dev")]
+type Lists = Rc<std::cell::RefCell<std::collections::BTreeMap<String, WeakEntity<List>>>>;
+
+/// A list that shows its number of items, and is empty when it has none.
+#[cfg(feature = "dev")]
+struct List {
+    node: String,
+    items: usize,
+}
+
+#[cfg(feature = "dev")]
+impl List {
+    fn button(
+        lists: &Lists,
+        verb: &'static str,
+        node: &'static str,
+        change: fn(usize) -> usize,
+    ) -> Button {
+        let lists = lists.clone();
+        let label = format!("{verb} {node}");
+        Button {
+            label: Rc::new(move |_| label.clone()),
+            action: Rc::new(move |_, _, cx| {
+                let Some(list) = lists.borrow().get(node).and_then(WeakEntity::upgrade) else {
+                    return;
+                };
+                list.update(cx, |list, cx| {
+                    list.items = change(list.items);
+                    tracing::debug!(node = %list.node, items = list.items, "items changed");
+                    cx.notify();
+                });
+            }),
+            preserve_focus: false,
+        }
+    }
+}
+
+#[cfg(feature = "dev")]
+impl shell::Emptiable for List {
+    fn is_empty(&self, _: &App) -> bool {
+        self.items == 0
+    }
+}
+
+#[cfg(feature = "dev")]
+impl Render for List {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        tracing::trace!(node = %self.node, items = self.items, "rendering list");
+        let palette = riso_ui::palette(cx);
+        riso_ui::v_flex()
+            .debug_selector(|| format!("LIST-{}", self.node))
+            .size_full()
+            .p_2()
+            .gap_1()
+            .border_1()
+            .border_color(palette.border)
+            .bg(palette.background)
+            .child(riso_ui::Label::new(self.node.clone()))
+            .child(
+                riso_ui::Label::new(format!("items: {}", self.items))
+                    .color(riso_ui::TextColor::Muted),
+            )
+            .children((1..=self.items).map(|item| riso_ui::Label::new(format!("item {item}"))))
     }
 }

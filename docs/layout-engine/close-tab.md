@@ -8,7 +8,7 @@ A tab has a close button, as Zed's tabs do. Clicking it, or clicking the tab wit
 
 As Zed's `Pane::render_tab` (`crates/workspace/src/pane.rs`) with its default settings (`close_position: right`, `show_close_button: hover`):
 
-- **The button** is in the tab's end slot: an `IconButton` with the `Close` icon, square, `ButtonSize::None`, `IconSize::Small`, muted. It is shown when the pointer is over the tab, and always on the selected tab, as Zed's `visible_on_hover` shows it on the tab's hover group.
+- **The button** is in the tab's end slot: an `IconButton` with the `Close` icon, square, `ButtonSize::None`, `IconSize::Small`, muted. It is shown when the pointer is over the tab, selected or not, as Zed's `visible_on_hover` shows it on the tab's hover group.
 - **Its tooltip** is `Close Tab`, from the UI kit's `Tooltip` (UI kit feature 10).
 - **A middle click** on a tab closes it, as Zed's `on_aux_click` does.
 - **Closing** runs `remove(node)` through the same path as any `remove`: the shell's rules hold (a required node, or a node holding one, is refused with feature 15's `INFO`, which the missing button makes rare), and the tabs container selects its first shown child if the closed tab was selected, as it does after any `remove`.
@@ -46,7 +46,7 @@ The dev shell has every item of the production shell, unchanged; the change is i
 
 ## Tests
 
-- **UI kit, GPUI tests:** a tab with `on_close` has a close button in its end slot (`debug_bounds`), hidden until the pointer is over the tab and shown on the selected tab; clicking it calls `f` once; a middle click on the tab calls `f` once; a tab without `on_close` has no button and ignores a middle click.
+- **UI kit, GPUI tests:** a tab with `on_close` has a close button in its end slot (`debug_bounds`), hidden until the pointer is over the tab, also on the selected tab; clicking it calls `f` once; a middle click on the tab calls `f` once; a tab without `on_close` has no button and ignores a middle click.
 - **Shell, GPUI tests, with the dev shell:**
   - clicking a tab's close button removes its node with one `remove` operation, drops its view, and selects the first shown tab if it was selected;
   - a middle click does the same;
@@ -60,7 +60,7 @@ The case `titles` (feature 14) is used as it is, with one change: `gamma` is dec
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-close LAYOUT_TOUR=titles cargo run dev`, rest the pointer on tab `Beta` | A close button appears at its right; resting on it shows `Close Tab`. The selected tab `Alpha` shows its button too. |
+| `RISO_HOME=/tmp/riso-close LAYOUT_TOUR=titles cargo run dev`, rest the pointer on tab `Beta` | A close button appears at its right; resting on it shows `Close Tab`. The selected tab `Alpha` shows none until the pointer is over it, as in Zed. |
 | Click `Beta`'s close button | `Beta` goes; `tab close {node=beta}`, `layout-op{op=remove, node=beta, extension=riso}`, `view dropped {node=beta}`. |
 | Middle-click tab `Alpha` | `Alpha` goes, and `gamma` is selected. |
 | Rest on `gamma` | No close button: it is required. |

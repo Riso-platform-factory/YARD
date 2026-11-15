@@ -1,5 +1,5 @@
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, rems};
-use riso_ui::{Button, IconButton, IconName, dev::Tooltip, h_flex, v_flex};
+use riso_ui::{Button, IconButton, IconName, Tooltip, h_flex, v_flex};
 
 pub(super) fn register(cx: &mut App, ext: &riso_shell::Extension) {
     ext.register(cx, "ui_gallery.tooltip", &[], |_, _, _, cx| {

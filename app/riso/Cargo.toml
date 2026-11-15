@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "riso_settings/dev", "riso_keymap/dev", "command_palette/dev", "dep:ui_gallery", "ui_gallery/dev"]
+dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "riso_settings/dev", "riso_keymap/dev", "command_palette/dev"]
 
 [dependencies]
 gpui.workspace = true
@@ -23,8 +23,6 @@ riso_keymap = { workspace = true, default-features = false }
 tracing = { workspace = true }
 
 command_palette = { workspace = true, default-features = false }
-
-ui_gallery = { path = "../../examples/ui_gallery", optional = true, default-features = false }
 
 [dev-dependencies]
 serde_json.workspace = true

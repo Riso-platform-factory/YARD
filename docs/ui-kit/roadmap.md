@@ -8,7 +8,7 @@ A base component is not a layout component. It has no node ID, it is not registe
 
 ## What is built
 
-In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with riso's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, states, and layers; `Divider`; the frame of a modal, `Modal` with `ModalHeader`, `Section`, and `ModalFooter`; the parts of a list, `List`, `ListItem`, `ListHeader`, and `ListSeparator`; `TextInput`, an input of one line; `ScrollArea` and `ScrollList`, with Zed's scrollbar; and `KeyHint`, the keys of an action as Zed draws them. The gallery is `examples/ui_gallery`.
+In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with riso's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, states, layers, and tooltips; `Divider`; the frame of a modal, `Modal` with `ModalHeader`, `Section`, and `ModalFooter`; the parts of a list, `List`, `ListItem`, `ListHeader`, and `ListSeparator`; `TextInput`, an input of one line; `ScrollArea` and `ScrollList`, with Zed's scrollbar; `KeyHint`, the keys of an action as Zed draws them; and `Tooltip`, which a button shows when the pointer rests on it. The gallery is `examples/ui_gallery`.
 
 ## Rules
 
@@ -51,7 +51,7 @@ Status is one of: planned, dev, production.
 | 7 | `text-input` | An input of one line: typing, selecting, the clipboard, input methods, a placeholder. It tells its owner when the text changes and when it is confirmed | A page where text is typed, selected, and pasted | `gpui/examples/input.rs` | 1 | Keymap engine: `command-palette` | production |
 | 8 | `scroll` | An area that scrolls, with Zed's scrollbar, also for lists too long to draw whole | A list of a thousand items | `Scrollbar`. `gpui`: `uniform_list` | 6 | Keymap engine: `command-palette` | production |
 | 9 | `key-hint` | The keys bound to an action, drawn as Zed draws them | A page with the keys of the shell's actions | `KeyBinding` | 1. Keymap engine: `default-keys` | Keymap engine: `command-palette` | production |
-| 10 | `tooltip` | A short text shown when the pointer rests on an element | A page with every kind of tooltip, on buttons | `Tooltip` | 3 | Layout engine: `close-tab` | dev |
+| 10 | `tooltip` | A short text shown when the pointer rests on an element | A page with every kind of tooltip, on buttons | `Tooltip` | 3 | Layout engine: `close-tab` | production |
 
 ### By need
 

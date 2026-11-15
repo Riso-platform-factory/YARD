@@ -1,12 +1,10 @@
-#![cfg(feature = "dev")]
-
 // Alone in this binary: captures tracing output, which would race with any
 // other test reaching the same log lines.
 use gpui::{
     InteractiveElement, KeyBinding, Modifiers, ParentElement, Styled, TestAppContext,
     VisualTestContext, div, px, size,
 };
-use riso_ui::{Button, dev::Tooltip, v_flex};
+use riso_ui::{Button, Tooltip, v_flex};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},

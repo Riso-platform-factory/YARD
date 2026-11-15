@@ -1,9 +1,7 @@
-#[cfg(feature = "dev")]
-mod tooltip;
-
 mod key_hint;
 mod scroll;
 mod text_input;
+mod tooltip;
 
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
@@ -62,7 +60,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
     match case.as_str() {
         "all" => {
-            let pages = 9 + usize::from(cfg!(feature = "dev"));
+            let pages = 10;
             let _group = tracing::info_span!("gallery-build", pages).entered();
             ext.register(cx, "ui_gallery.text", &[], |_, _, _, cx| {
                 cx.new(|_| TextPage).into()
@@ -89,7 +87,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             text_input::register(cx, ext);
             scroll::register(cx, ext);
             key_hint::register(cx, ext);
-            #[cfg(feature = "dev")]
             tooltip::register(cx, ext);
             ext.place_root(cx, "root", "riso.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
@@ -121,7 +118,6 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
                 tracing::debug!(page = "scroll", "page placed");
             }
             key_hint::place(cx, ext);
-            #[cfg(feature = "dev")]
             tooltip::place(cx, ext);
         }
         _ => log::warn!("unknown UI_GALLERY case {case:?}; known cases: all"),

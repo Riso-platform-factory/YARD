@@ -1,11 +1,9 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AnyView, AppContext, Bounds, FocusHandle, InteractiveElement, KeyBinding, Modifiers,
     MouseButton, ParentElement, Pixels, Point, StatefulInteractiveElement, Styled, TestAppContext,
     VisualTestContext, div, point, px, size,
 };
-use riso_ui::{Button, IconButton, IconName, Label, dev::Tooltip, v_flex};
+use riso_ui::{Button, IconButton, IconName, Label, Tooltip, v_flex};
 use std::time::Duration;
 
 gpui::actions!(tooltip_test, [Quit, Unbound]);

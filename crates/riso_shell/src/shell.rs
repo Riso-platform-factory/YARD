@@ -795,12 +795,16 @@ fn inner_target_claims_cursor(
         {
             let split = split.read(cx);
             if shown_subtree.contains(&split.node)
-                && split.shown_nodes.iter().any(|child| {
-                    split
-                        .child_bounds
-                        .get(child)
-                        .is_some_and(|bounds| edge_at(*bounds, split.axis, position).is_some())
-                })
+                && split
+                    .shown_nodes
+                    .iter()
+                    .zip(split.shown_shares.borrow().iter())
+                    .any(|(child, size)| {
+                        !size.collapsed
+                            && split.child_bounds.get(child).is_some_and(|bounds| {
+                                edge_at(*bounds, split.axis, position).is_some()
+                            })
+                    })
             {
                 return true;
             }
@@ -876,6 +880,14 @@ fn record_resize(
     resized: riso_ui::Resized,
     cx: &mut App,
 ) {
+    let (snapped_shut, snapped_open) = match &resized {
+        riso_ui::Resized::Dragged {
+            snapped_shut,
+            snapped_open,
+            ..
+        } => (snapped_shut.clone(), snapped_open.clone()),
+        riso_ui::Resized::Reset => (Vec::new(), Vec::new()),
+    };
     let props = match resized {
         riso_ui::Resized::Reset => serde_json::json!({"shares": null}),
         riso_ui::Resized::Dragged { sizes, .. } => {
@@ -894,7 +906,14 @@ fn record_resize(
                     .cloned()
                     .unwrap_or_default();
                 let before = entries.clone();
-                for ((child, size), preferred) in shown.iter().zip(&sizes).zip(preferred) {
+                for (index, ((child, size), preferred)) in
+                    shown.iter().zip(&sizes).zip(preferred).enumerate()
+                {
+                    if snapped_shut.contains(&index)
+                        || (is_hidden(cx, child.as_str()) && !snapped_open.contains(&index))
+                    {
+                        continue;
+                    }
                     let value = match (key, size) {
                         ("shares", riso_ui::AxisSize::Flex(share)) => Some(*share),
                         // A child still at its preferred size keeps no entry,
@@ -918,13 +937,27 @@ fn record_resize(
             serde_json::Value::Object(patch)
         }
     };
-    let props = encode_props(props);
-    run_op("riso", None, cx, "props", split.as_str(), |_, node| {
-        Ok(Operation::SetProps {
-            node,
-            props: props?,
-        })
-    });
+    if props.as_object().is_some_and(|props| !props.is_empty()) {
+        let props = encode_props(props);
+        run_op("riso", None, cx, "props", split.as_str(), |_, node| {
+            Ok(Operation::SetProps {
+                node,
+                props: props?,
+            })
+        });
+    }
+    for (indices, hidden, op) in [
+        (&snapped_shut, true, "hide"),
+        (&snapped_open, false, "show"),
+    ] {
+        for index in indices {
+            if let Some(node) = shown.get(*index) {
+                run_op("riso", None, cx, op, node.as_str(), |_, node| {
+                    Ok(Operation::SetHidden { node, hidden })
+                });
+            }
+        }
+    }
 }
 
 /// The minimum of a component without size hints: 5 rems across and 6.25
@@ -1040,7 +1073,22 @@ impl Split {
         }
         // Entries of children that left the split or are hidden are kept, so
         // that such a child has its share again when it is shown.
-        let nodes = self.slots.nodes("children");
+        let nodes: Vec<NodeId> = {
+            let layers = self.slots.tree.borrow();
+            let views = self.slots.views.borrow();
+            layers
+                .current()
+                .slots(&self.node)
+                .find(|(name, _)| name.as_str() == "children")
+                .map(|(_, children)| {
+                    children
+                        .iter()
+                        .filter(|child| views.contains_key(&child.id))
+                        .map(|child| child.id.clone())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
         let same_nodes = nodes == self.shown_nodes;
         let (shares, given): (Vec<_>, Vec<_>) = nodes
             .iter()
@@ -1052,6 +1100,11 @@ impl Split {
                 {
                     child.size = *size;
                 }
+                if same_nodes {
+                    child.collapsed = self.shown_shares.borrow()
+                        [self.shown_nodes.iter().position(|id| id == node).unwrap()]
+                    .collapsed;
+                }
                 (child, given)
             })
             .unzip();
@@ -1062,8 +1115,13 @@ impl Split {
         } else {
             *self.shown_shares.borrow_mut() = shares;
         }
-        self.edges.retain(|child, _| nodes.contains(child));
-        self.child_bounds.retain(|child, _| nodes.contains(child));
+        let shown: BTreeSet<_> = nodes
+            .iter()
+            .zip(self.shown_shares.borrow().iter())
+            .filter_map(|(node, child)| (!child.collapsed).then_some(node.clone()))
+            .collect();
+        self.edges.retain(|child, _| shown.contains(child));
+        self.child_bounds.retain(|child, _| shown.contains(child));
         self.shown_nodes = nodes;
     }
 
@@ -1096,7 +1154,7 @@ impl Split {
             riso_ui::AxisChild {
                 size,
                 min,
-                collapsed: false,
+                collapsed: tree.is_hidden(node),
             },
             given.then_some(size),
         )
@@ -1164,7 +1222,14 @@ impl Render for Split {
             .shown_nodes
             .iter()
             .cloned()
-            .zip(self.slots.views("children"))
+            .filter_map(|id| {
+                self.slots
+                    .views
+                    .borrow()
+                    .get(&id)
+                    .cloned()
+                    .map(|view| (id, view))
+            })
             .enumerate()
             .map(|(shown_index, (child_id, view))| {
                 let edge = self.edges.get(&child_id).copied();
@@ -1219,6 +1284,28 @@ impl Render for Split {
             self.shown_shares.clone(),
             children,
         )
+        .can_collapse({
+            let nodes = self.shown_nodes.clone();
+            let split = self.node.clone();
+            move |index, cx| {
+                let Some(node) = nodes.get(index) else {
+                    return false;
+                };
+                let registry = cx.global::<Registry>();
+                let allowed = required_rule_error(
+                    registry,
+                    &Operation::SetHidden {
+                        node: node.clone(),
+                        hidden: true,
+                    },
+                )
+                .is_none();
+                if !allowed {
+                    tracing::debug!(split = %split, child = %node, "required child kept");
+                }
+                allowed
+            }
+        })
         .on_resized(move |resized, _, cx| {
             record_resize(&split, &shown, &preferred, resized, cx);
         })
@@ -2063,7 +2150,21 @@ fn reconcile_containers(cx: &mut App) {
         (registry.splits.clone(), registry.tabs.clone())
     };
     for split in splits {
-        let _ = split.update(cx, |split, cx| split.reconcile(cx));
+        let _ = split.update(cx, |split, cx| {
+            split.reconcile(cx);
+            let layers = split.slots.tree.borrow();
+            for (node, child) in split
+                .shown_nodes
+                .iter()
+                .zip(split.shown_shares.borrow_mut().iter_mut())
+            {
+                child.collapsed = layers.current().is_hidden(node);
+                if child.collapsed {
+                    split.edges.remove(node);
+                    split.child_bounds.remove(node);
+                }
+            }
+        });
     }
     for tabs in tabs {
         let _ = tabs.update(cx, |tabs, _| tabs.reconcile_selection());

@@ -32,21 +32,21 @@
   },
   "riso_layout/layers": {
     "files": {
-      "crates/riso_layout/src/layers.rs": "cf35a30bda94e6b5"
+      "crates/riso_layout/src/layers.rs": "cd6c7750070021a7"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-15"
   },
   "riso_layout/saved": {
     "files": {
-      "crates/riso_layout/src/saved.rs": "211dad180041ef06"
+      "crates/riso_layout/src/saved.rs": "08adfa7ff8ac3762"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-15"
   },
   "riso_layout/tree": {
     "files": {
-      "crates/riso_layout/src/tree.rs": "116d72ffda479d91"
+      "crates/riso_layout/src/tree.rs": "255a9e8778f00a56"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-15"
   },
   "riso_log/diagnostic_log": {
     "files": {
@@ -126,9 +126,9 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "f92122711baca0a0"
+      "crates/riso_shell/src/shell.rs": "9091e4e9fb838a1f"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-15"
   },
   "riso_ui/axis": {
     "files": {

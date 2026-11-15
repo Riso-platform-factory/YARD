@@ -28,7 +28,10 @@
 //! `LAYOUT_TOUR=zoom-root cargo run dev`: zooming the root is refused.
 //! `LAYOUT_TOUR=user-layer cargo run dev`: rearrange, hide, and reset to the default layout.
 //! `LAYOUT_TOUR=actions cargo run dev`: send layout actions to the focused card.
+//! `LAYOUT_TOUR=props cargo run dev`: configure cards with props, change them, and reset.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -39,27 +42,83 @@ use gpui::{
 };
 use std::rc::Rc;
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "props" => {
+            ext.register_with_props::<TintedProps, TintedCard>(
+                cx,
+                "layout_tour.tinted",
+                &[],
+                |props, node, _, _, _| TintedCard {
+                    node: node.to_string(),
+                    props,
+                },
+            );
+            let buttons = vec![
+                Button::action("rename beta", |ext, _, cx| {
+                    ext.set_props(cx, "beta", serde_json::json!({"title": "Beta"}));
+                }),
+                Button::action("tint beta warning", |ext, _, cx| {
+                    ext.set_props(cx, "beta", serde_json::json!({"tint": "warning"}));
+                }),
+                Button::action("clear alpha's tint", |ext, _, cx| {
+                    ext.set_props(cx, "alpha", serde_json::json!({"tint": null}));
+                }),
+                Button::action("props of ghost", |ext, _, cx| {
+                    ext.set_props(cx, "ghost", serde_json::json!({"title": "Ghost"}));
+                }),
+                Button::action("reset layout", |ext, window, cx| {
+                    ext.reset_layout(window, cx);
+                }),
+            ];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.row");
+            ext.place(cx, "controls", "layout_tour.controls", "root", "children");
+            ext.place(cx, "cards", "riso.row", "root", "children");
+            ext.place_with_props(
+                cx,
+                "alpha",
+                "layout_tour.tinted",
+                "cards",
+                "children",
+                serde_json::json!({"title": "Alpha", "tint": "accent"}),
+            );
+            ext.place(cx, "beta", "layout_tour.tinted", "cards", "children");
+            ext.place_with_props(
+                cx,
+                "broken",
+                "layout_tour.tinted",
+                "cards",
+                "children",
+                serde_json::json!({"title": "Broken", "tint": 42}),
+            );
+        }
         "actions" => {
             register_card(cx, ext);
             let mut buttons = vec![
                 Button::action("zoom", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::ToggleZoom), cx);
+                    window.dispatch_action(Box::new(riso_shell::dev::ToggleZoom), cx);
                 }),
                 Button::action("hide", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::Hide), cx);
+                    window.dispatch_action(Box::new(riso_shell::dev::Hide), cx);
                 }),
                 Button::action("next tab", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::SelectNextTab), cx);
+                    window.dispatch_action(Box::new(riso_shell::dev::SelectNextTab), cx);
                 }),
                 Button::action("previous tab", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::SelectPreviousTab), cx);
+                    window.dispatch_action(Box::new(riso_shell::dev::SelectPreviousTab), cx);
                 }),
             ];
             for button in &mut buttons {
@@ -254,12 +313,12 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props"
         ),
     }
 }
 
-fn register_card(cx: &mut App, ext: &riso_shell::Extension) {
+fn register_card(cx: &mut App, ext: &riso_shell::dev::Extension) {
     let ext_for_factory = ext.clone();
     ext.register(
         cx,
@@ -275,7 +334,7 @@ fn register_card(cx: &mut App, ext: &riso_shell::Extension) {
             let ext = ext_for_factory.clone();
             cx.subscribe(&card, move |card, _: &ToggleZoom, cx| {
                 let node = card.read(cx).node.clone();
-                if riso_shell::zoomed(cx).as_deref() == Some(node.as_str()) {
+                if riso_shell::dev::zoomed(cx).as_deref() == Some(node.as_str()) {
                     ext.zoom_out(cx);
                 } else {
                     ext.set_zoomed(cx, &node);
@@ -310,11 +369,91 @@ fn operations_buttons() -> Vec<Button> {
     ]
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum Tint {
+    #[default]
+    Default,
+    Accent,
+    Success,
+    Warning,
+    Error,
+}
+
+impl Tint {
+    fn text_color(self) -> riso_ui::TextColor {
+        match self {
+            Self::Default => riso_ui::TextColor::Default,
+            Self::Accent => riso_ui::TextColor::Accent,
+            Self::Success => riso_ui::TextColor::Success,
+            Self::Warning => riso_ui::TextColor::Warning,
+            Self::Error => riso_ui::TextColor::Error,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct TintedProps {
+    title: String,
+    tint: Tint,
+}
+
+impl Default for TintedProps {
+    fn default() -> Self {
+        Self {
+            title: "Untitled".into(),
+            tint: Tint::Default,
+        }
+    }
+}
+
+struct TintedCard {
+    node: String,
+    props: TintedProps,
+}
+
+impl riso_shell::dev::PropsView<TintedProps> for TintedCard {
+    fn set_props(&mut self, props: TintedProps, _: &mut Context<Self>) {
+        self.props = props;
+    }
+}
+
+impl Render for TintedCard {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let palette = riso_ui::palette(cx);
+        div()
+            .debug_selector(|| format!("CARD-{}", self.node))
+            .relative()
+            .size_full()
+            .flex()
+            .flex_col()
+            .p_2()
+            .gap_1()
+            .bg(palette.background)
+            .child(
+                div()
+                    .absolute()
+                    .size_full()
+                    .top_0()
+                    .left_0()
+                    .border_1()
+                    .border_color(palette.border),
+            )
+            .child(
+                riso_ui::Label::new(self.props.title.clone())
+                    .size(riso_ui::LabelSize::Large)
+                    .color(self.props.tint.text_color()),
+            )
+            .child(riso_ui::Label::new(self.node.clone()).color(riso_ui::TextColor::Muted))
+    }
+}
+
 struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::Slots,
+    slots: riso_shell::dev::Slots,
 }
 
 struct ToggleZoom;
@@ -358,8 +497,8 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = riso_ui::palette(cx);
         let entity = cx.entity().downgrade();
-        let zoomed = riso_shell::zoomed(cx).as_deref() == Some(self.node.as_str());
-        let focus = riso_shell::focus_handle(cx, &self.node).and_then(|handle| {
+        let zoomed = riso_shell::dev::zoomed(cx).as_deref() == Some(self.node.as_str());
+        let focus = riso_shell::dev::focus_handle(cx, &self.node).and_then(|handle| {
             if handle.is_focused(window) {
                 Some("focused")
             } else if handle.contains_focused(window, cx) {
@@ -436,7 +575,7 @@ impl Render for Card {
 }
 
 type Label = Rc<dyn Fn(&App) -> String>;
-type Action = Rc<dyn Fn(&riso_shell::Extension, &mut Window, &mut App)>;
+type Action = Rc<dyn Fn(&riso_shell::dev::Extension, &mut Window, &mut App)>;
 
 #[derive(Clone)]
 struct Button {
@@ -448,7 +587,7 @@ struct Button {
 impl Button {
     fn action(
         label: &'static str,
-        action: impl Fn(&riso_shell::Extension, &mut Window, &mut App) + 'static,
+        action: impl Fn(&riso_shell::dev::Extension, &mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
             label: Rc::new(move |_| label.into()),
@@ -460,7 +599,7 @@ impl Button {
     fn visibility(node: &'static str) -> Self {
         Self {
             label: Rc::new(move |cx| {
-                let verb = if riso_shell::is_hidden(cx, node) {
+                let verb = if riso_shell::dev::is_hidden(cx, node) {
                     "show"
                 } else {
                     "hide"
@@ -468,7 +607,7 @@ impl Button {
                 format!("{verb} {node}")
             }),
             action: Rc::new(move |ext, _, cx| {
-                let hidden = riso_shell::is_hidden(cx, node);
+                let hidden = riso_shell::dev::is_hidden(cx, node);
                 ext.set_hidden(cx, node, !hidden);
             }),
             preserve_focus: false,
@@ -478,7 +617,7 @@ impl Button {
 
 struct Controls {
     buttons: Vec<Button>,
-    ext: riso_shell::Extension,
+    ext: riso_shell::dev::Extension,
 }
 
 impl Render for Controls {
@@ -495,8 +634,13 @@ impl Render for Controls {
             .bg(palette.background)
             .child(
                 div()
-                    .debug_selector(|| format!("USER-LAYER-{}", riso_shell::user_layer_len(cx)))
-                    .child(format!("user layer: {}", riso_shell::user_layer_len(cx))),
+                    .debug_selector(|| {
+                        format!("USER-LAYER-{}", riso_shell::dev::user_layer_len(cx))
+                    })
+                    .child(format!(
+                        "user layer: {}",
+                        riso_shell::dev::user_layer_len(cx)
+                    )),
             )
             .children(self.buttons.iter().enumerate().map(|(index, button)| {
                 let label = (button.label)(cx);

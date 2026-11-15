@@ -1,6 +1,6 @@
 //! JSON encoding and decoding of the saved user layer.
 
-use crate::{ComponentId, IdError, Node, NodeId, Operation, SlotName};
+use crate::{ComponentId, IdError, Node, NodeId, Operation, Props, SlotName};
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt};
 
@@ -63,6 +63,8 @@ enum EncodedOp<'a> {
         extension: &'a str,
         parent: &'a str,
         slot: &'a str,
+        #[serde(skip_serializing_if = "Props::is_empty")]
+        props: &'a Props,
     },
     Remove {
         node: &'a str,
@@ -79,6 +81,10 @@ enum EncodedOp<'a> {
     },
     Show {
         node: &'a str,
+    },
+    Props {
+        node: &'a str,
+        props: &'a Props,
     },
 }
 
@@ -110,6 +116,8 @@ struct SavedAdd {
     extension: String,
     parent: String,
     slot: String,
+    #[serde(default)]
+    props: Props,
 }
 
 #[derive(Deserialize)]
@@ -118,6 +126,15 @@ struct SavedNodeOp {
     #[serde(rename = "op")]
     _op: String,
     node: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SavedProps {
+    #[serde(rename = "op")]
+    _op: String,
+    node: String,
+    props: Props,
 }
 
 fn last_index() -> usize {
@@ -147,6 +164,7 @@ pub fn encode(ops: &[Operation]) -> String {
                 extension: node.extension.as_str(),
                 parent: parent.as_str(),
                 slot: slot.as_str(),
+                props: &node.props,
             },
             Operation::Remove { node } => EncodedOp::Remove {
                 node: node.as_str(),
@@ -170,6 +188,10 @@ pub fn encode(ops: &[Operation]) -> String {
                 hidden: false,
             } => EncodedOp::Show {
                 node: node.as_str(),
+            },
+            Operation::SetProps { node, props } => EncodedOp::Props {
+                node: node.as_str(),
+                props,
             },
         })
         .collect();
@@ -219,6 +241,7 @@ fn decode_operation(entry: serde_json::Value) -> Result<Operation, DecodeError> 
                     id,
                     component,
                     extension: extension.as_str().to_owned(),
+                    props: saved.props,
                 },
                 parent,
                 slot,
@@ -248,6 +271,14 @@ fn decode_operation(entry: serde_json::Value) -> Result<Operation, DecodeError> 
             Ok(Operation::SetHidden {
                 node: parse_node_id("node", saved.node)?,
                 hidden,
+            })
+        }
+        "props" => {
+            let saved: SavedProps = serde_json::from_value(entry)
+                .map_err(|error| DecodeError::InvalidJson(error.to_string()))?;
+            Ok(Operation::SetProps {
+                node: parse_node_id("node", saved.node)?,
+                props: saved.props,
             })
         }
         _ => Err(DecodeError::UnknownOp(tag.op)),
@@ -289,6 +320,7 @@ mod tests {
                     id: NodeId::parse("extra").unwrap(),
                     component: ComponentId::parse("layout_tour.card").unwrap(),
                     extension: "layout_tour".into(),
+                    props: Props::new(),
                 },
                 parent: NodeId::parse("root").unwrap(),
                 slot: SlotName::parse("children").unwrap(),

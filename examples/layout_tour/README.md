@@ -161,6 +161,20 @@ The user layer is saved to `data/layout.json` after every recorded operation and
 | `reset layout`, quit, start `user-layer` again | `layout.json` holds no operation; the default layout. |
 | Write `not json` into `layout.json`, start `user-layer` | A WARN, `the saved layout cannot be read`, and the default layout; the file is left as it is. |
 
+### Feature 13: props
+
+The card `layout_tour.tinted` takes props `title` (default `Untitled`) and `tint` (`default`, `accent`, `success`, `warning`, or `error`; default `default`), and shows its title in a large label colored by its tint. The case places `alpha` (`title: Alpha`, `tint: accent`), `beta` (no props), and `broken` (`title: Broken`, `tint: 42`). Use a fresh home: `RISO_HOME=/tmp/riso-props`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-props LAYOUT_TOUR=props cargo run dev` | `Alpha` in the accent color, `Untitled`, and `Broken` in the default color. One `WARN` inside `props-read{node=broken}`: `prop tint of node broken cannot be read`. |
+| Click `rename beta` | `Beta`. `layout-op{op=props, node=beta}` holds `props set {keys=title}`, `props-read`, and `view told {node=beta}`. |
+| Click `tint beta warning` | `Beta` in the warning color. |
+| Click `clear alpha's tint` | `Alpha` in the default color. |
+| Click `props of ghost` | An `INFO`: the node is not in the tree. `user layer: 3`. |
+| Quit and start again | `restored {applied=3, skipped=0}`; `Beta` in the warning color, `Alpha` in the default color. `layout.json` holds three `props` operations. |
+| `reset layout` | `Alpha` in the accent color and `Untitled` again; `view told` for `alpha` and `beta` inside `layout-reset`. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

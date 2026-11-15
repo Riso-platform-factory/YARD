@@ -105,6 +105,9 @@ impl fmt::Display for SlotName {
     }
 }
 
+/// A node's untyped configuration object.
+pub type Props = serde_json::Map<String, serde_json::Value>;
+
 /// One placed component.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Node {
@@ -112,6 +115,7 @@ pub struct Node {
     pub component: ComponentId,
     /// The name of the extension that placed the node. The shell checks the name.
     pub extension: String,
+    pub props: Props,
 }
 
 /// A runtime change to the layout tree.
@@ -135,6 +139,10 @@ pub enum Operation {
         node: NodeId,
         hidden: bool,
     },
+    SetProps {
+        node: NodeId,
+        props: Props,
+    },
 }
 
 /// What an accepted [`Operation`] changed in the tree.
@@ -144,6 +152,7 @@ pub enum Applied {
     Removed(Vec<NodeId>),
     Moved,
     SetHidden(bool),
+    PropsSet,
 }
 
 /// An [`Operation`] refused without changing the tree.
@@ -324,6 +333,26 @@ impl Tree {
                 }
                 Ok(Applied::SetHidden(true))
             }
+            Operation::SetProps { node, props } => {
+                let Some(target) = self.node_mut(&node) else {
+                    tracing::info!(node = %node, "the node is not in the tree");
+                    return Err(OpError::MissingNode);
+                };
+                let keys = props
+                    .keys()
+                    .map(String::as_str)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                for (key, value) in props {
+                    if value.is_null() {
+                        target.props.remove(&key);
+                    } else {
+                        target.props.insert(key, value);
+                    }
+                }
+                tracing::debug!(node = %node, keys, "props set");
+                Ok(Applied::PropsSet)
+            }
         }
     }
 
@@ -426,6 +455,18 @@ impl Tree {
                 .slots
                 .iter()
                 .any(|(_, _, nodes)| nodes.iter().any(|node| &node.id == id))
+    }
+
+    fn node_mut(&mut self, id: &NodeId) -> Option<&mut Node> {
+        if let Some(root) = &mut self.root
+            && &root.id == id
+        {
+            return Some(root);
+        }
+        self.slots
+            .iter_mut()
+            .flat_map(|(_, _, nodes)| nodes.iter_mut())
+            .find(|node| &node.id == id)
     }
 
     fn subtree_contains(&self, ancestor: &NodeId, candidate: &NodeId) -> bool {
@@ -553,6 +594,7 @@ mod tests {
             id: id(name),
             component: ComponentId::parse("tour.card").unwrap(),
             extension: "placer".into(),
+            props: Props::new(),
         }
     }
 
@@ -1063,6 +1105,7 @@ mod tests {
             id: NodeId::parse(id).unwrap(),
             component: ComponentId::parse("tour.card").unwrap(),
             extension: "placer".into(),
+            props: Props::new(),
         };
         tree.place_root(node("root")).unwrap();
         assert_eq!(tree.root().unwrap().id.as_str(), "root");

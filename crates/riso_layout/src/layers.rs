@@ -76,6 +76,7 @@ mod tests {
             id: id(value),
             component: ComponentId::parse("tour.card").unwrap(),
             extension: "tour".into(),
+            props: crate::Props::new(),
         }
     }
 

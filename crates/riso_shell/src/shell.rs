@@ -23,7 +23,7 @@ use gpui::{
     Subscription, WeakEntity, Window, canvas, div,
 };
 use riso_layout::Layers;
-use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, SlotName, Tree};
+use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Props, SlotName, Tree};
 use riso_layout::{decode, encode};
 use riso_paths::write_atomic;
 use std::{
@@ -491,6 +491,7 @@ impl Default for Registry {
                     id: window_id.clone(),
                     component: ComponentId::parse("riso.window").unwrap(),
                     extension: "riso".into(),
+                    props: Props::new(),
                 });
             }
             {
@@ -507,6 +508,7 @@ impl Default for Registry {
                         id: NodeId::parse("title_bar").unwrap(),
                         component: ComponentId::parse("riso.title_bar").unwrap(),
                         extension: "riso".into(),
+                        props: Props::new(),
                     },
                     &window_id,
                     SlotName::parse("title_bar").unwrap(),
@@ -526,6 +528,7 @@ impl Default for Registry {
                         id: NodeId::parse("body").unwrap(),
                         component: ComponentId::parse("riso.body").unwrap(),
                         extension: "riso".into(),
+                        props: Props::new(),
                     },
                     &window_id,
                     SlotName::parse("body").unwrap(),
@@ -545,6 +548,7 @@ impl Default for Registry {
                         id: NodeId::parse("status_bar").unwrap(),
                         component: ComponentId::parse("riso.status_bar").unwrap(),
                         extension: "riso".into(),
+                        props: Props::new(),
                     },
                     &window_id,
                     SlotName::parse("status_bar").unwrap(),
@@ -1647,7 +1651,7 @@ fn run_op(
                 }
             }
         }
-        Applied::Moved | Applied::SetHidden(_) => {}
+        Applied::Moved | Applied::SetHidden(_) | Applied::PropsSet => {}
     }
     {
         let registry = cx.default_global::<Registry>();
@@ -1783,6 +1787,7 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             }
             true
         }
+        Operation::SetProps { .. } => false,
     }
 }
 
@@ -1846,6 +1851,7 @@ fn shell_rule_error(
             }
             Ok(())
         }
+        Operation::SetProps { .. } => Err("unknown operation"),
     }
 }
 
@@ -1906,6 +1912,7 @@ impl Extension {
                         id,
                         component,
                         extension,
+                        props: Props::new(),
                     },
                     parent,
                     slot,
@@ -2183,6 +2190,7 @@ impl Extension {
                     id: id.clone(),
                     component,
                     extension: self.name.clone(),
+                    props: Props::new(),
                 },
                 &body,
                 children,
@@ -2255,6 +2263,7 @@ impl Extension {
                     id,
                     component,
                     extension: self.name.clone(),
+                    props: Props::new(),
                 },
                 &parent,
                 slot,
@@ -2557,6 +2566,7 @@ fn restore(cx: &mut App) {
                 node,
                 hidden: false,
             } => ("show", node.clone()),
+            Operation::SetProps { node, .. } => ("props", node.clone()),
         };
         let extension = match &operation {
             Operation::Add { node, .. } => node.extension.as_str(),

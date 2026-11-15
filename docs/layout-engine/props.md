@@ -118,7 +118,7 @@ Decoding checks that `props` is a JSON object. A file whose `props` is not an ob
 
 ## Test extension: `examples/layout_tour`
 
-A new case, `props`. Its card `layout_tour.tinted` takes props `title` (text, default `Untitled`) and `tint` (one of `default`, `accent`, `success`, `warning`, `error`; default `default`). It shows its title in a headline, colored by its tint through the palette. The default layout is the controls, then a row with `alpha` (`title: Alpha`, `tint: accent`), `beta` (no props), and `broken` (`title: Broken`, `tint: 42`).
+A new case, `props`. Its card `layout_tour.tinted` takes props `title` (text, default `Untitled`) and `tint` (one of `default`, `accent`, `success`, `warning`, `error`; default `default`). It shows its title in a large label, colored by its tint through `TextColor`. The default layout is the controls, then a row with `alpha` (`title: Alpha`, `tint: accent`), `beta` (no props), and `broken` (`title: Broken`, `tint: 42`).
 
 | Command and action | What to look for |
 |---|---|

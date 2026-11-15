@@ -1449,6 +1449,24 @@ impl Render for Tabs {
                 } else {
                     tab
                 };
+                let required = {
+                    let registry = cx.global::<Registry>();
+                    let layers = registry.tree.borrow();
+                    node_of(layers.current(), node)
+                        .is_some_and(|node| registry.required.contains(&node.component))
+                };
+                let tab = if required {
+                    tab
+                } else {
+                    let node = node.clone();
+                    tab.on_close(move |_, cx| {
+                        tracing::debug!(node = %node, "tab close");
+                        Extension {
+                            name: "riso".into(),
+                        }
+                        .remove(cx, node.as_str());
+                    })
+                };
                 tab.selected(Some(node) == self.selected.as_ref())
                     .on_click(move |_, cx| {
                         let _ = entity.update(cx, |tabs, cx| tabs.select(click_node.clone(), cx));

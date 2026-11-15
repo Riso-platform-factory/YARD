@@ -198,6 +198,18 @@ The component `layout_tour.editor`, a card, is declared required. The case place
 | Click `hide notes`, then `hide side` | Both are hidden. |
 | Click `move editor to root` | `editor` moves to the end of the row; `main` stays, empty, until feature 23 gives empty nodes no room. |
 
+### Feature 16: slot-count
+
+The card `layout_tour.frame` has a slot `content` for one, shown under a small header. The case places the controls, then a row with `frame` (holding `first`) and `loose`, and tries at startup to place `extra` in `frame.content` too. Use a fresh home: `RISO_HOME=/tmp/riso-slot-count`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-slot-count LAYOUT_TOUR=slot-count cargo run dev` | `frame` showing `first`, and `loose`; no `extra`. `slot-declare{component=layout_tour.frame, slot=content}`, and an `INFO` in `node-place{node=extra}`: `frame.content holds one node, and already holds first`. |
+| Click `add second to frame` | Refused with the `INFO`. |
+| Click `move loose into frame` | Refused with the `INFO`. |
+| Click `move first to root` | `first` leaves the frame, which is now empty. |
+| Click `move loose into frame` | `loose` is in the frame. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

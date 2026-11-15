@@ -31,7 +31,10 @@
 //! `LAYOUT_TOUR=props cargo run dev`: configure cards with props, change them, and reset.
 //! `LAYOUT_TOUR=titles cargo run dev`: show tab titles and icons, rename a card, and reset.
 //! `LAYOUT_TOUR=required cargo run dev`: a required editor cannot be hidden or removed, only moved.
+//! `LAYOUT_TOUR=slot-count cargo run dev`: a frame whose content slot holds one node.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
+
+#![cfg(feature = "dev")]
 
 #[cfg(test)]
 mod tests;
@@ -40,7 +43,7 @@ use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
-use riso_shell as shell;
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -50,6 +53,51 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "slot-count" => {
+            register_card(cx, ext);
+            ext.register(
+                cx,
+                "layout_tour.frame",
+                &["content"],
+                |node, slots, _, cx| {
+                    cx.new(|_| Frame {
+                        node: node.to_string(),
+                        slots,
+                    })
+                    .into()
+                },
+            );
+            ext.slot_for_one(cx, "layout_tour.frame", "content");
+            let buttons = vec![
+                Button::action("add second to frame", |ext, window, cx| {
+                    ext.add(window, cx, "second", "layout_tour.card", "frame", "content");
+                }),
+                Button::action("move loose into frame", |ext, _, cx| {
+                    ext.move_node(cx, "loose", "frame", "content", usize::MAX);
+                }),
+                Button::action("move first to root", |ext, _, cx| {
+                    ext.move_node(cx, "first", "root", "children", usize::MAX);
+                }),
+                Button::action("reset layout", |ext, window, cx| {
+                    ext.reset_layout(window, cx);
+                }),
+            ];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "layout", "riso.column");
+            ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
+            ext.place(cx, "root", "riso.row", "layout", "children");
+            ext.place(cx, "frame", "layout_tour.frame", "root", "children");
+            ext.place(cx, "first", "layout_tour.card", "frame", "content");
+            ext.place(cx, "loose", "layout_tour.card", "root", "children");
+            ext.place(cx, "extra", "layout_tour.card", "frame", "content");
+        }
         "required" => {
             register_card(cx, ext);
             register_card_as(cx, ext, "layout_tour.editor");
@@ -396,7 +444,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required"
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, actions, props, required, slot-count"
         ),
     }
 }
@@ -552,6 +600,30 @@ impl Render for TintedCard {
                     .color(self.props.tint.text_color()),
             )
             .child(riso_ui::Label::new(self.node.clone()).color(riso_ui::TextColor::Muted))
+    }
+}
+
+struct Frame {
+    node: String,
+    slots: shell::Slots,
+}
+
+impl Render for Frame {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        riso_ui::v_flex()
+            .size_full()
+            .min_h_0()
+            .child(
+                riso_ui::Label::new(self.node.clone())
+                    .size(riso_ui::LabelSize::Small)
+                    .color(riso_ui::TextColor::Muted),
+            )
+            .children(
+                self.slots
+                    .views("content")
+                    .into_iter()
+                    .map(|view| div().flex_1().min_h_0().w_full().child(view)),
+            )
     }
 }
 

@@ -31,8 +31,6 @@
 //! `LAYOUT_TOUR=props cargo run dev`: configure cards with props, change them, and reset.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -42,7 +40,7 @@ use gpui::{
 };
 use std::rc::Rc;
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -109,16 +107,16 @@ pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
             register_card(cx, ext);
             let mut buttons = vec![
                 Button::action("zoom", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::dev::ToggleZoom), cx);
+                    window.dispatch_action(Box::new(riso_shell::ToggleZoom), cx);
                 }),
                 Button::action("hide", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::dev::Hide), cx);
+                    window.dispatch_action(Box::new(riso_shell::Hide), cx);
                 }),
                 Button::action("next tab", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::dev::SelectNextTab), cx);
+                    window.dispatch_action(Box::new(riso_shell::SelectNextTab), cx);
                 }),
                 Button::action("previous tab", |_, window, cx| {
-                    window.dispatch_action(Box::new(riso_shell::dev::SelectPreviousTab), cx);
+                    window.dispatch_action(Box::new(riso_shell::SelectPreviousTab), cx);
                 }),
             ];
             for button in &mut buttons {
@@ -318,7 +316,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
     }
 }
 
-fn register_card(cx: &mut App, ext: &riso_shell::dev::Extension) {
+fn register_card(cx: &mut App, ext: &riso_shell::Extension) {
     let ext_for_factory = ext.clone();
     ext.register(
         cx,
@@ -334,7 +332,7 @@ fn register_card(cx: &mut App, ext: &riso_shell::dev::Extension) {
             let ext = ext_for_factory.clone();
             cx.subscribe(&card, move |card, _: &ToggleZoom, cx| {
                 let node = card.read(cx).node.clone();
-                if riso_shell::dev::zoomed(cx).as_deref() == Some(node.as_str()) {
+                if riso_shell::zoomed(cx).as_deref() == Some(node.as_str()) {
                     ext.zoom_out(cx);
                 } else {
                     ext.set_zoomed(cx, &node);
@@ -413,7 +411,7 @@ struct TintedCard {
     props: TintedProps,
 }
 
-impl riso_shell::dev::PropsView<TintedProps> for TintedCard {
+impl riso_shell::PropsView<TintedProps> for TintedCard {
     fn set_props(&mut self, props: TintedProps, _: &mut Context<Self>) {
         self.props = props;
     }
@@ -453,7 +451,7 @@ struct Card {
     node: String,
     size: Size<Pixels>,
     count: usize,
-    slots: riso_shell::dev::Slots,
+    slots: riso_shell::Slots,
 }
 
 struct ToggleZoom;
@@ -497,8 +495,8 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = riso_ui::palette(cx);
         let entity = cx.entity().downgrade();
-        let zoomed = riso_shell::dev::zoomed(cx).as_deref() == Some(self.node.as_str());
-        let focus = riso_shell::dev::focus_handle(cx, &self.node).and_then(|handle| {
+        let zoomed = riso_shell::zoomed(cx).as_deref() == Some(self.node.as_str());
+        let focus = riso_shell::focus_handle(cx, &self.node).and_then(|handle| {
             if handle.is_focused(window) {
                 Some("focused")
             } else if handle.contains_focused(window, cx) {
@@ -575,7 +573,7 @@ impl Render for Card {
 }
 
 type Label = Rc<dyn Fn(&App) -> String>;
-type Action = Rc<dyn Fn(&riso_shell::dev::Extension, &mut Window, &mut App)>;
+type Action = Rc<dyn Fn(&riso_shell::Extension, &mut Window, &mut App)>;
 
 #[derive(Clone)]
 struct Button {
@@ -587,7 +585,7 @@ struct Button {
 impl Button {
     fn action(
         label: &'static str,
-        action: impl Fn(&riso_shell::dev::Extension, &mut Window, &mut App) + 'static,
+        action: impl Fn(&riso_shell::Extension, &mut Window, &mut App) + 'static,
     ) -> Self {
         Self {
             label: Rc::new(move |_| label.into()),
@@ -599,7 +597,7 @@ impl Button {
     fn visibility(node: &'static str) -> Self {
         Self {
             label: Rc::new(move |cx| {
-                let verb = if riso_shell::dev::is_hidden(cx, node) {
+                let verb = if riso_shell::is_hidden(cx, node) {
                     "show"
                 } else {
                     "hide"
@@ -607,7 +605,7 @@ impl Button {
                 format!("{verb} {node}")
             }),
             action: Rc::new(move |ext, _, cx| {
-                let hidden = riso_shell::dev::is_hidden(cx, node);
+                let hidden = riso_shell::is_hidden(cx, node);
                 ext.set_hidden(cx, node, !hidden);
             }),
             preserve_focus: false,
@@ -617,7 +615,7 @@ impl Button {
 
 struct Controls {
     buttons: Vec<Button>,
-    ext: riso_shell::dev::Extension,
+    ext: riso_shell::Extension,
 }
 
 impl Render for Controls {
@@ -634,13 +632,8 @@ impl Render for Controls {
             .bg(palette.background)
             .child(
                 div()
-                    .debug_selector(|| {
-                        format!("USER-LAYER-{}", riso_shell::dev::user_layer_len(cx))
-                    })
-                    .child(format!(
-                        "user layer: {}",
-                        riso_shell::dev::user_layer_len(cx)
-                    )),
+                    .debug_selector(|| format!("USER-LAYER-{}", riso_shell::user_layer_len(cx)))
+                    .child(format!("user layer: {}", riso_shell::user_layer_len(cx))),
             )
             .children(self.buttons.iter().enumerate().map(|(index, button)| {
                 let label = (button.label)(cx);

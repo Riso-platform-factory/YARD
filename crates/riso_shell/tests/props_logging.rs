@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{IntoElement, TestAppContext, px};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use serde_json::json;
 use std::{
     cell::RefCell,

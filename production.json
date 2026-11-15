@@ -16,7 +16,7 @@
     "files": {
       "app/riso/src/startup.rs": "d3bedfed57bbd7c6"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-15"
   },
   "riso_keymap/keymap_reload": {
     "files": {
@@ -126,7 +126,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "9091e4e9fb838a1f"
+      "crates/riso_shell/src/shell.rs": "a45a7dfb6d613bc4"
     },
     "promoted": "2026-11-15"
   },

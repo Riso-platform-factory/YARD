@@ -1,8 +1,6 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, ParentElement, Styled, TestAppContext, px};
 use riso_layout::{NodeId, Operation, Props, decode};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use serde_json::json;
 use std::{
     cell::RefCell,

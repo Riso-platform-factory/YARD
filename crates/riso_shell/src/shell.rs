@@ -33,8 +33,14 @@ use std::{
     rc::Rc,
 };
 
+/// A component view that can be told updated props.
+pub trait PropsView<P>: Render {
+    fn set_props(&mut self, props: P, cx: &mut Context<Self>);
+}
+
 type ActionHandler = Rc<dyn Fn(Div) -> Div>;
-type Factory = Rc<dyn Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView>;
+type Factory = Rc<dyn Fn(&Node, Slots, &mut Window, &mut App) -> AnyView>;
+type Teller = Rc<dyn Fn(&Props, &mut App)>;
 type ViewMap = BTreeMap<NodeId, AnyView>;
 
 const FRAME_NODES: &[&str] = &["window", "title_bar", "body", "status_bar"];
@@ -367,6 +373,7 @@ struct Registry {
     action_handlers: Vec<ActionHandler>,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
+    tellers: BTreeMap<NodeId, Teller>,
     focus_handles: BTreeMap<NodeId, FocusHandle>,
     bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     root_focus_handle: Option<FocusHandle>,
@@ -394,7 +401,7 @@ impl Default for Registry {
                     slots: vec![SlotName::parse("children").unwrap()],
                     create: Rc::new(move |node, slots, _, cx| {
                         let split = cx.new(|_| Split {
-                            node: node.clone(),
+                            node: node.id.clone(),
                             axis,
                             slots,
                             shares: BTreeMap::new(),
@@ -418,7 +425,7 @@ impl Default for Registry {
                 slots: vec![SlotName::parse("children").unwrap()],
                 create: Rc::new(|node, slots, _, cx| {
                     let tabs = cx.new(|_| Tabs {
-                        node: node.clone(),
+                        node: node.id.clone(),
                         slots,
                         selected: None,
                         bar_bounds: None,
@@ -449,7 +456,7 @@ impl Default for Registry {
                 ],
                 create: Rc::new(|node, slots, _, cx| {
                     cx.new(|_| TitleBarFrame {
-                        node: node.clone(),
+                        node: node.id.clone(),
                         slots,
                     })
                     .into()
@@ -472,7 +479,7 @@ impl Default for Registry {
                 ],
                 create: Rc::new(|node, slots, _, cx| {
                     cx.new(|_| StatusBarFrame {
-                        node: node.clone(),
+                        node: node.id.clone(),
                         slots,
                     })
                     .into()
@@ -561,6 +568,7 @@ impl Default for Registry {
             action_handlers: Vec::new(),
             tree: Rc::new(RefCell::new(Layers::new(tree))),
             views: Rc::new(RefCell::new(BTreeMap::new())),
+            tellers: BTreeMap::new(),
             focus_handles: BTreeMap::new(),
             bounds: BTreeMap::new(),
             root_focus_handle: None,
@@ -1566,16 +1574,85 @@ fn is_shown(tree: &Tree, node: &NodeId) -> bool {
     tree.root().is_some_and(|root| find(tree, &root.id, node))
 }
 
-fn component_of<'a>(tree: &'a Tree, id: &NodeId) -> Option<&'a ComponentId> {
-    fn find<'a>(tree: &'a Tree, node: &'a Node, id: &NodeId) -> Option<&'a ComponentId> {
+fn node_of<'a>(tree: &'a Tree, id: &NodeId) -> Option<&'a Node> {
+    fn find<'a>(tree: &'a Tree, node: &'a Node, id: &NodeId) -> Option<&'a Node> {
         if &node.id == id {
-            return Some(&node.component);
+            return Some(node);
         }
         tree.slots(&node.id)
             .flat_map(|(_, children)| children)
             .find_map(|child| find(tree, child, id))
     }
     find(tree, tree.root()?, id)
+}
+
+fn component_of<'a>(tree: &'a Tree, id: &NodeId) -> Option<&'a ComponentId> {
+    node_of(tree, id).map(|node| &node.component)
+}
+
+fn collect_nodes(tree: &Tree, node: &Node, out: &mut Vec<Node>) {
+    out.push(node.clone());
+    for (_, children) in tree.slots(&node.id) {
+        for child in children {
+            collect_nodes(tree, child, out);
+        }
+    }
+}
+
+fn encode_props(props: impl serde::Serialize) -> Result<Props, String> {
+    match serde_json::to_value(props) {
+        Ok(serde_json::Value::Object(map)) => Ok(map),
+        Ok(_) => Err("props must encode as a JSON object".into()),
+        Err(error) => Err(format!("props cannot be encoded as JSON: {error}")),
+    }
+}
+
+fn read_props<P>(node: &NodeId, component: &ComponentId, props: &Props) -> P
+where
+    P: serde::Serialize + serde::de::DeserializeOwned + Default,
+{
+    let _group = tracing::info_span!(
+        "props-read",
+        node = node.as_str(),
+        component = component.as_str(),
+    )
+    .entered();
+    let default = P::default();
+    let default_map = match serde_json::to_value(&default) {
+        Ok(serde_json::Value::Object(map)) => map,
+        Ok(_) => {
+            log::error!("default props of component {component} did not encode as a JSON object");
+            return default;
+        }
+        Err(error) => {
+            log::error!("default props of component {component} cannot be encoded: {error}");
+            return default;
+        }
+    };
+    let mut merged = default_map.clone();
+    let mut accepted = Vec::new();
+    for (key, value) in props {
+        if !default_map.contains_key(key) {
+            log::warn!("node {node} has an unknown prop {key}");
+            continue;
+        }
+        let mut candidate = default_map.clone();
+        candidate.insert(key.clone(), value.clone());
+        match serde_json::from_value::<P>(serde_json::Value::Object(candidate)) {
+            Ok(_) => {
+                merged.insert(key.clone(), value.clone());
+                accepted.push(key.as_str());
+            }
+            Err(error) => {
+                log::warn!(
+                    "prop {key} of node {node} cannot be read: {error}; the default is used"
+                );
+            }
+        }
+    }
+    let keys = accepted.join(",");
+    tracing::debug!(keys, "props read");
+    serde_json::from_value::<P>(serde_json::Value::Object(merged)).unwrap_or(default)
 }
 
 fn reconcile_containers(cx: &mut App) {
@@ -1609,6 +1686,7 @@ fn run_op(
             return;
         }
     };
+    let target_node = node_id.clone();
     let operation = match build(extension.to_string(), node_id) {
         Ok(operation) => operation,
         Err(message) => {
@@ -1643,6 +1721,7 @@ fn run_op(
                     let registry = cx.default_global::<Registry>();
                     registry.focus_handles.remove(&id);
                     registry.bounds.remove(&id);
+                    registry.tellers.remove(&id);
                     registry.views.borrow_mut().remove(&id)
                 };
                 if dropped.is_some() {
@@ -1651,7 +1730,21 @@ fn run_op(
                 }
             }
         }
-        Applied::Moved | Applied::SetHidden(_) | Applied::PropsSet => {}
+        Applied::PropsSet => {
+            let tell = {
+                let registry = cx.default_global::<Registry>();
+                let teller = registry.tellers.get(&target_node).cloned();
+                let props = teller.as_ref().and_then(|_| {
+                    let layers = registry.tree.borrow();
+                    node_of(layers.current(), &target_node).map(|node| node.props.clone())
+                });
+                teller.zip(props)
+            };
+            if let Some((teller, props)) = tell {
+                teller(&props, cx);
+            }
+        }
+        Applied::Moved | Applied::SetHidden(_) => {}
     }
     {
         let registry = cx.default_global::<Registry>();
@@ -1787,7 +1880,13 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
             }
             true
         }
-        Operation::SetProps { .. } => false,
+        Operation::SetProps { node, .. } => {
+            if is_frame_node(node) {
+                tracing::info!(node = %node, "the window's frame belongs to the shell");
+                return false;
+            }
+            true
+        }
     }
 }
 
@@ -1851,7 +1950,12 @@ fn shell_rule_error(
             }
             Ok(())
         }
-        Operation::SetProps { .. } => Err("unknown operation"),
+        Operation::SetProps { node, .. } => {
+            if is_frame_node(node) {
+                return Err("the window's frame belongs to the shell");
+            }
+            Ok(())
+        }
     }
 }
 
@@ -1894,6 +1998,43 @@ impl Extension {
         parent: &str,
         slot: &str,
     ) {
+        self.add_internal(window, cx, node, component, parent, slot, Ok(Props::new()));
+    }
+
+    /// Adds a new node with props at the end of a parent's declared slot and creates its view.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_with_props(
+        &self,
+        window: &mut Window,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        props: impl serde::Serialize,
+    ) {
+        self.add_internal(
+            window,
+            cx,
+            node,
+            component,
+            parent,
+            slot,
+            encode_props(props),
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn add_internal(
+        &self,
+        window: &mut Window,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        props: Result<Props, String>,
+    ) {
         run_op(
             &self.name,
             Some(window),
@@ -1901,6 +2042,7 @@ impl Extension {
             "add",
             node,
             |extension, id| {
+                let props = props?;
                 let component = ComponentId::parse(component)
                     .map_err(|error| format!("invalid component ID {component:?}: {error}"))?;
                 let parent = NodeId::parse(parent)
@@ -1912,13 +2054,24 @@ impl Extension {
                         id,
                         component,
                         extension,
-                        props: Props::new(),
+                        props,
                     },
                     parent,
                     slot,
                 })
             },
         );
+    }
+
+    /// Sets or clears keys on any node's props and tells its view.
+    pub fn set_props(&self, cx: &mut App, node: &str, props: impl serde::Serialize) {
+        let props = encode_props(props);
+        run_op(&self.name, None, cx, "props", node, |_, node| {
+            Ok(Operation::SetProps {
+                node,
+                props: props?,
+            })
+        });
     }
 
     /// Removes a non-root node and its subtree, dropping their views.
@@ -2014,22 +2167,31 @@ impl Extension {
     /// Drops runtime operations and reconciles the default tree and view state.
     pub fn reset_layout(&self, window: &mut Window, cx: &mut App) {
         let _group = tracing::info_span!("layout-reset", extension = self.name.as_str()).entered();
-        let added: BTreeSet<_> = {
+        let (added, before_props) = {
             let registry = cx.default_global::<Registry>();
             let layers = registry.tree.borrow();
-            layers
+            let added: BTreeSet<_> = layers
                 .user_layer()
                 .iter()
                 .filter_map(|op| match op {
                     Operation::Add { node, .. } => Some(node.id.clone()),
                     _ => None,
                 })
-                .collect()
+                .collect();
+            let mut before = Vec::new();
+            if let Some(root) = layers.current().root() {
+                collect_nodes(layers.current(), root, &mut before);
+            }
+            let before_props: BTreeMap<NodeId, Props> = before
+                .into_iter()
+                .map(|node| (node.id, node.props))
+                .collect();
+            (added, before_props)
         };
         if cx.default_global::<Registry>().tree.borrow_mut().reset() == 0 {
             return;
         }
-        let root = {
+        let (root, kept) = {
             let registry = cx.default_global::<Registry>();
             let layers = registry.tree.borrow();
             let tree = layers.current();
@@ -2043,14 +2205,41 @@ impl Extension {
             for id in removed {
                 registry.focus_handles.remove(&id);
                 registry.bounds.remove(&id);
+                registry.tellers.remove(&id);
                 let dropped = registry.views.borrow_mut().remove(&id);
                 drop(dropped);
                 tracing::debug!(node = %id, "view dropped");
             }
-            tree.root().cloned()
+            let kept: BTreeSet<_> = registry.views.borrow().keys().cloned().collect();
+            (tree.root().cloned(), kept)
         };
         if let Some(root) = root {
             let _ = create_view(&root, None, window, cx);
+        }
+        let to_tell: Vec<(Teller, Props)> = {
+            let registry = cx.default_global::<Registry>();
+            let layers = registry.tree.borrow();
+            let tree = layers.current();
+            let mut after = Vec::new();
+            if let Some(root) = tree.root() {
+                collect_nodes(tree, root, &mut after);
+            }
+            after
+                .into_iter()
+                .filter(|node| {
+                    kept.contains(&node.id) && before_props.get(&node.id) != Some(&node.props)
+                })
+                .filter_map(|node| {
+                    registry
+                        .tellers
+                        .get(&node.id)
+                        .cloned()
+                        .map(|teller| (teller, node.props.clone()))
+                })
+                .collect()
+        };
+        for (teller, props) in to_tell {
+            teller(&props, cx);
         }
         let (splits, tabs) = {
             let registry = cx.default_global::<Registry>();
@@ -2086,6 +2275,56 @@ impl Extension {
         slots: &[&str],
         create: impl Fn(&NodeId, Slots, &mut Window, &mut App) -> AnyView + 'static,
     ) {
+        self.register_factory(
+            cx,
+            component,
+            slots,
+            Rc::new(move |node, slots, window, cx| create(&node.id, slots, window, cx)),
+        );
+    }
+
+    /// Registers a component whose view is created from and told typed props.
+    pub fn register_with_props<P, V>(
+        &self,
+        cx: &mut App,
+        component: &str,
+        slots: &[&str],
+        create: impl Fn(P, &NodeId, Slots, &mut Window, &mut Context<V>) -> V + 'static,
+    ) where
+        P: serde::Serialize + serde::de::DeserializeOwned + Default + 'static,
+        V: PropsView<P> + 'static,
+    {
+        self.register_factory(
+            cx,
+            component,
+            slots,
+            Rc::new(move |node, slots, window, cx| {
+                let parsed = read_props::<P>(&node.id, &node.component, &node.props);
+                let node_id = node.id.clone();
+                let entity = cx.new(|cx| create(parsed, &node_id, slots, window, cx));
+                let weak = entity.downgrade();
+                let tell_node = node.id.clone();
+                let tell_component = node.component.clone();
+                let teller: Teller = Rc::new(move |props, cx| {
+                    let Some(entity) = weak.upgrade() else {
+                        return;
+                    };
+                    let parsed = read_props::<P>(&tell_node, &tell_component, props);
+                    entity.update(cx, |view, cx| {
+                        view.set_props(parsed, cx);
+                        cx.notify();
+                    });
+                    tracing::debug!(node = %tell_node, "view told");
+                });
+                cx.default_global::<Registry>()
+                    .tellers
+                    .insert(node.id.clone(), teller);
+                entity.into()
+            }),
+        );
+    }
+
+    fn register_factory(&self, cx: &mut App, component: &str, slots: &[&str], create: Factory) {
         let _group =
             tracing::info_span!("component-register", component, slots = slots.join(",")).entered();
         let component = match ComponentId::parse(component) {
@@ -2121,7 +2360,7 @@ impl Extension {
             Entry::Vacant(entry) => {
                 entry.insert(Component {
                     slots: names,
-                    create: Rc::new(create),
+                    create,
                 });
                 tracing::debug!("registered");
             }
@@ -2133,11 +2372,39 @@ impl Extension {
 
     /// Places a valid root, whether or not its component is registered yet.
     pub fn place_root(&self, cx: &mut App, node: &str, component: &str) {
+        self.place_root_internal(cx, node, component, Ok(Props::new()));
+    }
+
+    /// Places a valid root with props, whether or not its component is registered yet.
+    pub fn place_root_with_props(
+        &self,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        props: impl serde::Serialize,
+    ) {
+        self.place_root_internal(cx, node, component, encode_props(props));
+    }
+
+    fn place_root_internal(
+        &self,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        props: Result<Props, String>,
+    ) {
         let _group = tracing::info_span!("root-place", node, component).entered();
         if cx.default_global::<Registry>().default_fixed {
             tracing::info!("the window is open; add the node with add");
             return;
         }
+        let props = match props {
+            Ok(props) => props,
+            Err(message) => {
+                log::error!("{message}");
+                return;
+            }
+        };
         let id = match NodeId::parse(node) {
             Ok(id) => id,
             Err(error) => {
@@ -2190,7 +2457,7 @@ impl Extension {
                     id: id.clone(),
                     component,
                     extension: self.name.clone(),
-                    props: Props::new(),
+                    props,
                 },
                 &body,
                 children,
@@ -2202,11 +2469,43 @@ impl Extension {
 
     /// Places a node under an already placed parent.
     pub fn place(&self, cx: &mut App, node: &str, component: &str, parent: &str, slot: &str) {
+        self.place_internal(cx, node, component, parent, slot, Ok(Props::new()));
+    }
+
+    /// Places a node with props under an already placed parent.
+    pub fn place_with_props(
+        &self,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        props: impl serde::Serialize,
+    ) {
+        self.place_internal(cx, node, component, parent, slot, encode_props(props));
+    }
+
+    fn place_internal(
+        &self,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        props: Result<Props, String>,
+    ) {
         let _group = tracing::info_span!("node-place", node, component, parent, slot).entered();
         if cx.default_global::<Registry>().default_fixed {
             tracing::info!("the window is open; add the node with add");
             return;
         }
+        let props = match props {
+            Ok(props) => props,
+            Err(message) => {
+                log::error!("{message}");
+                return;
+            }
+        };
         let id = match NodeId::parse(node) {
             Ok(id) => id,
             Err(error) => {
@@ -2263,7 +2562,7 @@ impl Extension {
                     id,
                     component,
                     extension: self.name.clone(),
-                    props: Props::new(),
+                    props,
                 },
                 &parent,
                 slot,
@@ -2665,7 +2964,7 @@ fn create_view(
                 .insert(node.id.clone(), handle.clone());
             handle
         });
-        let view = (component.create)(&node.id, slots.clone(), window, cx);
+        let view = (component.create)(node, slots.clone(), window, cx);
         let wrapped: AnyView = cx
             .new(|_| NodeView {
                 node: node.id.clone(),

@@ -46,10 +46,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -407,7 +404,6 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place(cx, "side", "layout_tour.card", "row", "children");
             ext.place(cx, "main", "layout_tour.card", "row", "children");
         }
-        #[cfg(feature = "dev")]
         "component-sizes" => {
             register_card(cx, ext);
             register_card_as(cx, ext, "layout_tour.wide");
@@ -615,18 +611,12 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             });
             ext.place_root(cx, "root", "Layout Tour.Card");
         }
-        _ => {
-            #[cfg(feature = "dev")]
-            let dev_cases = ", component-sizes";
-            #[cfg(not(feature = "dev"))]
-            let dev_cases = "";
-            log::warn!(
-                "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
+        _ => log::warn!(
+            "unknown LAYOUT_TOUR case {case:?}; known cases: titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
-             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes{dev_cases}, actions, props, required, slot-count, placement-order, contexts"
-            )
-        }
+             tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts"
+        ),
     }
 }
 

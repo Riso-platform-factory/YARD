@@ -17,10 +17,10 @@ gpui::actions!(
 gpui::actions!(riso, [Dismiss]);
 gpui::actions!(riso, [Quit]);
 use gpui::{
-    Action, AnyEntity, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div,
+    Action, Along, AnyEntity, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div,
     DragMoveEvent, Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement,
-    KeyBinding, KeyBindingContextPredicate, ParentElement, Pixels, Point, Render, SharedString,
-    Styled, Subscription, WeakEntity, Window, canvas, div,
+    KeyBinding, KeyBindingContextPredicate, ParentElement, Pixels, Point, Rems, Render,
+    SharedString, Size, Styled, Subscription, WeakEntity, Window, canvas, div,
 };
 use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Position, Props, SlotName, Tree};
@@ -39,6 +39,14 @@ use std::{
 pub struct Placement {
     pub props: serde_json::Value,
     pub at: Position,
+}
+
+/// The sizes a component declares, in rems: the smallest it may be made, and
+/// optionally the size it starts at along a split.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SizeHints {
+    pub min: Size<Rems>,
+    pub preferred: Size<Option<Rems>>,
 }
 
 /// A component view that can be told updated props.
@@ -422,6 +430,7 @@ struct Registry {
     layout_file: Option<PathBuf>,
     views_created: bool,
     default_fixed: bool,
+    size_hints: BTreeMap<ComponentId, SizeHints>,
 }
 
 impl Default for Registry {
@@ -438,6 +447,7 @@ impl Default for Registry {
                     slots: vec![SlotName::parse("children").unwrap()],
                     create: Rc::new(move |node, slots, _, cx| {
                         let (shares, sizes) = read_sizes(&node.id, &node.component, &node.props);
+                        let rem_size = riso_ui::ui_font_size(cx);
                         let split = cx.new(|_| Split {
                             node: node.id.clone(),
                             axis,
@@ -446,6 +456,8 @@ impl Default for Registry {
                             sizes,
                             shown_nodes: Vec::new(),
                             shown_shares: Rc::new(RefCell::new(Vec::new())),
+                            shown_given: Vec::new(),
+                            rem_size,
                             edges: BTreeMap::new(),
                             child_bounds: BTreeMap::new(),
                         });
@@ -460,7 +472,7 @@ impl Default for Registry {
                             };
                             let (shares, sizes) = read_sizes(&tell_node, &tell_component, props);
                             split.update(cx, |split, cx| {
-                                split.set_sizes(shares, sizes);
+                                split.set_sizes(shares, sizes, cx);
                                 cx.notify();
                             });
                             tracing::debug!(node = %tell_node, "view told");
@@ -641,6 +653,7 @@ impl Default for Registry {
             layout_file: None,
             views_created: false,
             default_fixed: false,
+            size_hints: BTreeMap::new(),
         }
     }
 }
@@ -856,7 +869,13 @@ fn read_sizes(
 }
 
 /// Records the end of a resize as one set-props on the split, as the shell.
-fn record_resize(split: &NodeId, shown: &[NodeId], resized: riso_ui::Resized, cx: &mut App) {
+fn record_resize(
+    split: &NodeId,
+    shown: &[NodeId],
+    preferred: &[Option<Pixels>],
+    resized: riso_ui::Resized,
+    cx: &mut App,
+) {
     let props = match resized {
         riso_ui::Resized::Reset => serde_json::json!({"shares": null}),
         riso_ui::Resized::Dragged(sizes) => {
@@ -875,10 +894,16 @@ fn record_resize(split: &NodeId, shown: &[NodeId], resized: riso_ui::Resized, cx
                     .cloned()
                     .unwrap_or_default();
                 let before = entries.clone();
-                for (child, size) in shown.iter().zip(&sizes) {
+                for ((child, size), preferred) in shown.iter().zip(&sizes).zip(preferred) {
                     let value = match (key, size) {
                         ("shares", riso_ui::AxisSize::Flex(share)) => Some(*share),
-                        ("sizes", riso_ui::AxisSize::Fixed(pixels)) => Some(f32::from(*pixels)),
+                        // A child still at its preferred size keeps no entry,
+                        // so that it follows the UI font.
+                        ("sizes", riso_ui::AxisSize::Fixed(pixels))
+                            if Some(*pixels) != *preferred =>
+                        {
+                            Some(f32::from(*pixels))
+                        }
                         _ => None,
                     };
                     if let Some(value) = value {
@@ -902,12 +927,83 @@ fn record_resize(split: &NodeId, shown: &[NodeId], resized: riso_ui::Resized, cx
     });
 }
 
+/// The minimum of a component without size hints: 5 rems across and 6.25
+/// rems down.
+const DEFAULT_MINIMUM: Size<Rems> = Size {
+    width: Rems(5.),
+    height: Rems(6.25),
+};
+
+/// The smallest size of a node, in pixels at `rem_size`: for a split or a
+/// tabs container with shown children, what those children need; for any
+/// other node, its own `min` hint or the default. Only the shell's own
+/// components are containers, and an extension cannot give hints to them.
+fn node_minimum(
+    registry: &Registry,
+    tree: &Tree,
+    views: &ViewMap,
+    node: &NodeId,
+    rem_size: Pixels,
+    cx: &App,
+) -> Size<Pixels> {
+    let to_pixels = |size: Size<Rems>| size.map(|rems| rems.to_pixels(rem_size));
+    let component = component_of(tree, node).map(ComponentId::as_str);
+    let leaf = || {
+        component_of(tree, node)
+            .and_then(|component| registry.size_hints.get(component))
+            .map_or(to_pixels(DEFAULT_MINIMUM), |hints| to_pixels(hints.min))
+    };
+    if !matches!(component, Some("riso.row" | "riso.column" | "riso.tabs")) {
+        return leaf();
+    }
+    // Each shown child's minimum, computed once.
+    let children: Vec<Size<Pixels>> = tree
+        .slots(node)
+        .find(|(name, _)| name.as_str() == "children")
+        .map(|(_, children)| {
+            children
+                .iter()
+                .filter(|child| !tree.is_hidden(&child.id) && views.contains_key(&child.id))
+                .map(|child| node_minimum(registry, tree, views, &child.id, rem_size, cx))
+                .collect()
+        })
+        .unwrap_or_default();
+    if children.is_empty() {
+        return to_pixels(DEFAULT_MINIMUM);
+    }
+    let largest = children
+        .iter()
+        .fold(Size::default(), |largest: Size<Pixels>, size| {
+            largest.max(size)
+        });
+    match component {
+        Some("riso.tabs") => Size {
+            width: largest.width,
+            height: largest.height + riso_ui::tab_bar_height(cx),
+        },
+        _ => {
+            let axis = if component == Some("riso.row") {
+                Axis::Horizontal
+            } else {
+                Axis::Vertical
+            };
+            let along: Pixels = children.iter().map(|size| size.along(axis)).sum();
+            largest.apply_along(axis, |_| along)
+        }
+    }
+}
+
 struct Split {
     node: NodeId,
     shares: BTreeMap<String, f32>,
     sizes: BTreeMap<String, Pixels>,
     shown_nodes: Vec<NodeId>,
     shown_shares: Rc<RefCell<Vec<riso_ui::AxisChild>>>,
+    /// The size each shown child with no entry in the props was given: its
+    /// preferred size, or a share of 1.
+    shown_given: Vec<Option<riso_ui::AxisSize>>,
+    /// The window's rem size at the last layout.
+    rem_size: Pixels,
     edges: BTreeMap<NodeId, Edge>,
     child_bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     axis: Axis,
@@ -915,28 +1011,52 @@ struct Split {
 }
 
 impl Split {
-    fn reconcile(&mut self) {
+    fn reconcile(&mut self, cx: &App) {
         // The axis mutates this vector during mouse events. Save it against the
         // previous IDs before replacing it with the current shown children.
-        for (node, share) in self
+        let mut carried = BTreeMap::new();
+        for ((node, share), given) in self
             .shown_nodes
             .iter()
             .zip(self.shown_shares.borrow().iter())
+            .zip(&self.shown_given)
         {
-            match &share.size {
-                riso_ui::AxisSize::Flex(share) => {
+            match (given, &share.size) {
+                (None, riso_ui::AxisSize::Flex(share)) => {
                     self.shares.insert(node.to_string(), *share);
                 }
-                riso_ui::AxisSize::Fixed(size) => {
+                (None, riso_ui::AxisSize::Fixed(size)) => {
                     self.sizes.insert(node.to_string(), *size);
+                }
+                // A child with no entry keeps no entry: a drag that is
+                // changing it carries its size to the next frame, until the
+                // drag's end records it in the props.
+                (Some(given), size) => {
+                    if size != given {
+                        carried.insert(node.clone(), *size);
+                    }
                 }
             }
         }
         // Entries of children that left the split or are hidden are kept, so
         // that such a child has its share again when it is shown.
         let nodes = self.slots.nodes("children");
-        let shares = nodes.iter().map(|node| self.size_for(node)).collect();
-        if nodes != self.shown_nodes {
+        let same_nodes = nodes == self.shown_nodes;
+        let (shares, given): (Vec<_>, Vec<_>) = nodes
+            .iter()
+            .map(|node| {
+                let (mut child, given) = self.size_for(node, cx);
+                if same_nodes
+                    && given.is_some()
+                    && let Some(size) = carried.get(node)
+                {
+                    child.size = *size;
+                }
+                (child, given)
+            })
+            .unzip();
+        self.shown_given = given;
+        if !same_nodes {
             // A changed child set also ends any positional drag in the axis.
             self.shown_shares = Rc::new(RefCell::new(shares));
         } else {
@@ -947,32 +1067,49 @@ impl Split {
         self.shown_nodes = nodes;
     }
 
-    /// Chooses a fixed size before consulting the child's flexible share.
-    fn size_for(&self, node: &NodeId) -> riso_ui::AxisChild {
-        let size = self
-            .sizes
-            .get(node.as_str())
-            .copied()
-            .map(riso_ui::AxisSize::Fixed)
-            .unwrap_or_else(|| {
-                riso_ui::AxisSize::Flex(self.shares.get(node.as_str()).copied().unwrap_or(1.))
-            });
-        let min = match self.axis {
-            Axis::Horizontal => gpui::px(80.),
-            Axis::Vertical => gpui::px(100.),
+    /// Chooses a fixed size before consulting the child's flexible share,
+    /// and the child's preferred size where it has neither. Also gives the
+    /// size it chose for a child with no entry.
+    fn size_for(&self, node: &NodeId, cx: &App) -> (riso_ui::AxisChild, Option<riso_ui::AxisSize>) {
+        let registry = cx.global::<Registry>();
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let views = registry.views.borrow();
+        let preferred = component_of(tree, node)
+            .and_then(|component| registry.size_hints.get(component))
+            .and_then(|hints| match self.axis {
+                Axis::Horizontal => hints.preferred.width,
+                Axis::Vertical => hints.preferred.height,
+            })
+            .map(|preferred| preferred.to_pixels(self.rem_size));
+        let (size, given) = if let Some(size) = self.sizes.get(node.as_str()) {
+            (riso_ui::AxisSize::Fixed(*size), false)
+        } else if let Some(share) = self.shares.get(node.as_str()) {
+            (riso_ui::AxisSize::Flex(*share), false)
+        } else if let Some(preferred) = preferred {
+            (riso_ui::AxisSize::Fixed(preferred), true)
+        } else {
+            (riso_ui::AxisSize::Flex(1.), true)
         };
-        riso_ui::AxisChild { size, min }
+        let min = node_minimum(registry, tree, &views, node, self.rem_size, cx).along(self.axis);
+        (riso_ui::AxisChild { size, min }, given.then_some(size))
     }
 
-    fn set_sizes(&mut self, shares: BTreeMap<String, f32>, sizes: BTreeMap<String, Pixels>) {
+    fn set_sizes(
+        &mut self,
+        shares: BTreeMap<String, f32>,
+        sizes: BTreeMap<String, Pixels>,
+        cx: &App,
+    ) {
         self.shares = shares;
         self.sizes = sizes;
-        let shown = self
+        let (shown, given) = self
             .shown_nodes
             .iter()
-            .map(|node| self.size_for(node))
-            .collect();
+            .map(|node| self.size_for(node, cx))
+            .unzip();
         *self.shown_shares.borrow_mut() = shown;
+        self.shown_given = given;
     }
 
     fn handle_drag_move(
@@ -1009,8 +1146,9 @@ impl Split {
 }
 
 impl Render for Split {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.reconcile();
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.rem_size = window.rem_size();
+        self.reconcile(cx);
         if !cx.has_active_drag() {
             self.edges.clear();
         }
@@ -1060,6 +1198,14 @@ impl Render for Split {
             .collect();
         let split = self.node.clone();
         let shown = self.shown_nodes.clone();
+        let preferred: Vec<Option<Pixels>> = self
+            .shown_given
+            .iter()
+            .map(|given| match given {
+                Some(riso_ui::AxisSize::Fixed(preferred)) => Some(*preferred),
+                _ => None,
+            })
+            .collect();
         riso_ui::axis(
             SharedString::from(self.node.to_string()),
             self.axis,
@@ -1067,7 +1213,7 @@ impl Render for Split {
             children,
         )
         .on_resized(move |resized, _, cx| {
-            record_resize(&split, &shown, resized, cx);
+            record_resize(&split, &shown, &preferred, resized, cx);
         })
     }
 }
@@ -1910,7 +2056,7 @@ fn reconcile_containers(cx: &mut App) {
         (registry.splits.clone(), registry.tabs.clone())
     };
     for split in splits {
-        let _ = split.update(cx, |split, _| split.reconcile());
+        let _ = split.update(cx, |split, cx| split.reconcile(cx));
     }
     for tabs in tabs {
         let _ = tabs.update(cx, |tabs, _| tabs.reconcile_selection());
@@ -2780,12 +2926,13 @@ impl Extension {
         };
         for split in splits {
             // The shares stay as read from the props, which the tellers updated.
-            let _ = split.update(cx, |split, _| {
+            let _ = split.update(cx, |split, cx| {
                 split.shown_nodes.clear();
                 split.shown_shares = Rc::new(RefCell::new(Vec::new()));
+                split.shown_given.clear();
                 split.edges.clear();
                 split.child_bounds.clear();
-                split.reconcile();
+                split.reconcile(cx);
             });
         }
         for tabs in tabs {
@@ -2977,6 +3124,64 @@ impl Extension {
         } else {
             log::error!("component {component} is already required");
         }
+    }
+
+    /// Declares the sizes of a component of this extension, in rems: the
+    /// smallest a split may make it, and the size it starts at along a split.
+    pub fn size_hints(&self, cx: &mut App, component: &str, hints: SizeHints) {
+        let _group = tracing::info_span!("size-hints", component).entered();
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot declare the sizes of component {component}",
+                self.name
+            );
+            return;
+        }
+        let positive = |size: Rems| size.0.is_finite() && size.0 > 0.;
+        if !positive(hints.min.width) || !positive(hints.min.height) {
+            log::error!("the minimum size of component {component} is not positive");
+            return;
+        }
+        for (dimension, preferred, min) in [
+            ("width", hints.preferred.width, hints.min.width),
+            ("height", hints.preferred.height, hints.min.height),
+        ] {
+            let Some(preferred) = preferred else {
+                continue;
+            };
+            if !positive(preferred) {
+                log::error!("the preferred {dimension} of component {component} is not positive");
+                return;
+            }
+            if preferred.0 < min.0 {
+                log::error!(
+                    "the preferred {dimension} of component {component} is below its minimum"
+                );
+                return;
+            }
+        }
+        match cx
+            .default_global::<Registry>()
+            .size_hints
+            .entry(component.clone())
+        {
+            Entry::Vacant(entry) => {
+                entry.insert(hints);
+            }
+            Entry::Occupied(_) => {
+                log::error!("component {component} already has size hints");
+                return;
+            }
+        }
+        tracing::debug!(min = ?hints.min, preferred = ?hints.preferred, "declared");
+        cx.refresh_windows();
     }
 
     /// Registers the view type that supplies a component's titles.

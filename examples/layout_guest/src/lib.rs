@@ -8,12 +8,10 @@
 //! `LAYOUT_GUEST=card cargo run dev`: the absent host's parent is refused.
 //! `LAYOUT_TOUR=placement-order cargo run dev`: a guest card placed before the host's `b`.
 
-#![cfg(feature = "dev")]
-
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
 use riso_layout::{NodeId, Position};
 
-pub fn init(cx: &mut App, ext: &riso_shell::dev::Extension) {
+pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     let mut case = std::env::var("LAYOUT_GUEST").unwrap_or_default();
     // The guest's part of the host's placement-order case needs no case of its own.
     if case.is_empty() && std::env::var("LAYOUT_TOUR").as_deref() == Ok("placement-order") {

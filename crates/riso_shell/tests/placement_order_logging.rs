@@ -1,8 +1,6 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, Styled, TestAppContext, px};
 use riso_layout::{NodeId, Position};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},

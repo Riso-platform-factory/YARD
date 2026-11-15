@@ -71,7 +71,7 @@ Features 13 and later are the second part of the engine. Where the column `Needs
 | 14 | `titles` | A node has a title, and optionally an icon, that its component gives. A tab shows the title instead of the node ID | Tabs named `Alpha` and `Beta`, one of them with an icon | the content of `ui`'s `Tab` | 13. UI kit: `icon` | production |
 | 15 | `required-nodes` | A component can be declared required. Its nodes cannot be hidden or removed, and neither can a node above them | Hiding or removing the required card is refused with an `INFO` | none | 8 | production |
 | 16 | `slot-count` | A slot says whether it holds one node or many. A second node in a slot for one is refused | A card with a slot for one: the second placement is refused with an `INFO` | none | 2 | production |
-| 17 | `placement-order` | A placement or a move can say first, or before or after a named node, instead of a position by number | An item placed before the item of another extension | none | 8 | dev |
+| 17 | `placement-order` | A placement or a move can say first, or before or after a named node, instead of a position by number | An item placed before the item of another extension | none | 8 | production |
 | 18 | `contexts` | A component gives a model to everything under its node. A component below asks for it by its type and receives it. A node cannot be placed or moved to a place where a model it requires is missing. An extension can also give a model to a whole window | Two cards under one counter show the same count. Moving one of them out of the counter is refused | none | 13 | planned |
 
 ### Sizes

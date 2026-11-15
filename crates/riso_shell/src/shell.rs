@@ -33,6 +33,13 @@ use std::{
     rc::Rc,
 };
 
+/// A placement that needs both props and a position. `props` is `Null` for
+/// no props, or an object.
+pub struct Placement {
+    pub props: serde_json::Value,
+    pub at: Position,
+}
+
 /// A component view that can be told updated props.
 pub trait PropsView<P>: Render {
     fn set_props(&mut self, props: P, cx: &mut Context<Self>);
@@ -1677,6 +1684,14 @@ fn collect_nodes(tree: &Tree, node: &Node, out: &mut Vec<Node>) {
     }
 }
 
+fn placement_props(props: serde_json::Value) -> Result<Props, String> {
+    if props.is_null() {
+        Ok(Props::new())
+    } else {
+        encode_props(props)
+    }
+}
+
 fn encode_props(props: impl serde::Serialize) -> Result<Props, String> {
     match serde_json::to_value(props) {
         Ok(serde_json::Value::Object(map)) => Ok(map),
@@ -2161,7 +2176,64 @@ impl Extension {
         parent: &str,
         slot: &str,
     ) {
-        self.add_internal(window, cx, node, component, parent, slot, Ok(Props::new()));
+        self.add_internal(
+            window,
+            cx,
+            node,
+            component,
+            parent,
+            slot,
+            Ok(Props::new()),
+            Position::Last,
+        );
+    }
+
+    /// Adds a new node at a position in a parent's declared slot and creates its view.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_at(
+        &self,
+        window: &mut Window,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        at: Position,
+    ) {
+        self.add_internal(
+            window,
+            cx,
+            node,
+            component,
+            parent,
+            slot,
+            Ok(Props::new()),
+            at,
+        );
+    }
+
+    /// Adds a new node with the props and at the position of `placement`, and creates its view.
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_with(
+        &self,
+        window: &mut Window,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        placement: Placement,
+    ) {
+        self.add_internal(
+            window,
+            cx,
+            node,
+            component,
+            parent,
+            slot,
+            placement_props(placement.props),
+            placement.at,
+        );
     }
 
     /// Adds a new node with props at the end of a parent's declared slot and creates its view.
@@ -2184,6 +2256,7 @@ impl Extension {
             parent,
             slot,
             encode_props(props),
+            Position::Last,
         );
     }
 
@@ -2197,6 +2270,7 @@ impl Extension {
         parent: &str,
         slot: &str,
         props: Result<Props, String>,
+        at: Position,
     ) {
         run_op(
             &self.name,
@@ -2221,7 +2295,7 @@ impl Extension {
                     },
                     parent,
                     slot,
-                    at: Position::Last,
+                    at,
                 })
             },
         );
@@ -2247,6 +2321,11 @@ impl Extension {
 
     /// Moves a non-root node with its subtree into a declared slot at `index`.
     pub fn move_node(&self, cx: &mut App, node: &str, parent: &str, slot: &str, index: usize) {
+        self.move_to(cx, node, parent, slot, Position::Index(index));
+    }
+
+    /// Moves a non-root node with its subtree to a position in a declared slot.
+    pub fn move_to(&self, cx: &mut App, node: &str, parent: &str, slot: &str, at: Position) {
         run_op(&self.name, None, cx, "move", node, |_, node| {
             let parent = NodeId::parse(parent)
                 .map_err(|error| format!("invalid parent ID {parent:?}: {error}"))?;
@@ -2256,7 +2335,7 @@ impl Extension {
                 node,
                 parent,
                 slot,
-                at: Position::Index(index),
+                at,
             })
         });
     }
@@ -2745,7 +2824,49 @@ impl Extension {
 
     /// Places a node under an already placed parent.
     pub fn place(&self, cx: &mut App, node: &str, component: &str, parent: &str, slot: &str) {
-        self.place_internal(cx, node, component, parent, slot, Ok(Props::new()));
+        self.place_internal(
+            cx,
+            node,
+            component,
+            parent,
+            slot,
+            Ok(Props::new()),
+            Position::Last,
+        );
+    }
+
+    /// Places a node at a position under an already placed parent.
+    pub fn place_at(
+        &self,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        at: Position,
+    ) {
+        self.place_internal(cx, node, component, parent, slot, Ok(Props::new()), at);
+    }
+
+    /// Places a node with the props and at the position of `placement`.
+    pub fn place_with(
+        &self,
+        cx: &mut App,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        placement: Placement,
+    ) {
+        self.place_internal(
+            cx,
+            node,
+            component,
+            parent,
+            slot,
+            placement_props(placement.props),
+            placement.at,
+        );
     }
 
     /// Places a node with props under an already placed parent.
@@ -2758,9 +2879,18 @@ impl Extension {
         slot: &str,
         props: impl serde::Serialize,
     ) {
-        self.place_internal(cx, node, component, parent, slot, encode_props(props));
+        self.place_internal(
+            cx,
+            node,
+            component,
+            parent,
+            slot,
+            encode_props(props),
+            Position::Last,
+        );
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn place_internal(
         &self,
         cx: &mut App,
@@ -2769,6 +2899,7 @@ impl Extension {
         parent: &str,
         slot: &str,
         props: Result<Props, String>,
+        at: Position,
     ) {
         let _group = tracing::info_span!("node-place", node, component, parent, slot).entered();
         if cx.default_global::<Registry>().default_fixed {
@@ -2839,7 +2970,7 @@ impl Extension {
             .borrow_mut()
             .current_mut()
             .expect("startup placement is open")
-            .place(
+            .place_at(
                 Node {
                     id,
                     component,
@@ -2848,6 +2979,7 @@ impl Extension {
                 },
                 &parent,
                 slot,
+                at,
             );
     }
 

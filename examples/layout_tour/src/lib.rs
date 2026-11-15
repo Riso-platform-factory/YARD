@@ -35,8 +35,6 @@
 //! `LAYOUT_TOUR=placement-order cargo run dev`: cards placed and moved beside named cards.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 
-#![cfg(feature = "dev")]
-
 #[cfg(test)]
 mod tests;
 
@@ -45,7 +43,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {

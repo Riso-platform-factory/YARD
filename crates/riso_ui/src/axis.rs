@@ -33,19 +33,33 @@ pub fn axis(
         axis,
         shares,
         children,
+        on_resized: None,
     }
 }
+
+type ResizedHandler = Rc<dyn Fn(Vec<f32>, &mut Window, &mut App)>;
 
 pub struct Axis {
     id: ElementId,
     axis: Direction,
     shares: Rc<RefCell<Vec<f32>>>,
     children: Vec<AnyElement>,
+    on_resized: Option<ResizedHandler>,
+}
+
+impl Axis {
+    /// Called once when a drag that changed the shares ends, and once when a
+    /// double click resets them, with the shares of the children.
+    pub fn on_resized(mut self, f: impl Fn(Vec<f32>, &mut Window, &mut App) + 'static) -> Self {
+        self.on_resized = Some(Rc::new(f));
+        self
+    }
 }
 
 struct DragState {
     shares: Weak<RefCell<Vec<f32>>>,
     handle: Rc<RefCell<Option<usize>>>,
+    start: Rc<RefCell<Vec<f32>>>,
 }
 
 struct HandleLayout {
@@ -62,6 +76,7 @@ struct ChildLayout {
 pub struct AxisLayout {
     children: Vec<ChildLayout>,
     dragged_handle: Rc<RefCell<Option<usize>>>,
+    drag_start: Rc<RefCell<Vec<f32>>>,
 }
 
 impl IntoElement for Axis {
@@ -115,7 +130,7 @@ impl Element for Axis {
             self.shares = Rc::new(RefCell::new(vec![1.; count]));
         }
         let shares_identity = Rc::downgrade(&self.shares);
-        let dragged_handle =
+        let (dragged_handle, drag_start) =
             window.with_element_state::<DragState, _>(global_id.unwrap(), |state, _| {
                 // A new vector identifies a new child set. A positional drag
                 // must never carry over to different children, even at the same count.
@@ -124,13 +139,15 @@ impl Element for Axis {
                     .unwrap_or_else(|| DragState {
                         shares: shares_identity,
                         handle: Rc::new(RefCell::new(None)),
+                        start: Rc::new(RefCell::new(Vec::new())),
                     });
-                (state.handle.clone(), state)
+                ((state.handle.clone(), state.start.clone()), state)
             });
         let shares = self.shares.borrow().clone();
         let mut layout = AxisLayout {
             children: Vec::new(),
             dragged_handle,
+            drag_start,
         };
         if count == 0 {
             return layout;
@@ -216,18 +233,24 @@ impl Element for Axis {
             window.paint_quad(fill(handle.divider, crate::palette(cx).border));
             window.on_mouse_event({
                 let dragged_handle = layout.dragged_handle.clone();
+                let drag_start = layout.drag_start.clone();
                 let shares = self.shares.clone();
                 let hitbox = handle.hitbox.clone();
                 let id = self.id.to_string();
+                let on_resized = self.on_resized.clone();
                 move |event: &MouseDownEvent, phase, window, cx| {
                     if phase.bubble() && hitbox.is_hovered(window) {
                         dragged_handle.replace(Some(index));
                         tracing::debug!(id, handle = index, "resize started");
                         if event.click_count >= 2 {
-                            let mut shares = shares.borrow_mut();
-                            shares.fill(1.);
+                            shares.borrow_mut().fill(1.);
                             tracing::debug!(id, "shares reset");
+                            if let Some(on_resized) = &on_resized {
+                                let shares = shares.borrow().clone();
+                                on_resized(shares, window, cx);
+                            }
                         }
+                        drag_start.replace(shares.borrow().clone());
                         window.refresh();
                         cx.stop_propagation();
                     }
@@ -263,11 +286,20 @@ impl Element for Axis {
         }
         window.on_mouse_event({
             let dragged_handle = layout.dragged_handle.clone();
+            let drag_start = layout.drag_start.clone();
             let shares = self.shares.clone();
             let id = self.id.to_string();
-            move |_: &MouseUpEvent, phase, window, _| {
+            let on_resized = self.on_resized.clone();
+            move |_: &MouseUpEvent, phase, window, cx| {
                 if phase.bubble() && dragged_handle.replace(None).is_some() {
                     tracing::debug!(id, shares = ?*shares.borrow(), "resize ended");
+                    let start = drag_start.take();
+                    let shares = shares.borrow().clone();
+                    if let Some(on_resized) = &on_resized
+                        && shares != start
+                    {
+                        on_resized(shares, window, cx);
+                    }
                     window.refresh();
                 }
             }

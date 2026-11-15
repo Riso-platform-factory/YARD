@@ -1,5 +1,7 @@
+#![cfg(feature = "dev")]
+
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-use riso_shell as shell;
+use riso_shell::dev as shell;
 
 // Select the extension case in a separate process, before GPUI starts threads.
 #[gpui::test]
@@ -73,8 +75,9 @@ fn controls_reset_the_real_user_layer_case(cx: &mut TestAppContext) {
     click(&mut visual, "BUTTON-hide d");
     draw(window, cx);
     assert!(visual.debug_bounds("TAB-d").is_none());
-    assert_eq!(cx.update(|cx| shell::user_layer_len(cx)), 2);
-    assert!(visual.debug_bounds("USER-LAYER-2").is_some());
+    // The move, the resize, and the hide are each one recorded operation.
+    assert_eq!(cx.update(|cx| shell::user_layer_len(cx)), 3);
+    assert!(visual.debug_bounds("USER-LAYER-3").is_some());
     click(&mut visual, "BUTTON-reset layout");
     draw(window, cx);
     assert!(visual.debug_bounds("USER-LAYER-0").is_some());

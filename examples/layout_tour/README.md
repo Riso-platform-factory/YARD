@@ -236,6 +236,17 @@ The card `layout_tour.frame` has a slot `content` for one, shown under a small h
 | Click `move outside into counter` | `outside` moves into the counter: it requires nothing. |
 | `reset layout` | The default layout; the counter keeps `2`. |
 
+### Feature 19: sizes-as-props
+
+The shares of a split are its `shares` prop, by node ID, so a resize is an operation. The `user-layer` case shows it. Use a fresh home: `RISO_HOME=/tmp/riso-sizes`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-sizes LAYOUT_TOUR=user-layer cargo run dev`, drag the line between `left` and `right` | At the mouse up, one `layout-op{op=props, node=root, extension=riso}` with `props set {keys=shares}`; `user layer: 1`. `layout.json` holds the shares by node ID. |
+| Quit and start again | The line where it was left; `restored {applied=1, skipped=0}`. |
+| Double-click the line | Equal shares, with `shares reset` and one `layout-op{op=props}`. |
+| Drag it again, then `reset layout` | Equal shares; `user layer: 0`. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

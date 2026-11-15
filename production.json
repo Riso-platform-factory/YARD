@@ -132,9 +132,9 @@
   },
   "riso_ui/axis": {
     "files": {
-      "crates/riso_ui/src/axis.rs": "6efd952b671e137f"
+      "crates/riso_ui/src/axis.rs": "dc270903f006c451"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-15"
   },
   "riso_ui/button": {
     "files": {

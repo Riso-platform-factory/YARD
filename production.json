@@ -150,9 +150,9 @@
   },
   "riso_ui/icon": {
     "files": {
-      "crates/riso_ui/src/icon.rs": "e72625b9231c8d6c"
+      "crates/riso_ui/src/icon.rs": "430b85085e2690a3"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-15"
   },
   "riso_ui/key_hint": {
     "files": {
@@ -204,9 +204,9 @@
   },
   "riso_ui/tabs": {
     "files": {
-      "crates/riso_ui/src/tabs.rs": "d747458984b6eb38"
+      "crates/riso_ui/src/tabs.rs": "05bed6b81f21646d"
     },
-    "promoted": "2026-11-12"
+    "promoted": "2026-11-15"
   },
   "riso_ui/text": {
     "files": {

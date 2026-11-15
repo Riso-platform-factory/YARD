@@ -7,7 +7,7 @@ use gpui::{
     ParentElement, Render, RenderOnce, SharedString, Stateful, StatefulInteractiveElement, Styled,
     Window, div,
 };
-use ui::Toggleable;
+use ui::{LabelCommon, Toggleable};
 
 type OnClick = Box<dyn Fn(&mut Window, &mut App)>;
 type TabModifier = Box<dyn FnOnce(ui::Tab) -> ui::Tab>;
@@ -27,6 +27,7 @@ pub struct Tab {
     id: ElementId,
     label: SharedString,
     selected: bool,
+    icon: Option<crate::IconName>,
     on_click: Option<OnClick>,
     modifiers: Vec<TabModifier>,
 }
@@ -37,9 +38,15 @@ impl Tab {
             id: id.into(),
             label: label.into(),
             selected: false,
+            icon: None,
             on_click: None,
             modifiers: Vec::new(),
         }
+    }
+
+    pub fn icon(mut self, icon: crate::IconName) -> Self {
+        self.icon = Some(icon);
+        self
     }
 
     pub fn selected(mut self, selected: bool) -> Self {
@@ -78,10 +85,31 @@ impl Tab {
     }
 
     fn element(self, position: ui::TabPosition) -> ui::Tab {
+        let icon_id = self.id.clone();
+        let content = ui::h_flex()
+            .gap_1()
+            .children(self.icon.map(|icon| {
+                div()
+                    .debug_selector(move || format!("ICON-{icon_id}"))
+                    .child(
+                        ui::Icon::new(icon.zed())
+                            .size(ui::IconSize::Small)
+                            .color(ui::Color::Muted),
+                    )
+            }))
+            .child(
+                ui::Label::new(self.label)
+                    .single_line()
+                    .color(if self.selected {
+                        ui::Color::Default
+                    } else {
+                        ui::Color::Muted
+                    }),
+            );
         let tab = ui::Tab::new(self.id)
             .position(position)
             .toggle_state(self.selected)
-            .child(ui::Label::new(self.label));
+            .child(content);
         let mut tab = match self.on_click {
             Some(on_click) => tab.on_click(move |_, window, cx| on_click(window, cx)),
             None => tab,

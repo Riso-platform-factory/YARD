@@ -175,6 +175,17 @@ The card `layout_tour.tinted` takes props `title` (default `Untitled`) and `tint
 | Quit and start again | `restored {applied=3, skipped=0}`; `Beta` in the warning color, `Alpha` in the default color. `layout.json` holds three `props` operations. |
 | `reset layout` | `Alpha` in the accent color and `Untitled` again; `view told` for `alpha` and `beta` inside `layout-reset`. |
 
+### Feature 14: titles
+
+The card `layout_tour.tinted` gives its tab a title from its `title` prop and an icon from its `icon` prop (`none`, `info`, or `warning`). The case places a tabs container with `alpha` (`title: Alpha`, `icon: info`), `beta` (`title: Beta`), and `gamma`, a plain card that gives no title. Use a fresh home: `RISO_HOME=/tmp/riso-titles`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-titles LAYOUT_TOUR=titles cargo run dev` | Tabs `ⓘ Alpha`, `Beta`, and `gamma`; the selected tab's title in the default color, the others muted. `title-register{component=layout_tour.tinted}` with `gives titles`. |
+| Click `rename beta` | The tab reads `Bravo`. |
+| Drag tab `Alpha` to the end of the bar | It moves, with its title and icon. |
+| `reset layout` | `Alpha`, `Beta`, `gamma` again. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

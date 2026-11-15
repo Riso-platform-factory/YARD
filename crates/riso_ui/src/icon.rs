@@ -44,7 +44,7 @@ impl IconName {
         }
     }
 
-    fn zed(self) -> ui::IconName {
+    pub(crate) fn zed(self) -> ui::IconName {
         match self {
             Self::Check => ui::IconName::Check,
             Self::ChevronDown => ui::IconName::ChevronDown,

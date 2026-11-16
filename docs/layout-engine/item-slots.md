@@ -8,11 +8,11 @@ This is how Zed's pane holds one item view per open buffer, while its layout kno
 
 ## How it works
 
-- **The model.** An item model is an `Entity<M>` where `M` implements `Items`: `items(&self) -> Vec<SharedString>`, the keys of its items in order. A key is stable for an item's life and unique in the list.
+- **The model.** An item model is an `Entity<M>` where `M` implements `Items`: `items(&self) -> Vec<SharedString>`, the keys of its items in order. A key is a slug, as a node ID is, stable for an item's life and unique in the list. An item whose key is not a slug, or repeats an earlier key, is skipped, with a `WARN` once per key.
 - **Declaring.** `Extension::item_slot::<M>(cx, component, slot)` declares that the slot `slot` of a component of the extension is an item slot over a model of type `M`. The model is found as feature 18's contexts are: the nearest node above, or the node itself, whose component gives an `M`, else the window's. It is refused with an `ERROR` for an invalid ID or slot name, a component outside the extension's namespace, a slot the component does not declare (checked at registration, as feature 16 does), or a second declaration.
 - **Templates and copies.**
   - The nodes placed in an item slot are its templates. They stay in the tree as any node does, and operations on them work as usual: moving, hiding, or removing a template changes every copy of it.
-  - For each item and each shown template, in the items' order and then the templates' order, the slot shows a copy. A copy has the ID `<template>@<key>`; it is not a node of the tree, and the layout's operations do not apply to it (one that names it is refused with an `INFO`: `{id} is a copy of an item slot`).
+  - For each item and each shown template, in the items' order and then the templates' order, the slot shows a copy. A copy has the ID `<template>@<key>`, made by `NodeId::copy`; `NodeId::parse` refuses `@`, so a copy's ID never enters the tree or a layout file. A copy is not a node of the tree, and the layout's operations do not apply to it (one that names it is refused with an `INFO`: `{id} is a copy of an item slot`).
   - A copy's view is created with the template's component and props, as the template's would be, and `riso_shell::item(cx, copy)` returns its key. `riso_shell::context` from a copy finds the models above its item slot, as from the template.
 - **When the items change.** The shell watches the model: when it notifies, the item slot compares the keys with the last ones. A new key gets copies, created inside `item-copy{slot, key}`; a key that left has its copies' views dropped, with `view dropped {node}` as feature 8; a key that stayed keeps its copies and their state, even when the order changes.
 - **No model, no copies.** An item slot whose model is not found shows nothing, with a `WARN` once.
@@ -21,6 +21,11 @@ This is how Zed's pane holds one item view per open buffer, while its layout kno
 ## What code can do
 
 ```rust
+// riso_layout (production, in place)
+impl NodeId {
+    pub fn copy(template: &NodeId, key: &str) -> Result<NodeId, IdError>;
+}
+
 // riso_shell::dev
 pub trait Items: 'static {
     fn items(&self) -> Vec<SharedString>;
@@ -41,11 +46,13 @@ The dev shell has every other item of the production shell, unchanged.
 | The items change | A group `items-changed{slot, added, removed}`, holding an `item-copy{slot, key}` for each new key and `view dropped` for each copy dropped |
 | An operation names a copy | `INFO` in its `layout-op`, with the text above |
 | No model above an item slot | `WARN` once |
+| An item's key is not a slug, or repeats | `WARN` once per key; the item is skipped |
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
+| `riso_layout/tree` (production, in place) | `NodeId::copy`, which builds `<template>@<key>` from a node ID and a slug key and refuses a key that is not a slug. Stamped again. |
 | `riso_shell/shell` dev version | `Items`, `item_slot`, `item`, copies of templates, watching the model, and refusing operations on copies |
 | `riso/startup` | Dev copy that uses the dev shell. While `item-slots` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
@@ -60,6 +67,7 @@ The dev shell has every other item of the production shell, unchanged.
   - an item slot with no model shows nothing, with one `WARN`;
   - a copy's `context` finds the model above its slot;
   - the declaration's refusals each log an `ERROR`.
+- **Model, unit tests:** `NodeId::copy` builds `<template>@<key>`; it refuses a key that is not a slug; `NodeId::parse` refuses the copy's ID.
 - **Logging**, alone in its file: `items-changed{slot, added, removed}` holds `item-copy` for each new key and `view dropped` for each left one.
 
 ## Test extension: `examples/layout_tour`
@@ -76,6 +84,7 @@ A new case, `item-slots`. Its component `layout_tour.names` gives a model `Names
 
 ## Under review
 
+- `riso_layout/tree`, in place
 - `riso_shell/shell` and `riso/startup`, in their dev versions
 
 ## Not in this feature

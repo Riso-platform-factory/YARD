@@ -9,15 +9,15 @@ This is how Zed's pane holds one item view per open buffer, while its layout kno
 ## How it works
 
 - **The model.** An item model is an `Entity<M>` where `M` implements `Items`: `items(&self) -> Vec<SharedString>`, the keys of its items in order. A key is a slug, as a node ID is, stable for an item's life and unique in the list. An item whose key is not a slug, or repeats an earlier key, is skipped, with a `WARN` once per key.
-- **Declaring.** `Extension::item_slot::<M>(cx, component, slot)` declares that the slot `slot` of a component of the extension is an item slot over a model of type `M`. The model is found as feature 18's contexts are: the nearest node above, or the node itself, whose component gives an `M`, else the window's. It is refused with an `ERROR` for an invalid ID or slot name, a component outside the extension's namespace, a slot the component does not declare (checked at registration, as feature 16 does), or a second declaration.
+- **Declaring.** `Extension::item_slot::<M>(cx, node, slot)` declares that the slot `slot` of one node, which the extension has placed, is an item slot over a model of type `M`, as Zed's pane is one instance. Other nodes of the same component are not affected. The declaration holds for that node ID while the node is in the tree, through moves, a reset, and a restore. The model is found as feature 18's contexts are: the nearest node above, or the node itself, whose component gives an `M`, else the window's. It is refused with an `ERROR` for an invalid node ID or slot name, a node that is not in the tree or that another extension placed, a slot the node's component does not declare (checked when the component registers if it has not yet, as feature 16 does), or a second declaration for the same node and slot.
 - **Templates and copies.**
   - The nodes placed in an item slot are its templates. They stay in the tree as any node does, and operations on them work as usual: moving, hiding, or removing a template changes every copy of it.
-  - For each item and each shown template, in the items' order and then the templates' order, the slot shows a copy. A copy has the ID `<template>@<key>`, made by `NodeId::copy`; `NodeId::parse` refuses `@`, so a copy's ID never enters the tree or a layout file. A copy is not a node of the tree, and the layout's operations do not apply to it (one that names it is refused with an `INFO`: `{id} is a copy of an item slot`).
+  - For each item and each shown template, in the items' order and then the templates' order, the slot shows a copy. A copy has the ID `<template>@<key>`, made by `NodeId::copy`; `NodeId::parse` refuses `@`, so a copy's ID never enters the tree or a layout file. A copy is not a node of the tree, and the layout's operations do not apply to it (one that names it is refused with an `INFO`: `{id} is a copy of an item slot`). The shell's actions on a focused copy (`riso::Hide`, `riso::ToggleZoom`) and `Extension::set_zoomed` are refused the same way. An ID with `@` that is not a copy's (`<slug>@<slug>`) is an invalid ID, as before.
   - A copy's view is created with the template's component and props, as the template's would be, and `riso_shell::item(cx, copy)` returns its key. `riso_shell::context` from a copy finds the models above its item slot, as from the template.
 - **When the items change.** The shell watches the model: when it notifies, the item slot compares the keys with the last ones. A new key gets copies, created inside `item-copy{slot, key}`; a key that left has its copies' views dropped, with `view dropped {node}` as feature 8; a key that stayed keeps its copies and their state, even when the order changes.
 - **A copy is the template alone.** The template's own descendants are not copied: a copy of a container shows its slots empty. A copy has no operations, so what a container does through operations (dragging, closing, snapping a copy shut) does nothing for a copy; resizing between copies is view state, not saved.
 - **No model, no copies.** An item slot whose model is not found shows nothing, with a `WARN` once.
-- **Containers.** An item slot can be a slot of any component, the shell's included: the copies are its children in the slot's order, so a `riso.row`'s item slot gives one column of the row per item, and a `riso.tabs`' gives one tab per item, titled by its component (feature 14).
+- **Containers.** An item slot can be a slot of any component, the shell's included: the copies are its children in the slot's order, so a `riso.row`'s item slot gives one column of the row per item, and a `riso.tabs`' gives one tab per item, titled by its component (feature 14). A copy's tab has no close button, as a required node's.
 
 ## What code can do
 
@@ -32,7 +32,7 @@ pub trait Items: 'static {
     fn items(&self) -> Vec<SharedString>;
 }
 impl Extension {
-    pub fn item_slot<M: Items>(&self, cx: &mut App, component: &str, slot: &str);
+    pub fn item_slot<M: Items>(&self, cx: &mut App, node: &str, slot: &str);
 }
 pub fn item(cx: &App, node: &str) -> Option<SharedString>;
 ```
@@ -43,7 +43,7 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Situation | Log |
 |---|---|
-| An item slot is declared | A group `item-slot-declare{component, slot, model}`, with `debug` `declared`; an `ERROR` for a refusal |
+| An item slot is declared | A group `item-slot-declare{node, slot, model}`, with `debug` `declared`; an `ERROR` for a refusal |
 | The items change | A group `items-changed{slot, added, removed}`, holding an `item-copy{slot, key}` for each new key and `view dropped` for each copy dropped |
 | An operation names a copy | `INFO` in its `layout-op`, with the text above |
 | No model above an item slot | `WARN` once |
@@ -67,13 +67,15 @@ The dev shell has every other item of the production shell, unchanged.
   - an operation that names a copy is refused with the `INFO`;
   - an item slot with no model shows nothing, with one `WARN`;
   - a copy's `context` finds the model above its slot;
-  - the declaration's refusals each log an `ERROR`.
+  - the declaration's refusals each log an `ERROR`;
+  - a declaration on one `riso.row` node leaves another `riso.row` node unchanged;
+  - zooming or hiding a focused copy is refused with the `INFO`, and a copy's tab has no close button.
 - **Model, unit tests:** `NodeId::copy` builds `<template>@<key>`; it refuses a key that is not a slug; `NodeId::parse` refuses the copy's ID.
 - **Logging**, alone in its file: `items-changed{slot, added, removed}` holds `item-copy` for each new key and `view dropped` for each left one.
 
 ## Test extension: `examples/layout_tour`
 
-A new case, `item-slots`. Its component `layout_tour.names` gives a model `Names`, a list of names, and is a column with the controls; its child is a `riso.row` whose slot `children` is an item slot over `Names`, with one template, a card `name` that shows the name from `item`. The list starts with `ada`, `bob`, `cy`.
+A new case, `item-slots`. Its component `layout_tour.names` gives a model `Names`, a list of names, and is a column with the controls; its child is a `riso.row` node `names_row` whose slot `children` is an item slot over `Names`, with one template, a card `name` that shows the name from `item`. The list starts with `ada`, `bob`, `cy`.
 
 | Command and action | What to look for |
 |---|---|

@@ -8,8 +8,9 @@ The window opens where the user left it: its place, its size, and whether it was
 
 As Zed's workspace (`crates/workspace/src/workspace.rs`: `observe_window_bounds` around line 2041, `save_window_bounds` around line 7742; `crates/zed/src/zed.rs` `build_window_options`, line 360):
 
-- **What is saved.** The window's bounds as GPUI gives them (`Window::inner_window_bounds`): windowed, maximized, or full screen, each with the bounds it has when windowed, and the UUID of the screen the window is on. Nothing is saved for a window whose screen has no UUID.
-- **When.** When the window's bounds change while the window is active, the save waits 100 ms and then writes once, so a drag or a resize writes once at its end and not on every frame, as Zed's `bounds_save_task_queued`. A change while another save waits does not start a second one.
+- **What is saved.** The window's bounds as GPUI gives them (`Window::inner_window_bounds`): windowed or full screen, each with the bounds it has when windowed, and the UUID of the screen the window is on. On macOS GPUI reports a zoomed (maximized) window as windowed with its zoomed bounds, as Zed saves it; the file can still say `maximized`, and such a file opens the window maximized. Nothing is saved for a window whose screen has no UUID.
+- **When.** When the window's bounds change while the window is active, a save is queued and writes 100 ms later, as Zed's `bounds_save_task_queued`; a change while a save waits joins it. So a drag or a resize writes at most once every 100 ms, never on every frame, and its last state is always written. A change while the window is not active is not saved. When the window closes with a save waiting, the save is written before the window goes.
+- **Off the main thread.** The file is written on the background executor, as Zed writes it, inside the save's group.
 - **Where.** In `window.json` in the data directory, named by `riso_paths` (`Paths::window_file`), written with foundation 6's atomic write. The format is JSON: a `version` (1), the screen's `display` UUID, and the `bounds`: a `state` (`windowed`, `maximized`, or `fullscreen`) with `x`, `y`, `width`, and `height` in points.
 - **At the start.** The startup reads the file before it opens the window:
   - no file: the window opens at the default place and size, as today;
@@ -41,7 +42,7 @@ The startup passes them into `WindowOptions` (`window_bounds`, `display_id`) and
 |---|---|
 | Reading at the start | A group `window-bounds-restore{file}`, inside `window-open`, ending with `debug` `restored {state, display}`, or `debug` `no saved window bounds`, or the `WARN` or `INFO` above |
 | A save | A group `window-bounds-save{state}` holding foundation 6's `file-write{path}`; a failure is its `WARN` |
-| The bounds change while a save waits | `trace` `window bounds changed` |
+| The bounds change while a save waits, or while the window is not active | `trace` `window bounds changed {active}` |
 
 ## Where the code changes
 
@@ -58,16 +59,16 @@ The startup passes them into `WindowOptions` (`window_bounds`, `display_id`) and
   - the format: windowed, maximized, and full-screen bounds with a display UUID are written and read back the same;
   - a missing file gives `None` with `no saved window bounds`; a broken file and another `version` give `None` with a `WARN`;
   - a saved UUID that no screen has gives `None` with the `INFO` (GPUI's test platform's screens);
-  - GPUI tests: changing a window's bounds several times within 100 ms writes the file once; an inactive window's changes are not saved.
+  - GPUI tests: changing a window's bounds several times within 100 ms writes the file once, with the last bounds; an inactive window's changes are not saved; closing the window with a save waiting writes it.
 - **Logging**, alone in its file: `window-bounds-restore{file}` with `restored`; `window-bounds-save{state}` holding `file-write`.
 
-## Test extension: `examples/window_tour`
+## Test extension
 
-No new case: any run shows it.
+None: any `cargo run dev` shows it.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-bounds cargo run dev`, move and resize the window, wait, quit | One `window-bounds-save{state=windowed}` per move or resize, not one per frame; `window.json` holds the bounds. |
+| `RISO_HOME=/tmp/riso-bounds cargo run dev`, move and resize the window, wait, quit | A few `window-bounds-save{state=windowed}` per move or resize (at most one per 100 ms), not one per frame; `window.json` holds the last bounds. |
 | Start again | The window is where it was, with its size; `restored {state=windowed, display=…}`. |
 | Click the window's green button (full screen), quit, start | The window opens full screen; leaving full screen gives back the earlier size. |
 | Change `display` in `window.json` to another UUID, start | The window opens at the default place; the `INFO`. |

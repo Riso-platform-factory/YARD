@@ -68,6 +68,12 @@ impl fmt::Display for ComponentId {
 pub struct NodeId(String);
 
 impl NodeId {
+    /// Makes the runtime ID of a template's copy for a slug item key.
+    pub fn copy(template: &NodeId, key: &str) -> Result<NodeId, IdError> {
+        validate_slug(key)?;
+        Ok(Self(format!("{template}@{key}")))
+    }
+
     pub fn parse(value: &str) -> Result<Self, IdError> {
         validate_slug(value)?;
         Ok(Self(value.into()))

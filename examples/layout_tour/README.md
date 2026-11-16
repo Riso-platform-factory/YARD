@@ -342,6 +342,19 @@ Buttons in the status bar show and hide nodes, as Zed's dock buttons show and hi
 | Click `extra`'s toggle | `left` hides and then `extra` shows, in `side`; two `layout-op` groups inside `toggle{node=extra, shown=true}`. |
 | Quit and start again, then `reset layout` | The same state; after the reset, `left` and `right` shown and `extra` hidden. |
 
+### Feature 28: item-slots
+
+A slot shows one copy of its template for each item of a model, and items come and go without layout operations. The case's model `Names` starts with `ada`, `bob`, `cy`; the row `names_row` is an item slot over it, with one template, the card `name`, whose copies `name@<key>` show their key. Use a fresh home: `RISO_HOME=/tmp/riso-items`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-items LAYOUT_TOUR=item-slots cargo run dev` | Three cards in a row: `ada`, `bob`, `cy`. `item-slot-declare{node=names_row, slot=children, model=Names}`. |
+| Click `count` on `bob`'s card twice, then `add dee` | A fourth card `dee`; `items-changed{added=dee}` with one `item-copy{key=dee}`; `bob` still shows `count: 2`. |
+| Click `remove ada` | `ada`'s card goes; `view dropped {node=name@ada}`. |
+| Click `reverse` | The cards are in the reverse order; `bob` still shows `count: 2`. |
+| Click `zoom` on a card | Nothing zooms: `name@cy is a copy of an item slot`, an `INFO`. |
+| `user layer: 0` all along | Nothing was recorded. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

@@ -39,8 +39,11 @@
 //! `LAYOUT_TOUR=contexts cargo run dev`: shared models from the nearest giving ancestor.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 //! `LAYOUT_TOUR=empty-nodes cargo run dev`: lists with no items take no room, and come back with items.
+//! `LAYOUT_TOUR=item-slots cargo run dev`: cards following a list of stable item keys.
 //! `LAYOUT_TOUR=toggle cargo run dev`: status bar toggles show and hide side cards, one at a time in a column.
 
+#[cfg(feature = "dev")]
+mod item_slots;
 #[cfg(test)]
 mod tests;
 
@@ -49,7 +52,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -59,6 +65,8 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        #[cfg(feature = "dev")]
+        "item-slots" => item_slots::init(cx, ext),
         "toggle" => {
             register_card(cx, ext);
             let buttons = vec![Button::action("reset layout", |ext, window, cx| {
@@ -747,7 +755,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
              tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
-            "empty-nodes, ",
+            "item-slots, empty-nodes, ",
             "tab-overflow, "
         ),
     }
@@ -1009,6 +1017,7 @@ impl Render for Card {
                     .border_color(palette.border),
             )
             .child(self.node.clone())
+            .children(item_label(cx, &self.node))
             .child(size)
             .child(
                 div()
@@ -1275,4 +1284,14 @@ impl Render for List {
             )
             .children((1..=self.items).map(|item| riso_ui::Label::new(format!("item {item}"))))
     }
+}
+
+#[cfg(feature = "dev")]
+fn item_label(cx: &App, node: &str) -> Option<riso_ui::Label> {
+    shell::item(cx, node).map(riso_ui::Label::new)
+}
+
+#[cfg(not(feature = "dev"))]
+fn item_label(_: &App, _: &str) -> Option<riso_ui::Label> {
+    None
 }

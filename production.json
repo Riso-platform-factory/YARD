@@ -44,9 +44,9 @@
   },
   "riso_layout/tree": {
     "files": {
-      "crates/riso_layout/src/tree.rs": "712a1fee9b60e5e6"
+      "crates/riso_layout/src/tree.rs": "fa083f572d07682a"
     },
-    "promoted": "2026-11-15"
+    "promoted": "2026-11-16"
   },
   "riso_log/diagnostic_log": {
     "files": {

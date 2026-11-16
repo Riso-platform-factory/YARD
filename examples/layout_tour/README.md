@@ -367,6 +367,18 @@ A tabs container over an item slot is a tab bar of its model's items, as Zed's p
 | Click `+` twice | Tabs `new-1` and `new-2` appear, each selected when it appears. |
 | `user layer: 0` all along | Nothing was recorded. |
 
+### Feature 30: named-layouts
+
+An extension registers named layouts, each a list of operations over the default; the window shows one at a time and switches between them, keeping the views of the nodes both show. Each named layout has its own user layer and file. The case is a row of cards `a`, `b`, `c` beside controls: `default`, `swap`, `focus`, `hide c`, `reset layout`, and the shown layout's name. `layout_tour.swap` moves `c` before `a`; `layout_tour.focus` hides `a` and `c` and adds a card `d`. Use a fresh home: `RISO_HOME=/tmp/riso-named`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-named LAYOUT_TOUR=named-layouts cargo run dev` | `a`, `b`, `c`; shown: `riso.default`. Two `named-layout-register` groups. |
+| Click `count` on `b` twice, then `swap` | `c`, `a`, `b`; `b` still shows `count: 2`; `layout-switch{from=riso.default, to=layout_tour.swap}` with `switched {kept=…, dropped=0, created=0}`. |
+| Click `focus` | `b` and `d` only; `b` still shows `count: 2`; `d` is created, `a` and `c` hidden. |
+| Click `swap`, then `hide c`, then `default` | In `swap`, `c` hides; back in `default`, `c` is shown: the hide is in `layouts/layout_tour.swap.json` only. |
+| Click `swap` again, then `reset layout` | `c` is back, before `a`: only `swap`'s user layer was dropped. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

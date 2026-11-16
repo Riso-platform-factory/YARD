@@ -40,11 +40,14 @@
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 //! `LAYOUT_TOUR=empty-nodes cargo run dev`: lists with no items take no room, and come back with items.
 //! `LAYOUT_TOUR=item-slots cargo run dev`: cards following a list of stable item keys.
+//! `LAYOUT_TOUR=named-layouts cargo run dev`: switch layouts with independent user layers.
 //! `LAYOUT_TOUR=item-tabs cargo run dev`: tabs following a list of item keys, closed and added through the model.
 //! `LAYOUT_TOUR=toggle cargo run dev`: status bar toggles show and hide side cards, one at a time in a column.
 
 mod item_slots;
 mod item_tabs;
+#[cfg(feature = "dev")]
+mod named_layouts;
 #[cfg(test)]
 mod tests;
 
@@ -53,7 +56,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -63,6 +69,8 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        #[cfg(feature = "dev")]
+        "named-layouts" => named_layouts::init(cx, ext),
         "item-slots" => item_slots::init(cx, ext),
         "item-tabs" => item_tabs::init(cx, ext),
         "toggle" => {
@@ -749,12 +757,17 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place_root(cx, "root", "Layout Tour.Card");
         }
         _ => log::warn!(
-            "unknown LAYOUT_TOUR case {case:?}; known cases: {}{}titles, host, card, missing, twice, \
+            "unknown LAYOUT_TOUR case {case:?}; known cases: {}{}{}titles, host, card, missing, twice, \
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
              tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
             "item-slots, item-tabs, empty-nodes, ",
-            "tab-overflow, "
+            "tab-overflow, ",
+            if cfg!(feature = "dev") {
+                "named-layouts, "
+            } else {
+                ""
+            }
         ),
     }
 }

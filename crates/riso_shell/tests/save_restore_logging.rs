@@ -321,6 +321,7 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
             assert!(captured.span_stacks.iter().any(|stack| {
                 stack
                     == &[
+                        "window id=4294967297".to_string(),
                         r#"layout-op op="show" node="d" extension="guest""#.to_string(),
                         "layout-save operations=6".to_string(),
                         "file-write path=layout.json".to_string(),
@@ -391,6 +392,7 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
                     .any(|stack| {
                         stack
                             == &[
+                                "window id=4294967297".to_string(),
                                 r#"layout-reset extension="tour""#.to_string(),
                                 "layout-save operations=0".to_string(),
                                 "file-write path=layout.json".to_string(),

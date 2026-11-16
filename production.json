@@ -138,9 +138,9 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "58fed5eb20469d97"
+      "crates/riso_shell/src/shell.rs": "7565b296a25f249c"
     },
-    "promoted": "2026-11-16"
+    "promoted": "2026-11-17"
   },
   "riso_shell/window_bounds": {
     "files": {

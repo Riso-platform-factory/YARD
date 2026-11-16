@@ -7,6 +7,3 @@ pub use shell::*;
 
 mod window_bounds;
 pub use window_bounds::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;

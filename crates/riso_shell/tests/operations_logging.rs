@@ -178,14 +178,17 @@ fn operations_reconcile_views_slots_containers_and_logs(cx: &mut TestAppContext)
     // Added views are created inside layout-op > component-create.
     for stack in [
         vec![
+            "window id=4294967297".into(),
             r#"layout-op op="add" node="d" extension="tour""#.into(),
             "component-create node=d component=tour.card extension=tour".into(),
         ],
         vec![
+            "window id=4294967297".into(),
             r#"layout-op op="add" node="extra_row" extension="guest""#.into(),
             "component-create node=extra_row component=riso.row extension=guest".into(),
         ],
         vec![
+            "window id=4294967297".into(),
             r#"layout-op op="add" node="probe" extension="guest""#.into(),
             "component-create node=probe component=guest.probe extension=guest".into(),
         ],

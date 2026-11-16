@@ -384,8 +384,9 @@ fn a_model_that_notifies_later_changes_the_tabs_outside_the_click_group(cx: &mut
             "the key the later change adds is selected"
         );
         assert!(
-            trace.top_level(later, "items-changed"),
-            "the later notify's items-changed is a group of its own"
+            trace.top_level(later, "window")
+                && trace.nested(later, "window", "id=4294967297", "items-changed"),
+            "the later notify's items-changed is inside its window group"
         );
         assert!(!trace.nested(later, "item-close", "", "items-changed"));
         assert!(!trace.nested(later, "item-new", "", "items-changed"));

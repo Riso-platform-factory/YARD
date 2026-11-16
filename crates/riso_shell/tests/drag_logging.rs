@@ -291,9 +291,9 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
             [
                 "focus-change node=left: DEBUG message=focused",
                 "none: DEBUG message=drag started node=a",
-                "none: DEBUG message=drop ignored node=a",
+                "window id=4294967297: DEBUG message=drop ignored node=a",
                 "none: DEBUG message=drag started node=b",
-                "none: DEBUG message=drop ignored node=b",
+                "window id=4294967297: DEBUG message=drop ignored node=b",
             ]
         );
     }
@@ -544,7 +544,7 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
                 "none: DEBUG message=drag started node=a",
                 r#"layout-op op="move" node="a" extension="riso": DEBUG message=node moved node=a parent=tabs-1 slot=children index=1"#,
                 r#"layout-op op="move" node="a" extension="riso": DEBUG message=recorded user_layer=13"#,
-                "none: DEBUG message=tab selected tabs=tabs-1 tab=a",
+                "window id=4294967297: DEBUG message=tab selected tabs=tabs-1 tab=a",
                 "focus-change node=tabs-1: DEBUG message=focused",
                 "none: DEBUG message=drag started node=a",
                 r#"layout-op op="add" node="split-3" extension="riso": DEBUG message=node added node=split-3 component=riso.column extension=riso parent=split-1 slot=children index=1"#,

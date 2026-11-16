@@ -740,24 +740,28 @@ fn shared_and_dynamically_added_panels_live_until_the_last_window_closes_in_eith
         windows[close_first]
             .update(&mut app, |_, window, _| window.remove_window())
             .unwrap();
-        assert!(weak.borrow().as_ref().unwrap().upgrade().is_some());
+        assert_eq!(
+            weak.borrow().as_ref().unwrap().upgrade().is_some(),
+            close_first != usize::from(!dynamic)
+        );
         let survivor = windows[1 - close_first];
         survivor
             .update(&mut app, |_, window, _| window.refresh())
             .unwrap();
         draw(survivor, &mut app);
         let mut visual = gpui::VisualTestContext::from_window(survivor.into(), &app);
-        assert!(
+        assert_eq!(
             visual.debug_bounds("OBSERVED-PANEL").is_some(),
-            "the surviving window still renders the shared child view"
+            !dynamic || close_first == 1,
+            "the surviving window renders only its own panel"
         );
         app.update(|cx| host.set_hidden(cx, "a", true));
-        assert_eq!(calls.get(), 1);
+        assert_eq!(calls.get(), usize::from(!dynamic || close_first == 1));
         survivor
             .update(&mut app, |_, window, _| window.remove_window())
             .unwrap();
         assert!(weak.borrow().as_ref().unwrap().upgrade().is_none());
         app.update(|cx| host.set_hidden(cx, "a", false));
-        assert_eq!(calls.get(), 1);
+        assert_eq!(calls.get(), usize::from(!dynamic || close_first == 1));
     }
 }

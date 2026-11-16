@@ -8,6 +8,7 @@ struct Captured {
     inspected: usize,
     disabled_labels: usize,
     observer_lines: Vec<String>,
+    no_window: usize,
 }
 #[derive(Clone, Default)]
 struct Trace(Arc<Mutex<Captured>>);
@@ -46,6 +47,12 @@ impl tracing::Subscriber for Trace {
             && fields.0.contains("layout inspected")
         {
             self.0.lock().unwrap().inspected += 1;
+        }
+        if event.metadata().target().starts_with("riso_shell")
+            && *event.metadata().level() == tracing::Level::INFO
+            && fields.0 == " message=no window"
+        {
+            self.0.lock().unwrap().no_window += 1;
         }
         if fields.0.contains("layout observers") {
             self.0.lock().unwrap().observer_lines.push(fields.0.clone());
@@ -108,13 +115,13 @@ fn refresh_is_one_group_per_change_and_draws_do_not_inspect(cx: &mut TestAppCont
         assert!(window.update(cx, |_, _, _| ()).is_err());
         let refreshes = trace.0.lock().unwrap().refreshes.len();
         let before_calls = calls.get();
+        let observer_lines = trace.0.lock().unwrap().observer_lines.clone();
+        let no_window = trace.0.lock().unwrap().no_window;
         cx.update(|cx| host.set_hidden(cx, "a", false));
-        assert_eq!(calls.get(), before_calls + 1);
+        assert_eq!(calls.get(), before_calls);
         let captured = trace.0.lock().unwrap();
-        assert_eq!(
-            captured.observer_lines.last().unwrap(),
-            " message=layout observers count=1"
-        );
+        assert_eq!(captured.observer_lines, observer_lines);
+        assert_eq!(captured.no_window, no_window + 1);
         assert_eq!(
             captured.refreshes.len(),
             refreshes,

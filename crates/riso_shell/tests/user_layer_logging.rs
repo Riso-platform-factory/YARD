@@ -383,10 +383,12 @@ fn user_layer_records_and_reset_reconciles_every_contract_row(cx: &mut TestAppCo
         let captured = trace.0.lock().unwrap();
         for expected in [
             vec![
+                "window id=4294967297",
                 r#"layout-reset extension="guest""#,
                 "component-create node=a component=tour.card extension=tour",
             ],
             vec![
+                "window id=4294967297",
                 r#"layout-reset extension="guest""#,
                 "component-create node=a component=tour.card extension=tour",
                 "component-create node=inner component=tour.card extension=tour",
@@ -528,7 +530,7 @@ fn user_layer_records_and_reset_reconciles_every_contract_row(cx: &mut TestAppCo
             cx.open_window(gpui::WindowOptions::default(), shell::new_shell)
                 .unwrap()
         });
-        assert_eq!(app.update(|cx| shell::user_layer_len(cx)), 1);
+        assert_eq!(app.update(|cx| shell::user_layer_len(cx)), 0);
         second
             .update(&mut app, |_, window, cx| guest.reset_layout(window, cx))
             .unwrap();

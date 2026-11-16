@@ -16,7 +16,7 @@ As Zed's session (`crates/workspace/src/persistence.rs` and `session`, as refere
 - **At the start.** The startup reads the session before opening any window:
   - a valid session with at least one window: each window opens in order with its bounds (feature 7's rule for a screen that is gone), the named layout it showed, and its user layers, each operation checked as restore checks it (feature 12: a refused one is skipped with an `INFO`). The first is the main window.
   - no file, a broken file, another `version`, or no window: the start is as today (one window, from `layout.json` and `window.json`), with feature 12's `WARN` for a broken file.
-- **The main window's files.** `layout.json`, the named layouts' files, and `window.json` keep holding the main window's state, as features 7, 12, and 30 say; the session holds every window and wins at the start when it is valid.
+- **The main window's files.** `layout.json`, the named layouts' files, and `window.json` keep holding the main window's state, as features 7, 12, and 30 say; the session holds every window and wins at the start when it is valid. A window opened from the session keeps the user layers the session gave it for every named layout: when it switches to one, it uses that layer, and reads the layout's file only for a named layout the session holds no layer for.
 - **Every window saves.** With the session, every window's layout is kept, not only the main window's; feature 8's "other windows keep their user layers in memory" ends here.
 
 ## What code can do

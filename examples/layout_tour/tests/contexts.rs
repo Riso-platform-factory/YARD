@@ -1,5 +1,8 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 
 #[gpui::test]
 fn context_controls_share_count_refuse_invalid_move_and_reset(cx: &mut TestAppContext) {

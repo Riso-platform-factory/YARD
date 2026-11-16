@@ -383,6 +383,10 @@ An extension registers named layouts, each a list of operations over the default
 
 With `LAYOUT_INSPECTOR` set, every case's root is placed in a row `tour_frame`, and the extension `layout_inspector` shows the layout tree in that row, on the right. Its walkthrough is in `examples/layout_inspector/README.md`. Without it, every case is as before.
 
+### Window feature 8: window-tree
+
+The layout belongs to its window. With one window, every case runs as before; the log names the window: `shell-create{root, window}`, each operation, reset, restore, and drop inside `window{id=…}`, and `window-close{window}` with `view dropped` when the window closes. `RISO_HOME=/tmp/riso-wtree LAYOUT_TOUR=user-layer cargo run dev`, drag tab `b` onto the top edge of `right`'s content, then `reset layout`: the same as in feature 26, inside `window{id=…}`.
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

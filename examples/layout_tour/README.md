@@ -319,6 +319,17 @@ A tab bar scrolls sideways when its tabs do not fit, and the selected tab is scr
 | Press `alt-cmd-right` (`riso::SelectNextTab`) | `t01` is selected and the bar scrolls back to the start. |
 | `user layer: 0` all along | Nothing was recorded. |
 
+### Feature 26: split-on-drop
+
+Dropping a tab on an edge of a container's child splits around it: a new row or column holds the target and a new tabs container with the dropped tab, on the side of the edge. An edge along the parent split's axis still moves the tab into that split, as feature 9. Dropping on the center of a tabs container's content moves the tab into it. The case `user-layer` is used as it is. Use a fresh home: `RISO_HOME=/tmp/riso-splitdrop`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-splitdrop LAYOUT_TOUR=user-layer cargo run dev`, drag tab `b` onto the top edge of `right`'s content | While dragging, the top half of `right`'s content is highlighted. After the drop, a column stands where `right` was: a new tabs container with `b` above `right`; `split-on-drop{node=b, target=right, edge=top}` with four `layout-op` groups; `user layer: 4`. |
+| Drag tab `d` onto the center of `left`'s content | The whole of `left`'s content is highlighted; `d` moves into `left`, last, and is selected. |
+| Quit and start again | The same layout: `restored {applied=5, skipped=0}`. |
+| `reset layout` | `left` with `a`, `b` and `right` with `c`, `d` again. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

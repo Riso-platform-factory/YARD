@@ -10,7 +10,7 @@ The user opens another window with `riso::NewWindow`, as Zed's `workspace::NewWi
 - **Opening.** The composition root opens windows, so it gives the shell how: `riso_shell::set_window_opener(cx, open)`, where `open` opens a window as the startup opens the main one (the product's title bar, the shell, the appearance). The shell's handler of `riso::NewWindow` calls it inside `window-new`. Without an opener, the action is refused with a `WARN` once.
 - **The new window:**
   - shows the default layout, with the named layout `riso.default`, an empty user layer of its own, and no zoom;
-  - opens where the OS puts a new window (GPUI's default place, cascaded from the active one), at the default size; its place is not saved (feature 10 saves every window's);
+  - opens as GPUI opens a new window when no bounds are given, as Zed's new windows do: cascaded from the active window, with its size and its state (windowed, maximized, or full screen); its place is not saved (feature 10 saves every window's);
   - becomes the active window, so the next calls act on it (feature 8);
   - is not the main window: its user layers stay in memory.
 - **The menu.** The application's menu bar gains a `File` menu, after the application menu, with `New Window`, as Zed's.

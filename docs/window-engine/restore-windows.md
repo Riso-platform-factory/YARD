@@ -12,7 +12,7 @@ As Zed's session (`crates/workspace/src/persistence.rs` and `session`, as refere
   - its `bounds` and `display`, as `window.json` holds them (feature 7);
   - the named layout it shows (feature 30);
   - its user layer for each named layout it has shown, as lists of operations in feature 12's format.
-- **When it is saved.** When a window's bounds or layout change (at most once every 100 ms, as feature 7), when a window opens or closes, and when the application quits, before its windows close, so that the session lists every window open at quit. A window closed during the run leaves the session.
+- **When it is saved.** When a window's bounds or layout change (at most once every 100 ms, as feature 7), when a window opens or closes, and when the application quits, before its windows close, so that the session lists every window open at quit. A window closed during the run leaves the session, except the last one: closing it quits the application, so it stays in the session and opens again at the next start, as quitting with it open would.
 - **At the start.** The startup reads the session before opening any window:
   - a valid session with at least one window: each window opens in order with its bounds (feature 7's rule for a screen that is gone), the named layout it showed, and its user layers, each operation checked as restore checks it (feature 12: a refused one is skipped with an `INFO`). The first is the main window.
   - no file, a broken file, another `version`, or no window: the start is as today (one window, from `layout.json` and `window.json`), with feature 12's `WARN` for a broken file.
@@ -62,7 +62,7 @@ pub fn new_session_shell(window: &mut Window, cx: &mut App, saved: &SessionWindo
 - **Shell, tests:**
   - the format: windows with bounds, display, named layout, and user layers are written and read back the same;
   - a missing, broken, or other-version file, or no windows, gives `None` with the log above;
-  - GPUI tests: two windows rearranged differently, the session saved; the windows recreated from it each show their own layout; a refused operation in one is skipped with the `INFO`; a window closed during the run is not in the next save; quitting saves every open window once.
+  - GPUI tests: two windows rearranged differently, the session saved; the windows recreated from it each show their own layout; a refused operation in one is skipped with the `INFO`; a window closed during the run is not in the next save; closing the last window keeps it in the session; quitting saves every open window once.
 - **Logging**, alone in its file: `session-restore{file}` with `restored {windows}`; `session-save{windows}` holding `file-write`.
 
 ## Test extension: `examples/layout_tour`

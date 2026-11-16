@@ -57,17 +57,29 @@ pub(crate) fn run(
             riso_shell::set_menus(cx, menus(&product));
             {
                 let _group = tracing::info_span!("window-open").entered();
-                cx.open_window(
-                    WindowOptions {
-                        titlebar: Some(riso_ui::titlebar_options(product.name)),
-                        ..Default::default()
-                    },
-                    |window, cx| {
-                        riso_ui::follow_appearance(window, cx);
-                        riso_shell::new_shell(window, cx)
-                    },
-                )
-                .unwrap_or_else(|error| panic!("{} main window opens: {error}", product.name));
+                let window_file = paths.window_file();
+                let saved = riso_shell::saved_window_bounds(cx, &window_file);
+                let window = cx
+                    .open_window(
+                        WindowOptions {
+                            titlebar: Some(riso_ui::titlebar_options(product.name)),
+                            window_bounds: saved.map(|(bounds, _)| bounds),
+                            display_id: saved.map(|(_, display)| display),
+                            ..Default::default()
+                        },
+                        |window, cx| {
+                            riso_ui::follow_appearance(window, cx);
+                            riso_shell::new_shell(window, cx)
+                        },
+                    )
+                    .unwrap_or_else(|error| panic!("{} main window opens: {error}", product.name));
+                window
+                    .update(cx, |_, window, cx| {
+                        riso_shell::track_window_bounds(window, cx, window_file)
+                    })
+                    .unwrap_or_else(|error| {
+                        panic!("{} main window is open: {error}", product.name)
+                    });
                 cx.activate(true);
             }
             riso_log::startup_finished();

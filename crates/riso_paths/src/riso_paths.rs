@@ -7,10 +7,8 @@ mod layout_file;
 mod named_layout_file;
 mod settings_file;
 mod themes_dir;
+mod window_file;
 mod write_atomic;
 pub use directories::*;
 pub use file_check::*;
 pub use write_atomic::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;

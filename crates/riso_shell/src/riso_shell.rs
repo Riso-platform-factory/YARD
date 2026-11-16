@@ -5,5 +5,5 @@ pub use prompt::*;
 mod shell;
 pub use shell::*;
 
-#[cfg(feature = "dev")]
-pub mod dev;
+mod window_bounds;
+pub use window_bounds::*;

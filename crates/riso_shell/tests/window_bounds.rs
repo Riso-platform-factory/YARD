@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, TestAppContext, px};
-use riso_shell::dev::{saved_window_bounds, track_window_bounds};
+use riso_shell::{saved_window_bounds, track_window_bounds};
 use serde_json::json;
 use std::{
     collections::BTreeMap,

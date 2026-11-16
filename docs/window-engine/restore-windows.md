@@ -32,9 +32,12 @@ impl Paths {
 pub fn saved_session(cx: &App, file: &Path) -> Option<Vec<SessionWindow>>;
 /// Keeps `file` up to date with every open window, as described above.
 pub fn track_session(cx: &mut App, file: PathBuf);
+/// The shell of a window recreated from the session: as `new_shell`, but
+/// showing the window's named layout with its user layers.
+pub fn new_session_shell(window: &mut Window, cx: &mut App, saved: &SessionWindow) -> Entity<Shell>;
 ```
 
-`SessionWindow` holds what the startup needs to open one window: its bounds and display (as `saved_window_bounds` gives them), its named layout, and its user layers. The startup opens each through the window opener of feature 9, and gives the shell the window's named layout and user layers before its shell is created.
+`SessionWindow` holds what the startup needs to open one window: its bounds and display (as `saved_window_bounds` gives them), its named layout, and its user layers. The startup opens each window as the window opener of feature 9 does, with the saved bounds, and builds its shell with `new_session_shell`.
 
 ## Logging
 

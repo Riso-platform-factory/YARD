@@ -96,7 +96,7 @@ A new case, `named-layouts`. A row with cards `a`, `b`, `c` beside a column of c
 
 ## Not in this feature
 
-- Several windows: whether windows that show the same named layout share its user layer is an open decision of the window engine's roadmap. This feature has one window.
+- Several windows: each window has its own user layer for each named layout it shows, with the window engine's `window-tree`. This feature has one window.
 - Remembering which named layout a window showed across restarts: with the window engine's sessions.
 - A key or a menu to switch: the extension calls `show_layout`; a command for the palette comes with a feature that needs it.
 - The user creating, renaming, or deleting named layouts.

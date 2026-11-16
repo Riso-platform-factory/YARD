@@ -36,7 +36,7 @@ pub fn set_window_opener(cx: &mut App, open: impl Fn(&mut App) + 'static);
 | Part | What changes |
 |---|---|
 | `riso_shell/shell` dev version | `NewWindow`, its default key, `set_window_opener`, and the handler |
-| `riso/menus` (production, in place) | A `File` menu with `New Window`. Stamped again. |
+| `riso/menus` dev version | A copy of `menus.rs` with a `File` menu holding `New Window`, used by the dev startup |
 | `riso/startup` | Dev copy that gives the shell its opener, opening each window as it opens the main one. While `new-window` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
@@ -60,8 +60,7 @@ pub fn set_window_opener(cx: &mut App, open: impl Fn(&mut App) + 'static);
 
 ## Under review
 
-- `riso/menus`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `riso_shell/shell`, `riso/menus`, and `riso/startup`, in their dev versions
 
 ## Not in this feature
 

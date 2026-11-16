@@ -249,6 +249,228 @@ impl Render for BodyFrame {
     }
 }
 
+/// The node a toggle shows and hides, read from its `node` prop.
+#[derive(Clone, Debug, PartialEq)]
+struct ToggleNode(NodeId);
+
+impl serde::Serialize for ToggleNode {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.0.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ToggleNode {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = <String as serde::Deserialize>::deserialize(deserializer)?;
+        NodeId::parse(&name)
+            .map(ToggleNode)
+            .map_err(|error| serde::de::Error::custom(format!("invalid node ID {name:?}: {error}")))
+    }
+}
+
+/// An icon of the UI kit, named in snake case, as `info` or `x_circle`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct ToggleIcon(riso_ui::IconName);
+
+impl ToggleIcon {
+    fn name(self) -> &'static str {
+        self.0
+            .path()
+            .trim_start_matches("icons/")
+            .trim_end_matches(".svg")
+    }
+}
+
+impl serde::Serialize for ToggleIcon {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.name())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ToggleIcon {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let name = <String as serde::Deserialize>::deserialize(deserializer)?;
+        riso_ui::IconName::ALL
+            .iter()
+            .map(|icon| ToggleIcon(*icon))
+            .find(|icon| icon.name() == name)
+            .ok_or_else(|| serde::de::Error::custom(format!("unknown icon {name:?}")))
+    }
+}
+
+/// The props of `riso.toggle`.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+struct ToggleProps {
+    node: Option<ToggleNode>,
+    icon: Option<ToggleIcon>,
+    tooltip: Option<String>,
+    alone: bool,
+}
+
+/// Why a toggle cannot show or hide its node.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ToggleProblem {
+    Missing,
+    Itself,
+    Ancestor,
+}
+
+/// Whether a toggle's node is hidden, or why the toggle cannot act on it.
+fn toggle_target(tree: &Tree, toggle: &NodeId, target: &NodeId) -> Result<bool, ToggleProblem> {
+    if toggle == target {
+        return Err(ToggleProblem::Itself);
+    }
+    if node_of(tree, target).is_none() {
+        return Err(ToggleProblem::Missing);
+    }
+    let mut current = toggle.clone();
+    while let Some((parent, _, _, _)) = current_location(tree, &current) {
+        if &parent == target {
+            return Err(ToggleProblem::Ancestor);
+        }
+        current = parent;
+    }
+    Ok(tree.is_hidden(target))
+}
+
+/// The component `riso.toggle`: a button that shows or hides the node its
+/// props name, as Zed's `PanelButtons` show and hide its docks' panels.
+struct Toggle {
+    node: NodeId,
+    props: ToggleProps,
+    /// The problem last logged and the node it names, so that a problem is
+    /// logged again only when it changes.
+    warned: Option<(ToggleProblem, NodeId)>,
+}
+
+impl Render for Toggle {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let (Some(ToggleNode(target)), Some(ToggleIcon(icon))) =
+            (self.props.node.clone(), self.props.icon)
+        else {
+            return div().into_any_element();
+        };
+        let state = cx
+            .try_global::<Registry>()
+            .map_or(Err(ToggleProblem::Missing), |registry| {
+                toggle_target(registry.tree.borrow().current(), &self.node, &target)
+            });
+        let toggled = match state {
+            Ok(hidden) => !hidden && !empty_now(cx, &target, Emptiness::Ask),
+            Err(problem) => {
+                let message = match problem {
+                    ToggleProblem::Missing => format!(
+                        "toggle {} names node {target}, which is not in the tree; it is disabled",
+                        self.node
+                    ),
+                    ToggleProblem::Itself => {
+                        format!("toggle {} names itself; it is disabled", self.node)
+                    }
+                    ToggleProblem::Ancestor => format!(
+                        "toggle {} names node {target}, which is above it; it is disabled",
+                        self.node
+                    ),
+                };
+                let warned = Some((problem, target.clone()));
+                if self.warned != warned {
+                    self.warned = warned;
+                    log::warn!("{message}");
+                }
+                tracing::trace!("{message}");
+                false
+            }
+        };
+        let tooltip = self
+            .props
+            .tooltip
+            .clone()
+            .map(SharedString::from)
+            .unwrap_or_else(|| tab_title(&target, cx).0);
+        tracing::trace!(
+            toggle = %self.node,
+            node = %target,
+            toggled,
+            disabled = state.is_err(),
+            "rendering toggle"
+        );
+        let toggle = self.node.clone();
+        riso_ui::IconButton::new(SharedString::from(format!("toggle:{}", self.node)), icon)
+            .icon_size(riso_ui::IconSize::Small)
+            .toggle_state(toggled)
+            .disabled(state.is_err())
+            .tooltip(riso_ui::Tooltip::text(tooltip))
+            .on_click(move |_, cx| click_toggle(cx, &toggle))
+            .into_any_element()
+    }
+}
+
+/// Shows a toggle's node when it is hidden, first hiding the other shown
+/// nodes of its slot with `alone`, and hides it when it is shown.
+fn click_toggle(cx: &mut App, toggle: &NodeId) {
+    let Some((target, alone, hidden, others)) = (|| {
+        let registry = cx.try_global::<Registry>()?;
+        let props = registry
+            .views
+            .borrow()
+            .get(toggle)?
+            .clone()
+            .downcast::<NodeView>()
+            .ok()?
+            .read(cx)
+            .view
+            .clone()
+            .downcast::<Toggle>()
+            .ok()?
+            .read(cx)
+            .props
+            .clone();
+        let target = props.node?.0;
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let hidden = toggle_target(tree, toggle, &target).ok()?;
+        let others: Vec<NodeId> = if props.alone && hidden {
+            current_location(tree, &target)
+                .and_then(|(parent, slot, _, _)| {
+                    tree.slots(&parent)
+                        .find(|(name, _)| **name == slot)
+                        .map(|(_, children)| {
+                            children
+                                .iter()
+                                .filter(|child| child.id != target && !tree.is_hidden(&child.id))
+                                .map(|child| child.id.clone())
+                                .collect()
+                        })
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        Some((target, props.alone, hidden, others))
+    })() else {
+        return;
+    };
+    let _group = tracing::info_span!(
+        "toggle",
+        toggle = toggle.as_str(),
+        node = target.as_str(),
+        shown = hidden,
+    )
+    .entered();
+    tracing::debug!(alone, others = others.len(), "toggle clicked");
+    for other in others {
+        run_op("riso", None, cx, "hide", other.as_str(), |_, node| {
+            Ok(Operation::SetHidden { node, hidden: true })
+        });
+    }
+    let op = if hidden { "show" } else { "hide" };
+    run_op("riso", None, cx, op, target.as_str(), |_, node| {
+        Ok(Operation::SetHidden {
+            node,
+            hidden: !hidden,
+        })
+    });
+}
+
 struct NodeView {
     node: NodeId,
     handle: Option<FocusHandle>,
@@ -598,6 +820,38 @@ impl Default for Registry {
                         slots,
                     })
                     .into()
+                }),
+            },
+        );
+        components.insert(
+            ComponentId::parse("riso.toggle").unwrap(),
+            Component {
+                slots: Vec::new(),
+                create: Rc::new(|node, _, _, cx| {
+                    let props = read_props::<ToggleProps>(&node.id, &node.component, &node.props);
+                    let toggle = cx.new(|_| Toggle {
+                        node: node.id.clone(),
+                        props,
+                        warned: None,
+                    });
+                    let weak = toggle.downgrade();
+                    let tell_node = node.id.clone();
+                    let tell_component = node.component.clone();
+                    let teller: Teller = Rc::new(move |props, cx| {
+                        let Some(toggle) = weak.upgrade() else {
+                            return;
+                        };
+                        let props = read_props::<ToggleProps>(&tell_node, &tell_component, props);
+                        toggle.update(cx, |toggle, cx| {
+                            toggle.props = props;
+                            cx.notify();
+                        });
+                        tracing::debug!(node = %tell_node, "view told");
+                    });
+                    cx.default_global::<Registry>()
+                        .tellers
+                        .insert(node.id.clone(), teller);
+                    toggle.into()
                 }),
             },
         );

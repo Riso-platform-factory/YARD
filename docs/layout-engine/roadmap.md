@@ -110,7 +110,7 @@ Features 13 and later are the second part of the engine. Where the column `Needs
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 31 | `inspector` | A test extension that shows the tree: each node with its component, its extension, its props, whether it is hidden, and whether the default layout or the user layer put it there | The inspector beside any case of the layout tour | none | 13. UI kit: `list` | dev |
+| 31 | `inspector` | A test extension that shows the tree: each node with its component, its extension, its props, whether it is hidden, and whether the default layout or the user layer put it there | The inspector beside any case of the layout tour | none | 13. UI kit: `list` | production |
 
 ## Later
 

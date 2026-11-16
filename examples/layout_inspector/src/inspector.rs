@@ -2,7 +2,7 @@ use gpui::{
     App, AppContext, Context, InteractiveElement, IntoElement, ParentElement, Render, ScrollHandle,
     SharedString, Styled, Subscription, Window, div, px,
 };
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use riso_ui::{Label, LabelSize, List, ListHeader, ListItem, ScrollArea, TextColor};
 
 /// Contributes the inspector after the layout tour has placed its frame.

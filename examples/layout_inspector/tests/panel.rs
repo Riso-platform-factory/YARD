@@ -1,7 +1,6 @@
-#![cfg(feature = "dev")]
 mod support;
 use gpui::TestAppContext;
-use riso_shell::dev as shell;
+use riso_shell as shell;
 
 #[gpui::test]
 fn panel_lists_every_node_with_depth_and_refreshes_hidden_rows(cx: &mut TestAppContext) {

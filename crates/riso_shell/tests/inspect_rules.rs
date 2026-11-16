@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, ParentElement, SharedString, Styled, TestAppContext};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::{
     cell::Cell,
     rc::Rc,

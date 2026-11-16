@@ -34,6 +34,134 @@ use std::{
     rc::{Rc, Weak},
 };
 
+/// A read-only snapshot of one node in the extension's layout tree.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeInfo {
+    pub id: SharedString,
+    pub depth: usize,
+    pub slot: Option<SharedString>,
+    pub component: SharedString,
+    pub extension: SharedString,
+    pub props: serde_json::Value,
+    pub hidden: bool,
+    pub origin: Origin,
+}
+
+/// The layer that introduced a node, or the item key of a runtime copy.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Origin {
+    Default,
+    NamedLayout(SharedString),
+    UserLayer,
+    Copy(SharedString),
+}
+
+type LayoutObserver = Rc<dyn Fn(&mut App)>;
+type LayoutObservers = Rc<RefCell<BTreeMap<u64, LayoutObserver>>>;
+
+/// Returns the body layout, including hidden nodes and item-slot copies.
+pub fn inspect(cx: &App) -> Vec<NodeInfo> {
+    fn visit(
+        registry: &Registry,
+        tree: &Tree,
+        node: &Node,
+        depth: usize,
+        slot: Option<&SlotName>,
+        out: &mut Vec<NodeInfo>,
+    ) {
+        let origin = if node.id.as_str().contains('@') {
+            Origin::Copy(node.id.as_str().split_once('@').unwrap().1.to_owned().into())
+        } else if registry.tree.borrow().user_layer().iter().any(|operation| {
+            matches!(operation, Operation::Add { node: added, .. } if added.id == node.id)
+        }) {
+            Origin::UserLayer
+        } else if registry.named_nodes.contains(&node.id) {
+            Origin::NamedLayout(registry.shown_layout.clone())
+        } else {
+            Origin::Default
+        };
+        out.push(NodeInfo {
+            id: node.id.to_string().into(),
+            depth,
+            slot: slot.map(|slot| slot.to_string().into()),
+            component: node.component.to_string().into(),
+            extension: node.extension.clone().into(),
+            props: if node.props.is_empty() {
+                serde_json::Value::Null
+            } else {
+                serde_json::Value::Object(node.props.clone())
+            },
+            hidden: hidden(tree, &node.id),
+            origin,
+        });
+        if node.id.as_str().contains('@') {
+            return;
+        }
+        for (slot, children) in tree.slots(&node.id) {
+            for child in children {
+                visit(registry, tree, child, depth + 1, Some(slot), out);
+            }
+            if let Some(copies) = registry
+                .item_children
+                .borrow()
+                .get(&(node.id.clone(), slot.to_string()))
+            {
+                for id in copies {
+                    if let Some(copy) = registry.copies.get(id) {
+                        visit(registry, tree, copy, depth + 1, Some(slot), out);
+                    }
+                }
+            }
+        }
+    }
+    let mut nodes = Vec::new();
+    if let Some(registry) = cx.try_global::<Registry>() {
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        if let Some(root) = registry
+            .extension_root
+            .as_ref()
+            .and_then(|id| node_of(tree, id))
+        {
+            visit(registry, tree, root, 0, None, &mut nodes);
+        }
+    }
+    tracing::trace!(nodes = nodes.len(), "layout inspected");
+    nodes
+}
+
+/// Observes completed layout changes until the subscription is dropped.
+pub fn observe_layout(cx: &mut App, f: impl Fn(&mut App) + 'static) -> Subscription {
+    let registry = cx.default_global::<Registry>();
+    let id = registry.next_layout_observer;
+    registry.next_layout_observer += 1;
+    registry
+        .layout_observers
+        .borrow_mut()
+        .insert(id, Rc::new(f));
+    let observers = Rc::downgrade(&registry.layout_observers);
+    Subscription::new(move || {
+        if let Some(observers) = observers.upgrade() {
+            observers.borrow_mut().remove(&id);
+        }
+    })
+}
+
+fn notify_layout(cx: &mut App) {
+    let observers = cx.global::<Registry>().layout_observers.clone();
+    let ids = observers.borrow().keys().copied().collect::<Vec<_>>();
+    if ids.is_empty() {
+        return;
+    }
+    tracing::debug!(count = ids.len(), "layout observers");
+    for id in ids {
+        let callback = observers.borrow().get(&id).cloned();
+        if let Some(callback) = callback {
+            callback(cx);
+        }
+    }
+}
+
 type NamedLayoutFiles = Rc<dyn Fn(&str) -> PathBuf>;
 
 /// Operations recorded by an extension for a named layout.
@@ -144,7 +272,7 @@ fn layout_path(registry: &Registry) -> Option<PathBuf> {
     }
 }
 
-fn replay_operation(cx: &mut App, extension: &str, operation: Operation) {
+fn replay_operation(cx: &mut App, extension: &str, operation: Operation) -> bool {
     let node = match &operation {
         Operation::Add { node, .. } => node.id.clone(),
         Operation::Remove { node }
@@ -154,7 +282,7 @@ fn replay_operation(cx: &mut App, extension: &str, operation: Operation) {
     };
     if let Err(reason) = shell_rule_error(extension, cx, &operation) {
         tracing::info!(node = %node, reason, "skipped");
-        return;
+        return false;
     }
     if let Err(error) = cx
         .default_global::<Registry>()
@@ -163,7 +291,9 @@ fn replay_operation(cx: &mut App, extension: &str, operation: Operation) {
         .apply(operation)
     {
         tracing::info!(node = %node, reason = %error, "skipped");
+        return false;
     }
+    true
 }
 
 /// A placement that needs both props and a position. `props` is `Null` for
@@ -859,6 +989,9 @@ fn slot_nodes(tree: &Tree, items: &ItemChildren, parent: &NodeId, slot: &str) ->
 }
 
 struct Registry {
+    layout_observers: LayoutObservers,
+    next_layout_observer: u64,
+    named_nodes: BTreeSet<NodeId>,
     extensions: BTreeSet<String>,
     components: BTreeMap<ComponentId, Component>,
     action_handlers: Vec<ActionHandler>,
@@ -1144,6 +1277,9 @@ impl Default for Registry {
             }
         }
         Self {
+            layout_observers: Rc::default(),
+            next_layout_observer: 0,
+            named_nodes: BTreeSet::new(),
             extensions: BTreeSet::new(),
             components,
             action_handlers: Vec::new(),
@@ -1551,7 +1687,7 @@ fn split_on_drop(
             registry.splits.retain(|split| split.upgrade().is_some());
             registry.tabs.retain(|tabs| tabs.upgrade().is_some());
             tracing::debug!(done, "split on drop undone");
-            schedule_items(cx);
+            schedule_items(cx, false);
             cx.refresh_windows();
             return;
         }
@@ -1560,7 +1696,7 @@ fn split_on_drop(
     reconcile_containers(cx);
     cx.refresh_windows();
     save(cx);
-    schedule_items(cx);
+    schedule_items(cx, true);
 }
 
 fn refresh_after_drop(cx: &mut App) {
@@ -3354,14 +3490,17 @@ fn run_op(
     reconcile_containers(cx);
     cx.refresh_windows();
     save(cx);
-    schedule_items(cx);
+    schedule_items(cx, true);
 }
 
-fn schedule_items(cx: &mut App) {
+fn schedule_items(cx: &mut App, completed_operation: bool) {
     let registry = cx.global::<Registry>();
     if !registry.views_created
         || (registry.item_slots.is_empty() && registry.item_states.is_empty())
     {
+        if completed_operation {
+            notify_layout(cx);
+        }
         return;
     }
     let windows = registry
@@ -3375,10 +3514,13 @@ fn schedule_items(cx: &mut App) {
         let _group = operation.enter();
         for window in windows {
             let _ = window.update(cx, |_, window, cx| {
-                sync_items(window, cx);
+                sync_items(window, cx, !completed_operation);
                 reconcile_containers(cx);
                 window.refresh();
             });
+        }
+        if completed_operation {
+            notify_layout(cx);
         }
     });
 }
@@ -3433,7 +3575,8 @@ fn item_model(
     registry.window_contexts.get(&model).cloned()
 }
 
-fn sync_items(window: &mut Window, cx: &mut App) {
+fn sync_items(window: &mut Window, cx: &mut App, notify: bool) {
+    let before = cx.global::<Registry>().item_children.borrow().clone();
     let (root, slots) = {
         let registry = cx.default_global::<Registry>();
         if registry.item_slots.is_empty() && registry.item_states.is_empty() {
@@ -3569,7 +3712,7 @@ fn sync_items(window: &mut Window, cx: &mut App) {
             .map(|key| key.as_str())
             .collect::<Vec<_>>()
             .join(",");
-        let _group = (keys != state.keys).then(|| {
+        let _change = (keys != state.keys).then(|| {
             tracing::info_span!("items-changed", slot = slot_label.as_str(), added, removed)
                 .entered()
         });
@@ -3692,6 +3835,9 @@ fn sync_items(window: &mut Window, cx: &mut App) {
     registry
         .item_new_pending
         .retain(|tabs, _| active.contains(&(tabs.clone(), "children".to_owned())));
+    if notify && before != *cx.global::<Registry>().item_children.borrow() {
+        notify_layout(cx);
+    }
 }
 
 /// The model of the item tabs `tabs`, and its hooks.
@@ -3788,7 +3934,7 @@ fn item_model_notified(model: gpui::EntityId, window: &mut Window, cx: &mut App)
         .filter(|group| group.model == model)
         .map(|group| group.span.clone());
     let _group = span.map(tracing::Span::entered);
-    sync_items(window, cx);
+    sync_items(window, cx, true);
     reconcile_containers(cx);
     window.refresh();
 }
@@ -4430,6 +4576,7 @@ impl Extension {
             registry.failed_views.clear();
             registry.zoomed = None;
             registry.shown_layout = name.to_string().into();
+            registry.named_nodes.clear();
             *registry.tree.borrow_mut() = Layers::new(registry.startup_tree.clone());
             if name != "riso.default" && registry.named_layout_files.is_none() {
                 if !registry.warned_named_files {
@@ -4442,7 +4589,17 @@ impl Extension {
         if let Some(named) = named {
             for operation in named.operations {
                 match operation {
-                    Ok(operation) => replay_operation(cx, &named.extension, operation),
+                    Ok(operation) => {
+                        let added = match &operation {
+                            Operation::Add { node, .. } => Some(node.id.clone()),
+                            _ => None,
+                        };
+                        if replay_operation(cx, &named.extension, operation)
+                            && let Some(id) = added
+                        {
+                            cx.default_global::<Registry>().named_nodes.insert(id);
+                        }
+                    }
                     Err(reason) => tracing::info!(reason, "skipped"),
                 }
             }
@@ -4517,7 +4674,7 @@ impl Extension {
         for (teller, props) in to_tell {
             teller(&props, cx);
         }
-        sync_items(window, cx);
+        sync_items(window, cx, false);
         reconcile_containers(cx);
         let focus_kept = focused.is_some_and(|node| {
             find_in_drawn(cx.global::<Registry>(), cx, |shown| {
@@ -4542,6 +4699,7 @@ impl Extension {
         let dropped = before.len() - kept;
         let created = after.len() - kept;
         tracing::debug!(kept, dropped, created, "switched");
+        notify_layout(cx);
         window.refresh();
         cx.refresh_windows();
     }
@@ -4874,7 +5032,7 @@ impl Extension {
         for (teller, props) in to_tell {
             teller(&props, cx);
         }
-        sync_items(window, cx);
+        sync_items(window, cx, false);
         let (splits, tabs) = {
             let registry = cx.default_global::<Registry>();
             registry.splits.retain(|split| split.upgrade().is_some());
@@ -4898,6 +5056,7 @@ impl Extension {
         }
         cx.refresh_windows();
         save(cx);
+        notify_layout(cx);
     }
 
     /// Registers the first factory for a valid component ID.
@@ -5016,7 +5175,7 @@ impl Extension {
         let model = model_name::<M>();
         let _group = tracing::info_span!("item-slot-declare", node, slot, model).entered();
         if self.declare_item_slot::<M>(cx, node, slot, false) {
-            schedule_items(cx);
+            schedule_items(cx, false);
         }
     }
 
@@ -5046,7 +5205,7 @@ impl Extension {
             },
         );
         tracing::debug!("item tabs");
-        schedule_items(cx);
+        schedule_items(cx, false);
     }
 
     /// Declares an item slot inside the caller's group; `tabs` also requires
@@ -5464,7 +5623,7 @@ impl Extension {
                 log::error!("component {} is already registered", entry.key())
             }
         }
-        schedule_items(cx);
+        schedule_items(cx, false);
     }
 
     /// Places a valid root, whether or not its component is registered yet.
@@ -5953,9 +6112,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
             false
         }
     };
-    if should_restore {
-        restore(cx);
-    }
+    let restored = should_restore && restore(cx);
     let (frame_root, ext_root) = {
         let registry = cx.default_global::<Registry>();
         let layers = registry.tree.borrow();
@@ -5983,7 +6140,11 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
         let node = registry.zoomed.take().unwrap();
         tracing::debug!(node = %node, "zoom cleared");
     }
-    sync_items(window, cx);
+    let before_items = cx.global::<Registry>().item_children.borrow().clone();
+    sync_items(window, cx, false);
+    if restored || before_items != *cx.global::<Registry>().item_children.borrow() {
+        notify_layout(cx);
+    }
     // Initialize split children and tab selections early so visibility checks work before the first draw.
     reconcile_containers(cx);
     let toast_layer = cx.new(|_| riso_ui::ToastLayer::new());
@@ -6001,10 +6162,23 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
             toast_layer,
             last_focused: None,
             _item_subscriptions: item_subscriptions,
-            // A closed window's containers have no new item to select.
+            // Release the closed window's views and pending item selections.
             _release: {
                 let window_id = window.window_handle().window_id();
                 cx.on_release(move |_, cx| {
+                    // Slots share this map, so leaving a closed window's views
+                    // in it would retain both the views and their subscriptions.
+                    let registry = cx.default_global::<Registry>();
+                    registry.item_windows.remove(&window_id);
+                    // All shells read the shared map, including views added
+                    // through another window after this shell was created.
+                    if !registry
+                        .item_windows
+                        .values()
+                        .any(|(_, owners)| owners.upgrade().is_some())
+                    {
+                        registry.views.borrow_mut().clear();
+                    }
                     if let Some(registry) = cx.try_global::<Registry>()
                         && registry
                             .item_new_pending
@@ -6026,28 +6200,28 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     })
 }
 
-fn restore(cx: &mut App) {
+fn restore(cx: &mut App) -> bool {
     cx.default_global::<Registry>().item_new_pending.clear();
     let Some(path) = layout_path(cx.default_global::<Registry>()) else {
-        return;
+        return false;
     };
     let _group = tracing::info_span!("layout-restore", file = %path.display()).entered();
     let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             tracing::debug!("no saved layout");
-            return;
+            return false;
         }
         Err(error) => {
             log::warn!("the saved layout cannot be read: {error}");
-            return;
+            return false;
         }
     };
     let operations = match decode(&text) {
         Ok(operations) => operations,
         Err(error) => {
             log::warn!("the saved layout cannot be read: {error}");
-            return;
+            return false;
         }
     };
     cx.default_global::<Registry>().failed_views.clear();
@@ -6099,6 +6273,7 @@ fn restore(cx: &mut App) {
         }
     }
     tracing::debug!(applied, skipped, "restored");
+    applied > 0
 }
 
 fn create_view(
@@ -6206,7 +6381,8 @@ fn create_view(
                 zone: None,
             })
             .into();
-        cx.default_global::<Registry>()
+        let registry = cx.default_global::<Registry>();
+        registry
             .views
             .borrow_mut()
             .insert(node.id.clone(), wrapped.clone());

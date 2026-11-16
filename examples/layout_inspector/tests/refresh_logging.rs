@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 mod support;
 use gpui::TestAppContext;
 use std::sync::{Arc, Mutex};
@@ -73,9 +72,8 @@ fn refresh_is_one_group_per_change_and_draws_do_not_inspect(cx: &mut TestAppCont
         let (host, window) = support::setup(cx);
         let calls = std::rc::Rc::new(std::cell::Cell::new(0));
         let counter = calls.clone();
-        let _sentinel = cx.update(|cx| {
-            riso_shell::dev::observe_layout(cx, move |_| counter.set(counter.get() + 1))
-        });
+        let _sentinel =
+            cx.update(|cx| riso_shell::observe_layout(cx, move |_| counter.set(counter.get() + 1)));
         let before = trace.0.lock().unwrap().refreshes.len();
         cx.update(|cx| host.set_hidden(cx, "a", true));
         assert_eq!(&trace.0.lock().unwrap().refreshes[before..], [" nodes=5"]);

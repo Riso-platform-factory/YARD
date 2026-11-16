@@ -1,5 +1,5 @@
 use gpui::{AppContext, TestAppContext, WindowHandle, px};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 
 pub fn child(test: &str) -> bool {
     if std::env::var("LAYOUT_INSPECTOR_TEST_CHILD").as_deref() == Ok("1") {

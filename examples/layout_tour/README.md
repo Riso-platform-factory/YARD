@@ -330,6 +330,18 @@ Dropping a tab on an edge of a container's child splits around it: a new row or 
 | Quit and start again | The same layout: `restored {applied=5, skipped=0}`. |
 | `reset layout` | `left` with `a`, `b` and `right` with `c`, `d` again. |
 
+### Feature 27: toggle
+
+Buttons in the status bar show and hide nodes, as Zed's dock buttons show and hide its panels. The body is a row: a column `side` with cards `left` (shown) and `extra` (hidden at start), then `main`, a column of controls with `reset layout`, then card `right`. The status bar holds, on its left, a toggle for `left` (icon `info`) and one for `extra` (icon `plus`), both with `alone`, and on its right a toggle for `right` (icon `warning`). Use a fresh home: `RISO_HOME=/tmp/riso-toggle`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-toggle LAYOUT_TOUR=toggle cargo run dev` | The status bar shows three buttons; those of `left` and `right` are toggled, that of `extra` is not. |
+| Click the first toggle | `left` hides; the button is no longer toggled; `toggle{node=left, shown=false}` with one `layout-op{op=hide}`. |
+| Click it again | `left` shows. |
+| Click `extra`'s toggle | `left` hides and then `extra` shows, in `side`; two `layout-op` groups inside `toggle{node=extra, shown=true}`. |
+| Quit and start again, then `reset layout` | The same state; after the reset, `left` and `right` shown and `extra` hidden. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

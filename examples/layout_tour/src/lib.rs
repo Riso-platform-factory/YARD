@@ -39,6 +39,7 @@
 //! `LAYOUT_TOUR=contexts cargo run dev`: shared models from the nearest giving ancestor.
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 //! `LAYOUT_TOUR=empty-nodes cargo run dev`: lists with no items take no room, and come back with items.
+//! `LAYOUT_TOUR=toggle cargo run dev`: status bar toggles show and hide side cards, one at a time in a column.
 
 #[cfg(test)]
 mod tests;
@@ -48,7 +49,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -58,6 +62,51 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
+        "toggle" => {
+            register_card(cx, ext);
+            let buttons = vec![Button::action("reset layout", |ext, window, cx| {
+                ext.reset_layout(window, cx)
+            })];
+            let handle = ext.clone();
+            ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
+                cx.new(|_| Controls {
+                    buttons: buttons.clone(),
+                    ext: handle.clone(),
+                })
+                .into()
+            });
+            ext.place_root(cx, "root", "riso.row");
+            ext.place(cx, "side", "riso.column", "root", "children");
+            ext.place(cx, "left", "layout_tour.card", "side", "children");
+            ext.place(cx, "extra", "layout_tour.card", "side", "children");
+            ext.place(cx, "main", "layout_tour.controls", "root", "children");
+            ext.place(cx, "right", "layout_tour.card", "root", "children");
+            ext.set_hidden(cx, "extra", true);
+            ext.place_with_props(
+                cx,
+                "toggle_left",
+                "riso.toggle",
+                "status_bar",
+                "left",
+                serde_json::json!({"node": "left", "icon": "info", "alone": true}),
+            );
+            ext.place_with_props(
+                cx,
+                "toggle_extra",
+                "riso.toggle",
+                "status_bar",
+                "left",
+                serde_json::json!({"node": "extra", "icon": "plus", "alone": true}),
+            );
+            ext.place_with_props(
+                cx,
+                "toggle_right",
+                "riso.toggle",
+                "status_bar",
+                "right",
+                serde_json::json!({"node": "right", "icon": "warning"}),
+            );
+        }
         "empty-nodes" => {
             register_card(cx, ext);
             let lists: Lists = Rc::default();

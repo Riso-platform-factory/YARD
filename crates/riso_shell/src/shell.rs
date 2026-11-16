@@ -34,6 +34,138 @@ use std::{
     rc::{Rc, Weak},
 };
 
+type NamedLayoutFiles = Rc<dyn Fn(&str) -> PathBuf>;
+
+/// Operations recorded by an extension for a named layout.
+#[derive(Clone)]
+pub struct NamedLayout {
+    extension: String,
+    operations: Vec<Result<Operation, String>>,
+}
+
+impl NamedLayout {
+    pub fn add(&mut self, node: &str, component: &str, parent: &str, slot: &str) {
+        self.record_add(node, component, parent, slot, Ok(Props::new()));
+    }
+
+    pub fn add_with_props(
+        &mut self,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        props: impl serde::Serialize,
+    ) {
+        self.record_add(node, component, parent, slot, encode_props(props));
+    }
+
+    fn record_add(
+        &mut self,
+        node: &str,
+        component: &str,
+        parent: &str,
+        slot: &str,
+        props: Result<Props, String>,
+    ) {
+        self.operations.push((|| {
+            Ok(Operation::Add {
+                node: Node {
+                    id: NodeId::parse(node).map_err(|error| error.to_string())?,
+                    component: ComponentId::parse(component).map_err(|error| error.to_string())?,
+                    extension: self.extension.clone(),
+                    props: props?,
+                },
+                parent: operation_id(parent).map_err(|error| error.to_string())?,
+                slot: SlotName::parse(slot).map_err(|error| error.to_string())?,
+                at: Position::Last,
+            })
+        })());
+    }
+
+    pub fn remove(&mut self, node: &str) {
+        self.operations.push(
+            operation_id(node)
+                .map(|node| Operation::Remove { node })
+                .map_err(|error| error.to_string()),
+        );
+    }
+
+    pub fn move_node(&mut self, node: &str, parent: &str, slot: &str, index: usize) {
+        self.operations.push((|| {
+            Ok(Operation::Move {
+                node: operation_id(node).map_err(|error| error.to_string())?,
+                parent: operation_id(parent).map_err(|error| error.to_string())?,
+                slot: SlotName::parse(slot).map_err(|error| error.to_string())?,
+                at: Position::Index(index),
+            })
+        })());
+    }
+
+    pub fn set_hidden(&mut self, node: &str, hidden: bool) {
+        self.operations.push(
+            operation_id(node)
+                .map(|node| Operation::SetHidden { node, hidden })
+                .map_err(|error| error.to_string()),
+        );
+    }
+
+    pub fn set_props(&mut self, node: &str, props: impl serde::Serialize) {
+        self.operations.push((|| {
+            Ok(Operation::SetProps {
+                node: operation_id(node).map_err(|error| error.to_string())?,
+                props: encode_props(props)?,
+            })
+        })());
+    }
+}
+
+/// Names the user-layer file for each registered named layout.
+pub fn set_named_layout_files(cx: &mut App, file: impl Fn(&str) -> PathBuf + 'static) {
+    cx.default_global::<Registry>().named_layout_files = Some(Rc::new(file));
+    tracing::debug!("named layout files set");
+}
+
+/// Returns the layout shown by the window.
+pub fn shown_layout(cx: &App, _window: &Window) -> SharedString {
+    cx.try_global::<Registry>().map_or_else(
+        || "riso.default".into(),
+        |registry| registry.shown_layout.clone(),
+    )
+}
+
+fn layout_path(registry: &Registry) -> Option<PathBuf> {
+    if registry.shown_layout.as_str() == "riso.default" {
+        registry.layout_file.clone()
+    } else {
+        registry
+            .named_layout_files
+            .as_ref()
+            .map(|file| file(&registry.shown_layout))
+    }
+}
+
+fn replay_operation(cx: &mut App, extension: &str, operation: Operation) {
+    let node = match &operation {
+        Operation::Add { node, .. } => node.id.clone(),
+        Operation::Remove { node }
+        | Operation::Move { node, .. }
+        | Operation::SetHidden { node, .. }
+        | Operation::SetProps { node, .. } => node.clone(),
+    };
+    if let Err(reason) = shell_rule_error(extension, cx, &operation) {
+        tracing::info!(node = %node, reason, "skipped");
+        return;
+    }
+    if let Err(error) = cx
+        .default_global::<Registry>()
+        .tree
+        .borrow_mut()
+        .apply(operation)
+    {
+        tracing::info!(node = %node, reason = %error, "skipped");
+    }
+}
+
 /// A placement that needs both props and a position. `props` is `Null` for
 /// no props, or an object.
 pub struct Placement {
@@ -770,6 +902,12 @@ struct Registry {
     zoomed: Option<NodeId>,
     window_title: SharedString,
     layout_file: Option<PathBuf>,
+    named_layout_files: Option<NamedLayoutFiles>,
+    named_layouts: BTreeMap<String, NamedLayout>,
+    shown_layout: SharedString,
+    saved_layers: BTreeMap<String, Vec<Operation>>,
+    startup_tree: Tree,
+    warned_named_files: bool,
     views_created: bool,
     default_fixed: bool,
     size_hints: BTreeMap<ComponentId, SizeHints>,
@@ -1043,6 +1181,12 @@ impl Default for Registry {
             zoomed: None,
             window_title: SharedString::default(),
             layout_file: None,
+            named_layout_files: None,
+            named_layouts: BTreeMap::new(),
+            shown_layout: "riso.default".into(),
+            saved_layers: BTreeMap::new(),
+            startup_tree: Tree::default(),
+            warned_named_files: false,
             views_created: false,
             default_fixed: false,
             size_hints: BTreeMap::new(),
@@ -2932,7 +3076,7 @@ fn save(cx: &App) {
         if !registry.default_fixed {
             return None;
         }
-        let path = registry.layout_file.clone()?;
+        let path = layout_path(registry)?;
         let layers = registry.tree.borrow();
         let ops = layers.user_layer();
         Some((path, ops.len(), encode(ops)))
@@ -4044,6 +4188,9 @@ fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bo
 }
 
 fn shell_rule_error(extension: &str, cx: &mut App, operation: &Operation) -> Result<(), String> {
+    if let Some(node) = operation_copy(operation) {
+        return Err(format!("{node} is a copy of an item slot"));
+    }
     let registry = cx.default_global::<Registry>();
     match operation {
         Operation::Add {
@@ -4176,6 +4323,227 @@ impl Extension {
             return None;
         }
         Some(Self { name: name.into() })
+    }
+
+    /// Registers operations to apply over the startup default when shown.
+    pub fn named_layout(&self, cx: &mut App, name: &str, build: impl FnOnce(&mut NamedLayout)) {
+        // Validate before running extension code, and keep refusals in their group.
+        let refusal = if name == "riso.default" {
+            Some("riso.default is reserved".to_string())
+        } else if ComponentId::parse(name).is_err() {
+            Some(format!("invalid named layout ID {name:?}"))
+        } else if !name.starts_with(&format!("{}.", self.name)) {
+            Some(format!(
+                "named layout {name} is outside extension {}'s namespace",
+                self.name
+            ))
+        } else if cx
+            .default_global::<Registry>()
+            .named_layouts
+            .contains_key(name)
+        {
+            Some(format!("named layout {name} is already registered"))
+        } else {
+            None
+        };
+        if let Some(reason) = refusal {
+            let _group = tracing::info_span!(
+                "named-layout-register",
+                name,
+                extension = self.name.as_str(),
+                operations = 0usize
+            )
+            .entered();
+            log::error!("{reason}");
+            return;
+        }
+        let mut layout = NamedLayout {
+            extension: self.name.clone(),
+            operations: Vec::new(),
+        };
+        build(&mut layout);
+        let _group = tracing::info_span!(
+            "named-layout-register",
+            name,
+            extension = self.name.as_str(),
+            operations = layout.operations.len()
+        )
+        .entered();
+        cx.default_global::<Registry>()
+            .named_layouts
+            .insert(name.into(), layout);
+        tracing::debug!("registered");
+    }
+
+    /// Shows a registered layout with its own saved user layer.
+    pub fn show_layout(&self, window: &mut Window, cx: &mut App, name: &str) {
+        let from = shown_layout(cx, window);
+        let _group =
+            tracing::info_span!("layout-switch", from = from.as_str(), to = name).entered();
+        if from.as_str() == name {
+            tracing::debug!("already shown");
+            return;
+        }
+        let named = cx
+            .default_global::<Registry>()
+            .named_layouts
+            .get(name)
+            .cloned();
+        if name != "riso.default" && named.is_none() {
+            tracing::info!(name, "no named layout");
+            return;
+        }
+        let focused = focused_node(window, cx);
+        let (before, before_props, before_components) = {
+            let registry = cx.default_global::<Registry>();
+            let before = registry
+                .views
+                .borrow()
+                .iter()
+                .map(|(id, view)| (id.clone(), view.entity_id()))
+                .collect::<BTreeMap<_, _>>();
+            let layers = registry.tree.borrow();
+            let mut nodes = Vec::new();
+            if let Some(root) = layers.current().root() {
+                collect_nodes(layers.current(), root, &mut nodes);
+            }
+            let props = nodes
+                .into_iter()
+                .map(|node| (node.id, node.props))
+                .collect::<BTreeMap<_, _>>();
+            let components = before
+                .keys()
+                .filter_map(|id| {
+                    node_of(layers.current(), &template_id(id))
+                        .map(|node| (id.clone(), (node.component.clone(), node.extension.clone())))
+                })
+                .collect::<BTreeMap<_, _>>();
+            if layout_path(registry).is_none() {
+                registry
+                    .saved_layers
+                    .insert(from.to_string(), layers.user_layer().to_vec());
+            }
+            (before, props, components)
+        };
+        {
+            let registry = cx.default_global::<Registry>();
+            registry.failed_views.clear();
+            registry.zoomed = None;
+            registry.shown_layout = name.to_string().into();
+            *registry.tree.borrow_mut() = Layers::new(registry.startup_tree.clone());
+            if name != "riso.default" && registry.named_layout_files.is_none() {
+                if !registry.warned_named_files {
+                    log::warn!("named layout files are not set; user layers live in memory only");
+                    registry.warned_named_files = true;
+                }
+                tracing::debug!("named layout user layer is in memory");
+            }
+        }
+        if let Some(named) = named {
+            for operation in named.operations {
+                match operation {
+                    Ok(operation) => replay_operation(cx, &named.extension, operation),
+                    Err(reason) => tracing::info!(reason, "skipped"),
+                }
+            }
+        }
+        cx.default_global::<Registry>()
+            .tree
+            .borrow_mut()
+            .set_default();
+        if layout_path(cx.global::<Registry>()).is_some() {
+            restore(cx);
+        } else {
+            cx.default_global::<Registry>().item_new_pending.clear();
+            let saved = cx
+                .global::<Registry>()
+                .saved_layers
+                .get(name)
+                .cloned()
+                .unwrap_or_default();
+            for operation in saved {
+                let extension = match &operation {
+                    Operation::Add { node, .. } => node.extension.clone(),
+                    _ => "riso".into(),
+                };
+                replay_operation(cx, &extension, operation);
+            }
+        }
+        let (root, removed) = {
+            let registry = cx.global::<Registry>();
+            let layers = registry.tree.borrow();
+            let tree = layers.current();
+            let removed = registry
+                .views
+                .borrow()
+                .keys()
+                .filter(|id| {
+                    node_of(tree, &template_id(id)).is_none_or(|node| {
+                        before_components.get(*id)
+                            != Some(&(node.component.clone(), node.extension.clone()))
+                    })
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            (tree.root().cloned(), removed)
+        };
+        for id in removed {
+            drop_copy(cx, &id);
+        }
+        if let Some(root) = root {
+            let _ = create_view(&root, None, window, cx);
+        }
+        let to_tell = {
+            let registry = cx.global::<Registry>();
+            let layers = registry.tree.borrow();
+            let mut nodes = Vec::new();
+            if let Some(root) = layers.current().root() {
+                collect_nodes(layers.current(), root, &mut nodes);
+            }
+            nodes
+                .into_iter()
+                .filter(|node| {
+                    before.contains_key(&node.id) && before_props.get(&node.id) != Some(&node.props)
+                })
+                .filter_map(|node| {
+                    registry
+                        .tellers
+                        .get(&node.id)
+                        .cloned()
+                        .map(|teller| (teller, node.props))
+                })
+                .collect::<Vec<_>>()
+        };
+        for (teller, props) in to_tell {
+            teller(&props, cx);
+        }
+        sync_items(window, cx);
+        reconcile_containers(cx);
+        let focus_kept = focused.is_some_and(|node| {
+            find_in_drawn(cx.global::<Registry>(), cx, |shown| {
+                (shown == &node).then_some(())
+            })
+            .is_some()
+        });
+        if !focus_kept && let Some(handle) = cx.global::<Registry>().root_focus_handle.clone() {
+            handle.focus(window, cx);
+        }
+        let after = cx
+            .global::<Registry>()
+            .views
+            .borrow()
+            .iter()
+            .map(|(id, view)| (id.clone(), view.entity_id()))
+            .collect::<BTreeMap<_, _>>();
+        let kept = before
+            .iter()
+            .filter(|(id, entity)| after.get(*id) == Some(*entity))
+            .count();
+        let dropped = before.len() - kept;
+        let created = after.len() - kept;
+        tracing::debug!(kept, dropped, created, "switched");
+        window.refresh();
+        cx.refresh_windows();
     }
 
     /// Adds a new node at the end of a parent's declared slot and creates its view.
@@ -5577,6 +5945,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     let should_restore = {
         let registry = cx.default_global::<Registry>();
         if !registry.default_fixed {
+            registry.startup_tree = registry.tree.borrow().current().clone();
             registry.tree.borrow_mut().set_default();
             registry.default_fixed = true;
             true
@@ -5659,7 +6028,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
 
 fn restore(cx: &mut App) {
     cx.default_global::<Registry>().item_new_pending.clear();
-    let Some(path) = cx.default_global::<Registry>().layout_file.clone() else {
+    let Some(path) = layout_path(cx.default_global::<Registry>()) else {
         return;
     };
     let _group = tracing::info_span!("layout-restore", file = %path.display()).entered();

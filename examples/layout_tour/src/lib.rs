@@ -46,7 +46,6 @@
 
 mod item_slots;
 mod item_tabs;
-#[cfg(feature = "dev")]
 mod named_layouts;
 #[cfg(test)]
 mod tests;
@@ -56,10 +55,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -69,7 +65,6 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
-        #[cfg(feature = "dev")]
         "named-layouts" => named_layouts::init(cx, ext),
         "item-slots" => item_slots::init(cx, ext),
         "item-tabs" => item_tabs::init(cx, ext),
@@ -763,11 +758,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
              tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
             "item-slots, item-tabs, empty-nodes, ",
             "tab-overflow, ",
-            if cfg!(feature = "dev") {
-                "named-layouts, "
-            } else {
-                ""
-            }
+            "named-layouts, "
         ),
     }
 }

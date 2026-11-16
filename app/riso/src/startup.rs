@@ -28,6 +28,10 @@ pub(crate) fn run(
                 riso_ui::apply_theme_setting(cx);
                 riso_shell::set_window_title(cx, product.name);
                 riso_shell::set_layout_file(cx, paths.layout_file());
+                let named_paths = paths.clone();
+                riso_shell::set_named_layout_files(cx, move |name| {
+                    named_paths.named_layout_file(name)
+                });
                 riso_shell::bind_default_keys(cx);
                 riso_ui::bind_text_input_keys(cx);
                 riso_shell::handle_quit(cx);

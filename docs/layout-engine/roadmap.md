@@ -104,7 +104,7 @@ Features 13 and later are the second part of the engine. Where the column `Needs
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 30 | `named-layouts` | An extension registers a named layout: a list of operations over the default layout. A window shows one named layout at a time and can switch to another. Nodes with the same ID keep their views, and each named layout has its own user layer and its own file | Switching between two arrangements of the same cards keeps their counts | none | 12 | dev |
+| 30 | `named-layouts` | An extension registers a named layout: a list of operations over the default layout. A window shows one named layout at a time and can switch to another. Nodes with the same ID keep their views, and each named layout has its own user layer and its own file | Switching between two arrangements of the same cards keeps their counts | none | 12 | production |
 
 ### Tools
 

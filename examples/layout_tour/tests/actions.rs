@@ -1,8 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 
 #[gpui::test]
 fn action_buttons_keep_the_layout_focus(cx: &mut TestAppContext) {

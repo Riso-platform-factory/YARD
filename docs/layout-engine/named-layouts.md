@@ -11,7 +11,7 @@ An extension can register named layouts: each is a list of operations over the d
   - The name is an ID in the extension's namespace (`<extension>.<slug>`), as a component's is. It is refused with an `ERROR` for an invalid name, a name outside the namespace, `riso.default`, or a second registration of the same name.
   - Operations are recorded in order with the extension that registered the layout, so the namespace rule of `add` is checked as for a live operation.
 - **Switching.** `Extension::show_layout(window, cx, name)` makes the window show `name`. The window's tree becomes the default layout, then the named layout's operations, then that layout's saved user layer, each operation checked by the shell's rules as at restore (feature 12): a refused operation is skipped with an `INFO`, and the rest is applied. Then:
-  - a node whose ID is in the tree before and after keeps its view and its state, even when it moved, as a reset keeps it;
+  - a node whose ID is in the tree before and after, with the same component, keeps its view and its state, even when it moved, as a reset keeps it; a node whose ID stays but whose component changes gets a new view;
   - a node that leaves has its view dropped (`view dropped`), and a node that comes has its view created;
   - zoom ends, as a reset ends it; focus stays on its node if the node is still shown, else goes to the window;
   - switching to the layout already shown changes nothing and logs `debug` `already shown`;

@@ -55,7 +55,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -81,7 +84,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "side", "riso.column", "root", "children");
             ext.place(cx, "left", "layout_tour.card", "side", "children");
             ext.place(cx, "extra", "layout_tour.card", "side", "children");
@@ -145,7 +148,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "layout", "riso.column");
+            place_root(ext, cx, "layout", "riso.column");
             ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
             ext.place(cx, "root", "riso.row", "layout", "children");
             ext.place(cx, "left", "riso.column", "root", "children");
@@ -209,7 +212,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "layout", "riso.column");
+            place_root(ext, cx, "layout", "riso.column");
             ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
             ext.place(cx, "root", "riso.row", "layout", "children");
             ext.place(cx, "counter", "layout_tour.counter", "root", "children");
@@ -251,7 +254,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             for node in ["a", "b", "c"] {
                 ext.place(cx, node, "layout_tour.card", "root", "children");
@@ -294,7 +297,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "layout", "riso.column");
+            place_root(ext, cx, "layout", "riso.column");
             ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
             ext.place(cx, "root", "riso.row", "layout", "children");
             ext.place(cx, "frame", "layout_tour.frame", "root", "children");
@@ -328,7 +331,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "side", "layout_tour.card", "root", "children");
             ext.place(cx, "main", "riso.column", "root", "children");
@@ -364,7 +367,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "cards", "riso.tabs", "root", "children");
             ext.place_with_props(
@@ -420,7 +423,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "cards", "riso.row", "root", "children");
             ext.place_with_props(
@@ -475,7 +478,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.column");
+            place_root(ext, cx, "root", "riso.column");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "tabs", "riso.tabs", "root", "children");
             for index in 1..=20 {
@@ -510,7 +513,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "a", "layout_tour.card", "root", "children");
             ext.place(cx, "right", "riso.tabs", "root", "children");
@@ -531,7 +534,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.column");
+            place_root(ext, cx, "root", "riso.column");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place_with_props(
                 cx,
@@ -575,7 +578,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.column");
+            place_root(ext, cx, "root", "riso.column");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "row", "riso.row", "root", "children");
             ext.place(cx, "panel", "layout_tour.panel", "row", "children");
@@ -598,7 +601,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "left", "riso.tabs", "root", "children");
             ext.place(cx, "right", "riso.tabs", "root", "children");
@@ -608,12 +611,12 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         }
         "zoom-root" => {
             register_card(cx, ext);
-            ext.place_root(cx, "root", "layout_tour.card");
+            place_root(ext, cx, "root", "layout_tour.card");
             ext.set_zoomed(cx, "root");
         }
         "two-tabs" => {
             register_card(cx, ext);
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "left", "riso.tabs", "root", "children");
             ext.place(cx, "right", "riso.tabs", "root", "children");
             ext.place(cx, "a", "layout_tour.card", "left", "children");
@@ -632,7 +635,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "a", "layout_tour.card", "root", "children");
             ext.place(cx, "right", "riso.column", "root", "children");
@@ -642,7 +645,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         "hide-show" | "hide-tab" | "hide-root" => {
             register_card(cx, ext);
             if case == "hide-root" {
-                ext.place_root(cx, "root", "layout_tour.card");
+                place_root(ext, cx, "root", "layout_tour.card");
                 ext.set_hidden(cx, "root", true);
                 return;
             }
@@ -655,7 +658,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            place_root(ext, cx, "root", "riso.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             let parent = if case == "hide-tab" {
                 ext.place(cx, "right", "riso.tabs", "root", "children");
@@ -676,7 +679,8 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 });
                 return;
             }
-            ext.place_root(
+            place_root(
+                ext,
                 cx,
                 "root",
                 if case == "column" {
@@ -716,9 +720,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         "host" | "card" | "twice" | "nested" | "duplicate-id" | "missing-parent"
         | "missing-slot" | "missing-child" | "duplicate-slot" => {
             register_card(cx, ext);
-            ext.place_root(cx, "root", "layout_tour.card");
+            place_root(ext, cx, "root", "layout_tour.card");
             match case.as_str() {
-                "twice" => ext.place_root(cx, "second", "layout_tour.card"),
+                "twice" => place_root(ext, cx, "second", "layout_tour.card"),
                 "nested" => {
                     ext.place(cx, "left", "layout_tour.card", "root", "body");
                     ext.place(cx, "right", "layout_tour.card", "root", "body");
@@ -744,12 +748,12 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 _ => {}
             }
         }
-        "missing" => ext.place_root(cx, "root", "layout_tour.missing"),
+        "missing" => place_root(ext, cx, "root", "layout_tour.missing"),
         "bad-id" => {
             ext.register(cx, "Layout Tour.Card", &[], |_, _, _, cx| {
                 cx.new(|_| gpui::Empty).into()
             });
-            ext.place_root(cx, "root", "Layout Tour.Card");
+            place_root(ext, cx, "root", "Layout Tour.Card");
         }
         _ => log::warn!(
             "unknown LAYOUT_TOUR case {case:?}; known cases: {}{}{}titles, host, card, missing, twice, \
@@ -760,6 +764,29 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             "tab-overflow, ",
             "named-layouts, "
         ),
+    }
+}
+
+struct TourFrame;
+impl gpui::Global for TourFrame {}
+
+fn place_root(ext: &shell::Extension, cx: &mut App, node: &str, component: &str) {
+    if std::env::var_os("LAYOUT_INSPECTOR").is_some() {
+        // Keep the one-root rule for cases that deliberately place a second root.
+        if !cx.has_global::<TourFrame>() {
+            cx.set_global(TourFrame);
+            ext.place_root_with_props(
+                cx,
+                "tour_frame",
+                "riso.row",
+                serde_json::json!({"sizes": {"inspector": 360}}),
+            );
+            ext.place(cx, node, component, "tour_frame", "children");
+        } else {
+            ext.place_root(cx, node, component);
+        }
+    } else {
+        ext.place_root(cx, node, component);
     }
 }
 

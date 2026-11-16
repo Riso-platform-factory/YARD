@@ -54,7 +54,7 @@ pub(super) fn init(cx: &mut App, ext: &shell::Extension) {
     ext.register(cx, "layout_tour.names", &["children"], |_, slots, _, cx| {
         cx.new(|_| NamesView { slots }).into()
     });
-    ext.place_root(cx, "root", "layout_tour.names");
+    place_root(ext, cx, "root", "layout_tour.names");
     ext.place(cx, "names_tabs", "riso.tabs", "root", "children");
     ext.item_tabs::<Names>(cx, "names_tabs");
     ext.place(cx, "name", "layout_tour.card", "names_tabs", "children");

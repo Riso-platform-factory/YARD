@@ -32,7 +32,7 @@ pub(super) fn init(cx: &mut App, ext: &shell::Extension) {
             cx.new(|_| NamesView { model, slots }).into()
         },
     );
-    ext.place_root(cx, "root", "layout_tour.names");
+    place_root(ext, cx, "root", "layout_tour.names");
     ext.place(cx, "names_row", "riso.row", "root", "children");
     ext.item_slot::<Names>(cx, "names_row", "children");
     ext.place(cx, "name", "layout_tour.card", "names_row", "children");

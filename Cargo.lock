@@ -2905,6 +2905,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "layout_inspector"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "riso_shell",
+ "riso_ui",
+ "tracing",
+]
+
+[[package]]
 name = "layout_tour"
 version = "0.1.0"
 dependencies = [
@@ -4683,6 +4694,8 @@ dependencies = [
  "command_palette",
  "gpui",
  "gpui_platform",
+ "layout_inspector",
+ "layout_tour",
  "riso_keymap",
  "riso_layout",
  "riso_log",

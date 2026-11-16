@@ -9,7 +9,7 @@ pub(super) fn init(cx: &mut App, ext: &shell::Extension) {
         })
         .into()
     });
-    ext.place_root(cx, "root", "riso.row");
+    place_root(ext, cx, "root", "riso.row");
     ext.place(cx, "cards", "riso.row", "root", "children");
     for node in ["a", "b", "c"] {
         ext.place(cx, node, "layout_tour.card", "cards", "children");

@@ -379,6 +379,10 @@ An extension registers named layouts, each a list of operations over the default
 | Click `swap`, then `hide c`, then `default` | In `swap`, `c` hides; back in `default`, `c` is shown: the hide is in `layouts/layout_tour.swap.json` only. |
 | Click `swap` again, then `reset layout` | `c` is back, before `a`: only `swap`'s user layer was dropped. |
 
+### Feature 31: inspector
+
+With `LAYOUT_INSPECTOR` set, every case's root is placed in a row `tour_frame`, and the extension `layout_inspector` shows the layout tree in that row, on the right. Its walkthrough is in `examples/layout_inspector/README.md`. Without it, every case is as before.
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

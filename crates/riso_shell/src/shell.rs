@@ -18,10 +18,9 @@ gpui::actions!(riso, [Dismiss]);
 gpui::actions!(riso, [Quit]);
 use gpui::{
     Action, Along, AnyEntity, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div,
-    DragMoveEvent, Entity, EntityId, FocusHandle, Global, InteractiveElement, IntoElement,
-    KeyBinding, KeyBindingContextPredicate, ParentElement, Pixels, Point, Rems, Render,
-    ScrollEvent, ScrollHandle, SharedString, Size, Styled, Subscription, WeakEntity, Window,
-    canvas, div,
+    Entity, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding,
+    KeyBindingContextPredicate, ParentElement, Pixels, Point, Rems, Render, ScrollEvent,
+    ScrollHandle, SharedString, Size, Styled, Subscription, WeakEntity, Window, canvas, div,
 };
 use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Position, Props, SlotName, Tree};
@@ -254,6 +253,7 @@ struct NodeView {
     node: NodeId,
     handle: Option<FocusHandle>,
     view: AnyView,
+    zone: Option<DropZone>,
 }
 
 impl Render for NodeView {
@@ -310,20 +310,51 @@ impl Render for NodeView {
         } else {
             container
         };
-        container.child(self.view.clone()).child(
-            canvas(
-                move |bounds, _, cx| {
-                    cx.default_global::<Registry>()
-                        .bounds
-                        .insert(node.clone(), bounds);
+        if !cx.has_active_drag() {
+            self.zone = None;
+        }
+        let mut container = container
+            .id(SharedString::from(format!("drop:{}", self.node)))
+            .on_drag_move::<DraggedNode>(cx.listener(|view, event: &gpui::DragMoveEvent<DraggedNode>, _, cx| {
+                let next = drop_target_at(cx, event.event.position)
+                    .filter(|target| target == &view.node)
+                    .and_then(|_| zone_at(event.bounds, event.event.position));
+                if next != view.zone {
+                    view.zone = next;
+                    let target = drop_target_name(cx, &view.node);
+                    tracing::trace!(target = %target, zone = next.map_or("none", DropZone::name), "drop zone");
+                    cx.notify();
+                }
+            }));
+        if let Some(zone) = self.zone {
+            container = container.on_drop::<DraggedNode>(cx.listener(
+                move |view, dragged: &DraggedNode, window, cx| {
+                    view.zone = None;
+                    cx.notify();
+                    drop_on_zone(cx, window, &dragged.node, &view.node, zone);
                 },
-                |_, _, _, _| {},
+            ));
+        }
+        container
+            .child(self.view.clone())
+            .child(
+                canvas(
+                    move |bounds, _, cx| {
+                        cx.default_global::<Registry>()
+                            .bounds
+                            .insert(node.clone(), bounds);
+                    },
+                    |_, _, _, _| {},
+                )
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full(),
             )
-            .absolute()
-            .top_0()
-            .left_0()
-            .size_full(),
-        )
+            .children(
+                self.zone
+                    .map(|zone| zone_overlay(zone, riso_ui::palette(cx).drop_target)),
+            )
     }
 }
 
@@ -446,6 +477,8 @@ struct Registry {
     views_created: bool,
     default_fixed: bool,
     size_hints: BTreeMap<ComponentId, SizeHints>,
+    splitting: bool,
+    cycle_drop: Option<NodeId>,
 }
 
 impl Default for Registry {
@@ -473,8 +506,6 @@ impl Default for Registry {
                             shown_shares: Rc::new(RefCell::new(Vec::new())),
                             shown_given: Vec::new(),
                             rem_size,
-                            edges: BTreeMap::new(),
-                            child_bounds: BTreeMap::new(),
                         });
                         let registry = cx.default_global::<Registry>();
                         registry.splits.push(split.downgrade());
@@ -677,187 +708,375 @@ impl Default for Registry {
             views_created: false,
             default_fixed: false,
             size_hints: BTreeMap::new(),
+            splitting: false,
+            cycle_drop: None,
         }
     }
 }
 impl Global for Registry {}
 
-fn edge_at(bounds: Bounds<Pixels>, axis: Axis, position: Point<Pixels>) -> Option<Edge> {
+// Zed chooses the nearest side, with ties ordered top, right, bottom, left.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DropZone {
+    Top,
+    Right,
+    Bottom,
+    Left,
+    Center,
+}
+
+impl DropZone {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Top => "top",
+            Self::Right => "right",
+            Self::Bottom => "bottom",
+            Self::Left => "left",
+            Self::Center => "center",
+        }
+    }
+    fn axis(self) -> Option<Axis> {
+        match self {
+            Self::Left | Self::Right => Some(Axis::Horizontal),
+            Self::Top | Self::Bottom => Some(Axis::Vertical),
+            Self::Center => None,
+        }
+    }
+    fn edge(self) -> Edge {
+        match self {
+            Self::Top | Self::Left => Edge::Before,
+            _ => Edge::After,
+        }
+    }
+}
+
+fn zone_at(bounds: Bounds<Pixels>, position: Point<Pixels>) -> Option<DropZone> {
     if !bounds.contains(&position) {
         return None;
     }
     let size = bounds.size.width.min(bounds.size.height) * 0.2;
-    let relative = Point::new(position.x - bounds.left(), position.y - bounds.top());
-    match axis {
-        Axis::Horizontal => {
-            if relative.x < size {
-                Some(Edge::Before)
-            } else if relative.x > bounds.size.width - size {
-                Some(Edge::After)
-            } else {
-                None
-            }
-        }
-        Axis::Vertical => {
-            if relative.y < size {
-                Some(Edge::Before)
-            } else if relative.y > bounds.size.height - size {
-                Some(Edge::After)
-            } else {
-                None
-            }
-        }
-    }
+    let sides = [
+        (DropZone::Top, position.y - bounds.top()),
+        (DropZone::Right, bounds.right() - position.x),
+        (DropZone::Bottom, bounds.bottom() - position.y),
+        (DropZone::Left, position.x - bounds.left()),
+    ];
+    let (zone, distance) = sides
+        .into_iter()
+        .min_by_key(|(_, distance)| *distance)
+        .unwrap();
+    Some(if distance < size {
+        zone
+    } else {
+        DropZone::Center
+    })
 }
 
-fn edge_overlay(axis: Axis, edge: Edge, color: gpui::Hsla) -> gpui::Div {
+fn zone_overlay(zone: DropZone, color: gpui::Hsla) -> Div {
     let overlay = div()
-        .debug_selector(move || {
-            let side = match (axis, edge) {
-                (Axis::Horizontal, Edge::Before) => "left",
-                (Axis::Horizontal, Edge::After) => "right",
-                (Axis::Vertical, Edge::Before) => "top",
-                (Axis::Vertical, Edge::After) => "bottom",
-            };
-            format!("DROP-OVERLAY-{side}")
-        })
+        .debug_selector(move || format!("DROP-OVERLAY-{}", zone.name()))
         .absolute()
         .bg(color);
-    match (axis, edge) {
-        (Axis::Horizontal, Edge::Before) => overlay
+    match zone {
+        DropZone::Left => overlay
             .top_0()
             .left_0()
             .bottom_0()
             .w(DefiniteLength::Fraction(0.5)),
-        (Axis::Horizontal, Edge::After) => overlay
+        DropZone::Right => overlay
             .top_0()
             .right_0()
             .bottom_0()
             .w(DefiniteLength::Fraction(0.5)),
-        (Axis::Vertical, Edge::Before) => overlay
+        DropZone::Top => overlay
             .top_0()
             .left_0()
             .right_0()
             .h(DefiniteLength::Fraction(0.5)),
-        (Axis::Vertical, Edge::After) => overlay
+        DropZone::Bottom => overlay
+            .bottom_0()
             .left_0()
             .right_0()
-            .bottom_0()
             .h(DefiniteLength::Fraction(0.5)),
+        DropZone::Center => overlay.inset_0(),
     }
 }
 
-fn inner_target_claims_cursor(
-    cx: &App,
-    current_split: EntityId,
-    subtree_root: &NodeId,
-    position: Point<Pixels>,
-) -> bool {
-    let Some(registry) = cx.try_global::<Registry>() else {
-        return false;
-    };
-    let tabs_selected: BTreeMap<NodeId, Option<NodeId>> = registry
-        .tabs
-        .iter()
-        .filter_map(|weak| weak.upgrade())
-        .map(|tabs| {
-            let tabs = tabs.read(cx);
-            (tabs.node.clone(), tabs.selected.clone())
-        })
-        .collect();
-    let mut shown_subtree = BTreeSet::new();
-    {
+fn drop_target_at(cx: &App, position: Point<Pixels>) -> Option<NodeId> {
+    let registry = cx.try_global::<Registry>()?;
+    // Tab bars retain their own indexed/append drop behavior.
+    let drawn_bar = find_in_drawn(registry, cx, |node| {
+        registry
+            .tabs
+            .iter()
+            .filter_map(WeakEntity::upgrade)
+            .any(|tabs| {
+                let tabs = tabs.read(cx);
+                &tabs.node == node
+                    && tabs
+                        .bar_bounds
+                        .is_some_and(|bounds| bounds.contains(&position))
+            })
+            .then_some(())
+    })
+    .is_some();
+    if drawn_bar {
+        return None;
+    }
+    find_in_drawn(registry, cx, |node| {
         let layers = registry.tree.borrow();
         let tree = layers.current();
-        let views = registry.views.borrow();
-        let is_empty = |node: &NodeId| {
-            node_emptiness(registry, tree, &views, node, Emptiness::Remembered, cx).0
-        };
-        fn collect(
-            tree: &Tree,
-            views: &ViewMap,
-            is_empty: &dyn Fn(&NodeId) -> bool,
-            tabs_selected: &BTreeMap<NodeId, Option<NodeId>>,
-            node: &NodeId,
-            out: &mut BTreeSet<NodeId>,
-        ) {
-            if tree.is_hidden(node)
-                || !views.contains_key(node)
-                || is_empty(node)
-                || !out.insert(node.clone())
-            {
-                return;
-            }
-            if let Some(selected) = tabs_selected.get(node) {
-                if let Some(child) = selected {
-                    collect(tree, views, is_empty, tabs_selected, child, out);
-                }
-                return;
-            }
-            for (_, children) in tree.slots(node) {
-                for child in children {
-                    collect(tree, views, is_empty, tabs_selected, &child.id, out);
-                }
-            }
+        let (parent, _, _, _) = current_location(tree, node)?;
+        let component = component_of(tree, &parent)?.as_str();
+        if !matches!(component, "riso.tabs" | "riso.row" | "riso.column") {
+            return None;
         }
-        collect(
-            tree,
-            &views,
-            &is_empty,
-            &tabs_selected,
-            subtree_root,
-            &mut shown_subtree,
-        );
-    }
-    for weak in &registry.tabs {
-        if let Some(tabs) = weak.upgrade() {
-            let tabs = tabs.read(cx);
-            if shown_subtree.contains(&tabs.node)
-                && tabs
-                    .bar_bounds
-                    .is_some_and(|bounds| bounds.contains(&position))
-            {
-                return true;
-            }
-        }
-    }
-    for weak in &registry.splits {
-        if let Some(split) = weak.upgrade()
-            && split.entity_id() != current_split
-        {
-            let split = split.read(cx);
-            if shown_subtree.contains(&split.node)
-                && split
-                    .shown_nodes
-                    .iter()
-                    .zip(split.shown_shares.borrow().iter())
-                    .any(|(child, size)| {
-                        !size.collapsed
-                            && split.child_bounds.get(child).is_some_and(|bounds| {
-                                edge_at(*bounds, split.axis, position).is_some()
-                            })
-                    })
-            {
-                return true;
-            }
-        }
-    }
-    false
+        let zone = zone_at(*registry.bounds.get(node)?, position)?;
+        Some((
+            node.clone(),
+            zone != DropZone::Center || component == "riso.tabs",
+        ))
+    })
+    .and_then(|(node, accepts)| accepts.then_some(node))
 }
 
-fn clear_drag_edges(cx: &mut App) {
-    let splits = cx
-        .try_global::<Registry>()
-        .map(|registry| registry.splits.clone())
-        .unwrap_or_default();
-    for split in splits {
-        let _ = split.update(cx, |split, cx| {
-            if !split.edges.is_empty() {
-                split.edges.clear();
-                cx.notify();
+fn drop_target_name(cx: &App, shown: &NodeId) -> NodeId {
+    let registry = cx.global::<Registry>();
+    let layers = registry.tree.borrow();
+    let tree = layers.current();
+    current_location(tree, shown)
+        .and_then(|(parent, _, _, _)| {
+            (component_of(tree, &parent)?.as_str() == "riso.tabs").then_some(parent)
+        })
+        .unwrap_or_else(|| shown.clone())
+}
+
+fn drop_on_zone(cx: &mut App, window: &mut Window, node: &NodeId, shown: &NodeId, zone: DropZone) {
+    let (parent, component) = {
+        let registry = cx.global::<Registry>();
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let Some((parent, _, _, _)) = current_location(tree, shown) else {
+            return;
+        };
+        let Some(component) = component_of(tree, &parent) else {
+            return;
+        };
+        (parent, component.clone())
+    };
+    if component.as_str() == "riso.tabs" {
+        if zone == DropZone::Center {
+            if node == shown {
+                cx.default_global::<Registry>().cycle_drop = Some(node.clone());
+                shell_move(cx, node, &parent, "children", usize::MAX);
+                cx.default_global::<Registry>().cycle_drop = None;
+            } else {
+                drop_on_tab_bar(cx, node, &parent);
+                let in_target = {
+                    let registry = cx.global::<Registry>();
+                    let layers = registry.tree.borrow();
+                    current_location(layers.current(), node)
+                        .is_some_and(|(current, _, _, _)| current == parent)
+                };
+                if in_target {
+                    let tabs = cx.global::<Registry>().tabs.clone();
+                    for tabs in tabs {
+                        let _ = tabs.update(cx, |tabs, cx| {
+                            if tabs.node == parent {
+                                tabs.reselect = false;
+                                tabs.select(node.clone(), cx);
+                            }
+                        });
+                    }
+                }
             }
-        });
+        } else {
+            if node == &parent {
+                tracing::info!("moving a node onto itself would make a cycle");
+                refresh_after_drop(cx);
+                return;
+            }
+            split_on_drop(cx, window, node, &parent, shown == node, zone);
+        }
+    } else {
+        let axis = if component.as_str() == "riso.row" {
+            Axis::Horizontal
+        } else {
+            Axis::Vertical
+        };
+        if zone.axis() == Some(axis) {
+            let shown_index = cx
+                .global::<Registry>()
+                .splits
+                .iter()
+                .filter_map(WeakEntity::upgrade)
+                .find_map(|split| {
+                    let split = split.read(cx);
+                    (split.node == parent)
+                        .then(|| split.shown_nodes.iter().position(|id| id == shown))
+                        .flatten()
+                });
+            if let Some(index) = shown_index {
+                drop_on_edge(cx, node, &parent, index, zone.edge());
+            }
+        } else {
+            split_on_drop(cx, window, node, shown, shown == node, zone);
+        }
     }
+}
+
+fn split_on_drop(
+    cx: &mut App,
+    window: &mut Window,
+    node: &NodeId,
+    target: &NodeId,
+    self_drop: bool,
+    zone: DropZone,
+) {
+    let _group =
+        tracing::info_span!("split-on-drop", node = %node, target = %target, edge = zone.name())
+            .entered();
+    let (parent, slot, index, split, tabs, previous) = {
+        let registry = cx.global::<Registry>();
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let Some((parent, slot, index, _)) = current_location(tree, target) else {
+            return;
+        };
+        let free = |prefix| {
+            (1..)
+                .map(|number| NodeId::parse(&format!("{prefix}-{number}")).unwrap())
+                .find(|id| node_of(tree, id).is_none())
+                .unwrap()
+        };
+        (
+            parent,
+            slot,
+            index,
+            free("split"),
+            free("tabs"),
+            layers.user_layer().to_vec(),
+        )
+    };
+    let children = SlotName::parse("children").unwrap();
+    let operations = [
+        (
+            "add",
+            split.clone(),
+            Operation::Add {
+                node: Node {
+                    id: split.clone(),
+                    component: ComponentId::parse(if zone.axis() == Some(Axis::Horizontal) {
+                        "riso.row"
+                    } else {
+                        "riso.column"
+                    })
+                    .unwrap(),
+                    extension: "riso".into(),
+                    props: serde_json::json!({"shares": {target.as_str(): 1, tabs.as_str(): 1}})
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                },
+                parent,
+                slot,
+                at: Position::Index(index),
+            },
+        ),
+        (
+            "move",
+            target.clone(),
+            Operation::Move {
+                node: target.clone(),
+                parent: split.clone(),
+                slot: children.clone(),
+                at: Position::Last,
+            },
+        ),
+        (
+            "add",
+            tabs.clone(),
+            Operation::Add {
+                node: Node {
+                    id: tabs.clone(),
+                    component: ComponentId::parse("riso.tabs").unwrap(),
+                    extension: "riso".into(),
+                    props: Props::new(),
+                },
+                parent: split.clone(),
+                slot: children.clone(),
+                at: if zone.edge() == Edge::Before {
+                    Position::First
+                } else {
+                    Position::Last
+                },
+            },
+        ),
+        (
+            "move",
+            node.clone(),
+            Operation::Move {
+                node: node.clone(),
+                parent: tabs.clone(),
+                slot: children,
+                at: Position::Last,
+            },
+        ),
+    ];
+    cx.default_global::<Registry>().splitting = true;
+    for (done, (op, id, operation)) in operations.into_iter().enumerate() {
+        if self_drop && done == 3 {
+            cx.default_global::<Registry>().cycle_drop = Some(node.clone());
+        }
+        let before = user_layer_len(cx);
+        run_op("riso", Some(window), cx, op, id.as_str(), |_, _| {
+            Ok(operation)
+        });
+        cx.default_global::<Registry>().cycle_drop = None;
+        if user_layer_len(cx) == before {
+            // Rebuild from the unchanged startup default and the pre-drop layer;
+            // selections, sizes, focus, and the file have not been changed.
+            let registry = cx.default_global::<Registry>();
+            let mut layers = registry.tree.borrow_mut();
+            if done > 0 {
+                layers.reset();
+                for operation in previous {
+                    layers
+                        .apply(operation)
+                        .expect("previously applied operation");
+                }
+            }
+            drop(layers);
+            registry.splitting = false;
+            for id in [&tabs, &split] {
+                registry.focus_handles.remove(id);
+                registry.bounds.remove(id);
+                registry.tellers.remove(id);
+                registry.contexts.remove(id);
+                registry.emptiness.borrow_mut().remove(id);
+                registry.empty_errors.borrow_mut().remove(id);
+                registry.laid_out.borrow_mut().remove(id);
+                let dropped = registry.views.borrow_mut().remove(id);
+                if dropped.is_some() {
+                    drop(dropped);
+                    tracing::debug!(node = %id, "view dropped");
+                }
+            }
+            registry.splits.retain(|split| split.upgrade().is_some());
+            registry.tabs.retain(|tabs| tabs.upgrade().is_some());
+            tracing::debug!(done, "split on drop undone");
+            cx.refresh_windows();
+            return;
+        }
+    }
+    cx.default_global::<Registry>().splitting = false;
+    reconcile_containers(cx);
+    cx.refresh_windows();
+    save(cx);
+}
+
+fn refresh_after_drop(cx: &mut App) {
+    cx.refresh_windows();
 }
 
 /// The props of a split: its children's shares by node ID.
@@ -1081,8 +1300,6 @@ struct Split {
     shown_given: Vec<Option<riso_ui::AxisSize>>,
     /// The window's rem size at the last layout.
     rem_size: Pixels,
-    edges: BTreeMap<NodeId, Edge>,
-    child_bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     axis: Axis,
     slots: Slots,
 }
@@ -1163,13 +1380,6 @@ impl Split {
         } else {
             *self.shown_shares.borrow_mut() = shares;
         }
-        let shown: BTreeSet<_> = nodes
-            .iter()
-            .zip(self.shown_shares.borrow().iter())
-            .filter_map(|(node, child)| (!child.collapsed).then_some(node.clone()))
-            .collect();
-        self.edges.retain(|child, _| shown.contains(child));
-        self.child_bounds.retain(|child, _| shown.contains(child));
         self.shown_nodes = nodes;
     }
 
@@ -1224,48 +1434,12 @@ impl Split {
         *self.shown_shares.borrow_mut() = shown;
         self.shown_given = given;
     }
-
-    fn handle_drag_move(
-        &mut self,
-        child_id: &NodeId,
-        event: &DragMoveEvent<DraggedNode>,
-        cx: &mut Context<Self>,
-    ) {
-        let position = event.event.position;
-        let current_entity = cx.entity().entity_id();
-        let next = edge_at(event.bounds, self.axis, position)
-            .filter(|_| !inner_target_claims_cursor(cx, current_entity, child_id, position));
-        let previous = self.edges.get(child_id).copied();
-        if event.bounds.contains(&position) || next != previous {
-            tracing::trace!(
-                split = %self.node,
-                child = %child_id,
-                edge = ?next,
-                "drag edge"
-            );
-        }
-        if next != previous {
-            match next {
-                Some(edge) => {
-                    self.edges.insert(child_id.clone(), edge);
-                }
-                None => {
-                    self.edges.remove(child_id);
-                }
-            }
-            cx.notify();
-        }
-    }
 }
 
 impl Render for Split {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.rem_size = window.rem_size();
         self.reconcile(cx, Emptiness::Layout);
-        if !cx.has_active_drag() {
-            self.edges.clear();
-        }
-        let palette = riso_ui::palette(cx);
         let children = self
             .shown_nodes
             .iter()
@@ -1278,42 +1452,13 @@ impl Render for Split {
                     .cloned()
                     .map(|view| (id, view))
             })
-            .enumerate()
-            .map(|(shown_index, (child_id, view))| {
-                let edge = self.edges.get(&child_id).copied();
-                let move_child = child_id.clone();
-                let bounds_child = child_id.clone();
-                let bounds_entity = cx.entity().downgrade();
-                let split_node = self.node.clone();
-                let zone_id = SharedString::from(format!("{}:{child_id}", self.node));
-                let mut zone = div()
-                    .id(zone_id)
+            .map(|(child_id, view)| {
+                div()
+                    .id(SharedString::from(format!("{}:{child_id}", self.node)))
                     .relative()
                     .size_full()
-                    .on_drag_move::<DraggedNode>(cx.listener(move |split, event, _, cx| {
-                        split.handle_drag_move(&move_child, event, cx);
-                    }))
                     .child(view)
-                    .child(
-                        canvas(
-                            move |bounds, _, cx| {
-                                let _ = bounds_entity.update(cx, |split, _| {
-                                    split.child_bounds.insert(bounds_child.clone(), bounds);
-                                });
-                            },
-                            |_, _, _, _| {},
-                        )
-                        .absolute()
-                        .size_full(),
-                    );
-                if let Some(edge) = edge {
-                    zone = zone
-                        .on_drop::<DraggedNode>(move |dragged, _, cx| {
-                            drop_on_edge(cx, &dragged.node, &split_node, shown_index, edge);
-                        })
-                        .child(edge_overlay(self.axis, edge, palette.drop_target));
-                }
-                zone.into_any_element()
+                    .into_any_element()
             })
             .collect();
         let split = self.node.clone();
@@ -1765,7 +1910,7 @@ fn is_own_position(tree: &Tree, node: &NodeId, parent: &NodeId, slot: &str, inde
 }
 
 fn drop_on_tab(cx: &mut App, node: &NodeId, parent: &NodeId, target_tab: &NodeId) {
-    clear_drag_edges(cx);
+    refresh_after_drop(cx);
     let index = {
         let layers = cx.default_global::<Registry>().tree.borrow();
         let tree = layers.current();
@@ -1782,7 +1927,7 @@ fn drop_on_tab(cx: &mut App, node: &NodeId, parent: &NodeId, target_tab: &NodeId
 }
 
 fn drop_on_tab_bar(cx: &mut App, node: &NodeId, parent: &NodeId) {
-    clear_drag_edges(cx);
+    refresh_after_drop(cx);
     {
         let layers = cx.default_global::<Registry>().tree.borrow();
         let tree = layers.current();
@@ -1795,7 +1940,7 @@ fn drop_on_tab_bar(cx: &mut App, node: &NodeId, parent: &NodeId) {
 }
 
 fn drop_on_edge(cx: &mut App, node: &NodeId, split_id: &NodeId, shown_index: usize, edge: Edge) {
-    clear_drag_edges(cx);
+    refresh_after_drop(cx);
     let shown_child = cx.try_global::<Registry>().and_then(|registry| {
         registry
             .splits
@@ -2482,10 +2627,6 @@ fn reconcile_containers(cx: &mut App) {
                 .zip(split.shown_shares.borrow_mut().iter_mut())
             {
                 child.collapsed = layers.current().is_hidden(node);
-                if child.collapsed {
-                    split.edges.remove(node);
-                    split.child_bounds.remove(node);
-                }
             }
         });
     }
@@ -2573,6 +2714,9 @@ fn run_op(
             }
         }
         Applied::Moved | Applied::SetHidden(_) => {}
+    }
+    if cx.global::<Registry>().splitting {
+        return;
     }
     {
         let registry = cx.default_global::<Registry>();
@@ -2744,6 +2888,12 @@ fn slot_count_rule_error(
 
 fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bool {
     let registry = cx.default_global::<Registry>();
+    if let Operation::Move { node, .. } = operation
+        && registry.cycle_drop.as_ref() == Some(node)
+    {
+        tracing::info!("moving a node onto itself would make a cycle");
+        return false;
+    }
     match operation {
         Operation::Add {
             node, parent, slot, ..
@@ -3367,8 +3517,6 @@ impl Extension {
                 split.shown_nodes.clear();
                 split.shown_shares = Rc::new(RefCell::new(Vec::new()));
                 split.shown_given.clear();
-                split.edges.clear();
-                split.child_bounds.clear();
                 split.reconcile(cx, Emptiness::Remembered);
             });
         }
@@ -4474,6 +4622,7 @@ fn create_view(
                 node: node.id.clone(),
                 handle,
                 view,
+                zone: None,
             })
             .into();
         cx.default_global::<Registry>()
@@ -4583,7 +4732,7 @@ impl Render for Shell {
             .bg(riso_ui::palette(cx).background)
             .font(riso_ui::ui_font(cx))
             .on_drop::<DraggedNode>(|dragged, _, cx| {
-                clear_drag_edges(cx);
+                refresh_after_drop(cx);
                 tracing::debug!(node = %dragged.node, "drop ignored");
             })
             .children(view)

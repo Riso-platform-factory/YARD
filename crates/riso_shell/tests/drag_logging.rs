@@ -11,7 +11,7 @@ struct Captured {
     spans: BTreeMap<u64, String>,
     entered: Vec<u64>,
     lines: Vec<String>,
-    trace_edges: usize,
+    trace_zones: usize,
 }
 
 #[derive(Clone, Default)]
@@ -57,8 +57,8 @@ impl tracing::Subscriber for Trace {
         event.record(&mut fields);
         let mut captured = self.0.lock().unwrap();
         if *event.metadata().level() == tracing::Level::TRACE {
-            if fields.0.contains("drag edge") {
-                captured.trace_edges += 1;
+            if fields.0.contains("drop zone") {
+                captured.trace_zones += 1;
             }
             return;
         }
@@ -146,6 +146,7 @@ fn assert_no_overlays(visual: &mut gpui::VisualTestContext) {
         "DROP-OVERLAY-right",
         "DROP-OVERLAY-top",
         "DROP-OVERLAY-bottom",
+        "DROP-OVERLAY-center",
     ] {
         assert!(
             visual.debug_bounds(selector).is_none(),
@@ -205,12 +206,12 @@ fn drags_move_tabs_onto_bars_and_edges_and_log_as_riso(cx: &mut TestAppContext) 
     let captured = trace.0.lock().unwrap();
     assert!(captured.entered.is_empty());
     assert!(
-        captured.trace_edges > 0,
-        "edge computation must log at trace level"
+        captured.trace_zones > 0,
+        "zone computation must log at trace level"
     );
     assert!(
-        !captured.lines.iter().any(|line| line.contains("drag edge")),
-        "edge computation must never log above trace"
+        !captured.lines.iter().any(|line| line.contains("drop zone")),
+        "zone computation must never log above trace"
     );
 }
 
@@ -250,7 +251,6 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     });
     app.simulate_window_resize(window.into(), gpui::size(px(1200.), px(600.)));
     draw(window, &mut app, &shown);
-    let body = app.update(|cx| riso_shell::node_bounds(cx, "body").unwrap());
     assert_eq!(shown_nodes(&shown), ["a", "c"]);
 
     let a_id = entities.borrow()["a"].entity_id();
@@ -387,9 +387,12 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     );
     assert_eq!(shown_nodes(&shown), ["d", "a"]);
 
-    // 4. Hover `c` over `left`'s right edge, leave into `left`'s middle (clearing the overlay),
-    // re-enter `left`'s right edge, and drop (`Edge::After` on `left`, index 1 in `root`).
+    // 4. Hover `c` over `d`'s right edge, leave into `d`'s middle (the center
+    // zone highlights the whole card), re-enter `d`'s right edge, and drop:
+    // `d` is shown in `left`, a tabs container, so any of its edges splits a
+    // `riso.row` around `left` with `c` in a new `riso.tabs` beside it.
     let before_after_edge = trace.0.lock().unwrap().lines.len();
+    let d_rect = card_bounds(&shown, "d");
     let start_c = visual.debug_bounds("TAB-c").unwrap().center();
     visual.simulate_mouse_move(start_c, None, Default::default());
     visual.simulate_mouse_down(start_c, gpui::MouseButton::Left, Default::default());
@@ -408,19 +411,19 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
     assert_eq!(
         visual.debug_bounds("DROP-OVERLAY-right"),
         Some(Bounds {
-            origin: gpui::point(px(300.), body.top()),
-            size: gpui::size(px(300.), body.size.height),
+            origin: gpui::point(d_rect.origin.x + d_rect.size.width * 0.5, d_rect.origin.y,),
+            size: gpui::size(d_rect.size.width * 0.5, d_rect.size.height),
         })
     );
-    // Leave the edge zone into the middle of `left`: overlay clears while drag continues.
+    // The middle of `d` is a center drop zone: the whole card is highlighted.
     visual.simulate_mouse_move(
         gpui::point(px(300.), px(300.)),
         gpui::MouseButton::Left,
         Default::default(),
     );
     draw(window, &mut app, &shown);
-    assert_no_overlays(&mut visual);
-    // Re-enter `left`'s right edge and drop.
+    assert_eq!(visual.debug_bounds("DROP-OVERLAY-center"), Some(d_rect));
+    // Re-enter `d`'s right edge and drop.
     visual.simulate_mouse_move(
         gpui::point(px(580.), px(300.)),
         gpui::MouseButton::Left,
@@ -441,18 +444,28 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
             &captured.lines[before_after_edge..],
             [
                 "none: DEBUG message=drag started node=c",
-                r#"layout-op op="move" node="c" extension="riso": DEBUG message=node moved node=c parent=root slot=children index=1"#,
-                r#"layout-op op="move" node="c" extension="riso": DEBUG message=recorded user_layer=5"#,
+                r#"layout-op op="add" node="split-1" extension="riso": DEBUG message=node added node=split-1 component=riso.row extension=riso parent=root slot=children index=0"#,
+                r#"layout-op op="add" node="split-1" extension="riso": DEBUG message=recorded user_layer=5"#,
+                r#"props-read node="split-1" component="riso.row": DEBUG message=props read keys="shares""#,
+                r#"component-create node=split-1 component=riso.row extension=riso: DEBUG message=split created axis="row" children=0"#,
+                r#"layout-op op="move" node="left" extension="riso": DEBUG message=node moved node=left parent=split-1 slot=children index=0"#,
+                r#"layout-op op="move" node="left" extension="riso": DEBUG message=recorded user_layer=6"#,
+                r#"layout-op op="add" node="tabs-1" extension="riso": DEBUG message=node added node=tabs-1 component=riso.tabs extension=riso parent=split-1 slot=children"#,
+                r#"layout-op op="add" node="tabs-1" extension="riso": DEBUG message=recorded user_layer=7"#,
+                r#"component-create node=tabs-1 component=riso.tabs extension=riso: DEBUG message=tabs created tabs=0"#,
+                r#"layout-op op="move" node="c" extension="riso": DEBUG message=node moved node=c parent=tabs-1 slot=children index=0"#,
+                r#"layout-op op="move" node="c" extension="riso": DEBUG message=recorded user_layer=8"#,
             ]
         );
     }
     assert_eq!(shown_nodes(&shown), ["d", "c", "a"]);
     assert_eq!(entities.borrow()["c"].entity_id(), c_id);
-    assert_eq!(card_bounds(&shown, "c").size.width, px(400.));
+    assert_eq!(card_bounds(&shown, "c").size.width, px(300.));
 
-    // 5. Drop `b` onto `left`'s left edge (`Edge::Before` on `left`, index 0 in `root`).
-    // `left` fills the body vertically; its left half is 200px wide.
+    // 5. Drop `b` onto `d`'s left edge: another split around `left`, with `b`'s
+    // new tabs container before it (`left` is 300px wide inside `split-1`).
     let before_left_edge = trace.0.lock().unwrap().lines.len();
+    let d_rect = card_bounds(&shown, "d");
     drag_tab(
         window,
         &mut app,
@@ -463,8 +476,8 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
         Some((
             "DROP-OVERLAY-left",
             Bounds {
-                origin: gpui::point(px(0.), body.top()),
-                size: gpui::size(px(200.), body.size.height),
+                origin: d_rect.origin,
+                size: gpui::size(d_rect.size.width * 0.5, d_rect.size.height),
             },
         )),
     );
@@ -474,16 +487,27 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
             &captured.lines[before_left_edge..],
             [
                 "none: DEBUG message=drag started node=b",
-                r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=root slot=children index=0"#,
-                r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=6"#,
+                r#"layout-op op="add" node="split-2" extension="riso": DEBUG message=node added node=split-2 component=riso.row extension=riso parent=split-1 slot=children index=0"#,
+                r#"layout-op op="add" node="split-2" extension="riso": DEBUG message=recorded user_layer=9"#,
+                r#"props-read node="split-2" component="riso.row": DEBUG message=props read keys="shares""#,
+                r#"component-create node=split-2 component=riso.row extension=riso: DEBUG message=split created axis="row" children=0"#,
+                r#"layout-op op="move" node="left" extension="riso": DEBUG message=node moved node=left parent=split-2 slot=children index=0"#,
+                r#"layout-op op="move" node="left" extension="riso": DEBUG message=recorded user_layer=10"#,
+                r#"layout-op op="add" node="tabs-2" extension="riso": DEBUG message=node added node=tabs-2 component=riso.tabs extension=riso parent=split-2 slot=children index=0"#,
+                r#"layout-op op="add" node="tabs-2" extension="riso": DEBUG message=recorded user_layer=11"#,
+                r#"component-create node=tabs-2 component=riso.tabs extension=riso: DEBUG message=tabs created tabs=0"#,
+                r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=tabs-2 slot=children index=0"#,
+                r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=12"#,
             ]
         );
     }
     assert_eq!(shown_nodes(&shown), ["b", "d", "c", "a"]);
-    assert_eq!(card_bounds(&shown, "b").size.width, px(300.));
+    assert_eq!(card_bounds(&shown, "b").size.width, px(150.));
 
-    // 6. Ignored drops: middle of card `c`, and top edge of card `c` (across `riso.row`'s axis).
-    let before_ignored = trace.0.lock().unwrap().lines.len();
+    // 6. The center of a tabs container's content moves the node into it and
+    // selects it; a drop on the edge of the node's own content is refused as
+    // a cycle, and the operations that ran are undone.
+    let before_split = trace.0.lock().unwrap().lines.len();
     let c_rect = card_bounds(&shown, "c");
     drag_tab(
         window,
@@ -492,8 +516,11 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
         &shown,
         "TAB-a",
         c_rect.center(),
-        None,
+        Some(("DROP-OVERLAY-center", c_rect)),
     );
+    // `a` is selected in `tabs-1` and shown where `c` was: the top edge is
+    // `a`'s own, so the split around `tabs-1` is refused at its fourth
+    // operation, moving `a` beside itself.
     drag_tab(
         window,
         &mut app,
@@ -501,21 +528,69 @@ fn tab_bars_row_edges_own_position_and_ignored_drops(cx: &mut TestAppContext, tr
         &shown,
         "TAB-a",
         gpui::point(c_rect.center().x, c_rect.origin.y + px(10.)),
-        None,
+        Some((
+            "DROP-OVERLAY-top",
+            Bounds {
+                origin: c_rect.origin,
+                size: gpui::size(c_rect.size.width, c_rect.size.height * 0.5),
+            },
+        )),
     );
     {
         let captured = trace.0.lock().unwrap();
         assert_eq!(
-            &captured.lines[before_ignored..],
+            &captured.lines[before_split..],
             [
                 "none: DEBUG message=drag started node=a",
-                "none: DEBUG message=drop ignored node=a",
+                r#"layout-op op="move" node="a" extension="riso": DEBUG message=node moved node=a parent=tabs-1 slot=children index=1"#,
+                r#"layout-op op="move" node="a" extension="riso": DEBUG message=recorded user_layer=13"#,
+                "none: DEBUG message=tab selected tabs=tabs-1 tab=a",
+                "focus-change node=tabs-1: DEBUG message=focused",
                 "none: DEBUG message=drag started node=a",
-                "none: DEBUG message=drop ignored node=a",
+                r#"layout-op op="add" node="split-3" extension="riso": DEBUG message=node added node=split-3 component=riso.column extension=riso parent=split-1 slot=children index=1"#,
+                r#"layout-op op="add" node="split-3" extension="riso": DEBUG message=recorded user_layer=14"#,
+                r#"props-read node="split-3" component="riso.column": DEBUG message=props read keys="shares""#,
+                r#"component-create node=split-3 component=riso.column extension=riso: DEBUG message=split created axis="column" children=0"#,
+                r#"layout-op op="move" node="tabs-1" extension="riso": DEBUG message=node moved node=tabs-1 parent=split-3 slot=children index=0"#,
+                r#"layout-op op="move" node="tabs-1" extension="riso": DEBUG message=recorded user_layer=15"#,
+                r#"layout-op op="add" node="tabs-3" extension="riso": DEBUG message=node added node=tabs-3 component=riso.tabs extension=riso parent=split-3 slot=children index=0"#,
+                r#"layout-op op="add" node="tabs-3" extension="riso": DEBUG message=recorded user_layer=16"#,
+                r#"component-create node=tabs-3 component=riso.tabs extension=riso: DEBUG message=tabs created tabs=0"#,
+                r#"layout-op op="move" node="a" extension="riso": INFO message=moving a node onto itself would make a cycle"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=user layer dropped dropped=16"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=a parent=right slot=children index=2"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=1"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=a parent=right slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=2"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=b parent=right slot=children index=1"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=3"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=d parent=left slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=4"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node added node=split-1 component=riso.row extension=riso parent=root slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=5"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=left parent=split-1 slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=6"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node added node=tabs-1 component=riso.tabs extension=riso parent=split-1 slot=children"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=7"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=c parent=tabs-1 slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=8"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node added node=split-2 component=riso.row extension=riso parent=split-1 slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=9"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=left parent=split-2 slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=10"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node added node=tabs-2 component=riso.tabs extension=riso parent=split-2 slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=11"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=b parent=tabs-2 slot=children index=0"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=12"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=node moved node=a parent=tabs-1 slot=children index=1"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=recorded user_layer=13"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=view dropped node=tabs-3"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=view dropped node=split-3"#,
+                r#"split-on-drop node=a target=tabs-1 edge="top": DEBUG message=split on drop undone done=3"#,
             ]
         );
     }
-    assert_eq!(shown_nodes(&shown), ["b", "d", "c", "a"]);
+    assert_eq!(shown_nodes(&shown), ["b", "d", "a"]);
 }
 
 fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
@@ -603,7 +678,8 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
         (body.size.height / 4.).round()
     );
 
-    // Dropping `a` onto `b`'s left edge (across `riso.column`'s vertical axis) is ignored.
+    // Dropping `a` onto `b`'s left edge (across `riso.column`'s vertical axis)
+    // splits a `riso.row` around `b`, with `a` in a new `riso.tabs` before it.
     let b_rect = card_bounds(&shown, "b");
     drag_tab(
         window,
@@ -612,7 +688,13 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
         &shown,
         "TAB-a",
         gpui::point(px(10.), b_rect.center().y),
-        None,
+        Some((
+            "DROP-OVERLAY-left",
+            Bounds {
+                origin: b_rect.origin,
+                size: gpui::size(b_rect.size.width * 0.5, b_rect.size.height),
+            },
+        )),
     );
     {
         let captured = trace.0.lock().unwrap();
@@ -627,15 +709,26 @@ fn column_edges_and_cross_axis_drop(cx: &mut TestAppContext, trace: &Trace) {
                 r#"layout-op op="move" node="c" extension="riso": DEBUG message=node moved node=c parent=root slot=children index=4"#,
                 r#"layout-op op="move" node="c" extension="riso": DEBUG message=recorded user_layer=2"#,
                 "none: DEBUG message=drag started node=a",
-                "none: DEBUG message=drop ignored node=a",
+                r#"layout-op op="add" node="split-1" extension="riso": DEBUG message=node added node=split-1 component=riso.row extension=riso parent=root slot=children index=2"#,
+                r#"layout-op op="add" node="split-1" extension="riso": DEBUG message=recorded user_layer=3"#,
+                r#"props-read node="split-1" component="riso.row": DEBUG message=props read keys="shares""#,
+                r#"component-create node=split-1 component=riso.row extension=riso: DEBUG message=split created axis="row" children=0"#,
+                r#"layout-op op="move" node="b" extension="riso": DEBUG message=node moved node=b parent=split-1 slot=children index=0"#,
+                r#"layout-op op="move" node="b" extension="riso": DEBUG message=recorded user_layer=4"#,
+                r#"layout-op op="add" node="tabs-1" extension="riso": DEBUG message=node added node=tabs-1 component=riso.tabs extension=riso parent=split-1 slot=children index=0"#,
+                r#"layout-op op="add" node="tabs-1" extension="riso": DEBUG message=recorded user_layer=5"#,
+                r#"component-create node=tabs-1 component=riso.tabs extension=riso: DEBUG message=tabs created tabs=0"#,
+                r#"layout-op op="move" node="a" extension="riso": DEBUG message=node moved node=a parent=tabs-1 slot=children index=0"#,
+                r#"layout-op op="move" node="a" extension="riso": DEBUG message=recorded user_layer=6"#,
             ]
         );
     }
 
-    // Showing `hidden` confirms `b` landed between `hidden` and `d`, and `c` landed after `d`.
+    // Showing `hidden` confirms `b`'s split landed between `hidden` and `d`,
+    // and `c` landed after `d`.
     app.update(|cx| host.set_hidden(cx, "hidden", false));
     draw(window, &mut app, &shown);
-    assert_eq!(shown_nodes(&shown), ["a", "hidden", "b", "d", "c"]);
+    assert_eq!(shown_nodes(&shown), ["hidden", "a", "b", "d", "c"]);
 }
 
 fn cycle_drop_is_refused(cx: &mut TestAppContext, trace: &Trace) {

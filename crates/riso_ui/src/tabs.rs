@@ -3,7 +3,7 @@
 //! Copyright Zed Industries, Inc.
 
 use gpui::{
-    AnyView, App, AppContext, Context, Div, ElementId, InteractiveElement, IntoElement,
+    AnyElement, AnyView, App, AppContext, Context, Div, ElementId, InteractiveElement, IntoElement,
     ParentElement, Pixels, Render, RenderOnce, ScrollHandle, SharedString, Stateful,
     StatefulInteractiveElement, Styled, Window, div,
 };
@@ -175,6 +175,7 @@ pub struct TabBar {
     tabs: Vec<Tab>,
     drop_handlers: Vec<BarModifier>,
     scroll_handle: Option<ScrollHandle>,
+    end_children: Vec<AnyElement>,
 }
 
 impl TabBar {
@@ -184,12 +185,20 @@ impl TabBar {
             tabs: Vec::new(),
             drop_handlers: Vec::new(),
             scroll_handle: None,
+            end_children: Vec::new(),
         }
     }
 
     /// Lays the tabs in a row that scrolls along `handle`, as Zed's `TabBar` does.
     pub fn track_scroll(mut self, handle: &ScrollHandle) -> Self {
         self.scroll_handle = Some(handle.clone());
+        self
+    }
+
+    /// Adds an element at the bar's end, after the scrolling row, spaced as
+    /// Zed's `TabBar` end slot.
+    pub fn end_child(mut self, child: impl IntoElement) -> Self {
+        self.end_children.push(child.into_any_element());
         self
     }
 
@@ -231,6 +240,7 @@ impl RenderOnce for TabBar {
             Some(handle) => bar.track_scroll(handle),
             None => bar,
         };
+        let bar = bar.end_children(self.end_children);
         if self.drop_handlers.is_empty() {
             bar
         } else {

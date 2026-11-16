@@ -355,6 +355,18 @@ A slot shows one copy of its template for each item of a model, and items come a
 | Click `zoom` on a card | Nothing zooms: `name@cy is a copy of an item slot`, an `INFO`. |
 | `user layer: 0` all along | Nothing was recorded. |
 
+### Feature 29: item-tabs
+
+A tabs container over an item slot is a tab bar of its model's items, as Zed's pane is a tab bar of its open items: each tab has a close button and the bar ends with a `+`. The buttons only ask the model. The case's model `Names` starts with `ada`, `bob`, `cy`; it closes an item by removing its key, except `ada`, which it keeps, and makes a new item `new-<n>`. Each card is titled by its key. Use a fresh home: `RISO_HOME=/tmp/riso-itemtabs`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-itemtabs LAYOUT_TOUR=item-tabs cargo run dev` | Three tabs, `ada`, `bob`, `cy`, and a `+` at the bar's end. |
+| Rest on `bob`'s tab, click its close button | `bob`'s tab goes; `item-close{key=bob}` holding `items-changed{removed=bob}` and `view dropped {node=name@bob}`. |
+| Click `ada`'s close button | `ada` stays; `items unchanged`. |
+| Click `+` twice | Tabs `new-1` and `new-2` appear, each selected when it appears. |
+| `user layer: 0` all along | Nothing was recorded. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

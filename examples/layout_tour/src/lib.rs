@@ -40,9 +40,12 @@
 //! `LAYOUT_TOUR=reserved cargo run dev`: registration in the shell's namespace is refused.
 //! `LAYOUT_TOUR=empty-nodes cargo run dev`: lists with no items take no room, and come back with items.
 //! `LAYOUT_TOUR=item-slots cargo run dev`: cards following a list of stable item keys.
+//! `LAYOUT_TOUR=item-tabs cargo run dev`: tabs following a list of item keys, closed and added through the model.
 //! `LAYOUT_TOUR=toggle cargo run dev`: status bar toggles show and hide side cards, one at a time in a column.
 
 mod item_slots;
+#[cfg(feature = "dev")]
+mod item_tabs;
 #[cfg(test)]
 mod tests;
 
@@ -51,7 +54,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -62,6 +68,8 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
         "item-slots" => item_slots::init(cx, ext),
+        #[cfg(feature = "dev")]
+        "item-tabs" => item_tabs::init(cx, ext),
         "toggle" => {
             register_card(cx, ext);
             let buttons = vec![Button::action("reset layout", |ext, window, cx| {
@@ -750,7 +758,11 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
              bad-id, nested, duplicate-id, missing-parent, missing-slot, \
              missing-child, duplicate-slot, row, column, nested-split, one, empty-split, reserved, \
              tabs, tabs-in-split, empty-tabs, hide-show, hide-tab, hide-root, operations, two-tabs, zoom, zoom-root, user-layer, fixed-sizes, component-sizes, actions, props, required, slot-count, placement-order, contexts",
-            "item-slots, empty-nodes, ",
+            if cfg!(feature = "dev") {
+                "item-slots, item-tabs, empty-nodes, "
+            } else {
+                "item-slots, empty-nodes, "
+            },
             "tab-overflow, "
         ),
     }

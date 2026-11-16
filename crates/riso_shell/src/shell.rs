@@ -10,7 +10,8 @@ gpui::actions!(
         FocusLeft,
         FocusRight,
         FocusUp,
-        FocusDown
+        FocusDown,
+        NewWindow
     ]
 );
 
@@ -55,6 +56,8 @@ pub enum Origin {
     UserLayer,
     Copy(SharedString),
 }
+
+type WindowOpener = Rc<dyn Fn(&mut App)>;
 
 type LayoutObserver = Rc<dyn Fn(&mut App)>;
 type LayoutObservers = Rc<RefCell<BTreeMap<u64, LayoutObserver>>>;
@@ -1067,6 +1070,8 @@ struct Registry {
     logged_window: WindowOwner,
     active_history: RefCell<Vec<gpui::WindowId>>,
     ever_opened: bool,
+    window_opener: Option<WindowOpener>,
+    warned_window_opener: bool,
 }
 
 struct WindowState {
@@ -1362,6 +1367,8 @@ impl Default for Registry {
             logged_window: Rc::new(Cell::new(None)),
             active_history: RefCell::new(Vec::new()),
             ever_opened: false,
+            window_opener: None,
+            warned_window_opener: false,
         }
     }
 }
@@ -3027,7 +3034,7 @@ pub fn bind_default_keys(cx: &mut App) {
         ("ctrl-k ctrl-up", LayoutAction::FocusUp),
         ("ctrl-k ctrl-down", LayoutAction::FocusDown),
     ];
-    let count = DEFAULT_KEYS.len() + 2;
+    let count = DEFAULT_KEYS.len() + 3;
     let _group = tracing::info_span!("keys-bind", count).entered();
     let mut logged = Vec::with_capacity(count);
     let mut bindings: Vec<KeyBinding> = DEFAULT_KEYS
@@ -3059,6 +3066,13 @@ pub fn bind_default_keys(cx: &mut App) {
     let quit = KeyBinding::new(quit_key, Quit, None);
     logged.push((quit_key, quit.action().name(), ""));
     bindings.push(quit);
+    #[cfg(target_os = "macos")]
+    let new_window_key = "cmd-shift-n";
+    #[cfg(not(target_os = "macos"))]
+    let new_window_key = "ctrl-shift-n";
+    let new_window = KeyBinding::new(new_window_key, NewWindow, Some("Shell"));
+    logged.push((new_window_key, new_window.action().name(), "Shell"));
+    bindings.push(new_window);
     cx.bind_keys(bindings);
     for (keys, action, context) in logged {
         tracing::debug!(keys, action, context, "bound");
@@ -6688,7 +6702,9 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
         }
         let mut state = WindowState::new(default.tree.borrow().current().clone());
         state.extension_root = default.extension_root.clone();
-        state.zoomed = default.zoomed.clone();
+        if !registry.ever_opened {
+            state.zoomed = default.zoomed.clone();
+        }
         state.startup_tree = state.tree.borrow().current().clone();
         state.tree.borrow_mut().set_default();
         state.default_fixed = true;
@@ -7055,6 +7071,24 @@ impl Render for Shell {
         root.id("shell")
             .key_context("Shell")
             .track_focus(&self.handle)
+            .on_action(|_: &NewWindow, _, cx| {
+                let group = tracing::info_span!("window-new");
+                let _group = group.enter();
+                let registry = cx.default_global::<Registry>();
+                if let Some(open) = registry.window_opener.clone() {
+                    let group = group.clone();
+                    // GPUI can cascade only after the source window leaves the update stack.
+                    cx.defer(move |cx| {
+                        let _group = group.enter();
+                        open(cx);
+                    });
+                } else if !registry.warned_window_opener {
+                    registry.warned_window_opener = true;
+                    log::warn!("no window opener registered");
+                } else {
+                    tracing::warn!("no window opener registered");
+                }
+            })
             .on_action(|_: &ToggleZoom, window, cx| {
                 let _window_scope = window_scope(window, cx);
                 layout_action(LayoutAction::ToggleZoom, None, window, cx);
@@ -7132,4 +7166,9 @@ pub fn set_menus(cx: &mut App, menus: Vec<gpui::Menu>) {
         tracing::debug!(name = %menu.name, items = menu.items.len() as u64, "menu");
     }
     cx.set_menus(menus);
+}
+
+/// Gives the shell the composition root's operation for opening another window.
+pub fn set_window_opener(cx: &mut App, open: impl Fn(&mut App) + 'static) {
+    cx.default_global::<Registry>().window_opener = Some(Rc::new(open));
 }

@@ -455,7 +455,7 @@ fn the_modal_layer_logs_shows_hides_reasons_focus_and_draws(cx: &mut TestAppCont
         .map(|span| span.replace('"', ""))
         .collect();
     // `keys-bind` counts one more key: `escape` for `riso::Dismiss` in `ModalLayer`.
-    let keys_bind = format!("keys-bind count={}", SHELL_KEYS + 2);
+    let keys_bind = format!("keys-bind count={}", SHELL_KEYS + 3);
     assert_eq!(
         spans.iter().filter(|span| **span == keys_bind).count(),
         1,
@@ -468,7 +468,7 @@ fn the_modal_layer_logs_shows_hides_reasons_focus_and_draws(cx: &mut TestAppCont
         .collect();
     assert_eq!(
         inside.len(),
-        SHELL_KEYS + 2,
+        SHELL_KEYS + 3,
         "one line per bound key inside `{keys_bind}`: {inside:#?}"
     );
     assert_eq!(

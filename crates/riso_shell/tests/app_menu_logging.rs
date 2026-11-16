@@ -144,9 +144,9 @@ fn menus() -> Vec<gpui::Menu> {
 // `keys-bind` logs one more key than before app-menu: eleven on macOS, nine
 // elsewhere.
 #[cfg(target_os = "macos")]
-const BOUND_KEYS: usize = 11;
+const BOUND_KEYS: usize = 12;
 #[cfg(not(target_os = "macos"))]
-const BOUND_KEYS: usize = 9;
+const BOUND_KEYS: usize = 10;
 
 // `riso::Quit`'s key: `cmd-q` on macOS, `ctrl-q` elsewhere.
 #[cfg(target_os = "macos")]

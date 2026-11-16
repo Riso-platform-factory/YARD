@@ -55,33 +55,40 @@ pub(crate) fn run(
             riso_keymap::load_user_keymap(cx, &paths.keymap_file());
             riso_keymap::watch_user_keymap(cx, paths.keymap_file());
             riso_shell::set_menus(cx, menus(&product));
-            {
-                let _group = tracing::info_span!("window-open").entered();
-                let window_file = paths.window_file();
-                let saved = riso_shell::saved_window_bounds(cx, &window_file);
-                let window = cx
-                    .open_window(
-                        WindowOptions {
-                            titlebar: Some(riso_ui::titlebar_options(product.name)),
-                            window_bounds: saved.map(|(bounds, _)| bounds),
-                            display_id: saved.map(|(_, display)| display),
-                            ..Default::default()
-                        },
-                        |window, cx| {
-                            riso_ui::follow_appearance(window, cx);
-                            riso_shell::new_shell(window, cx)
-                        },
-                    )
-                    .unwrap_or_else(|error| panic!("{} main window opens: {error}", product.name));
-                window
-                    .update(cx, |_, window, cx| {
-                        riso_shell::track_window_bounds(window, cx, window_file)
-                    })
-                    .unwrap_or_else(|error| {
-                        panic!("{} main window is open: {error}", product.name)
-                    });
-                cx.activate(true);
-            }
+            riso_shell::set_window_opener(cx, move |cx| {
+                open_window(cx, product, None);
+            });
+            open_window(cx, product, Some(paths.window_file()));
             riso_log::startup_finished();
         });
+}
+
+fn open_window(cx: &mut App, product: riso_log::Product, window_file: Option<std::path::PathBuf>) {
+    let _group = tracing::info_span!("window-open").entered();
+    let saved = window_file
+        .as_ref()
+        .and_then(|file| riso_shell::saved_window_bounds(cx, file));
+    let window = cx
+        .open_window(
+            WindowOptions {
+                titlebar: Some(riso_ui::titlebar_options(product.name)),
+                window_bounds: saved.map(|(bounds, _)| bounds),
+                display_id: saved.map(|(_, display)| display),
+                ..Default::default()
+            },
+            |window, cx| {
+                riso_ui::follow_appearance(window, cx);
+                riso_shell::new_shell(window, cx)
+            },
+        )
+        .unwrap_or_else(|error| panic!("{} window opens: {error}", product.name));
+    window
+        .update(cx, |_, window, cx| {
+            if let Some(file) = window_file {
+                riso_shell::track_window_bounds(window, cx, file);
+            }
+            window.activate_window();
+        })
+        .unwrap_or_else(|error| panic!("{} window is open: {error}", product.name));
+    cx.activate(true);
 }

@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, TestAppContext, px};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::{cell::RefCell, rc::Rc};
 
 type Handle = gpui::WindowHandle<shell::Shell>;

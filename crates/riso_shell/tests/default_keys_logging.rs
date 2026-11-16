@@ -106,6 +106,7 @@ const BINDINGS: &[(&str, &str)] = &[
     ("cmd-k cmd-down", "FocusDown"),
     ("escape", "Dismiss"),
     ("cmd-q", "Quit"),
+    ("cmd-shift-n", "NewWindow"),
 ];
 
 #[cfg(not(target_os = "macos"))]
@@ -119,6 +120,7 @@ const BINDINGS: &[(&str, &str)] = &[
     ("ctrl-k ctrl-down", "FocusDown"),
     ("escape", "Dismiss"),
     ("ctrl-q", "Quit"),
+    ("ctrl-shift-n", "NewWindow"),
 ];
 
 // Alone in this binary: all calls reaching the captured lines use one subscriber.

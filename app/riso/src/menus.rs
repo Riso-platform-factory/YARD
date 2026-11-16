@@ -6,6 +6,7 @@ pub(crate) fn menus(product: &riso_log::Product) -> Vec<Menu> {
             format!("Quit {}", product.name),
             riso_shell::Quit,
         )]),
+        Menu::new("File").items(vec![MenuItem::action("New Window", riso_shell::NewWindow)]),
         Menu::new("View").items(vec![
             MenuItem::action("Zoom", riso_shell::ToggleZoom),
             MenuItem::action("Hide Node", riso_shell::Hide),
@@ -36,7 +37,7 @@ mod tests {
                 .iter()
                 .map(|menu| menu.name.as_ref())
                 .collect::<Vec<_>>(),
-            ["Example", "View"]
+            ["Example", "File", "View"]
         );
         assert!(menus.iter().all(|menu| !menu.disabled));
         let actual: Vec<Vec<(&str, &str)>> = menus
@@ -56,6 +57,7 @@ mod tests {
             actual,
             vec![
                 vec![("Quit Example", "riso::Quit")],
+                vec![("New Window", "riso::NewWindow")],
                 vec![
                     ("Zoom", "riso::ToggleZoom"),
                     ("Hide Node", "riso::Hide"),

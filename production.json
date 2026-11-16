@@ -8,13 +8,13 @@
   },
   "riso/menus": {
     "files": {
-      "app/riso/src/menus.rs": "73d702762c3f3097"
+      "app/riso/src/menus.rs": "b11fa093397c4819"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-17"
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "4fdfaae0dc686930"
+      "app/riso/src/startup.rs": "57d1359303b7bbb9"
     },
     "promoted": "2026-11-17"
   },
@@ -138,7 +138,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "7565b296a25f249c"
+      "crates/riso_shell/src/shell.rs": "54428a1bab073e7c"
     },
     "promoted": "2026-11-17"
   },

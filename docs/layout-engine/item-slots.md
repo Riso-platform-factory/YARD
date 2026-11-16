@@ -15,6 +15,7 @@ This is how Zed's pane holds one item view per open buffer, while its layout kno
   - For each item and each shown template, in the items' order and then the templates' order, the slot shows a copy. A copy has the ID `<template>@<key>`, made by `NodeId::copy`; `NodeId::parse` refuses `@`, so a copy's ID never enters the tree or a layout file. A copy is not a node of the tree, and the layout's operations do not apply to it (one that names it is refused with an `INFO`: `{id} is a copy of an item slot`).
   - A copy's view is created with the template's component and props, as the template's would be, and `riso_shell::item(cx, copy)` returns its key. `riso_shell::context` from a copy finds the models above its item slot, as from the template.
 - **When the items change.** The shell watches the model: when it notifies, the item slot compares the keys with the last ones. A new key gets copies, created inside `item-copy{slot, key}`; a key that left has its copies' views dropped, with `view dropped {node}` as feature 8; a key that stayed keeps its copies and their state, even when the order changes.
+- **A copy is the template alone.** The template's own descendants are not copied: a copy of a container shows its slots empty. A copy has no operations, so what a container does through operations (dragging, closing, snapping a copy shut) does nothing for a copy; resizing between copies is view state, not saved.
 - **No model, no copies.** An item slot whose model is not found shows nothing, with a `WARN` once.
 - **Containers.** An item slot can be a slot of any component, the shell's included: the copies are its children in the slot's order, so a `riso.row`'s item slot gives one column of the row per item, and a `riso.tabs`' gives one tab per item, titled by its component (feature 14).
 
@@ -91,3 +92,4 @@ A new case, `item-slots`. Its component `layout_tour.names` gives a model `Names
 
 - A tab bar over an item slot with a close and an add button: feature 29, `item-tabs`.
 - Saving the items: they are the extension's model, saved by it if it wants.
+- Copying a template's descendants with it: when a feature needs it.

@@ -8,11 +8,12 @@ A tabs container over an item slot becomes a tab bar of its model's items, as Ze
 
 As Zed's `Pane::render_tab_bar` and `render_tab` (`crates/workspace/src/pane.rs`), with its default settings:
 
-- **The model.** An item model whose tabs can be closed and added implements `ItemTabs`, on top of feature 28's `Items`: `close_item(&mut self, key, window, cx)` and `new_item(&mut self, window, cx)`. Both only ask: what the model does shows when it notifies.
+- **The model.** An item model whose tabs can be closed and added implements `ItemTabs`, on top of feature 28's `Items`: `close_item(&mut self, key, window, cx)` and `new_item(&mut self, window, cx)`. Both only ask: what the model does shows when it notifies, during the call or later.
 - **Declaring.** `Extension::item_tabs::<M: ItemTabs>(cx, node)` declares that the slot `children` of the node `node`, a `riso.tabs` the extension placed, is an item slot over `M` (feature 28's `item_slot::<M>(cx, node, "children")`) and that its tabs are item tabs. It is refused with an `ERROR` for the refusals of feature 28, and for a node whose component is not `riso.tabs`.
 - **The close button** is the one of feature 24, on each copy's tab: shown on hover, `Close Tab` tooltip, a click or a middle click. It calls `close_item` with the copy's key, inside `item-close{tabs, key}`. Nothing is recorded.
 - **The new button** is Zed's: an `IconButton` with the `Plus` icon, `IconSize::Small`, at the end of the tab bar, after the tabs and outside the scrolling row (feature 25), with the tooltip `New Item`. A click calls `new_item` inside `item-new{tabs}`.
-- **Selection.** After a `new_item`, the first key that appears in the next change of the items is selected, as Zed activates a newly opened item. When the selected item leaves, the tabs container selects as feature 24 does after a close. Selection is view state, as before.
+- **Groups.** `item-close` and `item-new` last while the click is handled, including the effects GPUI runs right after it: a model that notifies during its call has its `items-changed` inside the group. A model that notifies later has its `items-changed` as a group of its own, as any notify. When the items have not changed by the end of the group, it logs `items unchanged`.
+- **Selection.** After a `new_item`, the first key that appears in the next change of the items is selected, whenever that change comes, as Zed activates a newly opened item. When the selected item leaves, the tabs container selects as feature 24 does after a close. Selection is view state, as before.
 - **A model that does nothing** leaves the tabs as they are: a close the model refuses keeps the tab.
 
 ## In the UI kit
@@ -29,8 +30,12 @@ impl TabBar {
 
 // riso_shell::dev
 pub trait ItemTabs: Items {
-    fn close_item(&mut self, key: &SharedString, window: &mut Window, cx: &mut Context<Self>);
-    fn new_item(&mut self, window: &mut Window, cx: &mut Context<Self>);
+    fn close_item(&mut self, key: &SharedString, window: &mut Window, cx: &mut Context<Self>)
+    where
+        Self: Sized;
+    fn new_item(&mut self, window: &mut Window, cx: &mut Context<Self>)
+    where
+        Self: Sized;
 }
 impl Extension {
     pub fn item_tabs<M: ItemTabs>(&self, cx: &mut App, node: &str);
@@ -44,9 +49,9 @@ The dev shell has every other item of the production shell, unchanged.
 | Situation | Log |
 |---|---|
 | Item tabs are declared | The group `item-slot-declare{node, slot, model}` of feature 28, with `debug` `item tabs`; an `ERROR` for a refusal |
-| A close button is clicked | A group `item-close{tabs, key}`, holding what the model's notify causes (`items-changed`, `view dropped`) |
-| The new button is clicked | A group `item-new{tabs}`, holding what the model's notify causes (`items-changed`, `item-copy`), and `debug` `tab selected {tabs, tab}` for the new item |
-| The model leaves the items as they were | `debug` `items unchanged` in the group |
+| A close button is clicked | A group `item-close{tabs, key}`, holding what the model's notify during the call causes (`items-changed`, `view dropped`) |
+| The new button is clicked | A group `item-new{tabs}`, holding what the model's notify during the call causes (`items-changed`, `item-copy`), and `debug` `tab selected {tabs, tab}` for the new item |
+| The items have not changed by the end of the group | `debug` `items unchanged` in the group |
 
 ## Where the code changes
 
@@ -70,7 +75,7 @@ The dev shell has every other item of the production shell, unchanged.
 
 ## Test extension: `examples/layout_tour`
 
-A new case, `item-tabs`. As `item-slots`, with a `riso.tabs` node `names_tabs` in place of the row, declared with `item_tabs`. Its model `Names` closes an item by removing its key, except `ada`, which it keeps, and makes a new item `new-<n>` with the smallest free `n`.
+A new case, `item-tabs`. As `item-slots`, with a `riso.tabs` node `names_tabs` in place of the row, declared with `item_tabs`. Its model `Names` closes an item by removing its key, except `ada`, which it keeps, and makes a new item `new-<n>` with the smallest free `n`. The card is titled by its item's key (feature 14), so its tab reads the key.
 
 | Command and action | What to look for |
 |---|---|

@@ -88,7 +88,35 @@ pub trait Items: 'static {
     fn items(&self) -> Vec<SharedString>;
 }
 
+/// An item model whose tabs can be closed and added. Both only ask: what
+/// the model does shows when it notifies.
+pub trait ItemTabs: Items {
+    fn close_item(&mut self, key: &SharedString, window: &mut Window, cx: &mut Context<Self>)
+    where
+        Self: Sized;
+    fn new_item(&mut self, window: &mut Window, cx: &mut Context<Self>)
+    where
+        Self: Sized;
+}
+
 type ItemReader = Rc<dyn Fn(&AnyEntity, &App) -> Vec<SharedString>>;
+type ItemCloser = Rc<dyn Fn(&AnyEntity, &SharedString, &mut Window, &mut App)>;
+type ItemMaker = Rc<dyn Fn(&AnyEntity, &mut Window, &mut App)>;
+/// What a tabs container with item tabs asks its model.
+#[derive(Clone)]
+struct ItemTabsHooks {
+    model: TypeId,
+    name: &'static str,
+    close: ItemCloser,
+    new: ItemMaker,
+}
+/// The group of an item tab's button while the click is handled, including
+/// the effects GPUI runs right after it.
+struct ItemGroup {
+    serial: u64,
+    span: tracing::Span,
+    model: gpui::EntityId,
+}
 type ItemObserver = Rc<dyn Fn(&AnyEntity, &mut Window, &mut App) -> Subscription>;
 #[derive(Clone)]
 struct ItemDeclaration {
@@ -709,6 +737,12 @@ struct Registry {
     item_states: BTreeMap<(NodeId, String), ItemState>,
     item_children: Rc<RefCell<ItemChildren>>,
     item_windows: ItemWindows,
+    item_tabs: BTreeMap<NodeId, ItemTabsHooks>,
+    item_group: Option<ItemGroup>,
+    item_group_serial: u64,
+    /// Item tabs whose new button was clicked, with their window: the next
+    /// change of their items selects the first key it adds, if any.
+    item_new_pending: BTreeMap<NodeId, gpui::WindowId>,
     failed_views: BTreeSet<NodeId>,
     copies: BTreeMap<NodeId, Node>,
 
@@ -982,6 +1016,10 @@ impl Default for Registry {
             item_states: BTreeMap::new(),
             item_children: Rc::default(),
             item_windows: BTreeMap::new(),
+            item_tabs: BTreeMap::new(),
+            item_group: None,
+            item_group_serial: 0,
+            item_new_pending: BTreeMap::new(),
             failed_views: BTreeSet::new(),
             copies: BTreeMap::new(),
             providers: BTreeMap::new(),
@@ -1935,6 +1973,7 @@ impl Render for Tabs {
             }
         }
         let parent = self.node.clone();
+        let item_tabs = cx.global::<Registry>().item_tabs.contains_key(&self.node);
         let tabs = nodes
             .iter()
             .map(|node| {
@@ -1960,7 +1999,16 @@ impl Render for Tabs {
                     node_of(layers.current(), node)
                         .is_some_and(|node| registry.required.contains(&node.component))
                 };
-                let tab = if required || is_copy_id(node.as_str()) {
+                let tab = if item_tabs && is_copy_id(node.as_str()) {
+                    let tabs = parent.clone();
+                    let key = SharedString::from(
+                        node.as_str()
+                            .split_once('@')
+                            .map_or("", |(_, key)| key)
+                            .to_owned(),
+                    );
+                    tab.on_close(move |window, cx| close_item_clicked(&tabs, &key, window, cx))
+                } else if required || is_copy_id(node.as_str()) {
                     tab
                 } else {
                     let node = node.clone();
@@ -1993,6 +2041,23 @@ impl Render for Tabs {
             .on_drop::<DraggedNode>(move |dragged, _, cx| {
                 drop_on_tab_bar(cx, &dragged.node, &bar_parent);
             });
+        // As Zed's `render_tab_bar`: the new button at the bar's end.
+        let bar = if item_tabs {
+            let new_node = self.node.clone();
+            let selector = self.node.clone();
+            bar.end_child(
+                div()
+                    .debug_selector(move || format!("NEW-{selector}"))
+                    .child(
+                        riso_ui::IconButton::new("new item", riso_ui::IconName::Plus)
+                            .icon_size(riso_ui::IconSize::Small)
+                            .tooltip(riso_ui::Tooltip::text("New Item"))
+                            .on_click(move |window, cx| new_item_clicked(&new_node, window, cx)),
+                    ),
+            )
+        } else {
+            bar
+        };
         div()
             .flex()
             .flex_col()
@@ -3415,6 +3480,34 @@ fn sync_items(window: &mut Window, cx: &mut App) {
                 children.push(node.id);
             }
         }
+        // A pending new-item selection is consumed by the next change of
+        // the items, and selects the first key that change adds.
+        if keys != state.keys
+            && cx
+                .default_global::<Registry>()
+                .item_new_pending
+                .remove(&owner)
+                .is_some()
+        {
+            let first_added = keys
+                .iter()
+                .filter(|key| !state.keys.contains(key))
+                .find_map(|key| {
+                    children
+                        .iter()
+                        .find(|child| {
+                            child
+                                .as_str()
+                                .split_once('@')
+                                .is_some_and(|(_, own)| own == key.as_str())
+                        })
+                        .cloned()
+                });
+            match first_added {
+                Some(copy) => select_new_item(cx, &owner, copy),
+                None => tracing::debug!(tabs = %owner, "no new item to select"),
+            }
+        }
         state.keys = keys;
         let registry = cx.default_global::<Registry>();
         registry
@@ -3451,6 +3544,124 @@ fn sync_items(window: &mut Window, cx: &mut App) {
         .item_children
         .borrow_mut()
         .retain(|address, _| active.contains(address));
+    // A container that left the tree has no new item to select.
+    registry
+        .item_new_pending
+        .retain(|tabs, _| active.contains(&(tabs.clone(), "children".to_owned())));
+}
+
+/// The model of the item tabs `tabs`, and its hooks.
+fn item_tabs_model(cx: &App, tabs: &NodeId) -> Option<(ItemTabsHooks, AnyEntity)> {
+    let registry = cx.global::<Registry>();
+    let hooks = registry.item_tabs.get(tabs)?.clone();
+    let layers = registry.tree.borrow();
+    match item_model(registry, layers.current(), tabs, hooks.model) {
+        Some(model) => Some((hooks, model)),
+        None => {
+            log::warn!("item tabs {tabs} have no {} model", hooks.name);
+            None
+        }
+    }
+}
+
+/// Asks the model of the item tabs `tabs` inside `span`, which lasts while
+/// the click is handled, including the effects GPUI runs right after it.
+fn ask_item_model(
+    tabs: &NodeId,
+    span: tracing::Span,
+    new: bool,
+    window: &mut Window,
+    cx: &mut App,
+    ask: impl FnOnce(&ItemTabsHooks, &AnyEntity, &mut Window, &mut App),
+) {
+    let _group = span.clone().entered();
+    let Some((hooks, model)) = item_tabs_model(cx, tabs) else {
+        return;
+    };
+    let address = (tabs.clone(), "children".to_owned());
+    let registry = cx.default_global::<Registry>();
+    let before = item_keys(registry, &address);
+    registry.item_group_serial += 1;
+    let serial = registry.item_group_serial;
+    registry.item_group = Some(ItemGroup {
+        serial,
+        span: span.clone(),
+        model: model.entity_id(),
+    });
+    if new {
+        // Several clicks before the items change make one pending selection.
+        registry
+            .item_new_pending
+            .insert(tabs.clone(), window.window_handle().window_id());
+    }
+    ask(&hooks, &model, window, cx);
+    // Runs after the effects of the click, a notify during the call included.
+    cx.defer(move |cx| {
+        let registry = cx.default_global::<Registry>();
+        if registry
+            .item_group
+            .as_ref()
+            .is_some_and(|group| group.serial == serial)
+        {
+            registry.item_group = None;
+        }
+        if item_keys(registry, &address) == before {
+            let _group = span.entered();
+            tracing::debug!("items unchanged");
+        }
+    });
+}
+
+fn item_keys(registry: &Registry, address: &(NodeId, String)) -> Vec<SharedString> {
+    registry
+        .item_states
+        .get(address)
+        .map(|state| state.keys.clone())
+        .unwrap_or_default()
+}
+
+fn close_item_clicked(tabs: &NodeId, key: &SharedString, window: &mut Window, cx: &mut App) {
+    let span = tracing::info_span!("item-close", tabs = %tabs, key = key.as_str());
+    ask_item_model(tabs, span, false, window, cx, |hooks, model, window, cx| {
+        (hooks.close)(model, key, window, cx)
+    });
+}
+
+fn new_item_clicked(tabs: &NodeId, window: &mut Window, cx: &mut App) {
+    let span = tracing::info_span!("item-new", tabs = %tabs);
+    ask_item_model(tabs, span, true, window, cx, |hooks, model, window, cx| {
+        (hooks.new)(model, window, cx)
+    });
+}
+
+/// Follows an item model's notify, inside the group of the click being
+/// handled when that click asked this model.
+fn item_model_notified(model: gpui::EntityId, window: &mut Window, cx: &mut App) {
+    let span = cx
+        .global::<Registry>()
+        .item_group
+        .as_ref()
+        .filter(|group| group.model == model)
+        .map(|group| group.span.clone());
+    let _group = span.map(tracing::Span::entered);
+    sync_items(window, cx);
+    reconcile_containers(cx);
+    window.refresh();
+}
+
+/// Selects `copy` in the item tabs `tabs`, as Zed activates a newly added item.
+fn select_new_item(cx: &mut App, tabs: &NodeId, copy: NodeId) {
+    let containers = cx.global::<Registry>().tabs.clone();
+    let entity = containers
+        .iter()
+        .filter_map(WeakEntity::upgrade)
+        .find(|entity| entity.read(cx).node == *tabs);
+    if let Some(entity) = entity {
+        entity.update(cx, |tabs, cx| {
+            tabs.reselect = false;
+            tabs.select(copy, cx);
+        });
+    }
 }
 
 fn model_name<M: 'static>() -> &'static str {
@@ -4215,6 +4426,7 @@ impl Extension {
     /// Drops runtime operations and reconciles the default tree and view state.
     pub fn reset_layout(&self, window: &mut Window, cx: &mut App) {
         let _group = tracing::info_span!("layout-reset", extension = self.name.as_str()).entered();
+        cx.default_global::<Registry>().item_new_pending.clear();
         let (added, before_props) = {
             let registry = cx.default_global::<Registry>();
             let layers = registry.tree.borrow();
@@ -4435,18 +4647,62 @@ impl Extension {
     pub fn item_slot<M: Items>(&self, cx: &mut App, node: &str, slot: &str) {
         let model = model_name::<M>();
         let _group = tracing::info_span!("item-slot-declare", node, slot, model).entered();
+        if self.declare_item_slot::<M>(cx, node, slot, false) {
+            schedule_items(cx);
+        }
+    }
+
+    /// Declares the slot `children` of the `riso.tabs` node `node` an item
+    /// slot over `M`, whose tabs close and add items through the model.
+    pub fn item_tabs<M: ItemTabs>(&self, cx: &mut App, node: &str) {
+        let model = model_name::<M>();
+        let slot = "children";
+        let _group = tracing::info_span!("item-slot-declare", node, slot, model).entered();
+        if !self.declare_item_slot::<M>(cx, node, slot, true) {
+            return;
+        }
+        let id = NodeId::parse(node).expect("declared item slot");
+        cx.default_global::<Registry>().item_tabs.insert(
+            id,
+            ItemTabsHooks {
+                model: TypeId::of::<M>(),
+                name: model,
+                close: Rc::new(|entity, key, window, cx| {
+                    let entity = entity.clone().downcast::<M>().expect("declared item model");
+                    entity.update(cx, |model, cx| model.close_item(key, window, cx));
+                }),
+                new: Rc::new(|entity, window, cx| {
+                    let entity = entity.clone().downcast::<M>().expect("declared item model");
+                    entity.update(cx, |model, cx| model.new_item(window, cx));
+                }),
+            },
+        );
+        tracing::debug!("item tabs");
+        schedule_items(cx);
+    }
+
+    /// Declares an item slot inside the caller's group; `tabs` also requires
+    /// the node to be a `riso.tabs`. Returns whether it was declared.
+    fn declare_item_slot<M: Items>(
+        &self,
+        cx: &mut App,
+        node: &str,
+        slot: &str,
+        tabs: bool,
+    ) -> bool {
+        let model = model_name::<M>();
         let id = match NodeId::parse(node) {
             Ok(id) => id,
             Err(error) => {
                 log::error!("invalid node ID {node:?}: {error}");
-                return;
+                return false;
             }
         };
         let name = match SlotName::parse(slot) {
             Ok(name) => name,
             Err(error) => {
                 log::error!("invalid slot name {slot:?}: {error}");
-                return;
+                return false;
             }
         };
         let registry = cx.default_global::<Registry>();
@@ -4454,7 +4710,7 @@ impl Extension {
             let layers = registry.tree.borrow();
             let Some(placed) = node_of(layers.current(), &id) else {
                 log::error!("node {node} is not in the tree");
-                return;
+                return false;
             };
             if placed.extension != self.name {
                 log::error!(
@@ -4462,7 +4718,14 @@ impl Extension {
                     self.name,
                     placed.extension
                 );
-                return;
+                return false;
+            }
+            if tabs && placed.component.as_str() != "riso.tabs" {
+                log::error!(
+                    "node {node} is a {}, not a riso.tabs: it cannot have item tabs",
+                    placed.component
+                );
+                return false;
             }
             if let Some(component) = registry.components.get(&placed.component)
                 && !component.slots.contains(&name)
@@ -4471,13 +4734,13 @@ impl Extension {
                     "component {} does not declare slot {slot}",
                     placed.component
                 );
-                return;
+                return false;
             }
         }
         let address = (id, slot.to_owned());
         if registry.item_slots.contains_key(&address) {
             log::error!("slot {node}.{slot} is already an item slot");
-            return;
+            return false;
         }
         registry.item_slots.insert(
             address,
@@ -4495,18 +4758,17 @@ impl Extension {
                 observe: Rc::new(|entity, window, cx| {
                     let entity = entity.clone().downcast::<M>().expect("declared item model");
                     let window = window.window_handle();
-                    cx.observe(&entity, move |_, cx| {
+                    cx.observe(&entity, move |entity, cx| {
+                        let model = entity.entity_id();
                         let _ = window.update(cx, |_, window, cx| {
-                            sync_items(window, cx);
-                            reconcile_containers(cx);
-                            window.refresh();
+                            item_model_notified(model, window, cx);
                         });
                     })
                 }),
             },
         );
         tracing::debug!("declared");
-        schedule_items(cx);
+        true
     }
 
     /// Declares a slot of this extension's component a slot for one node.
@@ -5289,6 +5551,7 @@ pub struct Shell {
     last_focused: Option<NodeId>,
     _focus_lost: Subscription,
     _item_subscriptions: Rc<RefCell<ItemSubscriptions>>,
+    _release: Subscription,
 }
 
 impl Shell {
@@ -5369,6 +5632,22 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
             toast_layer,
             last_focused: None,
             _item_subscriptions: item_subscriptions,
+            // A closed window's containers have no new item to select.
+            _release: {
+                let window_id = window.window_handle().window_id();
+                cx.on_release(move |_, cx| {
+                    if let Some(registry) = cx.try_global::<Registry>()
+                        && registry
+                            .item_new_pending
+                            .values()
+                            .any(|window| *window == window_id)
+                    {
+                        cx.default_global::<Registry>()
+                            .item_new_pending
+                            .retain(|_, window| *window != window_id);
+                    }
+                })
+            },
             _focus_lost: cx.on_focus_lost(window, |shell: &mut Shell, window, cx| {
                 shell.handle.focus(window, cx);
                 shell.sync_focus(window, cx);
@@ -5379,6 +5658,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
 }
 
 fn restore(cx: &mut App) {
+    cx.default_global::<Registry>().item_new_pending.clear();
     let Some(path) = cx.default_global::<Registry>().layout_file.clone() else {
         return;
     };

@@ -31,7 +31,7 @@ use std::{
     cell::RefCell,
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     path::PathBuf,
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 /// A placement that needs both props and a position. `props` is `Null` for
@@ -82,6 +82,31 @@ struct Provider {
     name: &'static str,
     create: ContextFactory,
 }
+
+/// A model whose stable slug keys define the contents of an item slot.
+pub trait Items: 'static {
+    fn items(&self) -> Vec<SharedString>;
+}
+
+type ItemReader = Rc<dyn Fn(&AnyEntity, &App) -> Vec<SharedString>>;
+type ItemObserver = Rc<dyn Fn(&AnyEntity, &mut Window, &mut App) -> Subscription>;
+#[derive(Clone)]
+struct ItemDeclaration {
+    model: TypeId,
+    name: &'static str,
+    read: ItemReader,
+    observe: ItemObserver,
+}
+#[derive(Default)]
+struct ItemState {
+    keys: Vec<SharedString>,
+    warned: BTreeSet<String>,
+}
+type ItemSubscriptions = BTreeMap<(NodeId, String), (gpui::EntityId, Subscription)>;
+type ItemWindows =
+    BTreeMap<gpui::WindowId, (gpui::AnyWindowHandle, Weak<RefCell<ItemSubscriptions>>)>;
+
+type ItemChildren = BTreeMap<(NodeId, String), Vec<NodeId>>;
 
 type ViewMap = BTreeMap<NodeId, AnyView>;
 
@@ -629,6 +654,7 @@ pub struct Slots {
     node: NodeId,
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
+    items: Rc<RefCell<ItemChildren>>,
 }
 
 impl Slots {
@@ -636,33 +662,40 @@ impl Slots {
         let layers = self.tree.borrow();
         let tree = layers.current();
         let views = self.views.borrow();
-        tree.slots(&self.node)
-            .find(|(name, _)| name.as_str() == slot)
-            .map(|(_, children)| {
-                children
-                    .iter()
-                    .filter(|child| !tree.is_hidden(&child.id) && views.contains_key(&child.id))
-                    .map(|child| child.id.clone())
-                    .collect()
-            })
-            .unwrap_or_default()
+        slot_nodes(tree, &self.items.borrow(), &self.node, slot)
+            .into_iter()
+            .filter(|node| !hidden(tree, node) && views.contains_key(node))
+            .collect()
     }
 
     pub fn views(&self, slot: &str) -> Vec<AnyView> {
-        let layers = self.tree.borrow();
-        let tree = layers.current();
-        let views = self.views.borrow();
-        tree.slots(&self.node)
-            .find(|(name, _)| name.as_str() == slot)
-            .map(|(_, children)| {
-                children
-                    .iter()
-                    .filter(|child| !tree.is_hidden(&child.id))
-                    .filter_map(|child| views.get(&child.id).cloned())
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.nodes(slot)
+            .iter()
+            .filter_map(|node| self.views.borrow().get(node).cloned())
+            .collect()
     }
+}
+
+fn template_id(node: &NodeId) -> NodeId {
+    node.as_str().split_once('@').map_or_else(
+        || node.clone(),
+        |(template, _)| NodeId::parse(template).expect("copy template ID"),
+    )
+}
+
+fn hidden(tree: &Tree, node: &NodeId) -> bool {
+    tree.is_hidden(&template_id(node))
+}
+
+fn slot_nodes(tree: &Tree, items: &ItemChildren, parent: &NodeId, slot: &str) -> Vec<NodeId> {
+    if let Some(copies) = items.get(&(parent.clone(), slot.into())) {
+        return copies.clone();
+    }
+    // A copy is the template alone; descendants are not copied, so a container copy shows its slots empty.
+    tree.slots(parent)
+        .find(|(name, _)| name.as_str() == slot)
+        .map(|(_, children)| children.iter().map(|child| child.id.clone()).collect())
+        .unwrap_or_default()
 }
 
 struct Registry {
@@ -672,6 +705,13 @@ struct Registry {
     titles: BTreeMap<ComponentId, TitleReader>,
     required: BTreeSet<ComponentId>,
     slots_for_one: Vec<(ComponentId, SlotName)>,
+    item_slots: BTreeMap<(NodeId, String), ItemDeclaration>,
+    item_states: BTreeMap<(NodeId, String), ItemState>,
+    item_children: Rc<RefCell<ItemChildren>>,
+    item_windows: ItemWindows,
+    failed_views: BTreeSet<NodeId>,
+    copies: BTreeMap<NodeId, Node>,
+
     providers: BTreeMap<ComponentId, Vec<Provider>>,
     requirements: BTreeMap<ComponentId, Vec<(TypeId, &'static str)>>,
     contexts: BTreeMap<NodeId, BTreeMap<TypeId, AnyEntity>>,
@@ -938,6 +978,12 @@ impl Default for Registry {
             titles: BTreeMap::new(),
             required: BTreeSet::new(),
             slots_for_one: Vec::new(),
+            item_slots: BTreeMap::new(),
+            item_states: BTreeMap::new(),
+            item_children: Rc::default(),
+            item_windows: BTreeMap::new(),
+            failed_views: BTreeSet::new(),
+            copies: BTreeMap::new(),
             providers: BTreeMap::new(),
             requirements: BTreeMap::new(),
             contexts: BTreeMap::new(),
@@ -1106,6 +1152,10 @@ fn drop_target_name(cx: &App, shown: &NodeId) -> NodeId {
 }
 
 fn drop_on_zone(cx: &mut App, window: &mut Window, node: &NodeId, shown: &NodeId, zone: DropZone) {
+    if is_copy_id(node.as_str()) || live_copy(cx, node.as_str()) {
+        shell_move(cx, node, shown, "children", 0);
+        return;
+    }
     let (parent, component) = {
         let registry = cx.global::<Registry>();
         let layers = registry.tree.borrow();
@@ -1319,6 +1369,7 @@ fn split_on_drop(
             registry.splits.retain(|split| split.upgrade().is_some());
             registry.tabs.retain(|tabs| tabs.upgrade().is_some());
             tracing::debug!(done, "split on drop undone");
+            schedule_items(cx);
             cx.refresh_windows();
             return;
         }
@@ -1327,6 +1378,7 @@ fn split_on_drop(
     reconcile_containers(cx);
     cx.refresh_windows();
     save(cx);
+    schedule_items(cx);
 }
 
 fn refresh_after_drop(cx: &mut App) {
@@ -1385,6 +1437,41 @@ fn record_resize(
     resized: riso_ui::Resized,
     cx: &mut App,
 ) {
+    if shown.iter().any(|node| is_copy_id(node.as_str())) {
+        let entity = cx
+            .global::<Registry>()
+            .splits
+            .iter()
+            .filter_map(WeakEntity::upgrade)
+            .find(|entity| &entity.read(cx).node == split);
+        if let Some(entity) = entity {
+            entity.update(cx, |split, cx| {
+                match resized {
+                    riso_ui::Resized::Reset => {
+                        for node in shown {
+                            split.shares.remove(node.as_str());
+                        }
+                    }
+                    riso_ui::Resized::Dragged { sizes, .. } => {
+                        for (node, size) in shown.iter().zip(sizes) {
+                            match size {
+                                riso_ui::AxisSize::Flex(share) => {
+                                    split.shares.insert(node.to_string(), share);
+                                }
+                                riso_ui::AxisSize::Fixed(size) => {
+                                    split.sizes.insert(node.to_string(), size);
+                                }
+                            }
+                        }
+                    }
+                }
+                split.set_sizes(split.shares.clone(), split.sizes.clone(), cx);
+                cx.notify();
+            });
+        }
+        tracing::debug!(node = %split, "item copy sizes kept for this run");
+        return;
+    }
     let (snapped_shut, snapped_open) = match &resized {
         riso_ui::Resized::Dragged {
             snapped_shut,
@@ -1495,29 +1582,16 @@ fn node_minimum(
         return leaf();
     }
     // Each shown child's minimum, computed once.
-    let children: Vec<Size<Pixels>> = tree
-        .slots(node)
-        .find(|(name, _)| name.as_str() == "children")
-        .map(|(_, children)| {
-            children
-                .iter()
-                .filter(|child| {
-                    !tree.is_hidden(&child.id)
-                        && views.contains_key(&child.id)
-                        && !node_emptiness(
-                            registry,
-                            tree,
-                            views,
-                            &child.id,
-                            Emptiness::Remembered,
-                            cx,
-                        )
-                        .0
-                })
-                .map(|child| node_minimum(registry, tree, views, &child.id, rem_size, cx))
-                .collect()
-        })
-        .unwrap_or_default();
+    let children: Vec<Size<Pixels>> =
+        slot_nodes(tree, &registry.item_children.borrow(), node, "children")
+            .iter()
+            .filter(|child| {
+                !hidden(tree, child)
+                    && views.contains_key(*child)
+                    && !node_emptiness(registry, tree, views, child, Emptiness::Remembered, cx).0
+            })
+            .map(|child| node_minimum(registry, tree, views, child, rem_size, cx))
+            .collect();
     if children.is_empty() {
         return to_pixels(DEFAULT_MINIMUM);
     }
@@ -1594,19 +1668,18 @@ impl Split {
             let layers = self.slots.tree.borrow();
             let tree = layers.current();
             let views = self.slots.views.borrow();
-            tree.slots(&self.node)
-                .find(|(name, _)| name.as_str() == "children")
-                .map(|(_, children)| {
-                    children
-                        .iter()
-                        .filter(|child| {
-                            views.contains_key(&child.id)
-                                && !node_emptiness(registry, tree, &views, &child.id, mode, cx).0
-                        })
-                        .map(|child| child.id.clone())
-                        .collect()
-                })
-                .unwrap_or_default()
+            slot_nodes(
+                tree,
+                &registry.item_children.borrow(),
+                &self.node,
+                "children",
+            )
+            .into_iter()
+            .filter(|child| {
+                views.contains_key(child)
+                    && !node_emptiness(registry, tree, &views, child, mode, cx).0
+            })
+            .collect()
         };
         let same_nodes = nodes == self.shown_nodes;
         let (shares, given): (Vec<_>, Vec<_>) = nodes
@@ -1652,9 +1725,17 @@ impl Split {
                 Axis::Vertical => hints.preferred.height,
             })
             .map(|preferred| preferred.to_pixels(self.rem_size));
-        let (size, given) = if let Some(size) = self.sizes.get(node.as_str()) {
+        let (size, given) = if let Some(size) = self
+            .sizes
+            .get(node.as_str())
+            .or_else(|| self.sizes.get(template_id(node).as_str()))
+        {
             (riso_ui::AxisSize::Fixed(*size), false)
-        } else if let Some(share) = self.shares.get(node.as_str()) {
+        } else if let Some(share) = self
+            .shares
+            .get(node.as_str())
+            .or_else(|| self.shares.get(template_id(node).as_str()))
+        {
             (riso_ui::AxisSize::Flex(*share), false)
         } else if let Some(preferred) = preferred {
             (riso_ui::AxisSize::Fixed(preferred), true)
@@ -1666,7 +1747,7 @@ impl Split {
             riso_ui::AxisChild {
                 size,
                 min,
-                collapsed: tree.is_hidden(node),
+                collapsed: hidden(tree, node),
             },
             given.then_some(size),
         )
@@ -1738,6 +1819,9 @@ impl Render for Split {
                 let Some(node) = nodes.get(index) else {
                     return false;
                 };
+                if is_copy_id(node.as_str()) {
+                    return false;
+                }
                 let registry = cx.global::<Registry>();
                 let allowed = required_rule_error(
                     registry,
@@ -1876,7 +1960,7 @@ impl Render for Tabs {
                     node_of(layers.current(), node)
                         .is_some_and(|node| registry.required.contains(&node.component))
                 };
-                let tab = if required {
+                let tab = if required || is_copy_id(node.as_str()) {
                     tab
                 } else {
                     let node = node.clone();
@@ -2045,24 +2129,18 @@ fn node_emptiness(
     if component.is_some_and(|component| {
         matches!(component.as_str(), "riso.row" | "riso.column" | "riso.tabs")
     }) {
-        let children: Vec<NodeId> = tree
-            .slots(node)
-            .find(|(name, _)| name.as_str() == "children")
-            .map(|(_, children)| {
-                children
-                    .iter()
-                    .filter(|child| views.contains_key(&child.id))
-                    .map(|child| child.id.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
+        let children: Vec<NodeId> =
+            slot_nodes(tree, &registry.item_children.borrow(), node, "children")
+                .into_iter()
+                .filter(|child| views.contains_key(child))
+                .collect();
         let mut any_empty = false;
         let mut none_shown = true;
         for child in &children {
             let (child_empty, child_can) = node_emptiness(registry, tree, views, child, mode, cx);
             can |= child_can;
             any_empty |= child_empty;
-            none_shown &= child_empty || tree.is_hidden(child);
+            none_shown &= child_empty || hidden(tree, child);
         }
         empty |= !children.is_empty() && any_empty && none_shown;
     }
@@ -2124,10 +2202,20 @@ fn empty_now(cx: &App, node: &NodeId, mode: Emptiness<'_>) -> bool {
     node_emptiness(registry, layers.current(), &views, node, mode, cx).0
 }
 
+fn runtime_id(cx: &App, node: &str) -> Option<NodeId> {
+    NodeId::parse(node).ok().or_else(|| {
+        cx.try_global::<Registry>()?
+            .copies
+            .keys()
+            .find(|id| id.as_str() == node)
+            .cloned()
+    })
+}
+
 /// Returns whether a node is empty now: its view says so, or it is a
 /// container whose children are all empty or hidden.
 pub fn is_empty(cx: &App, node: &str) -> bool {
-    NodeId::parse(node).is_ok_and(|node| empty_now(cx, &node, Emptiness::Ask))
+    runtime_id(cx, node).is_some_and(|node| empty_now(cx, &node, Emptiness::Ask))
 }
 
 fn current_location(tree: &Tree, target: &NodeId) -> Option<(NodeId, SlotName, usize, usize)> {
@@ -2148,7 +2236,7 @@ fn current_location(tree: &Tree, target: &NodeId) -> Option<(NodeId, SlotName, u
         }
         None
     }
-    find(tree, &tree.root()?.id, target)
+    find(tree, &tree.root()?.id, &template_id(target))
 }
 
 fn slot_index_of(tree: &Tree, parent: &NodeId, slot: &str, child_id: &NodeId) -> Option<usize> {
@@ -2165,6 +2253,10 @@ fn is_own_position(tree: &Tree, node: &NodeId, parent: &NodeId, slot: &str, inde
 
 fn drop_on_tab(cx: &mut App, node: &NodeId, parent: &NodeId, target_tab: &NodeId) {
     refresh_after_drop(cx);
+    if is_copy_id(node.as_str()) || live_copy(cx, node.as_str()) {
+        shell_move(cx, node, parent, "children", 0);
+        return;
+    }
     let index = {
         let layers = cx.default_global::<Registry>().tree.borrow();
         let tree = layers.current();
@@ -2261,7 +2353,13 @@ fn shell_move(cx: &mut App, node: &NodeId, parent: &NodeId, slot: &str, index: u
 
 /// Returns a node's own visibility flag for extension controls.
 pub fn is_hidden(cx: &App, node: &str) -> bool {
-    NodeId::parse(node).is_ok_and(|node| {
+    let id = if is_copy_id(node) || live_copy(cx, node) {
+        node.split_once('@')
+            .and_then(|(template, _)| NodeId::parse(template).ok())
+    } else {
+        NodeId::parse(node).ok()
+    };
+    id.is_some_and(|node| {
         cx.try_global::<Registry>()
             .is_some_and(|registry| registry.tree.borrow().current().is_hidden(&node))
     })
@@ -2422,7 +2520,9 @@ fn layout_action(action: LayoutAction, node: Option<&NodeId>, window: &mut Windo
         }
         LayoutAction::Hide => {
             shell.set_hidden(cx, node.as_str(), true);
-            if is_hidden(cx, node.as_str()) {
+            if is_copy_id(node.as_str()) || live_copy(cx, node.as_str()) {
+                false
+            } else if is_hidden(cx, node.as_str()) {
                 if let Some(handle) = cx.global::<Registry>().root_focus_handle.clone() {
                     handle.focus(window, cx);
                 }
@@ -2643,7 +2743,7 @@ pub fn focused_node(window: &Window, cx: &App) -> Option<NodeId> {
 
 /// Returns the last drawn bounds of a shown node.
 pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>> {
-    let target = NodeId::parse(node).ok()?;
+    let target = runtime_id(cx, node)?;
     let registry = cx.try_global::<Registry>()?;
     find_in_drawn(registry, cx, |current| {
         (current == &target)
@@ -2654,7 +2754,7 @@ pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>> {
 
 /// Returns a shown node's focus handle.
 pub fn focus_handle(cx: &App, node: &str) -> Option<FocusHandle> {
-    let target = NodeId::parse(node).ok()?;
+    let target = runtime_id(cx, node)?;
     if is_frame_node(&target) {
         return None;
     }
@@ -2690,8 +2790,10 @@ fn find_in_drawn<T>(
         .filter(|node| views.contains_key(*node));
     let is_empty =
         |node: &NodeId| node_emptiness(registry, tree, &views, node, Emptiness::Remembered, cx).0;
+    #[allow(clippy::too_many_arguments)]
     fn walk<T>(
         tree: &Tree,
+        items: &ItemChildren,
         views: &ViewMap,
         is_empty: &dyn Fn(&NodeId) -> bool,
         tabs_selected: &BTreeMap<NodeId, Option<NodeId>>,
@@ -2699,7 +2801,7 @@ fn find_in_drawn<T>(
         current: &NodeId,
         visit: &mut impl FnMut(&NodeId) -> Option<T>,
     ) -> Option<T> {
-        if tree.is_hidden(current) || !views.contains_key(current) || is_empty(current) {
+        if hidden(tree, current) || !views.contains_key(current) || is_empty(current) {
             return None;
         }
         let from_child = if current.as_str() == "body"
@@ -2707,6 +2809,7 @@ fn find_in_drawn<T>(
         {
             walk(
                 tree,
+                items,
                 views,
                 is_empty,
                 tabs_selected,
@@ -2715,28 +2818,41 @@ fn find_in_drawn<T>(
                 visit,
             )
         } else if let Some(selected) = tabs_selected.get(current) {
-            selected
-                .as_ref()
-                .and_then(|child| walk(tree, views, is_empty, tabs_selected, zoomed, child, visit))
+            selected.as_ref().and_then(|child| {
+                walk(
+                    tree,
+                    items,
+                    views,
+                    is_empty,
+                    tabs_selected,
+                    zoomed,
+                    child,
+                    visit,
+                )
+            })
         } else {
-            tree.slots(current).find_map(|(_, children)| {
-                children.iter().find_map(|child| {
-                    walk(
-                        tree,
-                        views,
-                        is_empty,
-                        tabs_selected,
-                        zoomed,
-                        &child.id,
-                        visit,
-                    )
-                })
+            tree.slots(current).find_map(|(slot, _)| {
+                slot_nodes(tree, items, current, slot.as_str())
+                    .iter()
+                    .find_map(|child| {
+                        walk(
+                            tree,
+                            items,
+                            views,
+                            is_empty,
+                            tabs_selected,
+                            zoomed,
+                            child,
+                            visit,
+                        )
+                    })
             })
         };
         from_child.or_else(|| visit(current))
     }
     walk(
         tree,
+        &registry.item_children.borrow(),
         &views,
         &is_empty,
         &tabs_selected,
@@ -2784,7 +2900,7 @@ fn node_of<'a>(tree: &'a Tree, id: &NodeId) -> Option<&'a Node> {
             .flat_map(|(_, children)| children)
             .find_map(|child| find(tree, child, id))
     }
-    find(tree, tree.root()?, id)
+    find(tree, tree.root()?, &template_id(id))
 }
 
 fn component_of<'a>(tree: &'a Tree, id: &NodeId) -> Option<&'a ComponentId> {
@@ -2880,7 +2996,7 @@ fn reconcile_containers(cx: &mut App) {
                 .iter()
                 .zip(split.shown_shares.borrow_mut().iter_mut())
             {
-                child.collapsed = layers.current().is_hidden(node);
+                child.collapsed = hidden(layers.current(), node);
             }
         });
     }
@@ -2898,6 +3014,10 @@ fn run_op(
     build: impl FnOnce(String, NodeId) -> Result<Operation, String>,
 ) {
     let _group = tracing::info_span!("layout-op", op, node, extension).entered();
+    if is_copy_id(node) || live_copy(cx, node) {
+        tracing::info!("{node} is a copy of an item slot");
+        return;
+    }
     let node_id = match NodeId::parse(node) {
         Ok(id) => id,
         Err(error) => {
@@ -2931,11 +3051,34 @@ fn run_op(
     match applied {
         Applied::Added => {
             if let (Some(node), Some(window)) = (added, window) {
-                let _ = create_view(&node, None, window, cx);
+                let location = {
+                    let registry = cx.global::<Registry>();
+                    let layers = registry.tree.borrow();
+                    current_location(layers.current(), &node.id).and_then(|(owner, slot, _, _)| {
+                        let component = component_of(layers.current(), &owner)?.clone();
+                        let declared = registry.components.get(&component)?.slots.clone();
+                        Some((owner, component, declared, slot))
+                    })
+                };
+                let parent = location.as_ref().map(|(owner, component, declared, slot)| {
+                    (owner, component, declared.as_slice(), slot)
+                });
+                let _ = create_view(&node, parent, window, cx);
             }
         }
         Applied::Removed(removed) => {
+            let copies = cx
+                .global::<Registry>()
+                .copies
+                .keys()
+                .filter(|copy| removed.contains(&template_id(copy)))
+                .cloned()
+                .collect::<Vec<_>>();
+            for copy in copies {
+                drop_copy(cx, &copy);
+            }
             for id in removed {
+                cx.default_global::<Registry>().failed_views.remove(&id);
                 let dropped = {
                     let registry = cx.default_global::<Registry>();
                     registry.focus_handles.remove(&id);
@@ -2967,7 +3110,23 @@ fn run_op(
                 teller(&props, cx);
             }
         }
-        Applied::Moved | Applied::SetHidden(_) => {}
+        Applied::Moved => {
+            let registry = cx.default_global::<Registry>();
+            let layers = registry.tree.borrow();
+            let tree = layers.current();
+            let mut moved = Vec::new();
+            if let Some(node) = node_of(tree, &target_node) {
+                collect_nodes(tree, node, &mut moved);
+            }
+            let moved = moved
+                .into_iter()
+                .map(|node| node.id)
+                .collect::<BTreeSet<_>>();
+            registry
+                .failed_views
+                .retain(|id| !moved.contains(&template_id(id)));
+        }
+        Applied::SetHidden(_) => {}
     }
     if cx.global::<Registry>().splitting {
         return;
@@ -2986,6 +3145,312 @@ fn run_op(
     reconcile_containers(cx);
     cx.refresh_windows();
     save(cx);
+    schedule_items(cx);
+}
+
+fn schedule_items(cx: &mut App) {
+    let registry = cx.global::<Registry>();
+    if !registry.views_created
+        || (registry.item_slots.is_empty() && registry.item_states.is_empty())
+    {
+        return;
+    }
+    let windows = registry
+        .item_windows
+        .values()
+        .filter(|(_, subscriptions)| subscriptions.upgrade().is_some())
+        .map(|(window, _)| *window)
+        .collect::<Vec<_>>();
+    let operation = tracing::Span::current();
+    cx.defer(move |cx| {
+        let _group = operation.enter();
+        for window in windows {
+            let _ = window.update(cx, |_, window, cx| {
+                sync_items(window, cx);
+                reconcile_containers(cx);
+                window.refresh();
+            });
+        }
+    });
+}
+
+/// Returns the key of an existing item-slot copy.
+pub fn item(cx: &App, node: &str) -> Option<SharedString> {
+    let registry = cx.try_global::<Registry>()?;
+    registry.copies.keys().find(|id| id.as_str() == node)?;
+    Some(node.split_once('@')?.1.to_owned().into())
+}
+
+fn drop_copy(cx: &mut App, id: &NodeId) {
+    let registry = cx.default_global::<Registry>();
+    registry.copies.remove(id);
+    registry.failed_views.remove(id);
+    registry.focus_handles.remove(id);
+    registry.bounds.remove(id);
+    registry.tellers.remove(id);
+    registry.contexts.remove(id);
+    registry.emptiness.borrow_mut().remove(id);
+    registry.empty_errors.borrow_mut().remove(id);
+    registry.title_errors.borrow_mut().remove(id);
+    registry.laid_out.borrow_mut().remove(id);
+    let dropped = registry.views.borrow_mut().remove(id);
+    if dropped.is_some() {
+        drop(dropped);
+        tracing::debug!(node = %id, "view dropped");
+    }
+}
+
+/// Resolves the model at the slot owner, including the owner's own models.
+fn item_model(
+    registry: &Registry,
+    tree: &Tree,
+    owner: &NodeId,
+    model: TypeId,
+) -> Option<AnyEntity> {
+    let mut current = owner.clone();
+    loop {
+        if let Some(value) = registry
+            .contexts
+            .get(&current)
+            .and_then(|models| models.get(&model))
+        {
+            return Some(value.clone());
+        }
+        let Some((parent, _, _, _)) = current_location(tree, &current) else {
+            break;
+        };
+        current = parent;
+    }
+    registry.window_contexts.get(&model).cloned()
+}
+
+fn sync_items(window: &mut Window, cx: &mut App) {
+    let (root, slots) = {
+        let registry = cx.default_global::<Registry>();
+        if registry.item_slots.is_empty() && registry.item_states.is_empty() {
+            return;
+        }
+        let layers = registry.tree.borrow();
+        let tree = layers.current();
+        let mut nodes = Vec::new();
+        if let Some(root) = tree.root() {
+            collect_nodes(tree, root, &mut nodes);
+        }
+        let slots = nodes
+            .iter()
+            .flat_map(|node| {
+                registry
+                    .item_slots
+                    .iter()
+                    .filter(|((owner, _), _)| owner == &node.id)
+                    .map(|((_, slot), declaration)| {
+                        let templates = tree
+                            .slots(&node.id)
+                            .find(|(name, _)| name.as_str() == slot)
+                            .map(|(_, nodes)| nodes.to_vec())
+                            .unwrap_or_default();
+                        (
+                            node.id.clone(),
+                            slot.clone(),
+                            declaration.clone(),
+                            templates,
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        (tree.root().cloned(), slots)
+    };
+    let template_views = {
+        let registry = cx.global::<Registry>();
+        let layers = registry.tree.borrow();
+        let mut originals = Vec::new();
+        for (_, _, _, templates) in &slots {
+            for template in templates {
+                collect_nodes(layers.current(), template, &mut originals);
+            }
+        }
+        originals
+            .into_iter()
+            .filter(|node| registry.views.borrow().contains_key(&node.id))
+            .map(|node| node.id)
+            .collect::<BTreeSet<_>>()
+    };
+    for id in template_views {
+        drop_copy(cx, &id);
+    }
+    // A template moved out of an item slot becomes an ordinary view again.
+    if let Some(root) = root {
+        let _ = create_view(&root, None, window, cx);
+    }
+    let mut desired = BTreeSet::new();
+    let mut active = BTreeSet::new();
+    for (owner, slot, declaration, templates) in slots {
+        let model = {
+            let registry = cx.global::<Registry>();
+            let layers = registry.tree.borrow();
+            item_model(registry, layers.current(), &owner, declaration.model)
+        };
+        let address = (owner.clone(), slot.clone());
+        active.insert(address.clone());
+        let mut state = cx
+            .default_global::<Registry>()
+            .item_states
+            .remove(&address)
+            .unwrap_or_default();
+        let slot_label = format!("{owner}.{slot}");
+        let subscriptions = cx
+            .global::<Registry>()
+            .item_windows
+            .get(&window.window_handle().window_id())
+            .and_then(|(_, weak)| weak.upgrade());
+        if let Some(subscriptions) = subscriptions {
+            let model_id = model.as_ref().map(AnyEntity::entity_id);
+            let previous = subscriptions.borrow().get(&address).map(|(id, _)| *id);
+            if previous != model_id {
+                subscriptions.borrow_mut().remove(&address);
+                if let Some(model) = &model {
+                    let subscription = (declaration.observe)(model, window, cx);
+                    subscriptions
+                        .borrow_mut()
+                        .insert(address.clone(), (model.entity_id(), subscription));
+                }
+            }
+        }
+        let raw = match model {
+            Some(model) => (declaration.read)(&model, cx),
+            None => {
+                if state.warned.insert("missing model".into()) {
+                    log::warn!("item slot {slot_label} has no {} model", declaration.name);
+                }
+                tracing::trace!(
+                    slot = slot_label.as_str(),
+                    model = declaration.name,
+                    "item slot has no model"
+                );
+                Vec::new()
+            }
+        };
+        let mut seen = BTreeSet::new();
+        let mut keys = Vec::new();
+        for key in raw {
+            if NodeId::parse(&key).is_err() || !seen.insert(key.clone()) {
+                if state.warned.insert(format!("key:{key}")) {
+                    log::warn!("item slot {slot_label} skips invalid or repeated key {key:?}");
+                }
+                tracing::trace!(
+                    slot = slot_label.as_str(),
+                    key = key.as_str(),
+                    "item slot skips invalid or repeated key"
+                );
+                continue;
+            }
+            keys.push(key);
+        }
+        let added = keys
+            .iter()
+            .filter(|key| !state.keys.contains(key))
+            .map(|key| key.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        let removed = state
+            .keys
+            .iter()
+            .filter(|key| !keys.contains(key))
+            .map(|key| key.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        let _group = (keys != state.keys).then(|| {
+            tracing::info_span!("items-changed", slot = slot_label.as_str(), added, removed)
+                .entered()
+        });
+        let old_children = cx
+            .global::<Registry>()
+            .item_children
+            .borrow()
+            .get(&address)
+            .cloned()
+            .unwrap_or_default();
+        for old in old_children {
+            let key = old.as_str().split_once('@').map(|(_, key)| key);
+            if key.is_some_and(|key| !keys.iter().any(|current| current.as_str() == key)) {
+                drop_copy(cx, &old);
+            }
+        }
+        let mut children = Vec::new();
+        for key in &keys {
+            let pending = templates
+                .iter()
+                .filter_map(|template| {
+                    let id = NodeId::copy(&template.id, key).expect("validated item key");
+                    desired.insert(id.clone());
+                    let registry = cx.global::<Registry>();
+                    let layers = registry.tree.borrow();
+                    let shown = !hidden(layers.current(), &template.id);
+                    (shown || registry.copies.contains_key(&id)).then(|| {
+                        let mut node = template.clone();
+                        node.id = id;
+                        node
+                    })
+                })
+                .collect::<Vec<_>>();
+            let new = pending
+                .iter()
+                .any(|node| !cx.global::<Registry>().copies.contains_key(&node.id));
+            let _copy = new.then(|| {
+                tracing::info_span!("item-copy", slot = slot_label.as_str(), key = key.as_str())
+                    .entered()
+            });
+            for node in pending {
+                let previous = cx
+                    .default_global::<Registry>()
+                    .copies
+                    .insert(node.id.clone(), node.clone());
+                let _ = create_view(&node, None, window, cx);
+                if previous.as_ref().is_some_and(|old| old.props != node.props)
+                    && let Some(teller) = cx.global::<Registry>().tellers.get(&node.id).cloned()
+                {
+                    teller(&node.props, cx);
+                }
+                children.push(node.id);
+            }
+        }
+        state.keys = keys;
+        let registry = cx.default_global::<Registry>();
+        registry
+            .item_children
+            .borrow_mut()
+            .insert(address.clone(), children);
+        registry.item_states.insert(address, state);
+    }
+    let stale = cx
+        .global::<Registry>()
+        .copies
+        .keys()
+        .filter(|id| !desired.contains(*id))
+        .cloned()
+        .collect::<Vec<_>>();
+    for id in stale {
+        drop_copy(cx, &id);
+    }
+    let registry = cx.default_global::<Registry>();
+    registry.item_windows.retain(|_, (_, weak)| {
+        if let Some(subscriptions) = weak.upgrade() {
+            subscriptions
+                .borrow_mut()
+                .retain(|address, _| active.contains(address));
+            true
+        } else {
+            false
+        }
+    });
+    registry
+        .item_states
+        .retain(|address, _| active.contains(address));
+    registry
+        .item_children
+        .borrow_mut()
+        .retain(|address, _| active.contains(address));
 }
 
 fn model_name<M: 'static>() -> &'static str {
@@ -3000,7 +3465,12 @@ pub fn context<M: 'static>(cx: &App, node: &str) -> Option<Entity<M>> {
         let registry = cx.try_global::<Registry>()?;
         let layers = registry.tree.borrow();
         let tree = layers.current();
-        let mut current = NodeId::parse(node).ok()?;
+        let mut current = if let Some(copy) = registry.copies.keys().find(|id| id.as_str() == node)
+        {
+            template_id(copy)
+        } else {
+            NodeId::parse(node).ok()?
+        };
         node_of(tree, &current)?;
         while let Some((parent, _, _, _)) = current_location(tree, &current) {
             if let Some(value) = registry
@@ -3140,7 +3610,68 @@ fn slot_count_rule_error(
     ))
 }
 
+fn is_copy_id(value: &str) -> bool {
+    value.split_once('@').is_some_and(|(template, key)| {
+        NodeId::parse(template).is_ok() && NodeId::parse(key).is_ok()
+    })
+}
+
+fn live_copy(cx: &App, value: &str) -> bool {
+    cx.try_global::<Registry>()
+        .is_some_and(|registry| registry.copies.keys().any(|id| id.as_str() == value))
+}
+
+fn operation_copy(operation: &Operation) -> Option<&NodeId> {
+    fn at_copy(at: &Position) -> Option<&NodeId> {
+        match at {
+            Position::Before(node) | Position::After(node) if is_copy_id(node.as_str()) => {
+                Some(node)
+            }
+            _ => None,
+        }
+    }
+    match operation {
+        Operation::Add {
+            node, parent, at, ..
+        } => {
+            if is_copy_id(node.id.as_str()) {
+                Some(&node.id)
+            } else if is_copy_id(parent.as_str()) {
+                Some(parent)
+            } else {
+                at_copy(at)
+            }
+        }
+        Operation::Move {
+            node, parent, at, ..
+        } => {
+            if is_copy_id(node.as_str()) {
+                Some(node)
+            } else if is_copy_id(parent.as_str()) {
+                Some(parent)
+            } else {
+                at_copy(at)
+            }
+        }
+        Operation::Remove { node }
+        | Operation::SetHidden { node, .. }
+        | Operation::SetProps { node, .. } => is_copy_id(node.as_str()).then_some(node),
+    }
+}
+
+fn operation_id(value: &str) -> Result<NodeId, riso_layout::IdError> {
+    if let Some((template, key)) = value.split_once('@') {
+        NodeId::copy(&NodeId::parse(template)?, key)
+    } else {
+        NodeId::parse(value)
+    }
+}
+
 fn check_shell_rules(extension: &str, cx: &mut App, operation: &Operation) -> bool {
+    if let Some(node) = operation_copy(operation) {
+        tracing::info!("{node} is a copy of an item slot");
+        return false;
+    }
     let registry = cx.default_global::<Registry>();
     if let Operation::Move { node, .. } = operation
         && registry.cycle_drop.as_ref() == Some(node)
@@ -3552,7 +4083,7 @@ impl Extension {
                 let props = props?;
                 let component = ComponentId::parse(component)
                     .map_err(|error| format!("invalid component ID {component:?}: {error}"))?;
-                let parent = NodeId::parse(parent)
+                let parent = operation_id(parent)
                     .map_err(|error| format!("invalid parent ID {parent:?}: {error}"))?;
                 let slot = SlotName::parse(slot)
                     .map_err(|error| format!("invalid slot name {slot:?}: {error}"))?;
@@ -3597,7 +4128,7 @@ impl Extension {
     /// Moves a non-root node with its subtree to a position in a declared slot.
     pub fn move_to(&self, cx: &mut App, node: &str, parent: &str, slot: &str, at: Position) {
         run_op(&self.name, None, cx, "move", node, |_, node| {
-            let parent = NodeId::parse(parent)
+            let parent = operation_id(parent)
                 .map_err(|error| format!("invalid parent ID {parent:?}: {error}"))?;
             let slot = SlotName::parse(slot)
                 .map_err(|error| format!("invalid slot name {slot:?}: {error}"))?;
@@ -3621,6 +4152,10 @@ impl Extension {
     /// Zooms any shown non-root node without changing the layout tree.
     pub fn set_zoomed(&self, cx: &mut App, node: &str) {
         let _group = tracing::info_span!("zoom", node, extension = self.name.as_str()).entered();
+        if is_copy_id(node) || live_copy(cx, node) {
+            tracing::info!("{node} is a copy of an item slot");
+            return;
+        }
         let id = match NodeId::parse(node) {
             Ok(id) => id,
             Err(error) => {
@@ -3706,13 +4241,14 @@ impl Extension {
         }
         let (root, kept) = {
             let registry = cx.default_global::<Registry>();
+            registry.failed_views.clear();
             let layers = registry.tree.borrow();
             let tree = layers.current();
             let removed: Vec<_> = registry
                 .views
                 .borrow()
                 .keys()
-                .filter(|id| added.contains(*id) || component_of(tree, id).is_none())
+                .filter(|id| added.contains(*id) || component_of(tree, &template_id(id)).is_none())
                 .cloned()
                 .collect();
             for id in removed {
@@ -3758,6 +4294,7 @@ impl Extension {
         for (teller, props) in to_tell {
             teller(&props, cx);
         }
+        sync_items(window, cx);
         let (splits, tabs) = {
             let registry = cx.default_global::<Registry>();
             registry.splits.retain(|split| split.upgrade().is_some());
@@ -3892,6 +4429,84 @@ impl Extension {
             return None;
         }
         Some(id)
+    }
+
+    /// Declares a slot that repeats its templates for the keys of `M`.
+    pub fn item_slot<M: Items>(&self, cx: &mut App, node: &str, slot: &str) {
+        let model = model_name::<M>();
+        let _group = tracing::info_span!("item-slot-declare", node, slot, model).entered();
+        let id = match NodeId::parse(node) {
+            Ok(id) => id,
+            Err(error) => {
+                log::error!("invalid node ID {node:?}: {error}");
+                return;
+            }
+        };
+        let name = match SlotName::parse(slot) {
+            Ok(name) => name,
+            Err(error) => {
+                log::error!("invalid slot name {slot:?}: {error}");
+                return;
+            }
+        };
+        let registry = cx.default_global::<Registry>();
+        {
+            let layers = registry.tree.borrow();
+            let Some(placed) = node_of(layers.current(), &id) else {
+                log::error!("node {node} is not in the tree");
+                return;
+            };
+            if placed.extension != self.name {
+                log::error!(
+                    "extension {} cannot declare an item slot on node {node} placed by {}",
+                    self.name,
+                    placed.extension
+                );
+                return;
+            }
+            if let Some(component) = registry.components.get(&placed.component)
+                && !component.slots.contains(&name)
+            {
+                log::error!(
+                    "component {} does not declare slot {slot}",
+                    placed.component
+                );
+                return;
+            }
+        }
+        let address = (id, slot.to_owned());
+        if registry.item_slots.contains_key(&address) {
+            log::error!("slot {node}.{slot} is already an item slot");
+            return;
+        }
+        registry.item_slots.insert(
+            address,
+            ItemDeclaration {
+                model: TypeId::of::<M>(),
+                name: model,
+                read: Rc::new(|entity, cx| {
+                    entity
+                        .clone()
+                        .downcast::<M>()
+                        .expect("declared item model")
+                        .read(cx)
+                        .items()
+                }),
+                observe: Rc::new(|entity, window, cx| {
+                    let entity = entity.clone().downcast::<M>().expect("declared item model");
+                    let window = window.window_handle();
+                    cx.observe(&entity, move |_, cx| {
+                        let _ = window.update(cx, |_, window, cx| {
+                            sync_items(window, cx);
+                            reconcile_containers(cx);
+                            window.refresh();
+                        });
+                    })
+                }),
+            },
+        );
+        tracing::debug!("declared");
+        schedule_items(cx);
     }
 
     /// Declares a slot of this extension's component a slot for one node.
@@ -4160,6 +4775,25 @@ impl Extension {
         }
         let registry = cx.default_global::<Registry>();
         if !registry.components.contains_key(&component) {
+            let layers = registry.tree.borrow();
+            registry.item_slots.retain(|(node, slot), declaration| {
+                if component_of(layers.current(), node) == Some(&component)
+                    && !names.iter().any(|name| name.as_str() == slot)
+                {
+                    let _group = tracing::info_span!(
+                        "item-slot-declare",
+                        node = node.as_str(),
+                        slot,
+                        model = declaration.name
+                    )
+                    .entered();
+                    log::error!("component {component} does not declare slot {slot}");
+                    false
+                } else {
+                    true
+                }
+            });
+            drop(layers);
             registry.slots_for_one.retain(|(declared_component, slot)| {
                 if declared_component == &component && !names.contains(slot) {
                     log::error!("component {component} does not declare slot {slot}");
@@ -4168,6 +4802,25 @@ impl Extension {
                     true
                 }
             });
+        }
+        let retry = {
+            let layers = registry.tree.borrow();
+            registry
+                .failed_views
+                .iter()
+                .filter(|id| {
+                    registry
+                        .copies
+                        .get(*id)
+                        .map(|node| &node.component)
+                        .or_else(|| component_of(layers.current(), id))
+                        == Some(&component)
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+        for id in retry {
+            registry.failed_views.remove(&id);
         }
         match registry.components.entry(component) {
             Entry::Vacant(entry) => {
@@ -4181,6 +4834,7 @@ impl Extension {
                 log::error!("component {} is already registered", entry.key())
             }
         }
+        schedule_items(cx);
     }
 
     /// Places a valid root, whether or not its component is registered yet.
@@ -4634,6 +5288,7 @@ pub struct Shell {
     toast_layer: Entity<riso_ui::ToastLayer>,
     last_focused: Option<NodeId>,
     _focus_lost: Subscription,
+    _item_subscriptions: Rc<RefCell<ItemSubscriptions>>,
 }
 
 impl Shell {
@@ -4651,6 +5306,11 @@ impl Shell {
 
 /// Creates the initial nodes once, parent before children, when the window opens.
 pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
+    let item_subscriptions = Rc::new(RefCell::new(BTreeMap::new()));
+    cx.default_global::<Registry>().item_windows.insert(
+        window.window_handle().window_id(),
+        (window.window_handle(), Rc::downgrade(&item_subscriptions)),
+    );
     let should_restore = {
         let registry = cx.default_global::<Registry>();
         if !registry.default_fixed {
@@ -4691,6 +5351,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
         let node = registry.zoomed.take().unwrap();
         tracing::debug!(node = %node, "zoom cleared");
     }
+    sync_items(window, cx);
     // Initialize split children and tab selections early so visibility checks work before the first draw.
     reconcile_containers(cx);
     let toast_layer = cx.new(|_| riso_ui::ToastLayer::new());
@@ -4707,6 +5368,7 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
             modal_layer,
             toast_layer,
             last_focused: None,
+            _item_subscriptions: item_subscriptions,
             _focus_lost: cx.on_focus_lost(window, |shell: &mut Shell, window, cx| {
                 shell.handle.focus(window, cx);
                 shell.sync_focus(window, cx);
@@ -4739,6 +5401,7 @@ fn restore(cx: &mut App) {
             return;
         }
     };
+    cx.default_global::<Registry>().failed_views.clear();
     let mut applied = 0usize;
     let mut skipped = 0usize;
     for operation in operations {
@@ -4791,10 +5454,18 @@ fn restore(cx: &mut App) {
 
 fn create_view(
     node: &Node,
-    parent: Option<(&ComponentId, &[SlotName], &SlotName)>,
+    parent: Option<(&NodeId, &ComponentId, &[SlotName], &SlotName)>,
     window: &mut Window,
     cx: &mut App,
 ) -> Option<AnyView> {
+    if parent.is_some_and(|(owner, _, _, slot)| {
+        cx.global::<Registry>()
+            .item_slots
+            .contains_key(&(owner.clone(), slot.to_string()))
+    }) || cx.global::<Registry>().failed_views.contains(&node.id)
+    {
+        return None;
+    }
     let kept = cx
         .default_global::<Registry>()
         .views
@@ -4810,9 +5481,12 @@ fn create_view(
         )
         .entered()
     });
-    if let Some((component, declared, slot)) = parent
+    if let Some((_, component, declared, slot)) = parent
         && !declared.contains(slot)
     {
+        cx.default_global::<Registry>()
+            .failed_views
+            .insert(node.id.clone());
         log::error!(
             "node {} is placed in slot {} not declared by parent component {}",
             node.id,
@@ -4835,10 +5509,14 @@ fn create_view(
             node: node.id.clone(),
             tree: registry.tree.clone(),
             views: registry.views.clone(),
+            items: registry.item_children.clone(),
         };
         (component, children, slots)
     };
     let Some(component) = component else {
+        cx.default_global::<Registry>()
+            .failed_views
+            .insert(node.id.clone());
         log::error!(
             "node {} names unregistered component {}",
             node.id,
@@ -4889,7 +5567,7 @@ fn create_view(
         for child in &nodes {
             let _ = create_view(
                 child,
-                Some((&node.component, &component.slots, &slot)),
+                Some((&node.id, &node.component, &component.slots, &slot)),
                 window,
                 cx,
             );

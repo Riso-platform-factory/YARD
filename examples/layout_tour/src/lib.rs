@@ -42,7 +42,6 @@
 //! `LAYOUT_TOUR=item-slots cargo run dev`: cards following a list of stable item keys.
 //! `LAYOUT_TOUR=toggle cargo run dev`: status bar toggles show and hide side cards, one at a time in a column.
 
-#[cfg(feature = "dev")]
 mod item_slots;
 #[cfg(test)]
 mod tests;
@@ -52,10 +51,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -65,7 +61,6 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
     }
     let _group = tracing::info_span!("layout-tour", case).entered();
     match case.as_str() {
-        #[cfg(feature = "dev")]
         "item-slots" => item_slots::init(cx, ext),
         "toggle" => {
             register_card(cx, ext);
@@ -1286,12 +1281,6 @@ impl Render for List {
     }
 }
 
-#[cfg(feature = "dev")]
 fn item_label(cx: &App, node: &str) -> Option<riso_ui::Label> {
     shell::item(cx, node).map(riso_ui::Label::new)
-}
-
-#[cfg(not(feature = "dev"))]
-fn item_label(_: &App, _: &str) -> Option<riso_ui::Label> {
-    None
 }

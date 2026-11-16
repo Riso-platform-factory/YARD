@@ -97,7 +97,7 @@ Features 13 and later are the second part of the engine. Where the column `Needs
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 28 | `item-slots` | A slot that makes one copy of its nodes for each item of a model, such as each open document. Each copy gets its item as a context. Items come and go without layout operations | A model with a list of names, and a button to add and remove one: there is one card per name | none | 18 | dev |
+| 28 | `item-slots` | A slot that makes one copy of its nodes for each item of a model, such as each open document. Each copy gets its item as a context. Items come and go without layout operations | A model with a list of names, and a button to add and remove one: there is one card per name | none | 18 | production |
 | 29 | `item-tabs` | A component of the shell: a tab bar over an item slot, with one tab per item, a close button on each tab, and a button to add an item. The buttons tell the model | Tabs that follow the list of names | `pane.rs`, as reference | 24, 28 | planned |
 
 ### Named layouts

@@ -398,6 +398,16 @@ The layout belongs to its window. With one window, every case runs as before; th
 | `File > New Window` | A third window. |
 | Close the windows one by one | `window-close{window}` for each; the application quits with the last. |
 
+### Window feature 10: restore-windows
+
+The windows open at quit come back at the next start, each with its place, its size, its named layout, and its own user layers, from `session.json`. Use a fresh home: `RISO_HOME=/tmp/riso-session`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-session LAYOUT_TOUR=user-layer cargo run dev`, click `hide d`, press `cmd-shift-n`, move the new window, drag tab `b` onto the top edge of `right` in it, quit | `session-save{windows=2}`; `session.json` lists both windows. |
+| Start again | Both windows are back where they were: the first with `d` hidden, the second split; `restored {windows=2}`. |
+| Close the second window, quit, start | One window. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

@@ -1,5 +1,6 @@
 //! Component factories and the root view kept by the main window.
 
+use super::session::SessionWindow;
 gpui::actions!(
     riso,
     [
@@ -1102,6 +1103,10 @@ struct WindowState {
     zoomed: Option<NodeId>,
     shown_layout: SharedString,
     saved_layers: BTreeMap<String, Vec<Operation>>,
+    /// The session file of a window opened from the session, and the named
+    /// layouts whose user layers the session gave it: a switch to one of
+    /// them uses that layer, not the layout's file.
+    session_layers: Option<(PathBuf, BTreeSet<String>)>,
     startup_tree: Tree,
     warned_named_files: bool,
     views_created: bool,
@@ -1404,6 +1409,7 @@ impl WindowState {
             zoomed: None,
             shown_layout: "riso.default".into(),
             saved_layers: BTreeMap::new(),
+            session_layers: None,
             startup_tree: Tree::default(),
             warned_named_files: false,
             views_created: false,
@@ -3541,6 +3547,7 @@ fn find_in_drawn<T>(
 }
 
 fn save(cx: &App) {
+    super::session::layout_changed(cx);
     let Some((path, len, encoded)) = cx.try_global::<Registry>().and_then(|registry| {
         let state_handle = window_state(cx);
         let layout_state = state_handle.borrow();
@@ -5068,7 +5075,6 @@ impl Extension {
         let (before, before_props, before_components) = {
             let state_handle = window_state(cx);
             let mut layout_state = state_handle.borrow_mut();
-            let registry = cx.default_global::<Registry>();
             let before = layout_state
                 .views
                 .borrow()
@@ -5092,11 +5098,11 @@ impl Extension {
                         .map(|node| (id.clone(), (node.component.clone(), node.extension.clone())))
                 })
                 .collect::<BTreeMap<_, _>>();
-            if layout_path(registry, &layout_state).is_none() {
-                layout_state
-                    .saved_layers
-                    .insert(from.to_string(), layers.user_layer().to_vec());
-            }
+            // The main window reads its layers from its files; the copy
+            // kept here is what the session saves for it.
+            layout_state
+                .saved_layers
+                .insert(from.to_string(), layers.user_layer().to_vec());
             (before, props, components)
         };
         {
@@ -5135,7 +5141,23 @@ impl Extension {
             }
         }
         window_state(cx).borrow().tree.borrow_mut().set_default();
-        if layout_path(cx.global::<Registry>(), &window_state(cx).borrow()).is_some() {
+        let session_file = window_state(cx)
+            .borrow()
+            .session_layers
+            .as_ref()
+            .filter(|(_, given)| given.contains(name))
+            .map(|(file, _)| file.clone());
+        if let Some(file) = session_file {
+            window_state(cx).borrow_mut().item_new_pending.clear();
+            let saved = window_state(cx)
+                .borrow()
+                .saved_layers
+                .get(name)
+                .cloned()
+                .unwrap_or_default();
+            let _group = tracing::info_span!("layout-restore", file = %file.display()).entered();
+            apply_restored(cx, saved);
+        } else if layout_path(cx.global::<Registry>(), &window_state(cx).borrow()).is_some() {
             restore(cx);
         } else {
             window_state(cx).borrow_mut().item_new_pending.clear();
@@ -5234,6 +5256,7 @@ impl Extension {
         let created = after.len() - kept;
         tracing::debug!(kept, dropped, created, "switched");
         notify_layout(cx);
+        super::session::layout_changed(cx);
         window.refresh();
         cx.refresh_windows();
     }
@@ -6674,6 +6697,7 @@ pub struct Shell {
     _focus_lost: Subscription,
     _activation: Subscription,
     _item_subscriptions: Rc<RefCell<ItemSubscriptions>>,
+    _session_bounds: Subscription,
     _release: Subscription,
 }
 
@@ -6693,6 +6717,20 @@ impl Shell {
 
 /// Creates the initial nodes once, parent before children, when the window opens.
 pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
+    create_shell(window, cx, None)
+}
+
+/// The shell of a window recreated from the session: as `new_shell`, but
+/// showing the window's named layout with its user layers.
+pub fn new_session_shell(
+    window: &mut Window,
+    cx: &mut App,
+    saved: &SessionWindow,
+) -> Entity<Shell> {
+    create_shell(window, cx, Some(saved))
+}
+
+fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>) -> Entity<Shell> {
     let id = window.window_handle().window_id();
     let owned_state = {
         let registry = cx.default_global::<Registry>();
@@ -6717,11 +6755,15 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
         registry.ever_opened = true;
         remember_active(registry, id);
     }
+    super::session::window_opened(window, cx);
     let _window = window_scope(window, cx);
     let item_subscriptions = Rc::new(RefCell::new(BTreeMap::new()));
     owned_state.borrow_mut().item_window =
         Some((window.window_handle(), Rc::downgrade(&item_subscriptions)));
-    let restored = restore(cx);
+    let restored = match saved {
+        Some(saved) => restore_session(cx, saved),
+        None => restore(cx),
+    };
     let (frame_root, ext_root) = {
         let state = owned_state.borrow();
         (
@@ -6772,8 +6814,12 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
             toast_layer,
             last_focused: None,
             _item_subscriptions: item_subscriptions,
+            _session_bounds: cx.observe_window_bounds(window, |_, window, cx| {
+                super::session::bounds_changed(window, cx);
+            }),
             _release: cx.on_release(move |shell: &mut Shell, cx| {
                 let _group = tracing::info_span!("window-close", window = id.as_u64()).entered();
+                super::session::window_closed(cx, id);
                 cx.default_global::<Registry>().windows.remove(&id);
                 cx.global::<Registry>()
                     .active_history
@@ -6826,6 +6872,12 @@ fn restore(cx: &mut App) -> bool {
             return false;
         }
     };
+    apply_restored(cx, operations)
+}
+
+/// Applies saved operations to the window's layout, each checked by the
+/// rules of a live one; a refused one is skipped with an `INFO`.
+fn apply_restored(cx: &mut App, operations: Vec<Operation>) -> bool {
     window_state(cx).borrow_mut().failed_views.clear();
     let mut applied = 0usize;
     let mut skipped = 0usize;
@@ -6876,6 +6928,84 @@ fn restore(cx: &mut App) -> bool {
     }
     tracing::debug!(applied, skipped, "restored");
     applied > 0
+}
+
+/// Shows the session's named layout with its user layers in the window
+/// being created, in place of the main window's files.
+fn restore_session(cx: &mut App, saved: &SessionWindow) -> bool {
+    window_state(cx).borrow_mut().item_new_pending.clear();
+    let name = saved.layout.as_str();
+    let named = if name == "riso.default" {
+        None
+    } else {
+        let named = cx.global::<Registry>().named_layouts.get(name).cloned();
+        if named.is_none() {
+            tracing::info!(name, "no named layout");
+        }
+        named
+    };
+    let shown = if named.is_some() {
+        name
+    } else {
+        "riso.default"
+    };
+    {
+        let state_handle = window_state(cx);
+        let mut layout_state = state_handle.borrow_mut();
+        layout_state.saved_layers = saved
+            .layers
+            .iter()
+            .filter(|(layout, _)| layout.as_str() != shown)
+            .map(|(layout, operations)| (layout.clone(), operations.clone()))
+            .collect();
+        layout_state.shown_layout = shown.to_string().into();
+        let mut given = saved.layers.keys().cloned().collect::<BTreeSet<_>>();
+        given.insert(shown.to_string());
+        layout_state.session_layers = Some((saved.file.clone(), given));
+    }
+    if let Some(named) = named {
+        {
+            let state_handle = window_state(cx);
+            let layout_state = state_handle.borrow();
+            *layout_state.tree.borrow_mut() = Layers::new(layout_state.startup_tree.clone());
+        }
+        for operation in named.operations {
+            match operation {
+                Ok(operation) => {
+                    let added = match &operation {
+                        Operation::Add { node, .. } => Some(node.id.clone()),
+                        _ => None,
+                    };
+                    if replay_operation(cx, &named.extension, operation)
+                        && let Some(id) = added
+                    {
+                        window_state(cx).borrow_mut().named_nodes.insert(id);
+                    }
+                }
+                Err(reason) => tracing::info!(reason, "skipped"),
+            }
+        }
+        window_state(cx).borrow().tree.borrow_mut().set_default();
+    }
+    let _group = tracing::info_span!("layout-restore", file = %saved.file.display()).entered();
+    let operations = saved.layers.get(shown).cloned().unwrap_or_default();
+    apply_restored(cx, operations)
+}
+
+/// The named layout a window shows and its user layer for each named
+/// layout it has shown, as the session saves them.
+pub(super) fn session_layers(
+    cx: &App,
+    id: gpui::WindowId,
+) -> Option<(String, BTreeMap<String, Vec<Operation>>)> {
+    let state_handle = cx.try_global::<Registry>()?.windows.get(&id)?.upgrade()?;
+    let layout_state = state_handle.borrow();
+    let mut layers = layout_state.saved_layers.clone();
+    layers.insert(
+        layout_state.shown_layout.to_string(),
+        layout_state.tree.borrow().user_layer().to_vec(),
+    );
+    Some((layout_state.shown_layout.to_string(), layers))
 }
 
 fn create_view(

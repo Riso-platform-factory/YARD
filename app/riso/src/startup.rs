@@ -58,7 +58,17 @@ pub(crate) fn run(
             riso_shell::set_window_opener(cx, move |cx| {
                 open_window(cx, product, None);
             });
-            open_window(cx, product, Some(paths.window_file()));
+            let session = riso_shell::saved_session(cx, &paths.session_file());
+            riso_shell::track_session(cx, paths.session_file());
+            match session {
+                Some(windows) => {
+                    for (index, saved) in windows.iter().enumerate() {
+                        let window_file = (index == 0).then(|| paths.window_file());
+                        open_session_window(cx, product, saved, window_file);
+                    }
+                }
+                None => open_window(cx, product, Some(paths.window_file())),
+            }
             riso_log::startup_finished();
         });
 }
@@ -79,6 +89,40 @@ fn open_window(cx: &mut App, product: riso_log::Product, window_file: Option<std
             |window, cx| {
                 riso_ui::follow_appearance(window, cx);
                 riso_shell::new_shell(window, cx)
+            },
+        )
+        .unwrap_or_else(|error| panic!("{} window opens: {error}", product.name));
+    window
+        .update(cx, |_, window, cx| {
+            if let Some(file) = window_file {
+                riso_shell::track_window_bounds(window, cx, file);
+            }
+            window.activate_window();
+        })
+        .unwrap_or_else(|error| panic!("{} window is open: {error}", product.name));
+    cx.activate(true);
+}
+
+/// Opens a window of the saved session with its bounds and layers; the
+/// main window, the first, also keeps `window.json` up to date.
+fn open_session_window(
+    cx: &mut App,
+    product: riso_log::Product,
+    saved: &riso_shell::SessionWindow,
+    window_file: Option<std::path::PathBuf>,
+) {
+    let _group = tracing::info_span!("window-open").entered();
+    let window = cx
+        .open_window(
+            WindowOptions {
+                titlebar: Some(riso_ui::titlebar_options(product.name)),
+                window_bounds: saved.bounds,
+                display_id: saved.display,
+                ..Default::default()
+            },
+            |window, cx| {
+                riso_ui::follow_appearance(window, cx);
+                riso_shell::new_session_shell(window, cx, saved)
             },
         )
         .unwrap_or_else(|error| panic!("{} window opens: {error}", product.name));

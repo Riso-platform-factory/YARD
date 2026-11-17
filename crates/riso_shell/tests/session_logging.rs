@@ -1,8 +1,6 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::dev as shell;
-use riso_shell::dev::{SessionWindow, new_session_shell, saved_session, track_session};
+use riso_shell as shell;
+use riso_shell::{SessionWindow, new_session_shell, saved_session, track_session};
 use std::{
     collections::BTreeMap,
     fs,

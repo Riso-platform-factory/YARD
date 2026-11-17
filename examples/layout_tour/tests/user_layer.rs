@@ -1,8 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 
 // Select the extension case in a separate process, before GPUI starts threads.
 #[gpui::test]

@@ -71,6 +71,18 @@ fn config_with_scheme(keys: &str, icon: Option<&[u8]>, scheme: &str) -> (TempDir
     (folder, path)
 }
 
+/// Writes `product.toml` as `config` does, with `version` instead of `1.0`.
+fn config_with_version(keys: &str, icon: &[u8], version: &str) -> (TempDir, PathBuf) {
+    let (folder, path) = config(keys, Some(icon));
+    let text = std::fs::read_to_string(&path).unwrap();
+    std::fs::write(
+        &path,
+        text.replacen("version = \"1.0\"", &format!("version = {version:?}"), 1),
+    )
+    .unwrap();
+    (folder, path)
+}
+
 const IDENTIFIER: &str = "identifier = \"com.example.sample\"\n";
 const ICON: &str = "identifier = \"com.example.sample\"\nicon = \"icon.png\"\n";
 
@@ -205,4 +217,109 @@ fn an_icon_that_is_not_a_valid_square_png_of_512_is_refused() {
         let error = refused(config(ICON, Some(&icon)), "icon");
         assert!(error.contains("square and at least 512"), "{error}");
     }
+}
+
+#[test]
+fn an_absent_update_url_gives_an_empty_address() {
+    let (_folder, path) = config(ICON, Some(&png(512, 512)));
+    let config = build_support::read_product_config(&path).unwrap();
+    assert_eq!(config.update_url, "");
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("product.toml");
+    let config = build_support::read_product_config(&path).unwrap();
+    assert_eq!(config.update_url, "", "riso's own config names none");
+}
+
+#[test]
+fn an_https_or_local_http_update_url_is_accepted() {
+    let icon = png(512, 512);
+    for url in [
+        "https://releases.example.com/latest.json",
+        "https://releases.example.com:8443/sample/latest.json?channel=stable",
+        "http://127.0.0.1:8765/latest.json",
+        "http://localhost/latest.json",
+    ] {
+        let (_folder, path) =
+            config_with_version(&format!("{ICON}update_url = {url:?}\n"), &icon, "0.1.0");
+        let config = build_support::read_product_config(&path).unwrap();
+        assert_eq!(config.update_url, url);
+    }
+}
+
+#[test]
+fn an_update_url_that_is_not_https_or_local_http_is_refused() {
+    let icon = png(512, 512);
+    for url in [
+        "\"http://example.com/latest.json\"",
+        "\"http://127.0.0.2/latest.json\"",
+        "\"ftp://releases.example.com/latest.json\"",
+    ] {
+        let error = refused(
+            config(&format!("{ICON}update_url = {url}\n"), Some(&icon)),
+            "update_url",
+        );
+        assert!(error.contains("https://"), "{error}");
+    }
+}
+
+#[test]
+fn an_unreadable_update_url_is_refused() {
+    let icon = png(512, 512);
+    for url in [
+        "\"\"",
+        "3",
+        "\"releases.example.com/latest.json\"",
+        "\"https://\"",
+        "\"https:///latest.json\"",
+        "\"https://releases example.com/latest.json\"",
+        "\"https://user@releases.example.com/latest.json\"",
+        "\"https://releases.example.com:port/latest.json\"",
+    ] {
+        refused(
+            config(&format!("{ICON}update_url = {url}\n"), Some(&icon)),
+            "update_url",
+        );
+    }
+}
+
+#[test]
+fn a_version_that_is_not_semantic_is_refused_only_with_an_update_url() {
+    let icon = png(512, 512);
+    let url = "update_url = \"https://releases.example.com/latest.json\"\n";
+    let error = refused(config(&format!("{ICON}{url}"), Some(&icon)), "version");
+    assert!(error.contains("semantic version"), "{error}");
+    let (_folder, path) = config(ICON, Some(&icon));
+    assert_eq!(
+        build_support::read_product_config(&path).unwrap().version,
+        "1.0"
+    );
+    let (_folder, path) = config_with_version(&format!("{ICON}{url}"), &icon, "0.1.0");
+    let config = build_support::read_product_config(&path).unwrap();
+    assert_eq!(config.version, "0.1.0");
+    assert_eq!(
+        config.update_url,
+        "https://releases.example.com/latest.json"
+    );
+}
+
+#[test]
+fn an_update_url_to_another_host_or_an_impossible_port_is_refused() {
+    let icon = png(512, 512);
+    for url in [
+        "http://127.0.0.1.evil.com/latest.json",
+        "http://localhost@evil.com/latest.json",
+        "https://releases.example.com:65536/latest.json",
+        "https://releases.example.com:0/latest.json",
+        "http://127.0.0.1:+80/latest.json",
+    ] {
+        refused(
+            config_with_version(&format!("{ICON}update_url = {url:?}\n"), &icon, "0.1.0"),
+            "update_url",
+        );
+    }
+    let (_folder, path) = config_with_version(
+        &format!("{ICON}update_url = \"https://releases.example.com:65535/latest.json\"\n"),
+        &icon,
+        "0.1.0",
+    );
+    build_support::read_product_config(&path).unwrap();
 }

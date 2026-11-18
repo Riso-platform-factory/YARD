@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["riso_log/dev", "riso_product/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "riso_settings/dev", "riso_keymap/dev", "command_palette/dev"]
+dev = ["riso_log/dev", "riso_product/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "riso_settings/dev", "riso_keymap/dev", "command_palette/dev", "dep:riso_update", "riso_update/dev", "dep:reqwest_client"]
 
 [dependencies]
 gpui.workspace = true
@@ -25,10 +25,15 @@ tracing = { workspace = true }
 
 command_palette = { workspace = true, default-features = false }
 
+riso_update = { workspace = true, optional = true, default-features = false }
+reqwest_client = { workspace = true, optional = true }
+
 [dev-dependencies]
+semver.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 toml.workspace = true
 
 [build-dependencies]
+semver.workspace = true
 toml.workspace = true

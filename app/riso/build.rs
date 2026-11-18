@@ -18,4 +18,5 @@ fn main() {
     println!("cargo:rustc-env=PRODUCT_IDENTIFIER={}", config.identifier);
     println!("cargo:rustc-env=PRODUCT_URL_SCHEME={}", config.url_scheme);
     println!("cargo:rustc-env=PRODUCT_ICON={}", config.icon.display());
+    println!("cargo:rustc-env=PRODUCT_UPDATE_URL={}", config.update_url);
 }

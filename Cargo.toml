@@ -14,6 +14,8 @@ gpui_apple = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37", default-features = false, features = ["font-kit", "wayland", "x11"] }
 ui = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 theme = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
+http_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
+reqwest_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 zlog = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 riso_layout = { path = "crates/riso_layout", default-features = false }
 riso_state = { path = "crates/riso_state", default-features = false }
@@ -24,13 +26,16 @@ riso_paths = { path = "crates/riso_paths", default-features = false }
 riso_ui = { path = "crates/riso_ui", default-features = false }
 riso_settings = { path = "crates/riso_settings", default-features = false }
 riso_keymap = { path = "crates/riso_keymap", default-features = false }
+riso_update = { path = "crates/riso_update", default-features = false }
 command_palette = { path = "extensions/command_palette", default-features = false }
 dirs = "6"
+futures = "0.3"
 log = "0.4.35"
 tracing = "0.1.44"
 tracing-log = { version = "0.2", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "registry", "env-filter"] }
 schemars = "1.2.3"
+semver = "1"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 libc = "0.2"

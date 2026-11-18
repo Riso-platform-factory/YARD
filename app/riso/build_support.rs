@@ -11,6 +11,9 @@ pub struct ProductConfig {
     pub url_scheme: String,
     /// The icon's absolute path.
     pub icon: PathBuf,
+    /// The address of the newest release's file, empty when the config
+    /// names none.
+    pub update_url: String,
 }
 
 /// Reads the product config at `path`. An error names the file and, when
@@ -88,13 +91,64 @@ pub fn read_product_config(path: &Path) -> Result<ProductConfig, String> {
             icon.display()
         ));
     }
+    let update_url = match config.get("update_url") {
+        None => String::new(),
+        Some(_) => {
+            let update_url = string("update_url")?;
+            if let Err(reason) = check_update_url(&update_url) {
+                return Err(format!(
+                    "product config {file}: `update_url` {update_url:?} {reason}"
+                ));
+            }
+            if let Err(error) = semver::Version::parse(&version) {
+                return Err(format!(
+                    "product config {file}: `version` {version:?} must be a semantic version \
+                     when `update_url` is set: {error}"
+                ));
+            }
+            update_url
+        }
+    };
     Ok(ProductConfig {
         name,
         version,
         identifier,
         url_scheme,
         icon,
+        update_url,
     })
+}
+
+/// Accepts an `https://` URL, or an `http://` one only to `127.0.0.1` or
+/// `localhost`, for checks on this machine.
+fn check_update_url(url: &str) -> Result<(), &'static str> {
+    const UNREADABLE: &str = "is not a readable URL";
+    if url.chars().any(|c| c.is_whitespace() || c.is_control()) {
+        return Err(UNREADABLE);
+    }
+    let (scheme, rest) = url.split_once("://").ok_or(UNREADABLE)?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let (host, port) = match authority.rsplit_once(':') {
+        Some((host, port)) => (host, Some(port)),
+        None => (authority, None),
+    };
+    if host.is_empty()
+        || !host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
+        || port.is_some_and(|port| {
+            !port.chars().all(|c| c.is_ascii_digit())
+                || !port.parse::<u16>().is_ok_and(|port| port >= 1)
+        })
+    {
+        return Err(UNREADABLE);
+    }
+    match scheme {
+        "https" => Ok(()),
+        "http" if matches!(host, "127.0.0.1" | "localhost") => Ok(()),
+        "http" => Err("must use https://; http:// is allowed only to 127.0.0.1 or localhost"),
+        _ => Err("must be an https:// URL"),
+    }
 }
 
 /// At least two labels separated by dots, each of ASCII letters, digits, and

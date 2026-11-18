@@ -1,6 +1,6 @@
 use gpui::{Menu, MenuItem};
 
-pub(crate) fn menus(product: &riso_log::Product) -> Vec<Menu> {
+pub(crate) fn menus(product: &riso_product::Product) -> Vec<Menu> {
     vec![
         Menu::new(product.name).items(vec![MenuItem::action(
             format!("Quit {}", product.name),
@@ -28,9 +28,10 @@ mod tests {
 
     #[test]
     fn menus_use_the_product_and_list_every_action_in_order() {
-        let menus = menus(&riso_log::Product {
+        let menus = menus(&riso_product::Product {
             name: "Example",
             version: "1",
+            identifier: "com.example.app",
         });
         assert_eq!(
             menus

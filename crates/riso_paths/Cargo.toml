@@ -11,11 +11,12 @@ path = "src/riso_paths.rs"
 [features]
 default = ["dev"]
 # Compiles the parts that are not in production.
-dev = []
+dev = ["riso_product/dev"]
 
 [dependencies]
 dirs.workspace = true
 log.workspace = true
+riso_product = { workspace = true, default-features = false }
 tracing.workspace = true
 
 [dev-dependencies]

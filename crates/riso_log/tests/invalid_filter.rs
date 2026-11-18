@@ -11,9 +11,10 @@ fn an_invalid_filter_is_a_warning_and_info_is_used() {
     let home = tempfile::tempdir().unwrap();
     // SAFETY: this file holds one test, and it has started no thread yet.
     unsafe { std::env::set_var("SAMPLE_LIFECYCLE", "info,[") };
-    riso_log::start(riso_log::Product {
+    riso_log::start(riso_product::Product {
         name: "sample",
         version: "9.9.9",
+        identifier: "com.example.sample",
     });
     tracing::info!("at info");
     tracing::debug!("below info");

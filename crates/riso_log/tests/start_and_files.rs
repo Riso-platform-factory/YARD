@@ -30,9 +30,10 @@ fn early_lines_reach_both_files_in_order_and_the_files_open_once() {
         std::env::set_var("SAMPLE_LIFECYCLE", "");
         std::env::remove_var("SAMPLE_LOG");
     }
-    riso_log::start(riso_log::Product {
+    riso_log::start(riso_product::Product {
         name: "sample",
         version: "9.9.9",
+        identifier: "com.example.sample",
     });
     log::info!("early one");
     log::warn!("early two");
@@ -52,7 +53,7 @@ fn early_lines_reach_both_files_in_order_and_the_files_open_once() {
         .lines()
         .filter_map(|line| {
             [
-                "sample 9.9.9 starting",
+                "sample 9.9.9 (com.example.sample) starting",
                 "early one",
                 "early two",
                 "after open",
@@ -66,7 +67,7 @@ fn early_lines_reach_both_files_in_order_and_the_files_open_once() {
     assert_eq!(
         order,
         [
-            "sample 9.9.9 starting",
+            "sample 9.9.9 (com.example.sample) starting",
             "early one",
             "early two",
             "after open",

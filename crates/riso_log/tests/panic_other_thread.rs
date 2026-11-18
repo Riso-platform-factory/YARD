@@ -3,9 +3,10 @@
 #[test]
 fn panic_on_other_thread_leaves_run_open() {
     let home = tempfile::tempdir().unwrap();
-    riso_log::start(riso_log::Product {
+    riso_log::start(riso_product::Product {
         name: "sample",
         version: "1",
+        identifier: "com.example.sample",
     });
     riso_log::open_files(home.path());
     assert!(

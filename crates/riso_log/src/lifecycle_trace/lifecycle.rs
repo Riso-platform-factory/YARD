@@ -77,12 +77,13 @@ impl Lifecycle {
         let _ = self.tx.send(Message::Record(record));
     }
 
-    pub(crate) fn start_run(&self, name: &str, version: &str) {
+    pub(crate) fn start_run(&self, name: &str, version: &str, identifier: &str) {
         let mut phase = self.phase.lock().unwrap();
         self.send(Record::RunStart {
             t: self.t(),
             name: name.into(),
             version: version.into(),
+            identifier: identifier.into(),
             os: std::env::consts::OS.into(),
         });
         phase.1 = self.id();
@@ -349,7 +350,7 @@ mod tests {
     fn capture(f: impl FnOnce(&Lifecycle)) -> Vec<Record> {
         let (tx, rx) = mpsc::channel();
         let lifecycle = Arc::new(Lifecycle::new(tx, TEST_KNOWN));
-        lifecycle.start_run("sample", "test");
+        lifecycle.start_run("sample", "test", "com.example.sample");
         tracing::subscriber::with_default(
             Registry::default().with(LifecycleLayer(lifecycle.clone())),
             || f(&lifecycle),
@@ -599,7 +600,7 @@ mod tests {
     fn groups_and_lines_without_a_parent_never_reference_an_ended_phase() {
         let (tx, rx) = mpsc::channel();
         let lifecycle = Arc::new(Lifecycle::new(tx, TEST_KNOWN));
-        lifecycle.start_run("sample", "test");
+        lifecycle.start_run("sample", "test", "com.example.sample");
         let dispatch =
             tracing::Dispatch::new(Registry::default().with(LifecycleLayer(lifecycle.clone())));
         let worker = std::thread::spawn(move || {

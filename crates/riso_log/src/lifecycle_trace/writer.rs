@@ -117,8 +117,12 @@ fn console(record: &Record, groups: &mut HashMap<u64, (String, u64)>, color: boo
             t,
             name,
             version,
+            identifier,
             os,
-        } => (*t, format!("run-start {name} {version} ({os})")),
+        } => (
+            *t,
+            format!("run-start {name} {version} {identifier} ({os})"),
+        ),
         Record::RunEnd { t } => (*t, "run-end".into()),
         Record::GroupStart {
             t,

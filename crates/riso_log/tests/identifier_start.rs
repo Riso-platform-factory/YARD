@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 //! The first lines of a run name the product's identifier: the lifecycle
 //! trace's `run-start` holds `<name> <version> <identifier>`, and the
 //! diagnostic log's first line of the run is
@@ -7,6 +6,8 @@
 //! This file installs the process-wide logger and subscriber, so it holds one
 //! test.
 
+use riso_log::{open_files, start};
+use riso_product::Product;
 use serde_json::Value;
 use std::{path::Path, time::Duration};
 
@@ -32,13 +33,9 @@ fn run_start_and_the_first_diagnostic_line_hold_the_identifier() {
         std::env::set_var("SAMPLE_LIFECYCLE", "");
         std::env::remove_var("SAMPLE_LOG");
     }
-    riso_log::dev::start(riso_product::dev::Product::new(
-        "sample",
-        "9.9.9",
-        "com.example.sample",
-    ));
+    start(Product::new("sample", "9.9.9", "com.example.sample"));
     let logs = home.path().join("logs");
-    riso_log::dev::open_files(&logs);
+    open_files(&logs);
 
     let diagnostic_log = wait_for(&logs.join("sample.log"), "starting");
     assert!(

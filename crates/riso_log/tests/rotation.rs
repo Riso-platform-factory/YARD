@@ -13,9 +13,10 @@ fn opening_a_large_log_reports_the_actual_rotation_in_log_open() {
     std::fs::write(&rotated, b"older run").unwrap();
     // SAFETY: this binary holds one test and has started no threads yet.
     unsafe { std::env::set_var("ROTATION_LIFECYCLE", "debug") };
-    riso_log::start(riso_log::Product {
+    riso_log::start(riso_product::Product {
         name: "rotation",
         version: "0.0.0",
+        identifier: "com.example.rotation",
     });
     riso_log::open_files(logs.path());
     assert_eq!(std::fs::read(&rotated).unwrap(), previous);

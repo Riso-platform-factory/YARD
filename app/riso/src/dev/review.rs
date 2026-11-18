@@ -1,22 +1,16 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &[
-    "riso_product/product",
-    "riso_log/diagnostic_log",
-    "riso_log/lifecycle_trace",
-    "riso/startup",
-];
+pub(crate) const UNDER_REVIEW: &[&str] = &[];
 
 pub(crate) fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
         return false;
     }
-    // The variable only: the dev startup builds and checks the product.
-    let variable = riso_product::dev::Product {
+    let product = riso_product::Product {
         name: env!("PRODUCT_NAME"),
         version: env!("PRODUCT_VERSION"),
         identifier: env!("PRODUCT_IDENTIFIER"),
-    }
-    .lifecycle_variable();
+    };
+    let variable = product.lifecycle_variable();
     if std::env::var_os(&variable).is_none() {
         let crates: std::collections::BTreeSet<_> = UNDER_REVIEW
             .iter()
@@ -29,7 +23,14 @@ pub(crate) fn run() -> bool {
         // SAFETY: the logger and GPUI have not started any threads yet.
         unsafe { std::env::set_var(variable, filter) };
     }
-    super::startup::run(&[("review", announce)], crate::menus::menus);
+    crate::startup::run(
+        product,
+        &[
+            ("review", announce),
+            ("command_palette", command_palette::init),
+        ],
+        crate::menus::menus,
+    );
     true
 }
 

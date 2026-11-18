@@ -2,13 +2,20 @@ use gpui::{App, WindowOptions};
 
 type Init = fn(&mut App, &riso_shell::Extension);
 
+use riso_product::Product;
+
+/// Runs the application with the product's identifier in the logs.
 pub(crate) fn run(
-    product: riso_log::Product,
+    product: Product,
     extensions: &[(&'static str, Init)],
-    menus: fn(&riso_log::Product) -> Vec<gpui::Menu>,
+    menus: fn(&Product) -> Vec<gpui::Menu>,
 ) {
+    // The logs start from the build values as they are, since `start` needs
+    // the product; the product is then checked once the trace listens, so
+    // its `product` group shows in `app-startup`.
     riso_log::start(product);
-    let paths = riso_paths::Paths::from_env(product.name);
+    let product = Product::new(product.name, product.version, product.identifier);
+    let paths = riso_paths::Paths::from_env(&product);
     {
         let _group = tracing::info_span!("logs-prepare").entered();
         riso_log::open_files(paths.logs_dir());
@@ -75,7 +82,7 @@ pub(crate) fn run(
         });
 }
 
-fn open_window(cx: &mut App, product: riso_log::Product, window_file: Option<std::path::PathBuf>) {
+fn open_window(cx: &mut App, product: Product, window_file: Option<std::path::PathBuf>) {
     let _group = tracing::info_span!("window-open").entered();
     let saved = window_file
         .as_ref()
@@ -109,7 +116,7 @@ fn open_window(cx: &mut App, product: riso_log::Product, window_file: Option<std
 /// main window, the first, also keeps `window.json` up to date.
 fn open_session_window(
     cx: &mut App,
-    product: riso_log::Product,
+    product: Product,
     saved: &riso_shell::SessionWindow,
     window_file: Option<std::path::PathBuf>,
 ) {

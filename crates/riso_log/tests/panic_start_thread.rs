@@ -5,9 +5,10 @@ use serde_json::Value;
 #[test]
 fn panic_on_start_thread_finishes_before_unwinding() {
     let home = tempfile::tempdir().unwrap();
-    riso_log::start(riso_log::Product {
+    riso_log::start(riso_product::Product {
         name: "sample",
         version: "1",
+        identifier: "com.example.sample",
     });
     riso_log::open_files(home.path());
     let outer = tracing::info_span!("outer-work");

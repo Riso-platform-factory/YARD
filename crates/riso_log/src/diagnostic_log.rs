@@ -4,6 +4,7 @@
 
 use super::lifecycle_trace::{KNOWN_ERRORS, Lifecycle, LifecycleLayer, Message, Phase, writer};
 use gpui::App;
+use riso_product::Product;
 use std::{
     backtrace::Backtrace,
     collections::HashMap,
@@ -18,34 +19,6 @@ use std::{
     time::Duration,
 };
 use tracing_subscriber::{EnvFilter, prelude::*};
-
-/// The application identity supplied at startup.
-#[derive(Debug, Clone, Copy)]
-pub struct Product {
-    pub name: &'static str,
-    pub version: &'static str,
-}
-
-impl Product {
-    /// The environment variable controlling this product's lifecycle trace.
-    pub fn lifecycle_variable(&self) -> String {
-        format!("{}_LIFECYCLE", self.environment_prefix())
-    }
-
-    fn environment_prefix(self) -> String {
-        self.name
-            .to_uppercase()
-            .chars()
-            .map(|c| {
-                if c.is_ascii_uppercase() || c.is_ascii_digit() {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .collect()
-    }
-}
 
 static PRODUCT: OnceLock<Product> = OnceLock::new();
 static DIAGNOSTIC_PATH: OnceLock<PathBuf> = OnceLock::new();
@@ -137,6 +110,7 @@ pub fn start(product: Product) {
         .unwrap_or_else(|_| panic!("{} logger initialized twice", product.name));
     let name = product.name;
     let app_version = product.version;
+    let identifier = product.identifier;
     let prefix = product.environment_prefix();
     let lifecycle_variable = product.lifecycle_variable();
     // An empty filter is the same as none.
@@ -160,7 +134,7 @@ pub fn start(product: Product) {
         LIFECYCLE
             .set(lifecycle.clone())
             .unwrap_or_else(|_| panic!("{name} logger initialized twice"));
-        lifecycle.start_run(product.name, app_version);
+        lifecycle.start_run(product.name, app_version, identifier);
         tracing::subscriber::set_global_default(
             tracing_subscriber::registry()
                 .with(filter)
@@ -205,7 +179,7 @@ pub fn start(product: Product) {
         flush();
         previous(panic);
     }));
-    log::info!("{name} {app_version} starting");
+    log::info!("{name} {app_version} ({identifier}) starting");
     if let Some(problem) = invalid_filter {
         log::warn!("invalid {lifecycle_variable} filter {problem}; using info");
     }
@@ -340,29 +314,6 @@ pub(crate) fn flush() {
         let (tx, rx) = mpsc::sync_channel(0);
         if lifecycle.tx.send(Message::Flush(tx)).is_ok() {
             let _ = rx.recv_timeout(Duration::from_millis(100));
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn product_names_form_environment_variable_prefixes() {
-        for (name, expected) in [
-            ("sample", "SAMPLE"),
-            ("Sample-app 2.0", "SAMPLE_APP_2_0"),
-            ("café!", "CAF__"),
-        ] {
-            assert_eq!(
-                Product {
-                    name,
-                    version: "0.0.0"
-                }
-                .environment_prefix(),
-                expected
-            );
         }
     }
 }

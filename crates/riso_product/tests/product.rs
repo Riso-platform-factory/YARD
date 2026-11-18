@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 //! `riso_product/product` is under review: the names derived from the product's
 //! name, and the identifiers `Product::new` accepts and refuses.
 
@@ -13,7 +12,7 @@ fn names_form_the_environment_prefix_home_and_lifecycle_variables() {
         ("café!", "CAF__"),
         ("Ünï", "_N_"),
     ] {
-        let product = riso_product::dev::Product::new(name, "1", "vn.risotech.riso");
+        let product = riso_product::Product::new(name, "1", "vn.risotech.riso");
         assert_eq!(product.environment_prefix(), prefix, "{name}");
         assert_eq!(product.home_variable(), format!("{prefix}_HOME"), "{name}");
         assert_eq!(
@@ -45,7 +44,7 @@ fn new_returns_a_product_for_identifiers_the_contract_accepts_and_refuses() {
         "com.exämple",
     ];
     for identifier in accepted.into_iter().chain(refused) {
-        let product = riso_product::dev::Product::new("sample", "9.9.9", identifier);
+        let product = riso_product::Product::new("sample", "9.9.9", identifier);
         assert_eq!(product.name, "sample", "{identifier}");
         assert_eq!(product.version, "9.9.9", "{identifier}");
         assert_eq!(product.identifier, identifier, "{identifier}");

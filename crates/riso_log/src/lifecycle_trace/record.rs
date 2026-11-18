@@ -9,6 +9,7 @@ pub enum Record {
         t: u64,
         name: String,
         version: String,
+        identifier: String,
         os: String,
     },
     GroupStart {
@@ -61,6 +62,7 @@ mod tests {
                 t: 0,
                 name: "sample".into(),
                 version: "0.1".into(),
+                identifier: "com.example.sample".into(),
                 os: "macos".into(),
             },
             Record::GroupStart {

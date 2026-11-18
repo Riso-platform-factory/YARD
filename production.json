@@ -8,13 +8,13 @@
   },
   "riso/menus": {
     "files": {
-      "app/riso/src/menus.rs": "b11fa093397c4819"
+      "app/riso/src/menus.rs": "31e19650bc44e38e"
     },
-    "promoted": "2026-11-17"
+    "promoted": "2026-11-18"
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "3ca4bedd0ef741ef"
+      "app/riso/src/startup.rs": "a8472f11cc4311a9"
     },
     "promoted": "2026-11-18"
   },
@@ -50,25 +50,25 @@
   },
   "riso_log/diagnostic_log": {
     "files": {
-      "crates/riso_log/src/diagnostic_log.rs": "70558cfcf18b2f7e"
+      "crates/riso_log/src/diagnostic_log.rs": "6aebd1c59b39651d"
     },
-    "promoted": "2026-11-11"
+    "promoted": "2026-11-18"
   },
   "riso_log/lifecycle_trace": {
     "files": {
       "crates/riso_log/src/lifecycle_trace.rs": "b4c19d1735171ed0",
       "crates/riso_log/src/lifecycle_trace/known_errors.rs": "c015cb918d362274",
-      "crates/riso_log/src/lifecycle_trace/lifecycle.rs": "8b80e7293f6f7948",
-      "crates/riso_log/src/lifecycle_trace/record.rs": "622dd1da1eab8843",
-      "crates/riso_log/src/lifecycle_trace/writer.rs": "cccdfbf10cb74256"
+      "crates/riso_log/src/lifecycle_trace/lifecycle.rs": "34ed85f497f06ca7",
+      "crates/riso_log/src/lifecycle_trace/record.rs": "ea754fdee914644c",
+      "crates/riso_log/src/lifecycle_trace/writer.rs": "436e091b6110dd08"
     },
-    "promoted": "2026-11-11"
+    "promoted": "2026-11-18"
   },
   "riso_paths/directories": {
     "files": {
-      "crates/riso_paths/src/directories.rs": "2314892fb97bc559"
+      "crates/riso_paths/src/directories.rs": "a6a40020c9034429"
     },
-    "promoted": "2026-11-11"
+    "promoted": "2026-11-18"
   },
   "riso_paths/file_check": {
     "files": {
@@ -135,6 +135,12 @@
       "crates/riso_paths/src/write_atomic.rs": "c1071920f441312d"
     },
     "promoted": "2026-11-12"
+  },
+  "riso_product/product": {
+    "files": {
+      "crates/riso_product/src/product.rs": "c6117c01617ca094"
+    },
+    "promoted": "2026-11-18"
   },
   "riso_settings/sections": {
     "files": {

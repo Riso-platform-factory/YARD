@@ -5,23 +5,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// The environment variable that overrides the application's directories.
-// TODO(product-identity): This repeats riso_log's rule for the environment prefix, because riso_log holds Product and pulls in GPUI. Move Product and its names into a crate without GPUI when a third engine needs them.
-pub fn home_variable(name: &str) -> String {
-    let prefix: String = name
-        .to_uppercase()
-        .chars()
-        .map(|c| {
-            if c.is_ascii_uppercase() || c.is_ascii_digit() {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    format!("{prefix}_HOME")
-}
-
 /// The application's directories, worked out once at startup and handed to other crates.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Paths {
@@ -43,14 +26,15 @@ pub enum Origin {
 }
 
 impl Paths {
-    /// The directories for this run: under [`home_variable`] when it is set and
-    /// not empty, otherwise the platform's locations for `name`. A relative home
-    /// is taken from the folder the application starts in.
-    pub fn from_env(name: &str) -> Self {
+    /// The directories for this run: under the product's
+    /// [home variable](riso_product::Product::home_variable) when it is set and
+    /// not empty, otherwise the platform's locations for the product name. A
+    /// relative home is taken from the folder the application starts in.
+    pub fn from_env(product: &riso_product::Product) -> Self {
         let _span = tracing::info_span!("paths-resolve").entered();
-        let home_variable = home_variable(name);
+        let home_variable = product.home_variable();
         let paths = Self::resolve(
-            name,
+            product.name,
             std::env::var_os(&home_variable),
             std::env::var_os("XDG_CONFIG_HOME"),
         );
@@ -197,11 +181,5 @@ mod tests {
                 dirs::data_local_dir().unwrap().join("my-app 2/logs")
             );
         }
-    }
-
-    #[test]
-    fn product_names_form_home_variables() {
-        assert_eq!(home_variable("riso"), "RISO_HOME");
-        assert_eq!(home_variable("my-app 2"), "MY_APP_2_HOME");
     }
 }

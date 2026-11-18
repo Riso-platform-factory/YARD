@@ -71,8 +71,13 @@ fn working_out_the_directories_runs_inside_its_group() {
     // SAFETY: this file holds one test, and it has started no thread yet.
     unsafe { std::env::set_var("TESTAPP_HOME", home.path().join("home")) };
     let trace = Trace::default();
-    let paths =
-        tracing::subscriber::with_default(trace.clone(), || riso_paths::Paths::from_env("testapp"));
+    let paths = tracing::subscriber::with_default(trace.clone(), || {
+        riso_paths::Paths::from_env(&riso_product::Product {
+            name: "testapp",
+            version: "0",
+            identifier: "test.app",
+        })
+    });
     assert_eq!(paths.origin(), riso_paths::Origin::Home);
     assert!(
         trace.1.lock().unwrap().is_none(),

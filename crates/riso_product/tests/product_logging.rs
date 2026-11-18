@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 //! `Product::new` checks the identifier inside the group `product{name,
 //! version, identifier}`: `checked` at `debug`, and an identifier of the wrong
 //! form is an `ERROR` there.
@@ -6,7 +5,7 @@
 //! This test captures `tracing` output and is alone in its file, so no other
 //! test in this binary reaches the same log lines.
 
-use riso_product::dev::Product;
+use riso_product::Product;
 use std::sync::{Arc, Mutex};
 
 /// A group that opened, or a line logged inside one.

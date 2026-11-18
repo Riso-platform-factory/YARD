@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{App, AppContext, Context, Render, TestAppContext, Window, WindowHandle, WindowOptions};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::{cell::Cell, fs, path::Path, rc::Rc, time::Duration};
 
 struct Card {

@@ -1,8 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 
 #[gpui::test]
 fn select_t20_scrolls_it_into_view_and_records_nothing(cx: &mut TestAppContext) {

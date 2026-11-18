@@ -35,7 +35,10 @@ use std::{
     collections::{BTreeMap, BTreeSet, VecDeque, btree_map::Entry},
     path::{Path, PathBuf},
     rc::{Rc, Weak},
+    sync::{Arc, Mutex, PoisonError},
+    time::{Duration, Instant},
 };
+use tracing::Instrument as _;
 
 /// A read-only snapshot of one node in the extension's layout tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -6879,6 +6882,7 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
         notify_layout(cx);
     }
     reconcile_containers(cx);
+    state_changed(cx);
     let toast_layer = cx.new(|_| riso_ui::ToastLayer::new());
     let modal_layer = cx.new(|_| riso_ui::ModalLayer::new());
     cx.new(|cx| {
@@ -7073,14 +7077,35 @@ fn restore_session(cx: &mut App, saved: &SessionWindow) -> bool {
     apply_restored(cx, operations)
 }
 
+const STATE_SAVE_DELAY: Duration = Duration::from_millis(300);
+const STATE_SAVE_MAX_WAIT: Duration = Duration::from_secs(2);
+
+#[derive(Clone, Copy)]
+struct StateSaveBurst {
+    first: Instant,
+    quiet_until: Instant,
+}
+
+impl StateSaveBurst {
+    fn deadline(self) -> Instant {
+        self.quiet_until.min(self.first + STATE_SAVE_MAX_WAIT)
+    }
+}
+
 #[derive(Default)]
 struct StateFile {
     path: PathBuf,
     pending: VecDeque<WindowStates>,
     windows: Vec<gpui::AnyWindowHandle>,
     closing: Option<gpui::WindowId>,
-    last_closed: RefCell<Option<(tracing::Span, WindowStates)>>,
+    last_closed: RefCell<Option<WindowStates>>,
     quitting: bool,
+    burst: Option<StateSaveBurst>,
+    continuation: Option<StateSaveBurst>,
+    save_task: Option<gpui::Task<()>>,
+    writing: bool,
+    sequence: u64,
+    written: Arc<Mutex<u64>>,
 }
 
 impl Global for StateFile {}
@@ -7094,7 +7119,7 @@ pub fn set_state_file(cx: &mut App, file: PathBuf) {
     state_file.pending = pending.into();
     if first {
         cx.on_app_quit(|cx| {
-            let write = save_state_file(cx);
+            let write = flush_state_file(cx);
             async move {
                 if let Some(write) = write {
                     write.await;
@@ -7102,6 +7127,66 @@ pub fn set_state_file(cx: &mut App, file: PathBuf) {
             }
         })
         .detach();
+    }
+}
+
+/// The calling view's state changed: save the states soon.
+pub fn state_changed(cx: &mut App) {
+    tracing::trace!("state changed");
+    let now = cx.background_executor().now();
+    let Some(file) = cx.try_global::<StateFile>() else {
+        return;
+    };
+    if file.quitting || file.last_closed.borrow().is_some() {
+        return;
+    }
+
+    let file = cx.global_mut::<StateFile>();
+    if file.writing && file.burst.is_none() {
+        tracing::debug!("state save queued");
+    }
+    let first = file.burst.map_or_else(
+        || {
+            // A capped burst can continue across its save. Anchor the next
+            // cap to the preceding one while changes are still arriving.
+            file.continuation
+                .take()
+                .filter(|burst| now < burst.quiet_until)
+                .map_or(now, StateSaveBurst::deadline)
+        },
+        |burst| burst.first,
+    );
+    file.burst = Some(StateSaveBurst {
+        first,
+        quiet_until: now + STATE_SAVE_DELAY,
+    });
+    if file.save_task.is_none() {
+        let task = cx.spawn(async |cx| {
+            let executor = cx.background_executor().clone();
+            while let Some(burst) = cx.update(|cx| cx.global::<StateFile>().burst) {
+                let deadline = burst.deadline();
+                let delay = deadline.saturating_duration_since(executor.now());
+                if !delay.is_zero() {
+                    executor.timer(delay).await;
+                    continue;
+                }
+                let write = cx.update(|cx| {
+                    let file = cx.global_mut::<StateFile>();
+                    file.burst = None;
+                    file.continuation = (deadline < burst.quiet_until).then_some(burst);
+                    file.writing = true;
+                    write_state_file(cx, StateSaveReason::Change)
+                });
+                write.await;
+                cx.update(|cx| cx.global_mut::<StateFile>().writing = false);
+            }
+            cx.update(|cx| {
+                if let Some(task) = cx.global_mut::<StateFile>().save_task.take() {
+                    task.detach();
+                }
+            });
+        });
+        cx.global_mut::<StateFile>().save_task = Some(task);
     }
 }
 
@@ -7166,7 +7251,17 @@ fn close_session_window(cx: &mut App, id: gpui::WindowId) {
             state_file.closing = Some(id);
         }
         super::session::window_closed(cx, id);
-        cx.global_mut::<StateFile>().closing = None;
+        let file = cx.global_mut::<StateFile>();
+        file.closing = None;
+        if file.last_closed.get_mut().is_some() {
+            file.burst = None;
+            file.continuation = None;
+            if !file.writing {
+                file.save_task.take();
+            }
+        } else {
+            state_changed(cx);
+        }
     } else {
         super::session::window_closed(cx, id);
     }
@@ -7179,19 +7274,56 @@ fn capture_kept_window(cx: &App, id: gpui::WindowId, state: &Rc<RefCell<WindowSt
     else {
         return;
     };
-    let capture = StateCapture::prepare(cx, id, state.clone());
-    let group = tracing::info_span!("state-save", windows = 1usize, nodes = capture.len());
-    let saved = group.in_scope(|| capture.read(cx));
-    *state_file.last_closed.borrow_mut() = Some((group, saved));
+    // The view is going away, but another window can open before quit.
+    // Keep its state without opening a save group until there is a write.
+    let saved = StateCapture::prepare(cx, id, state.clone()).read(cx);
+    *state_file.last_closed.borrow_mut() = Some(saved);
 }
 
-fn save_state_file(cx: &mut App) -> Option<gpui::Task<()>> {
-    cx.try_global::<StateFile>()?;
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StateSaveReason {
+    Change,
+    Quit,
+}
+
+impl StateSaveReason {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Change => "change",
+            Self::Quit => "quit",
+        }
+    }
+}
+
+fn flush_state_file(cx: &mut App) -> Option<gpui::Task<()>> {
+    let file = cx.global_mut::<StateFile>();
+    if std::mem::replace(&mut file.quitting, true) {
+        return None;
+    }
+    // Dropping the worker also cancels its timer if a save is waiting.
+    file.save_task.take();
+    file.burst = None;
+    Some(write_state_file(cx, StateSaveReason::Quit))
+}
+
+fn write_state_file(cx: &mut App, reason: StateSaveReason) -> gpui::Task<()> {
     let state_file = cx.global_mut::<StateFile>();
-    state_file.quitting = true;
     let path = state_file.path.clone();
-    let handles = std::mem::take(&mut state_file.windows);
-    let (group, states) = if let Some((group, saved)) = state_file.last_closed.get_mut().take() {
+    let handles = if reason == StateSaveReason::Quit {
+        std::mem::take(&mut state_file.windows)
+    } else {
+        state_file.windows.clone()
+    };
+    state_file.sequence += 1;
+    let sequence = state_file.sequence;
+    let written = state_file.written.clone();
+    let (group, states) = if let Some(saved) = state_file.last_closed.get_mut().take() {
+        let group = tracing::info_span!(
+            "state-save",
+            windows = 1usize,
+            nodes = saved.len(),
+            reason = reason.as_str(),
+        );
         (group, vec![saved])
     } else {
         let windows = handles
@@ -7211,6 +7343,7 @@ fn save_state_file(cx: &mut App) -> Option<gpui::Task<()>> {
             "state-save",
             windows = windows.len(),
             nodes = windows.iter().map(StateCapture::len).sum::<usize>(),
+            reason = reason.as_str(),
         );
         let states = group.in_scope(|| {
             windows
@@ -7220,17 +7353,20 @@ fn save_state_file(cx: &mut App) -> Option<gpui::Task<()>> {
         });
         (group, states)
     };
-    use tracing::Instrument as _;
-    Some(
-        cx.background_executor().spawn(
-            async move {
-                let text = state_format::encode(&states);
-                if write_atomic(&path, text.as_bytes()).is_ok() {
-                    tracing::debug!("saved");
-                }
+    cx.background_executor().spawn(
+        async move {
+            let mut written = written.lock().unwrap_or_else(PoisonError::into_inner);
+            if *written > sequence {
+                tracing::debug!("skipped: a newer state save is written");
+                return;
             }
-            .instrument(group),
-        ),
+            let text = state_format::encode(&states);
+            if write_atomic(&path, text.as_bytes()).is_ok() {
+                *written = sequence;
+                tracing::debug!("saved");
+            }
+        }
+        .instrument(group),
     )
 }
 

@@ -28,6 +28,7 @@ pub(crate) fn run(
                 riso_ui::apply_theme_setting(cx);
                 riso_shell::set_window_title(cx, product.name);
                 riso_shell::set_layout_file(cx, paths.layout_file());
+                riso_shell::set_state_file(cx, paths.state_file());
                 let named_paths = paths.clone();
                 riso_shell::set_named_layout_files(cx, move |name| {
                     named_paths.named_layout_file(name)

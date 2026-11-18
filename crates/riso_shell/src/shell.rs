@@ -28,11 +28,12 @@ use riso_layout::Layers;
 use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Position, Props, SlotName, Tree};
 use riso_layout::{decode, encode};
 use riso_paths::write_atomic;
+use riso_state::{self as state_format, SavedNode, WindowStates};
 use std::{
     any::{TypeId, type_name},
     cell::{Cell, RefCell},
-    collections::{BTreeMap, BTreeSet, btree_map::Entry},
-    path::PathBuf,
+    collections::{BTreeMap, BTreeSet, VecDeque, btree_map::Entry},
+    path::{Path, PathBuf},
     rc::{Rc, Weak},
 };
 
@@ -353,6 +354,24 @@ pub trait Titled: Render {
     fn icon(&self, _cx: &App) -> Option<riso_ui::IconName> {
         None
     }
+}
+
+/// The state a node gives to the shell when quitting and receives on creation.
+pub trait NodeState: Render {
+    fn save_state(&self, cx: &App) -> serde_json::Value;
+    fn restore_state(
+        &mut self,
+        state: serde_json::Value,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    );
+}
+
+#[derive(Clone, Copy)]
+struct StateRegistration {
+    view_type: TypeId,
+    save: fn(&AnyView, &App) -> serde_json::Value,
+    restore: fn(&AnyView, serde_json::Value, &mut Window, &mut App),
 }
 
 type TitleReader = Rc<dyn Fn(&AnyView, &App) -> Option<(SharedString, Option<riso_ui::IconName>)>>;
@@ -1051,6 +1070,7 @@ struct Registry {
     extensions: BTreeSet<String>,
     components: BTreeMap<ComponentId, Component>,
     action_handlers: Vec<ActionHandler>,
+    states: BTreeMap<ComponentId, StateRegistration>,
     titles: BTreeMap<ComponentId, TitleReader>,
     required: BTreeSet<ComponentId>,
     slots_for_one: Vec<(ComponentId, SlotName)>,
@@ -1076,6 +1096,8 @@ struct Registry {
 }
 
 struct WindowState {
+    pending_states: WindowStates,
+    state_errors: RefCell<BTreeSet<NodeId>>,
     main: bool,
     named_nodes: BTreeSet<NodeId>,
     item_states: BTreeMap<(NodeId, String), ItemState>,
@@ -1352,6 +1374,7 @@ impl Default for Registry {
             extensions: BTreeSet::new(),
             components,
             action_handlers: Vec::new(),
+            states: BTreeMap::new(),
             titles: BTreeMap::new(),
             required: BTreeSet::new(),
             slots_for_one: Vec::new(),
@@ -1382,6 +1405,8 @@ impl Global for Registry {}
 impl WindowState {
     fn new(tree: Tree) -> Self {
         Self {
+            pending_states: WindowStates::new(),
+            state_errors: RefCell::new(BTreeSet::new()),
             main: false,
             named_nodes: BTreeSet::new(),
             item_states: BTreeMap::new(),
@@ -3001,6 +3026,12 @@ pub fn user_layer_len(cx: &App) -> usize {
     })
 }
 
+/// Returns the number of recorded runtime layout operations for this window.
+pub fn window_user_layer_len(window: &Window, cx: &App) -> usize {
+    let _scope = window_context(window, cx);
+    user_layer_len(cx)
+}
+
 /// Sets the file where the user layer is saved and from which it is restored.
 pub fn set_layout_file(cx: &mut App, path: PathBuf) {
     tracing::debug!(path = %path.display(), "layout file set");
@@ -3781,6 +3812,7 @@ fn run_op(
                 let dropped = {
                     let state_handle = window_state(cx);
                     let mut layout_state = state_handle.borrow_mut();
+                    layout_state.pending_states.remove(id.as_str());
                     layout_state.focus_handles.remove(&id);
                     layout_state.bounds.remove(&id);
                     layout_state.tellers.remove(&id);
@@ -6028,6 +6060,48 @@ impl Extension {
         cx.refresh_windows();
     }
 
+    /// Registers the view type that saves and restores a component's state.
+    pub fn register_state<V: NodeState + 'static>(&self, cx: &mut App, component: &str) {
+        let _group = tracing::info_span!("state-register", component = %component).entered();
+        let component = match ComponentId::parse(component) {
+            Ok(component) => component,
+            Err(error) => {
+                log::error!("invalid component ID {component:?}: {error}");
+                return;
+            }
+        };
+        if component.as_str().split('.').next() != Some(self.name.as_str()) {
+            log::error!(
+                "extension {} cannot register state for component {component}",
+                self.name
+            );
+            return;
+        }
+        match cx.default_global::<Registry>().states.entry(component) {
+            Entry::Vacant(entry) => {
+                entry.insert(StateRegistration {
+                    view_type: TypeId::of::<V>(),
+                    save: |view, cx| {
+                        let entity = view
+                            .clone()
+                            .downcast::<V>()
+                            .expect("checked state view type");
+                        entity.read(cx).save_state(cx)
+                    },
+                    restore: |view, state, window, cx| {
+                        let entity = view
+                            .clone()
+                            .downcast::<V>()
+                            .expect("checked state view type");
+                        entity.update(cx, |view, cx| view.restore_state(state, window, cx));
+                    },
+                });
+                tracing::debug!("registered");
+            }
+            Entry::Occupied(entry) => log::error!("component {} already has state", entry.key()),
+        }
+    }
+
     /// Registers the view type that supplies a component's titles.
     pub fn register_title<V: Titled + 'static>(&self, cx: &mut App, component: &str) {
         let _group = tracing::info_span!("title-register", component).entered();
@@ -6756,6 +6830,12 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
         remember_active(registry, id);
     }
     super::session::window_opened(window, cx);
+    let pending_states = state_window_opened(
+        cx,
+        window.window_handle(),
+        saved.is_some(),
+        owned_state.borrow().main,
+    );
     let _window = window_scope(window, cx);
     let item_subscriptions = Rc::new(RefCell::new(BTreeMap::new()));
     owned_state.borrow_mut().item_window =
@@ -6764,6 +6844,7 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
         Some(saved) => restore_session(cx, saved),
         None => restore(cx),
     };
+    owned_state.borrow_mut().pending_states = pending_states;
     let (frame_root, ext_root) = {
         let state = owned_state.borrow();
         (
@@ -6819,7 +6900,7 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
             }),
             _release: cx.on_release(move |shell: &mut Shell, cx| {
                 let _group = tracing::info_span!("window-close", window = id.as_u64()).entered();
-                super::session::window_closed(cx, id);
+                close_session_window(cx, id);
                 cx.default_global::<Registry>().windows.remove(&id);
                 cx.global::<Registry>()
                     .active_history
@@ -6992,20 +7073,297 @@ fn restore_session(cx: &mut App, saved: &SessionWindow) -> bool {
     apply_restored(cx, operations)
 }
 
+#[derive(Default)]
+struct StateFile {
+    path: PathBuf,
+    pending: VecDeque<WindowStates>,
+    windows: Vec<gpui::AnyWindowHandle>,
+    closing: Option<gpui::WindowId>,
+    last_closed: RefCell<Option<(tracing::Span, WindowStates)>>,
+    quitting: bool,
+}
+
+impl Global for StateFile {}
+
+/// Reads the node states for startup and saves to the same file at quit.
+pub fn set_state_file(cx: &mut App, file: PathBuf) {
+    let first = cx.try_global::<StateFile>().is_none();
+    let pending = read_state_file(&file);
+    let state_file = cx.default_global::<StateFile>();
+    state_file.path = file;
+    state_file.pending = pending.into();
+    if first {
+        cx.on_app_quit(|cx| {
+            let write = save_state_file(cx);
+            async move {
+                if let Some(write) = write {
+                    write.await;
+                }
+            }
+        })
+        .detach();
+    }
+}
+
+fn read_state_file(file: &Path) -> Vec<WindowStates> {
+    let _group = tracing::info_span!("state-restore", file = %file.display()).entered();
+    let text = match std::fs::read_to_string(file) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            tracing::debug!("no saved state");
+            return Vec::new();
+        }
+        Err(error) => {
+            log::warn!("the saved state cannot be read: {error}");
+            return Vec::new();
+        }
+    };
+    match state_format::decode(&text) {
+        Ok(windows) => {
+            tracing::debug!(
+                windows = windows.len(),
+                nodes = windows.iter().map(BTreeMap::len).sum::<usize>(),
+                "read"
+            );
+            windows
+        }
+        Err(error) => {
+            log::warn!("the saved state cannot be read: {error}");
+            Vec::new()
+        }
+    }
+}
+
+fn state_window_opened(
+    cx: &mut App,
+    handle: gpui::AnyWindowHandle,
+    from_session: bool,
+    main: bool,
+) -> WindowStates {
+    if cx.try_global::<StateFile>().is_none() {
+        return WindowStates::new();
+    }
+    let state_file = cx.global_mut::<StateFile>();
+    let pending = if from_session {
+        state_file.pending.pop_front().unwrap_or_default()
+    } else if main {
+        let first = state_file.pending.pop_front().unwrap_or_default();
+        state_file.pending.clear();
+        first
+    } else {
+        WindowStates::new()
+    };
+    state_file.windows.push(handle);
+    *state_file.last_closed.get_mut() = None;
+    pending
+}
+
+fn close_session_window(cx: &mut App, id: gpui::WindowId) {
+    if cx.try_global::<StateFile>().is_some() {
+        let state_file = cx.global_mut::<StateFile>();
+        if !state_file.quitting {
+            state_file.windows.retain(|window| window.window_id() != id);
+            state_file.closing = Some(id);
+        }
+        super::session::window_closed(cx, id);
+        cx.global_mut::<StateFile>().closing = None;
+    } else {
+        super::session::window_closed(cx, id);
+    }
+}
+
+fn capture_kept_window(cx: &App, id: gpui::WindowId, state: &Rc<RefCell<WindowState>>) {
+    let Some(state_file) = cx
+        .try_global::<StateFile>()
+        .filter(|file| file.closing == Some(id))
+    else {
+        return;
+    };
+    let capture = StateCapture::prepare(cx, id, state.clone());
+    let group = tracing::info_span!("state-save", windows = 1usize, nodes = capture.len());
+    let saved = group.in_scope(|| capture.read(cx));
+    *state_file.last_closed.borrow_mut() = Some((group, saved));
+}
+
+fn save_state_file(cx: &mut App) -> Option<gpui::Task<()>> {
+    cx.try_global::<StateFile>()?;
+    let state_file = cx.global_mut::<StateFile>();
+    state_file.quitting = true;
+    let path = state_file.path.clone();
+    let handles = std::mem::take(&mut state_file.windows);
+    let (group, states) = if let Some((group, saved)) = state_file.last_closed.get_mut().take() {
+        (group, vec![saved])
+    } else {
+        let windows = handles
+            .into_iter()
+            .filter_map(|handle| {
+                let id = handle.window_id();
+                handle
+                    .update(cx, |_, _, cx| {
+                        let state = session_window_state(cx, id)?;
+                        Some(StateCapture::prepare(cx, id, state))
+                    })
+                    .ok()
+                    .flatten()
+            })
+            .collect::<Vec<_>>();
+        let group = tracing::info_span!(
+            "state-save",
+            windows = windows.len(),
+            nodes = windows.iter().map(StateCapture::len).sum::<usize>(),
+        );
+        let states = group.in_scope(|| {
+            windows
+                .into_iter()
+                .map(|capture| capture.read(cx))
+                .collect()
+        });
+        (group, states)
+    };
+    use tracing::Instrument as _;
+    Some(
+        cx.background_executor().spawn(
+            async move {
+                let text = state_format::encode(&states);
+                if write_atomic(&path, text.as_bytes()).is_ok() {
+                    tracing::debug!("saved");
+                }
+            }
+            .instrument(group),
+        ),
+    )
+}
+
+struct StateCapture {
+    window: gpui::WindowId,
+    owner: Rc<RefCell<WindowState>>,
+    waiting: WindowStates,
+    views: Vec<(NodeId, ComponentId, AnyView, StateRegistration)>,
+    wrong_types: Vec<NodeId>,
+}
+
+impl StateCapture {
+    // Determine the fields of the save span before calling any component's save_state.
+    fn prepare(cx: &App, window: gpui::WindowId, owner: Rc<RefCell<WindowState>>) -> Self {
+        let registry = cx.global::<Registry>();
+        let mut capture = Self {
+            window,
+            owner: owner.clone(),
+            waiting: WindowStates::new(),
+            views: Vec::new(),
+            wrong_types: Vec::new(),
+        };
+        let state = owner.borrow();
+        capture.waiting = state.pending_states.clone();
+        let tree = state.tree.borrow();
+        for (node, view) in state.views.borrow().iter() {
+            if node.as_str().contains('@') {
+                continue;
+            }
+            let Some(component) = component_of(tree.current(), node) else {
+                continue;
+            };
+            let Some(registration) = registry.states.get(component) else {
+                continue;
+            };
+            let wrapped = view
+                .clone()
+                .downcast::<NodeView>()
+                .expect("the registry stores node views");
+            let view = &wrapped.read(cx).view;
+            if view.entity_type() != registration.view_type {
+                capture.waiting.remove(node.as_str());
+                capture.wrong_types.push(node.clone());
+            } else if !capture.waiting.contains_key(node.as_str()) {
+                capture
+                    .views
+                    .push((node.clone(), component.clone(), view.clone(), *registration));
+            }
+        }
+        capture
+    }
+
+    fn len(&self) -> usize {
+        self.waiting.len() + self.views.len()
+    }
+
+    fn read(self, cx: &App) -> WindowStates {
+        let _group = tracing::info_span!("state-capture", window = self.window.as_u64()).entered();
+        let _window = quiet_owner_scope(self.window, cx);
+        for node in &self.wrong_types {
+            wrong_state_view(node, &self.owner.borrow());
+        }
+        let mut saved = self.waiting;
+        for (node, component, view, registration) in self.views {
+            saved.insert(
+                node.to_string(),
+                SavedNode {
+                    component: component.to_string(),
+                    state: (registration.save)(&view, cx),
+                },
+            );
+        }
+        saved
+    }
+}
+
+fn wrong_state_view(node: &NodeId, state: &WindowState) {
+    if state.state_errors.borrow_mut().insert(node.clone()) {
+        log::error!("view of node {node} is not the type that gives its state");
+    }
+    tracing::trace!(%node, "view is not the type that gives its state");
+}
+
+fn restore_view_state(node: &Node, view: &AnyView, window: &mut Window, cx: &mut App) {
+    let state = window_state(cx);
+    let registration = cx.global::<Registry>().states.get(&node.component).copied();
+    let (registration, saved) = {
+        let mut state = state.borrow_mut();
+        if registration.is_some_and(|registration| registration.view_type != view.entity_type()) {
+            wrong_state_view(&node.id, &state);
+            state.pending_states.remove(node.id.as_str());
+            return;
+        }
+        let Some(saved) = state.pending_states.get(node.id.as_str()) else {
+            return;
+        };
+        if saved.component != node.component.as_str() {
+            tracing::debug!(node = %node.id, saved = %saved.component, component = %node.component, "state skipped");
+            state.pending_states.remove(node.id.as_str());
+            return;
+        }
+        let Some(registration) = registration else {
+            tracing::debug!(node = %node.id, component = %node.component, "state waiting: component has no state registration");
+            return;
+        };
+        let saved = state.pending_states.remove(node.id.as_str()).unwrap();
+        (registration, saved)
+    };
+    (registration.restore)(view, saved.state, window, cx);
+    tracing::debug!(node = %node.id, "state given");
+}
+
+fn session_window_state(cx: &App, id: gpui::WindowId) -> Option<Rc<RefCell<WindowState>>> {
+    cx.try_global::<Registry>()?.windows.get(&id)?.upgrade()
+}
+
 /// The named layout a window shows and its user layer for each named
 /// layout it has shown, as the session saves them.
 pub(super) fn session_layers(
     cx: &App,
     id: gpui::WindowId,
 ) -> Option<(String, BTreeMap<String, Vec<Operation>>)> {
-    let state_handle = cx.try_global::<Registry>()?.windows.get(&id)?.upgrade()?;
-    let layout_state = state_handle.borrow();
-    let mut layers = layout_state.saved_layers.clone();
-    layers.insert(
-        layout_state.shown_layout.to_string(),
-        layout_state.tree.borrow().user_layer().to_vec(),
-    );
-    Some((layout_state.shown_layout.to_string(), layers))
+    let state_handle = session_window_state(cx, id)?;
+    let (layout, layers) = {
+        let state = state_handle.borrow();
+        let layout = state.shown_layout.to_string();
+        let mut layers = state.saved_layers.clone();
+        layers.insert(layout.clone(), state.tree.borrow().user_layer().to_vec());
+        (layout, layers)
+    };
+    // During the close callback the session asks for layers only if it is keeping this window.
+    capture_kept_window(cx, id, &state_handle);
+    Some((layout, layers))
 }
 
 fn create_view(
@@ -7112,6 +7470,7 @@ fn create_view(
             tracing::debug!(node = %node.id, model = provider.name, "context created");
         }
         let view = (component.create)(node, slots.clone(), window, cx);
+        restore_view_state(node, &view, window, cx);
         let wrapped: AnyView = cx
             .new(|_| NodeView {
                 node: node.id.clone(),

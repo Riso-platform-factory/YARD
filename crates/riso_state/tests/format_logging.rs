@@ -1,6 +1,4 @@
-#![cfg(feature = "dev")]
-
-use riso_state::dev::{decode, encode};
+use riso_state::{decode, encode};
 use std::sync::{Arc, Mutex};
 use tracing_subscriber::{Layer, layer::SubscriberExt, registry::LookupSpan};
 

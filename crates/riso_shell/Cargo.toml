@@ -10,14 +10,14 @@ path = "src/riso_shell.rs"
 
 [features]
 default = ["dev"]
-dev = ["riso_layout/dev", "riso_paths/dev", "riso_settings/dev", "riso_ui/dev", "dep:riso_state", "riso_state/dev"]
+dev = ["riso_layout/dev", "riso_paths/dev", "riso_settings/dev", "riso_state/dev", "riso_ui/dev"]
 
 [dependencies]
 gpui.workspace = true
 riso_layout = { workspace = true, default-features = false }
 riso_paths = { workspace = true, default-features = false }
 riso_settings = { workspace = true, default-features = false }
-riso_state = { workspace = true, optional = true }
+riso_state.workspace = true
 riso_ui = { workspace = true, default-features = false }
 log.workspace = true
 serde.workspace = true

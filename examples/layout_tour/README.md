@@ -418,6 +418,16 @@ The card keeps its count across a restart: it registers its count as its node's 
 | Start again | `a` shows `count: 3`; `state given {node=a}`. |
 | Press `cmd-shift-n`, count `c` in the new window twice, quit, start | Both windows are back, each with its own counts and its own `user layer` count. |
 
+### State feature 2: save-on-change
+
+The card says when its count changed, and the states are saved a short time later: 300 ms after the last change, and never more than 2 s after the first change of a burst. A crash loses at most the last 2 s. Opening the window also saves once, since a window opening counts as a change. Use a fresh home: `RISO_HOME=/tmp/riso-soc`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-soc LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` ten times quickly | One `state-save{windows=1, nodes=4, reason=change}` after the clicks stop. Clicks spread over more than 2 s save once more in between. |
+| End the process with `kill -9` | `state.json` holds `a`'s `count: 10`. |
+| Start again | `a` shows `count: 10`; `state given {node=a}`. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

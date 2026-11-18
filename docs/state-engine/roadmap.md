@@ -35,7 +35,7 @@ Status is one of: planned, dev, production.
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
 | 1 | `node-state` | A component can give a small state for its node. The state is saved when the application quits, and the component receives it when the node's view is created at the next start. `riso_paths` names the file | Count a card to 3, quit, start: the card shows 3 | `gpui`: `on_app_quit` | Foundation 6: atomic file write. Layout engine: `save-restore` | production |
-| 2 | `save-on-change` | A component says when its state changed. The state is then saved after a short delay, so that a burst of changes writes once, and a crash loses little | Ten fast clicks write the file once. Ending the process without quitting still keeps the count | `gpui`: timers | 1 | planned |
+| 2 | `save-on-change` | A component says when its state changed. The state is then saved after a short delay, so that a burst of changes writes once, and a crash loses little | Ten fast clicks write the file once. Ending the process without quitting still keeps the count | `gpui`: timers | 1 | dev |
 | 3 | `view-state` | The shell's own containers keep their state the same way: the selected tab of a tabs container, and the zoomed node | Select the tab `c` and zoom it, quit, start: `c` is selected and zoomed | none | 1 | planned |
 | 4 | `extension-store` | An extension keeps named values of its own between runs, through its handle. Another extension cannot read them. `riso_paths` names the folder | The tour stores a value, and shows it again after a restart | none | 1 | planned |
 

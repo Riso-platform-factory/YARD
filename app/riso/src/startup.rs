@@ -117,8 +117,9 @@ pub(crate) fn run(
     });
 }
 
-/// Starts checking the product's update address, when it names one, through
-/// an extension handle named `update` for the toast.
+/// Starts checking the product's update address, when it names one, and
+/// installing what it finds, through an extension handle named `update` for
+/// the toasts.
 fn start_update_check(cx: &mut App, product: Product) {
     let url = env!("PRODUCT_UPDATE_URL");
     if url.is_empty() {

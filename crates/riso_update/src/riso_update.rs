@@ -1,7 +1,6 @@
 //! Checks the product's update address for a newer version.
 
 mod check;
+mod install;
 pub use check::*;
-
-#[cfg(feature = "dev")]
-pub mod dev;
+pub use install::*;

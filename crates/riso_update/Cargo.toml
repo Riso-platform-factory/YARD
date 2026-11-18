@@ -14,9 +14,6 @@ dev = [
     "riso_product/dev",
     "riso_shell/dev",
     "riso_ui/dev",
-    "dep:sha2",
-    "dep:tempfile",
-    "dep:libc",
 ]
 
 [dependencies]
@@ -28,9 +25,9 @@ http_client = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true, optional = true }
-tempfile = { workspace = true, optional = true }
-libc = { workspace = true, optional = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+libc = { workspace = true }
 futures = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }

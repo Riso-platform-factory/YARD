@@ -17,7 +17,7 @@ risoapp is a platform: engines on which applications are built. This file lists 
 | Keymap | `riso_keymap`, `riso_shell` | The keyboard: focus, actions, default keys, the user's keys, commands by name | the focused node, the shell's actions on it, moving the focus by direction, their default keys, and extensions' own actions and keys, the user's keys, reloaded when their file changes, and the command palette, the first extension in `extensions/`, built | `docs/keymap-engine/roadmap.md` |
 | Window | `riso_shell`, `riso_ui` | The frame of a window: title bar, status bar, modals, messages, menus. Several windows, remembered | built: the frame, title bar, status bar, modal layer, toasts, questions, menu bar, and several windows, each remembered with its place, size, and layout | `docs/window-engine/roadmap.md` |
 | State | `riso_state`, `riso_shell` | What the components were showing, kept between runs | built: each node's state, saved soon after a change, the selected tabs and the zoom, and each extension's own values | `docs/state-engine/roadmap.md` |
-| Packaging | tooling beside the workspace | An installable application made from the product config, and its updates | the product's identity and the macOS bundle built; opening URLs and updates missing | `docs/packaging/roadmap.md` |
+| Packaging | tooling beside the workspace | An installable application made from the product config, and its updates | built: the product's identity, the macOS bundle, opening URLs, and checking for and installing updates | `docs/packaging/roadmap.md` |
 
 ## How the roadmaps are followed
 

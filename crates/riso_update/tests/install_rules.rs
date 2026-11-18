@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use http_client::{AsyncBody, FakeHttpClient, Response};
 use riso_product::Product;
@@ -246,7 +244,7 @@ fn install(
     url: &str,
     sha256: &str,
 ) -> Result<(), String> {
-    futures::executor::block_on(riso_update::dev::install(
+    futures::executor::block_on(riso_update::install(
         client, bundle, NAME, IDENTIFIER, "0.2.0", url, sha256,
     ))
 }
@@ -472,7 +470,7 @@ fn inside_a_bundle_a_stalled_download_is_given_up_after_ten_minutes(cx: &mut Tes
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));
-    let bundle = riso_update::dev::running_bundle().unwrap();
+    let bundle = riso_update::running_bundle().unwrap();
     let before = snapshot(&bundle);
     let release = format!(
         "{{\"version\":\"0.2.0\",\"url\":\"{ZIP_URL}\",\"sha256\":\"{}\"}}",
@@ -493,7 +491,7 @@ fn inside_a_bundle_a_stalled_download_is_given_up_after_ten_minutes(cx: &mut Tes
         }
     });
     let product = Product::new(NAME, "0.1.0", IDENTIFIER);
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product, URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product, URL, client));
     cx.run_until_parked();
     cx.executor().advance_clock(FIRST_CHECK);
     cx.run_until_parked();

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use http_client::{AsyncBody, FakeHttpClient, Response};
 use riso_product::Product;
@@ -231,7 +229,7 @@ fn entries(dir: &Path) -> Vec<String> {
     names
 }
 
-// `riso_update::dev::install` for `bundle`, with the product's name and
+// `riso_update::install` for `bundle`, with the product's name and
 // identifier and the release's `version` and `sha256`, from `ZIP_URL`.
 fn install(
     client: Arc<dyn http_client::HttpClient>,
@@ -239,7 +237,7 @@ fn install(
     version: &str,
     sha256: &str,
 ) -> Result<(), String> {
-    futures::executor::block_on(riso_update::dev::install(
+    futures::executor::block_on(riso_update::install(
         client, bundle, NAME, IDENTIFIER, version, ZIP_URL, sha256,
     ))
 }
@@ -552,7 +550,7 @@ fn a_bundle_in_a_read_only_folder_is_an_error() {
 #[test]
 fn running_bundle_outside_an_app_is_an_error() {
     let _lock = lock();
-    let reason = riso_update::dev::running_bundle()
+    let reason = riso_update::running_bundle()
         .expect_err("a test binary is not inside an .app")
         .to_string();
     assert!(!reason.is_empty(), "the error says why there is no bundle");
@@ -603,12 +601,12 @@ fn inside_a_bundle_start_installs_the_release_and_downloads_it_once(cx: &mut Tes
     }
     let _lock = lock();
     let (extension, window) = open_app(cx);
-    let bundle = riso_update::dev::running_bundle().unwrap();
+    let bundle = riso_update::running_bundle().unwrap();
     let release_dir = tempfile::tempdir().unwrap();
     let (zip, sha256) = release_zip(release_dir.path(), IDENTIFIER, "0.2.0");
     let requests = Requests::default();
     let client = requests.client_with_release(release("0.2.0", &sha256), zip);
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     assert!(
         wait_until(cx, |cx| has_toast(window, cx)),

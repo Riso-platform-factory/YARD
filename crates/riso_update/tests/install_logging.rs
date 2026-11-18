@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use http_client::{AsyncBody, FakeHttpClient, Response};
 use riso_product::Product;
@@ -352,7 +350,7 @@ fn update_install_logging(cx: &mut TestAppContext) {
         );
         let release_dir = tempfile::tempdir().unwrap();
         let (zip, sha256) = release_zip(release_dir.path(), IDENTIFIER, "0.2.0");
-        let installed = futures::executor::block_on(riso_update::dev::install(
+        let installed = futures::executor::block_on(riso_update::install(
             client(zip),
             bundle,
             NAME,
@@ -407,7 +405,7 @@ fn update_install_logging(cx: &mut TestAppContext) {
         );
         let refused_release = tempfile::tempdir().unwrap();
         let (zip, _) = release_zip(refused_release.path(), IDENTIFIER, "0.2.0");
-        let refused = futures::executor::block_on(riso_update::dev::install(
+        let refused = futures::executor::block_on(riso_update::install(
             client(zip),
             refused_bundle,
             NAME,
@@ -440,7 +438,7 @@ fn update_install_logging(cx: &mut TestAppContext) {
         });
         app.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));
         let check = client_with_release(release("0.2.0", WRONG_SHA256), Vec::new());
-        app.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, check));
+        app.update(move |cx| riso_update::start(cx, &extension, product(), URL, check));
         advance(&mut app, FIRST_CHECK);
         advance(&mut app, NEXT_CHECK);
         let not_installable: Vec<String> = lines(&trace)

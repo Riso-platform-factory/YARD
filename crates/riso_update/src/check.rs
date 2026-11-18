@@ -1,5 +1,6 @@
 //! The update check: asks the product's update address for the newest
-//! release, and shows a toast when it is newer than the product.
+//! release, and when it is newer than the product, installs it and shows a
+//! toast, or shows a toast that it is available when it cannot be installed.
 
 use futures::{AsyncReadExt as _, FutureExt as _};
 use gpui::{App, AsyncApp};
@@ -18,19 +19,28 @@ const TIMEOUT: Duration = Duration::from_secs(30);
 /// The longest answer read.
 const MAX_ANSWER: usize = 64 * 1024;
 
-/// The release file. This feature reads `version`; `url` and `sha256` must
-/// be present for the release to be installable.
+/// The release file: its version, the address of its `.zip`, and the zip's
+/// SHA-256 in hex.
 #[derive(serde::Deserialize)]
 struct Release {
     version: String,
-    #[allow(dead_code)]
     url: String,
-    #[allow(dead_code)]
     sha256: String,
 }
 
-/// Starts checking `url` for a version newer than `product`'s, showing its
-/// toast through `extension`.
+/// What the checks of one run remember.
+#[derive(Default)]
+struct Seen {
+    /// The versions whose "available" toast was shown.
+    shown: Vec<semver::Version>,
+    /// The versions installed.
+    installed: Vec<semver::Version>,
+    /// Whether `not installable` was logged.
+    not_installable: bool,
+}
+
+/// Starts checking `url` for a version newer than `product`'s, installing it
+/// and showing its toast through `extension`.
 pub fn start(
     cx: &mut App,
     extension: &Extension,
@@ -41,12 +51,11 @@ pub fn start(
     let extension = extension.clone();
     let url = url.to_owned();
     cx.spawn(async move |cx| {
-        // The versions whose toast was shown in this run.
-        let mut shown = Vec::new();
+        let mut seen = Seen::default();
         cx.background_executor().timer(FIRST_CHECK).await;
         loop {
             let group = tracing::info_span!("update-check", current = product.version);
-            check(cx, &extension, product, &url, &client, &mut shown)
+            check(cx, &extension, product, &url, &client, &mut seen)
                 .instrument(group)
                 .await;
             cx.background_executor().timer(NEXT_CHECK).await;
@@ -55,14 +64,15 @@ pub fn start(
     .detach();
 }
 
-/// One check: the request, the comparison, and the toast when newer.
+/// One check: the request, the comparison, and when newer, the install and
+/// its toast, or the toast that it is available.
 async fn check(
     cx: &mut AsyncApp,
     extension: &Extension,
     product: Product,
     url: &str,
     client: &Arc<dyn HttpClient>,
-    shown: &mut Vec<semver::Version>,
+    seen: &mut Seen,
 ) {
     let fetch = cx
         .background_executor()
@@ -84,11 +94,12 @@ async fn check(
         Ok((
             version.cmp_precedence(&current) == Ordering::Greater,
             version,
+            release,
         ))
     });
-    let version = match compared {
-        Ok((true, version)) => version,
-        Ok((false, version)) => {
+    let (version, release) = match compared {
+        Ok((true, version, release)) => (version, release),
+        Ok((false, version, _)) => {
             tracing::debug!(version = %version, "up to date");
             return;
         }
@@ -102,7 +113,43 @@ async fn check(
         }
     };
     tracing::debug!(version = %version, "newer");
-    if shown
+    if seen
+        .installed
+        .iter()
+        .any(|installed| installed.cmp_precedence(&version) == Ordering::Equal)
+    {
+        tracing::debug!(version = %version, "already installed");
+        return;
+    }
+    match super::running_bundle() {
+        Ok(bundle) => {
+            if install(cx, product, &release, bundle, client).await {
+                let text = format!("{} {version} is installed", product.name);
+                let toast = riso_ui::Toast::new(riso_ui::ToastKind::Info, text).action(
+                    "Restart",
+                    |_, cx| {
+                        tracing::debug!("restart");
+                        cx.restart();
+                    },
+                );
+                if show_toast(cx, extension, toast) {
+                    tracing::debug!(version = %version, "toast shown");
+                } else {
+                    tracing::debug!(version = %version, "no window for the toast");
+                }
+                seen.installed.push(version);
+            }
+            return;
+        }
+        Err(reason) => {
+            if !seen.not_installable {
+                tracing::debug!("not installable {reason}");
+                seen.not_installable = true;
+            }
+        }
+    }
+    if seen
+        .shown
         .iter()
         .any(|shown| shown.cmp_precedence(&version) == Ordering::Equal)
     {
@@ -110,7 +157,58 @@ async fn check(
         return;
     }
     let text = format!("{} {version} is available", product.name);
-    let toasted = cx.update(|cx| {
+    if show_toast(
+        cx,
+        extension,
+        riso_ui::Toast::new(riso_ui::ToastKind::Info, text),
+    ) {
+        tracing::debug!(version = %version, "toast shown");
+        seen.shown.push(version);
+    } else {
+        tracing::debug!(version = %version, "no window for the toast");
+    }
+}
+
+/// Downloads and installs `release` over `bundle` on the background
+/// executor, the download within its time limit; whether it was installed.
+async fn install(
+    cx: &mut AsyncApp,
+    product: Product,
+    release: &Release,
+    bundle: std::path::PathBuf,
+    client: &Arc<dyn HttpClient>,
+) -> bool {
+    let client = client.clone();
+    let (version, url, sha256) = (
+        release.version.clone(),
+        release.url.clone(),
+        release.sha256.clone(),
+    );
+    let limit = cx
+        .background_executor()
+        .timer(super::install::DOWNLOAD_TIMEOUT);
+    cx.background_executor()
+        .spawn(
+            async move {
+                let release = super::install::ReleaseFile {
+                    name: product.name,
+                    identifier: product.identifier,
+                    version: &version,
+                    url: &url,
+                    sha256: &sha256,
+                };
+                super::install::install_within(client, bundle, release, limit).await
+            }
+            .instrument(tracing::Span::current()),
+        )
+        .await
+        .is_ok()
+}
+
+/// Shows `toast` in the active window, or the first one; whether there was
+/// a window for it.
+fn show_toast(cx: &mut AsyncApp, extension: &Extension, toast: riso_ui::Toast) -> bool {
+    cx.update(|cx| {
         let Some(window) = cx
             .active_window()
             .or_else(|| cx.windows().into_iter().next())
@@ -119,20 +217,10 @@ async fn check(
         };
         window
             .update(cx, |_, window, cx| {
-                extension.show_toast(
-                    riso_ui::Toast::new(riso_ui::ToastKind::Info, text),
-                    window,
-                    cx,
-                );
+                extension.show_toast(toast, window, cx);
             })
             .is_ok()
-    });
-    if toasted {
-        tracing::debug!(version = %version, "toast shown");
-        shown.push(version);
-    } else {
-        tracing::debug!(version = %version, "no window for the toast");
-    }
+    })
 }
 
 /// Asks `url` for the release file and reads it.
@@ -172,7 +260,7 @@ async fn fetch(client: Arc<dyn HttpClient>, url: String) -> Result<Release, Stri
 
 /// The address's host, which the logs name instead of the address, whose path
 /// or query can hold a token.
-fn host(url: &str) -> String {
+pub(super) fn host(url: &str) -> String {
     Url::parse(url)
         .ok()
         .and_then(|url| url.host_str().map(str::to_owned))
@@ -181,7 +269,7 @@ fn host(url: &str) -> String {
 
 /// `reason` with every address in it, such as one an HTTP error quotes,
 /// replaced by `host`.
-fn without_addresses(reason: &str, host: &str) -> String {
+pub(super) fn without_addresses(reason: &str, host: &str) -> String {
     let mut text = String::new();
     let mut rest = reason;
     while let Some(start) = ["http://", "https://"]

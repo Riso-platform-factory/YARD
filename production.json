@@ -14,9 +14,9 @@
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "ee2d0f393be7ed64"
+      "app/riso/src/startup.rs": "4e46111b393dd5c1"
     },
-    "promoted": "2026-11-18"
+    "promoted": "2026-11-19"
   },
   "riso_keymap/keymap_reload": {
     "files": {
@@ -327,8 +327,14 @@
   },
   "riso_update/check": {
     "files": {
-      "crates/riso_update/src/check.rs": "8d483445efbb1f7e"
+      "crates/riso_update/src/check.rs": "a2062542b5db58a7"
     },
-    "promoted": "2026-11-18"
+    "promoted": "2026-11-19"
+  },
+  "riso_update/install": {
+    "files": {
+      "crates/riso_update/src/install.rs": "7dfefd5c3a3a152a"
+    },
+    "promoted": "2026-11-19"
   }
 }

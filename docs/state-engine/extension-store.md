@@ -11,7 +11,8 @@ An extension keeps named values of its own between runs, through its handle, as 
 - **Reading.** An extension's file is read once, the first time the extension reads or writes a value, and kept in memory for the rest of the run.
   - A missing file means no values: `debug`.
   - A broken file, or one of another `version`, also means no values, with a `WARN`, never an `ERROR`. The next save writes over it, as the state file is written over.
-- **Saving.** A write changes the value in memory at once, so the next read gives it back. The file is saved as feature 2 saves the states: 300 ms after the extension's last write, at most 2 s after the first of a burst, on the background executor, and once more at quit. Only the extensions whose values changed are written, each to its own file.
+- **Saving.** A write changes the value in memory at once, so the next read gives it back. Storing a value equal to the one there, or removing a key that is not there, is not a change. The file is saved as feature 2 saves the states: 300 ms after the extension's last change, at most 2 s after the first of a burst, on the background executor. At quit, the waits are cancelled, and each extension with a change not yet written is written once more, with `reason=quit`. Only the extensions whose values changed are written, each to its own file.
+- **The folder** is given once by the startup, with `set_store_dir`, before any extension starts. A second call, or a call after a store was read, is refused with an `ERROR`, since it is a bug: the folder stays as it was.
 - **No folder given.** When the startup gave the shell no store folder (as in tests that do not set one), values are kept in memory for the run only, with a `debug` `no store folder` once.
 - **Removing.** Removing a key that is not there does nothing. Removing the last key writes a file with no values.
 

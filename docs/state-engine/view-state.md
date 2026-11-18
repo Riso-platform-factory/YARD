@@ -10,10 +10,10 @@ The shell's own containers keep their state across a restart, as a component's v
   - `riso.tabs`: `{"selected": "<node ID>"}`, the tab it shows, or `null` when it shows none;
   - `riso.window`: `{"zoomed": "<node ID>"}`, the node that fills the window's body, or `null`.
   They are kept in `state.json` like any node's state, under the node's ID (the tabs container's ID, and `window`), with feature 1's rules: each window its own, given once when the view is first created, not given to another component, dropped with the node.
-- **When it is saved.** Selecting a tab (a click, or an action of the keymap engine) and zooming in or out call `state_changed`, so that feature 2 saves them after its wait, and quitting saves them as every state. A selection the shell moves by itself, because the selected tab was hidden, removed, or became empty, does not call it: the next save takes what is shown then.
-- **Given back, tabs.** The saved tab is selected at the container's first layout if it has a tab then (shown and not empty). Otherwise the first tab is selected, as without a saved state, with a `debug` `saved tab has no tab {tabs, tab}`.
+- **When it is saved.** Selecting a tab (a click, an action of the keymap engine, a drop, or a new item's tab), and zooming in or out once a window is open, call `state_changed`, but selecting the tab already selected does not, so that feature 2 saves them after its wait, and quitting saves them as every state. A selection the shell moves by itself, because the selected tab was hidden, removed, or became empty, does not call it: the next save takes what is shown then. The zoom out the shell does by itself, when the zoomed node becomes empty, calls it as a zoom out does: it is rare, and keeps the file close to the screen.
+- **Given back, tabs.** The saved tab is selected when the window's views are created, or at the container's first layout if the container is created later, if it has a tab then (shown and not empty), even while a zoom keeps the container from being drawn. Otherwise the first tab is selected, as without a saved state, with a `debug` `saved tab has no tab {tabs, tab}`.
 - **Given back, zoom.** After the window's views are created, the saved node is zoomed if it is shown, in the body, and has a view, as feature 10 of the layout engine allows a zoom. Otherwise nothing is zoomed, with a `debug` `saved zoom not given {node}`. The saved state, `null` included, replaces the zoom the extension set when it started: it is what the user last saw.
-- **A named layout switch** clears the zoom and creates the tabs containers again, as today: they start from their defaults, as feature 1 says for a view created again.
+- **A named layout switch** clears the zoom, as today. A tabs container the new layout keeps keeps its view and its selection; one it creates again starts from its default, as feature 1 says for a view created again.
 
 ## What code can do
 
@@ -24,7 +24,7 @@ Nothing new: extensions see no new function. `selected_tab` and `zoomed` give th
 | Situation | Log |
 |---|---|
 | The shell registers its states | `state-register{component=riso.tabs}` and `state-register{component=riso.window}` of feature 1 |
-| A tab given back | `state given {node}` of feature 1 in `component-create`; then, at the container's first layout, `debug` `tab given {tabs, tab}` once |
+| A tab given back | `state given {node}` of feature 1 in `component-create`; then, when the saved tab is selected, `debug` `tab given {tabs, tab}` once |
 | A zoom given back | `debug` `zoom given {node}` in `shell-create` |
 | A saved value that cannot be used | The `debug` lines above; a state that cannot be read (not an object, or a value that is not a string or `null`) is a `WARN`, and the default is kept |
 

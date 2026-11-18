@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! The rules that keep the check safe: a bounded answer, no redirects, the
 //! host only in the logs, versions compared by precedence, and the timeout.
 
@@ -253,7 +251,7 @@ fn check_once(
     client: Arc<dyn http_client::HttpClient>,
 ) -> gpui::WindowHandle<riso_shell::Shell> {
     let (extension, window) = open_app(cx);
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     window
 }
@@ -308,7 +306,7 @@ fn the_logs_name_the_host_and_never_the_path_or_query(cx: &mut TestAppContext) {
         let newer = requests.client(vec![(200, release("0.2.0"))]);
         cx.update(|cx| {
             for client in [failing, status, newer] {
-                riso_update::dev::start(cx, &extension, product(), url, client);
+                riso_update::start(cx, &extension, product(), url, client);
             }
         });
         advance(cx, FIRST_CHECK);

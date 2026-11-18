@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use http_client::{AsyncBody, FakeHttpClient, Response};
 use riso_product::Product;
@@ -194,7 +192,7 @@ fn a_newer_version_shows_one_toast(cx: &mut TestAppContext) {
     let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
     let requests = Requests::default();
     let client = requests.client(200, release("0.2.0"));
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     draw(window, cx);
     assert!(
@@ -219,8 +217,8 @@ fn the_same_and_an_older_version_show_no_toast(cx: &mut TestAppContext) {
     let same = requests.client(200, release("0.1.0"));
     let older = requests.client(200, release("0.0.9"));
     cx.update(move |cx| {
-        riso_update::dev::start(cx, &extension, product(), URL, same);
-        riso_update::dev::start(cx, &extension, product(), URL, older);
+        riso_update::start(cx, &extension, product(), URL, same);
+        riso_update::start(cx, &extension, product(), URL, older);
     });
     advance(cx, FIRST_CHECK);
     assert_eq!(requests.count(), 2, "both checks ran");
@@ -238,7 +236,7 @@ fn a_second_check_of_the_same_version_does_not_show_the_toast_again(cx: &mut Tes
     let (extension, window) = open_app(cx);
     let requests = Requests::default();
     let client = requests.client(200, release("0.2.0"));
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     assert!(has_toast(window, cx), "the first check shows the toast");
     advance(cx, NEXT_CHECK);
@@ -256,7 +254,7 @@ fn a_failure_status_warns_and_shows_no_toast(cx: &mut TestAppContext) {
     let (extension, window) = open_app(cx);
     let requests = Requests::default();
     let client = requests.client(500, release("0.2.0"));
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     assert_eq!(requests.count(), 1, "the check ran");
     assert!(!has_toast(window, cx), "a failure status shows no toast");
@@ -287,7 +285,7 @@ fn a_broken_release_file_warns_and_shows_no_toast(cx: &mut TestAppContext) {
     let (extension, window) = open_app(cx);
     let requests = Requests::default();
     let client = requests.client(200, "this is not a release file");
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     assert_eq!(requests.count(), 1, "the check ran");
     assert!(!has_toast(window, cx), "a broken file shows no toast");
@@ -314,8 +312,8 @@ fn a_release_file_missing_url_or_sha256_warns_and_shows_no_toast(cx: &mut TestAp
         "{\"version\":\"0.2.0\",\"url\":\"https://releases.example.com/riso-check-0.2.0.tar.gz\"}",
     );
     cx.update(move |cx| {
-        riso_update::dev::start(cx, &extension, product(), URL, missing_url);
-        riso_update::dev::start(cx, &extension, product(), URL, missing_sha256);
+        riso_update::start(cx, &extension, product(), URL, missing_url);
+        riso_update::start(cx, &extension, product(), URL, missing_sha256);
     });
     advance(cx, FIRST_CHECK);
     assert_eq!(requests.count(), 2, "both checks ran");
@@ -343,7 +341,7 @@ fn an_unreadable_version_warns_and_shows_no_toast(cx: &mut TestAppContext) {
             "{{\"version\":\"latest\",\"url\":\"https://releases.example.com/riso-check-latest.tar.gz\",\"sha256\":\"{SHA256}\"}}"
         ),
     );
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     assert_eq!(requests.count(), 1, "the check ran");
     assert!(
@@ -365,7 +363,7 @@ fn the_first_check_waits_five_seconds_and_the_next_twenty_four_hours(cx: &mut Te
     let (extension, _window) = open_app(cx);
     let requests = Requests::default();
     let client = requests.client(200, release("0.1.0"));
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK - Duration::from_secs(1));
     assert_eq!(requests.count(), 0, "no check before 5 s");
     advance(cx, Duration::from_secs(1));
@@ -388,7 +386,7 @@ fn no_check_runs_while_one_is_running(cx: &mut TestAppContext) {
     let (extension, _window) = open_app(cx);
     let requests = Requests::default();
     let client = requests.held();
-    cx.update(move |cx| riso_update::dev::start(cx, &extension, product(), URL, client));
+    cx.update(move |cx| riso_update::start(cx, &extension, product(), URL, client));
     advance(cx, FIRST_CHECK);
     assert_eq!(requests.count(), 1, "the first check is running");
     // Inside the check's own 30 s failure window no other check can start.

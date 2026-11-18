@@ -14,7 +14,7 @@
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "655227b469beff27"
+      "app/riso/src/startup.rs": "ee2d0f393be7ed64"
     },
     "promoted": "2026-11-18"
   },
@@ -324,5 +324,11 @@
       "crates/riso_ui/src/user_themes.rs": "2b41c1d33d199b2c"
     },
     "promoted": "2026-11-14"
+  },
+  "riso_update/check": {
+    "files": {
+      "crates/riso_update/src/check.rs": "8d483445efbb1f7e"
+    },
+    "promoted": "2026-11-18"
   }
 }

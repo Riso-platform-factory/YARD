@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use http_client::{AsyncBody, FakeHttpClient, HttpClient, Response};
 use riso_product::Product;
@@ -244,7 +242,7 @@ fn update_check_logging(cx: &mut TestAppContext) {
         });
         app.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));
         let client = client(200, release("0.2.0"));
-        app.update(|cx| riso_update::dev::start(cx, &extension, product(), URL, client.clone()));
+        app.update(|cx| riso_update::start(cx, &extension, product(), URL, client.clone()));
 
         // A newer version: `update-check{current}` holding
         // `newer {version}`, and the toast's `toast shown {version}`.

@@ -1,5 +1,5 @@
 use gpui::{App, AsyncApp, WindowOptions};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 type Init = fn(&mut App, &riso_shell::Extension);
 
@@ -112,8 +112,27 @@ pub(crate) fn run(
             }
             None => open_window(cx, product, Some(paths.window_file())),
         }
+        start_update_check(cx, product);
         riso_log::startup_finished();
     });
+}
+
+/// Starts checking the product's update address, when it names one, through
+/// an extension handle named `update` for the toast.
+fn start_update_check(cx: &mut App, product: Product) {
+    let url = env!("PRODUCT_UPDATE_URL");
+    if url.is_empty() {
+        tracing::debug!("no update address");
+        return;
+    }
+    let Some(extension) = riso_shell::Extension::new(cx, "update") else {
+        return;
+    };
+    let user_agent = format!("{}/{}", product.name, product.version);
+    match reqwest_client::ReqwestClient::user_agent(&user_agent) {
+        Ok(client) => riso_update::start(cx, &extension, product, url, Arc::new(client)),
+        Err(error) => tracing::warn!("no update check: the HTTP client failed to start: {error:#}"),
+    }
 }
 
 fn open_window(cx: &mut App, product: Product, window_file: Option<std::path::PathBuf>) {

@@ -29,6 +29,7 @@ use riso_layout::{Applied, ComponentId, Node, NodeId, Operation, Position, Props
 use riso_layout::{decode, encode};
 use riso_paths::write_atomic;
 use riso_state::{self as state_format, SavedNode, WindowStates};
+use riso_state::{StoreValues, decode_store, encode_store};
 use std::{
     any::{TypeId, type_name},
     cell::{Cell, RefCell},
@@ -5065,6 +5066,37 @@ impl Extension {
         Some(Self { name: name.into() })
     }
 
+    /// Reads a value from this extension's store.
+    pub fn stored(&self, cx: &mut App, key: &str) -> Option<serde_json::Value> {
+        tracing::trace!(key, "stored");
+        if !valid_store_key(key) {
+            return None;
+        }
+        extension_store(cx, &self.name).values.get(key).cloned()
+    }
+
+    /// Sets a value in this extension's store and schedules a save.
+    pub fn store(&self, cx: &mut App, key: &str, value: serde_json::Value) {
+        tracing::trace!(key, "store");
+        if !valid_store_key(key) {
+            return;
+        }
+        let values = &mut extension_store(cx, &self.name).values;
+        if values.get(key) == Some(&value) {
+            return;
+        }
+        values.insert(key.into(), value);
+        store_changed(cx, &self.name);
+    }
+
+    /// Removes a value from this extension's store if it exists.
+    pub fn unstore(&self, cx: &mut App, key: &str) {
+        tracing::trace!(key, "unstore");
+        if valid_store_key(key) && extension_store(cx, &self.name).values.remove(key).is_some() {
+            store_changed(cx, &self.name);
+        }
+    }
+
     /// Registers operations to apply over the startup default when shown.
     pub fn named_layout(&self, cx: &mut App, name: &str, build: impl FnOnce(&mut NamedLayout)) {
         // Validate before running extension code, and keep refusals in their group.
@@ -7117,6 +7149,190 @@ fn restore_session(cx: &mut App, saved: &SessionWindow) -> bool {
     apply_restored(cx, operations)
 }
 
+#[derive(Default)]
+struct ExtensionStores {
+    dir: Option<PathBuf>,
+    extensions: BTreeMap<String, ExtensionStore>,
+    no_folder_logged: bool,
+    quitting: bool,
+}
+
+impl Global for ExtensionStores {}
+
+#[derive(Default)]
+struct ExtensionStore {
+    values: StoreValues,
+    burst: Option<StateSaveBurst>,
+    continuation: Option<StateSaveBurst>,
+    save_task: Option<gpui::Task<()>>,
+    revision: u64,
+    written: Arc<Mutex<u64>>,
+}
+
+/// Sets the folder used to load and persist extension values.
+pub fn set_store_dir(cx: &mut App, dir: PathBuf) {
+    let stores = cx.default_global::<ExtensionStores>();
+    if stores.dir.is_some() || !stores.extensions.is_empty() {
+        log::error!("the store folder must be set once before any extension store is read");
+        return;
+    }
+    stores.dir = Some(dir);
+    cx.on_app_quit(|cx| {
+        let stores = cx.global_mut::<ExtensionStores>();
+        stores.quitting = true;
+        let names = stores
+            .extensions
+            .iter_mut()
+            .filter_map(|(name, store)| {
+                store.save_task.take();
+                let pending = match store.written.try_lock() {
+                    Ok(written) => store.revision > *written,
+                    Err(std::sync::TryLockError::Poisoned(error)) => {
+                        store.revision > *error.into_inner()
+                    }
+                    // The background save may still succeed. Check again after it finishes.
+                    Err(std::sync::TryLockError::WouldBlock) => true,
+                };
+                pending.then(|| name.clone())
+            })
+            .collect::<Vec<_>>();
+        let writes = names
+            .iter()
+            .map(|name| write_store_file(cx, name, StateSaveReason::Quit))
+            .collect::<Vec<_>>();
+        async move {
+            for write in writes {
+                write.await;
+            }
+        }
+    })
+    .detach();
+}
+
+fn valid_store_key(key: &str) -> bool {
+    if key.is_empty() {
+        tracing::info!(reason = "empty key", "refused");
+        return false;
+    }
+    true
+}
+
+fn extension_store<'a>(cx: &'a mut App, name: &str) -> &'a mut ExtensionStore {
+    let stores = cx.default_global::<ExtensionStores>();
+    stores.extensions.entry(name.into()).or_insert_with(|| {
+        let values = if let Some(dir) = &stores.dir {
+            read_store_file(name, &dir.join(format!("{name}.json")))
+        } else {
+            if !std::mem::replace(&mut stores.no_folder_logged, true) {
+                tracing::debug!("no store folder");
+            }
+            StoreValues::new()
+        };
+        ExtensionStore {
+            values,
+            ..Default::default()
+        }
+    })
+}
+
+fn read_store_file(name: &str, path: &Path) -> StoreValues {
+    let _group =
+        tracing::info_span!("store-read", extension = name, file = %path.display()).entered();
+    let result = match std::fs::read_to_string(path) {
+        Ok(text) => decode_store(&text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            tracing::debug!("no saved values");
+            return StoreValues::new();
+        }
+        Err(error) => Err(error.to_string()),
+    };
+    match result {
+        Ok(values) => {
+            tracing::debug!(keys = values.len(), "read");
+            values
+        }
+        Err(error) => {
+            log::warn!(
+                "the saved values at {} cannot be read: {error}",
+                path.display()
+            );
+            StoreValues::new()
+        }
+    }
+}
+
+fn store_changed(cx: &mut App, name: &str) {
+    let now = cx.background_executor().now();
+    let stores = cx.global_mut::<ExtensionStores>();
+    if stores.quitting || stores.dir.is_none() {
+        return;
+    }
+    let store = stores.extensions.get_mut(name).expect("store is loaded");
+    store.revision += 1;
+    store.burst = Some(StateSaveBurst::changed(
+        now,
+        store.burst,
+        &mut store.continuation,
+    ));
+    if store.save_task.is_some() {
+        return;
+    }
+
+    let extension = name.to_owned();
+    let task = cx.spawn(async move |cx| {
+        let executor = cx.background_executor().clone();
+        while let Some(burst) = wait_for_save(&executor, || {
+            cx.update(|cx| cx.global::<ExtensionStores>().extensions[&extension].burst)
+        })
+        .await
+        {
+            let write = cx.update(|cx| {
+                let store = extension_store(cx, &extension);
+                store.burst = None;
+                store.continuation = (burst.deadline() < burst.quiet_until).then_some(burst);
+                write_store_file(cx, &extension, StateSaveReason::Change)
+            });
+            write.await;
+        }
+        cx.update(|cx| {
+            if let Some(task) = extension_store(cx, &extension).save_task.take() {
+                task.detach();
+            }
+        });
+    });
+    extension_store(cx, name).save_task = Some(task);
+}
+
+fn write_store_file(cx: &mut App, name: &str, reason: StateSaveReason) -> gpui::Task<()> {
+    let stores = cx.global_mut::<ExtensionStores>();
+    let path = stores
+        .dir
+        .as_ref()
+        .expect("store folder is set")
+        .join(format!("{name}.json"));
+    let store = stores.extensions.get_mut(name).expect("store is loaded");
+    let revision = store.revision;
+    let written = store.written.clone();
+    let values = store.values.clone();
+    let extension = name.to_owned();
+    let keys = values.len();
+    let save_group =
+        move || tracing::info_span!("store-save", extension, keys, reason = reason.as_str());
+    let group = (reason == StateSaveReason::Change).then(&save_group);
+    cx.background_executor().spawn(async move {
+        let mut written = written.lock().unwrap_or_else(PoisonError::into_inner);
+        if *written >= revision {
+            return;
+        }
+        let _group = group.unwrap_or_else(save_group).entered();
+        let text = encode_store(&values);
+        if write_atomic(&path, text.as_bytes()).is_ok() {
+            *written = revision;
+            tracing::debug!("saved");
+        }
+    })
+}
+
 const STATE_SAVE_DELAY: Duration = Duration::from_millis(300);
 const STATE_SAVE_MAX_WAIT: Duration = Duration::from_secs(2);
 
@@ -7127,9 +7343,41 @@ struct StateSaveBurst {
 }
 
 impl StateSaveBurst {
+    fn changed(now: Instant, burst: Option<Self>, continuation: &mut Option<Self>) -> Self {
+        let first = burst.map_or_else(
+            || {
+                // A capped burst can continue across its save. Anchor the next
+                // cap to the preceding one while changes are still arriving.
+                continuation
+                    .take()
+                    .filter(|burst| now < burst.quiet_until)
+                    .map_or(now, Self::deadline)
+            },
+            |burst| burst.first,
+        );
+        Self {
+            first,
+            quiet_until: now + STATE_SAVE_DELAY,
+        }
+    }
+
     fn deadline(self) -> Instant {
         self.quiet_until.min(self.first + STATE_SAVE_MAX_WAIT)
     }
+}
+
+async fn wait_for_save(
+    executor: &gpui::BackgroundExecutor,
+    mut pending: impl FnMut() -> Option<StateSaveBurst>,
+) -> Option<StateSaveBurst> {
+    while let Some(burst) = pending() {
+        let delay = burst.deadline().saturating_duration_since(executor.now());
+        if delay.is_zero() {
+            return Some(burst);
+        }
+        executor.timer(delay).await;
+    }
+    None
 }
 
 #[derive(Default)]
@@ -7185,35 +7433,21 @@ pub fn state_changed(cx: &mut App) {
     if file.writing && file.burst.is_none() {
         tracing::debug!("state save queued");
     }
-    let first = file.burst.map_or_else(
-        || {
-            // A capped burst can continue across its save. Anchor the next
-            // cap to the preceding one while changes are still arriving.
-            file.continuation
-                .take()
-                .filter(|burst| now < burst.quiet_until)
-                .map_or(now, StateSaveBurst::deadline)
-        },
-        |burst| burst.first,
-    );
-    file.burst = Some(StateSaveBurst {
-        first,
-        quiet_until: now + STATE_SAVE_DELAY,
-    });
+    file.burst = Some(StateSaveBurst::changed(
+        now,
+        file.burst,
+        &mut file.continuation,
+    ));
     if file.save_task.is_none() {
         let task = cx.spawn(async |cx| {
             let executor = cx.background_executor().clone();
-            while let Some(burst) = cx.update(|cx| cx.global::<StateFile>().burst) {
-                let deadline = burst.deadline();
-                let delay = deadline.saturating_duration_since(executor.now());
-                if !delay.is_zero() {
-                    executor.timer(delay).await;
-                    continue;
-                }
+            while let Some(burst) =
+                wait_for_save(&executor, || cx.update(|cx| cx.global::<StateFile>().burst)).await
+            {
                 let write = cx.update(|cx| {
                     let file = cx.global_mut::<StateFile>();
                     file.burst = None;
-                    file.continuation = (deadline < burst.quiet_until).then_some(burst);
+                    file.continuation = (burst.deadline() < burst.quiet_until).then_some(burst);
                     file.writing = true;
                     write_state_file(cx, StateSaveReason::Change)
                 });

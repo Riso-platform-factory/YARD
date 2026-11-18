@@ -29,6 +29,7 @@ pub(crate) fn run(
                 riso_shell::set_window_title(cx, product.name);
                 riso_shell::set_layout_file(cx, paths.layout_file());
                 riso_shell::set_state_file(cx, paths.state_file());
+                riso_shell::set_store_dir(cx, paths.store_dir());
                 let named_paths = paths.clone();
                 riso_shell::set_named_layout_files(cx, move |name| {
                     named_paths.named_layout_file(name)

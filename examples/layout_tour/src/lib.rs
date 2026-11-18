@@ -55,10 +55,7 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
-#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
-#[cfg(feature = "dev")]
-use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -599,7 +596,6 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         }
         "user-layer" => {
             register_card(cx, ext);
-            #[cfg(feature = "dev")]
             let starts = {
                 let count = ext
                     .stored(cx, "starts")
@@ -609,8 +605,6 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 ext.store(cx, "starts", count.into());
                 Some(count)
             };
-            #[cfg(not(feature = "dev"))]
-            let starts = None;
             let buttons = vec![
                 Button::action("hide d", |ext, _, cx| ext.set_hidden(cx, "d", true)),
                 Button::action("reset layout", |ext, window, cx| {

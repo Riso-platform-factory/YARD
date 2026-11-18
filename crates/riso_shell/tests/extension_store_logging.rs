@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use serde_json::json;
 use std::{
     collections::BTreeMap,

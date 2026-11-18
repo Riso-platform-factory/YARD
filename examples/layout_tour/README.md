@@ -408,6 +408,16 @@ The windows open at quit come back at the next start, each with its place, its s
 | Start again | Both windows are back where they were: the first with `d` hidden, the second split; `restored {windows=2}`. |
 | Close the second window, quit, start | One window. |
 
+### State feature 1: node-state
+
+The card keeps its count across a restart: it registers its count as its node's state, saved to `state.json` when the application quits and given back when the card's view is first created. Each window keeps its own cards' counts, and the `user layer: N` label shows its own window's count. Use a fresh home: `RISO_HOME=/tmp/riso-state`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-state LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` three times, quit with `cmd-q` | `state-save{windows=1, nodes=4}`; `state.json` holds `a`'s `count: 3`. |
+| Start again | `a` shows `count: 3`; `state given {node=a}`. |
+| Press `cmd-shift-n`, count `c` in the new window twice, quit, start | Both windows are back, each with its own counts and its own `user layer` count. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

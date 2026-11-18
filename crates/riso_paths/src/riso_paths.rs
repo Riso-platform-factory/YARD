@@ -13,3 +13,6 @@ mod write_atomic;
 pub use directories::*;
 pub use file_check::*;
 pub use write_atomic::*;
+
+#[cfg(feature = "dev")]
+mod dev;

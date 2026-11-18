@@ -55,7 +55,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -792,6 +795,8 @@ fn register_card(cx: &mut App, ext: &shell::Extension) {
 }
 
 fn register_card_as(cx: &mut App, ext: &shell::Extension, component: &str) {
+    #[cfg(feature = "dev")]
+    ext.register_state::<Card>(cx, component);
     let ext_for_factory = ext.clone();
     ext.register(cx, component, &["body"], move |node, slots, _, cx| {
         let card = cx.new(|_| Card {
@@ -1007,6 +1012,24 @@ impl Card {
     }
 }
 
+#[cfg(feature = "dev")]
+impl shell::NodeState for Card {
+    fn save_state(&self, _: &App) -> serde_json::Value {
+        serde_json::json!({"count": self.count})
+    }
+
+    fn restore_state(&mut self, state: serde_json::Value, _: &mut Window, _: &mut Context<Self>) {
+        if let Some(count) = state["count"]
+            .as_u64()
+            .and_then(|count| usize::try_from(count).ok())
+        {
+            self.count = count;
+        } else {
+            log::warn!("the count for card {} cannot be restored", self.node);
+        }
+    }
+}
+
 impl Render for Card {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let size = format!("{} × {}", self.size.width, self.size.height);
@@ -1138,9 +1161,13 @@ struct Controls {
 }
 
 impl Render for Controls {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering controls");
         let palette = riso_ui::palette(cx);
+        #[cfg(feature = "dev")]
+        let user_layer_len = shell::window_user_layer_len(_window, cx);
+        #[cfg(not(feature = "dev"))]
+        let user_layer_len = shell::user_layer_len(cx);
         div()
             .size_full()
             .flex()
@@ -1151,8 +1178,8 @@ impl Render for Controls {
             .bg(palette.background)
             .child(
                 div()
-                    .debug_selector(|| format!("USER-LAYER-{}", shell::user_layer_len(cx)))
-                    .child(format!("user layer: {}", shell::user_layer_len(cx))),
+                    .debug_selector(|| format!("USER-LAYER-{user_layer_len}"))
+                    .child(format!("user layer: {user_layer_len}")),
             )
             .children(self.buttons.iter().enumerate().map(|(index, button)| {
                 let label = (button.label)(cx);

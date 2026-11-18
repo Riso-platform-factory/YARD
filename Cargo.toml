@@ -16,6 +16,7 @@ ui = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f2184
 theme = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 zlog = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 riso_layout = { path = "crates/riso_layout", default-features = false }
+riso_state = { path = "crates/riso_state", default-features = false }
 riso_shell = { path = "crates/riso_shell", default-features = false }
 riso_log = { path = "crates/riso_log", default-features = false }
 riso_paths = { path = "crates/riso_paths", default-features = false }

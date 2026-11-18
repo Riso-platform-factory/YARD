@@ -4694,6 +4694,7 @@ dependencies = [
  "command_palette",
  "gpui",
  "gpui_platform",
+ "layout_tour",
  "riso_keymap",
  "riso_layout",
  "riso_log",
@@ -4775,10 +4776,22 @@ dependencies = [
  "riso_layout",
  "riso_paths",
  "riso_settings",
+ "riso_state",
  "riso_ui",
  "serde",
  "serde_json",
+ "tempfile",
  "tracing",
+]
+
+[[package]]
+name = "riso_state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

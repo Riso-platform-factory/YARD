@@ -15,6 +15,7 @@ Packaging turns an application built on risoapp into a product that a user insta
 - An engine never hardcodes what belongs to the product. Everything a package needs comes from the product config.
 - A package holds production code only. It is built without the `dev` feature, and the test of the stages must pass first.
 - A second channel, such as a preview beside the stable one, is a second product config. Its own name gives it its own directories and its own log files, so both can be installed side by side.
+- The packaging command is a shell script, `script/bundle-macos`, as Zed's `script/bundle-mac`. It has no stage and no unit test: the lead agent checks it by building the bundle, opening it, and reading its logs.
 
 ## How this roadmap is followed
 
@@ -42,10 +43,6 @@ Status is one of: planned, dev, production.
 | 3 | `open-urls` | The product config names a URL scheme. Opening such a URL starts the application, or reaches the one that is running, and an extension can handle it through its handle | `open riso://hello` shows the URL in the tour's card | `gpui`: `on_open_urls` | 2 | planned |
 | 4 | `update-check` | The application asks an address from the product config for the newest version, and tells the user when there is one | With a test server that offers a newer version, a message appears | `http_client`. `auto_update`, as reference | 2. Window engine: `toasts` | planned |
 | 5 | `update-install` | The application downloads the newer version, checks it, and installs it. The new version runs at the next start | The installed bundle replaces itself with the newer one from the test server | `auto_update`, as reference | 4 | planned |
-
-## Open decisions
-
-- **Where the packaging command lives.** It is code, so the coding agent writes it, and a wrong bundle reaches users. Proposed: a crate of its own, `tools/package`, run with `cargo run -p riso_package`, with stages like the engines. The other choice is a shell script, as Zed's `script/bundle-mac`, which has no tests and no stage.
 
 ## Later
 

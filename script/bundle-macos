@@ -2,9 +2,10 @@
 set -euo pipefail
 
 usage() {
-    printf 'Usage: %s [--config <product.toml>] [--out <folder>] [--dev [--env KEY=VALUE]...] [-h]\n' "$0"
+    printf 'Usage: %s [--config <product.toml>] [--out <folder>] [--dev [--env KEY=VALUE]...] [--zip] [-h]\n' "$0"
     printf 'Builds <name>.app from production code. Needs python3 3.11 or newer (tomllib).\n'
     printf 'With --dev, builds a review bundle with a different product name.\n'
+    printf 'With --zip, also writes <out>/<name>-<version>.zip, a release, and prints its sha256.\n'
 }
 
 step=arguments
@@ -16,11 +17,13 @@ die() {
 config=app/riso/product.toml
 out=dist
 dev=false
+zip=false
 bundle_env=()
 while (( $# )); do
     case "$1" in
         -h) usage; exit 0 ;;
         --dev) dev=true; shift ;;
+        --zip) zip=true; shift ;;
         --env)
             [[ "${2:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || die "$1 requires KEY=VALUE with a shell-style KEY"
             bundle_env+=("$2")
@@ -113,6 +116,11 @@ PY
 case "$name" in
     */*|.|..) die "$config: name must be a single path component" ;;
 esac
+if "$zip"; then
+    case "$version" in
+        */*|.|..) die "$config: version must be a single path component with --zip" ;;
+    esac
+fi
 icon="${config%/*}/$icon"
 destination="${out%/}/$name.app"
 
@@ -226,4 +234,17 @@ if [[ -e "$destination" || -L "$destination" ]]; then
     rename "$destination" "$temp_dir/previous"
 fi
 rename "$bundle" "$destination"
+if "$zip"; then
+    step=zip
+    printf '%s\n' "$step"
+    archive="${out%/}/$name-$version.zip"
+    # The bundle is published: a failure from here on must not put the
+    # previous one back.
+    rm -rf "$temp_dir/previous"
+    ditto -c -k --keepParent "$destination" "$temp_dir/release.zip"
+    # The digest comes from the staged zip, so no published zip lacks one.
+    digest=$(shasum -a 256 < "$temp_dir/release.zip" | cut -d' ' -f1)
+    rename "$temp_dir/release.zip" "$archive"
+    printf 'sha256 %s\n' "$digest"
+fi
 printf '%s\n' "$destination"

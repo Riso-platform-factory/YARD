@@ -1,5 +1,6 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &[];
+pub(crate) const UNDER_REVIEW: &[&str] =
+    &["riso_update/install", "riso_update/check", "riso/startup"];
 
 pub(crate) fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -23,14 +24,7 @@ pub(crate) fn run() -> bool {
         // SAFETY: the logger and GPUI have not started any threads yet.
         unsafe { std::env::set_var(variable, filter) };
     }
-    crate::startup::run(
-        product,
-        &[
-            ("review", announce),
-            ("command_palette", command_palette::init),
-        ],
-        crate::menus::menus,
-    );
+    super::startup::run(product, &[("review", announce)], crate::menus::menus);
     true
 }
 

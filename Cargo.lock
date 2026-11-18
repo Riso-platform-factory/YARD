@@ -5151,6 +5151,7 @@ dependencies = [
  "futures",
  "gpui",
  "http_client",
+ "libc",
  "log",
  "riso_product",
  "riso_shell",
@@ -5158,6 +5159,8 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
  "tracing",
 ]
 

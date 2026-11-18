@@ -403,14 +403,14 @@ fn node_state_logging_covers_the_contract_rows(cx: &mut TestAppContext) {
                 let save = stack.iter().position(|label| {
                     label.starts_with("state-save")
                         && label.contains("windows=1")
-                        && label.contains("nodes=3")
+                        && label.contains("nodes=4")
                 });
                 let write = stack.iter().position(|label| {
                     label.starts_with("file-write") && label.contains("state.json")
                 });
                 matches!((save, write), (Some(save), Some(write)) if save < write)
             }),
-            "no `state-save windows=1 nodes=3` holding `file-write`: {stacks:#?}"
+            "no `state-save windows=1 nodes=4` holding `file-write`: {stacks:#?}"
         );
 
         // A file that cannot be read ends `state-restore` with the `WARN`,

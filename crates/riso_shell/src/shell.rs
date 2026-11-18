@@ -1138,6 +1138,9 @@ struct WindowState {
     default_fixed: bool,
     splitting: bool,
     cycle_drop: Option<NodeId>,
+    /// The zoom saved at the last run, given once the window's views exist:
+    /// `Some(None)` is a saved `null`.
+    given_zoom: Option<Option<String>>,
 }
 
 impl Default for Registry {
@@ -1205,6 +1208,7 @@ impl Default for Registry {
                         scroll: ScrollHandle::new(),
                         scrolled_to: None,
                         seen_offset: Point::default(),
+                        pending: None,
                     });
                     window_state(cx).borrow_mut().tabs.push(tabs.downgrade());
                     tabs.into()
@@ -1444,6 +1448,7 @@ impl WindowState {
             default_fixed: false,
             splitting: false,
             cycle_drop: None,
+            given_zoom: None,
         }
     }
 }
@@ -2434,6 +2439,9 @@ struct Tabs {
     scrolled_to: Option<(NodeId, usize)>,
     /// The bar's offset at the end of the last layout or wheel event.
     seen_offset: Point<Pixels>,
+    /// The ID of the tab saved at the last run, waiting for the decision:
+    /// selected if it has a tab then. An item copy's ID is matched as written.
+    pending: Option<String>,
 }
 
 impl Tabs {
@@ -2478,13 +2486,35 @@ impl Tabs {
         }
     }
 
+    /// Selects the saved tab if it is among `nodes`, the children with a
+    /// tab now. Otherwise it waits, or, when `last`, the first of `nodes` is
+    /// selected. Logs the decision once.
+    fn give_pending(&mut self, nodes: &[NodeId], last: bool) {
+        let Some(pending) = self.pending.as_deref() else {
+            return;
+        };
+        if let Some(node) = nodes.iter().find(|node| node.as_str() == pending) {
+            tracing::debug!(tabs = %self.node, tab = %node, "tab given");
+            self.selected = Some(node.clone());
+        } else if last {
+            tracing::debug!(tabs = %self.node, tab = pending, "saved tab has no tab");
+            self.selected = nodes.first().cloned();
+        } else {
+            return;
+        }
+        self.pending = None;
+        self.reselect = false;
+    }
+
     fn select(&mut self, node: NodeId, cx: &mut Context<Self>) {
+        self.pending = None;
         if self.selected.as_ref() == Some(&node) {
             return;
         }
         self.selected = Some(node.clone());
         cx.notify();
         tracing::debug!(tabs = %self.node, tab = %node, "tab selected");
+        state_changed(cx);
     }
 }
 
@@ -2492,7 +2522,9 @@ impl Render for Tabs {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let _window_scope = window_context(window, cx);
         let nodes = self.shown(cx, Emptiness::Layout);
-        if std::mem::take(&mut self.reselect) {
+        if self.pending.is_some() {
+            self.give_pending(&nodes, true);
+        } else if std::mem::take(&mut self.reselect) {
             self.selected = nodes.first().cloned();
         } else {
             self.select_shown(&nodes);
@@ -5140,12 +5172,13 @@ impl Extension {
                 .insert(from.to_string(), layers.user_layer().to_vec());
             (before, props, components)
         };
+        let zoom_cleared;
         {
             let state_handle = window_state(cx);
             let mut layout_state = state_handle.borrow_mut();
             let registry = cx.default_global::<Registry>();
             layout_state.failed_views.clear();
-            layout_state.zoomed = None;
+            zoom_cleared = layout_state.zoomed.take().is_some();
             layout_state.shown_layout = name.to_string().into();
             layout_state.named_nodes.clear();
             *layout_state.tree.borrow_mut() = Layers::new(layout_state.startup_tree.clone());
@@ -5290,6 +5323,9 @@ impl Extension {
         let dropped = before.len() - kept;
         let created = after.len() - kept;
         tracing::debug!(kept, dropped, created, "switched");
+        if zoom_cleared {
+            state_changed(cx);
+        }
         notify_layout(cx);
         super::session::layout_changed(cx);
         window.refresh();
@@ -5505,42 +5541,22 @@ impl Extension {
 
         let state_handle = window_state(cx);
         let mut layout_state = state_handle.borrow_mut();
-        {
-            let tree_handle = layout_state.tree.clone();
-            let layers = tree_handle.borrow();
-            let tree = layers.current();
-            if component_of(tree, &id).is_none() {
-                tracing::info!("the node is not in the tree");
-                return;
-            }
-            if is_frame_node(&id) {
-                tracing::info!("the window's frame belongs to the shell");
-                return;
-            }
-            if !is_in_body(tree, &id) {
-                tracing::info!("only a node in the body can be zoomed");
-                return;
-            }
-            if layout_state.extension_root.as_ref() == Some(&id) {
-                tracing::info!("the root already fills the body");
-                return;
-            }
-            if !is_shown(tree, &id) {
-                tracing::info!("the node is hidden or under a hidden node");
-                return;
-            }
-        }
-        if layout_state.views_created && !layout_state.views.borrow().contains_key(&id) {
-            tracing::info!("the node has no view");
+        if let Some(reason) = zoom_refusal(&layout_state, &id) {
+            tracing::info!("{reason}");
             return;
         }
-        if let Some(previous) = layout_state.zoomed.replace(id.clone())
-            && previous != id
+        let previous = layout_state.zoomed.replace(id.clone());
+        if let Some(previous) = &previous
+            && *previous != id
         {
             tracing::debug!(previous = %previous, "replaced");
         }
         tracing::debug!(node, "zoomed");
+        drop(layout_state);
         cx.refresh_windows();
+        if previous.as_ref() != Some(&id) {
+            view_state_changed(cx);
+        }
     }
 
     /// Restores the tree with its existing views, shares, and tab selection.
@@ -5557,6 +5573,7 @@ impl Extension {
         };
         tracing::debug!(node = %node, "zoomed out");
         cx.refresh_windows();
+        view_state_changed(cx);
     }
 
     /// Drops runtime operations and reconciles the default tree and view state.
@@ -5657,15 +5674,19 @@ impl Extension {
             teller(&props, cx);
         }
         sync_items(window, cx, false);
-        let (splits, tabs) = {
+        let (splits, tabs, zoom_cleared) = {
             let state_handle = window_state(cx);
             let mut layout_state = state_handle.borrow_mut();
             layout_state
                 .splits
                 .retain(|split| split.upgrade().is_some());
             layout_state.tabs.retain(|tabs| tabs.upgrade().is_some());
-            layout_state.zoomed = None;
-            (layout_state.splits.clone(), layout_state.tabs.clone())
+            let zoom_cleared = layout_state.zoomed.take().is_some();
+            (
+                layout_state.splits.clone(),
+                layout_state.tabs.clone(),
+                zoom_cleared,
+            )
         };
         for split in splits {
             // The shares stay as read from the props, which the tellers updated.
@@ -5680,6 +5701,9 @@ impl Extension {
             let _ = tabs.update(cx, |tabs, cx| {
                 tabs.choose_first(cx);
             });
+        }
+        if zoom_cleared {
+            state_changed(cx);
         }
         cx.refresh_windows();
         save(cx);
@@ -6832,6 +6856,7 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
         registry.ever_opened = true;
         remember_active(registry, id);
     }
+    register_shell_states(cx);
     super::session::window_opened(window, cx);
     let pending_states = state_window_opened(
         cx,
@@ -6865,6 +6890,9 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
     {
         let mut state = owned_state.borrow_mut();
         state.views_created = true;
+        if let Some(given) = state.given_zoom.take() {
+            give_zoom(&mut state, given);
+        }
         let invalid = state.zoomed.as_ref().is_some_and(|node| {
             let tree = state.tree.borrow();
             !state.views.borrow().contains_key(node)
@@ -6882,6 +6910,18 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
         notify_layout(cx);
     }
     reconcile_containers(cx);
+    // The saved tabs are given once the window's views and item copies
+    // exist, also to a container a zoom keeps from being drawn; a tab that
+    // has none yet waits for its container's first layout.
+    let tabs = owned_state.borrow().tabs.clone();
+    for tabs in tabs {
+        let _ = tabs.update(cx, |tabs, cx| {
+            if tabs.pending.is_some() {
+                let nodes = tabs.shown(cx, Emptiness::Ask);
+                tabs.give_pending(&nodes, false);
+            }
+        });
+    }
     state_changed(cx);
     let toast_layer = cx.new(|_| riso_ui::ToastLayer::new());
     let modal_layer = cx.new(|_| riso_ui::ModalLayer::new());
@@ -7477,6 +7517,132 @@ fn restore_view_state(node: &Node, view: &AnyView, window: &mut Window, cx: &mut
     };
     (registration.restore)(view, saved.state, window, cx);
     tracing::debug!(node = %node.id, "state given");
+}
+
+/// The shell keeps the state of its own containers as an extension keeps a
+/// node's: the tab a tabs container shows, and the node that fills the window.
+fn register_shell_states(cx: &mut App) {
+    let shell_states = [
+        (
+            "riso.tabs",
+            StateRegistration {
+                view_type: TypeId::of::<Tabs>(),
+                save: |view, cx| {
+                    let tabs = view
+                        .clone()
+                        .downcast::<Tabs>()
+                        .expect("checked state view type");
+                    let tabs = tabs.read(cx);
+                    let selected = tabs
+                        .pending
+                        .as_deref()
+                        .or(tabs.selected.as_ref().map(NodeId::as_str));
+                    serde_json::json!({ "selected": selected })
+                },
+                restore: |view, state, _, cx| {
+                    let tabs = view
+                        .clone()
+                        .downcast::<Tabs>()
+                        .expect("checked state view type");
+                    tabs.update(cx, |tabs, _| {
+                        if let Some(saved) = read_view_state(&tabs.node, &state, "selected") {
+                            tabs.pending = saved;
+                        }
+                    });
+                },
+            },
+        ),
+        (
+            "riso.window",
+            StateRegistration {
+                view_type: TypeId::of::<WindowFrame>(),
+                save: |_, cx| {
+                    let zoomed =
+                        try_window_state(cx).and_then(|state| state.borrow().zoomed.clone());
+                    serde_json::json!({ "zoomed": zoomed.as_ref().map(NodeId::as_str) })
+                },
+                restore: |_, state, _, cx| {
+                    let node = NodeId::parse("window").unwrap();
+                    if let Some(given) = read_view_state(&node, &state, "zoomed") {
+                        window_state(cx).borrow_mut().given_zoom = Some(given);
+                    }
+                },
+            },
+        ),
+    ];
+    for (component, registration) in shell_states {
+        let component = ComponentId::parse(component).unwrap();
+        let registry = cx.default_global::<Registry>();
+        if registry.states.contains_key(&component) {
+            continue;
+        }
+        let _group = tracing::info_span!("state-register", component = %component).entered();
+        registry.states.insert(component, registration);
+        tracing::debug!("registered");
+    }
+}
+
+/// Reads `{"<key>": "<node ID>" | null}`; `None` when it cannot be read,
+/// after a warning, so that the default is kept.
+fn read_view_state(node: &NodeId, state: &serde_json::Value, key: &str) -> Option<Option<String>> {
+    let read = match state.get(key) {
+        Some(serde_json::Value::Null) => Some(None),
+        Some(serde_json::Value::String(value)) => Some(Some(value.clone())),
+        _ => None,
+    };
+    if read.is_none() {
+        log::warn!("the saved state of node {node} cannot be read: {state}");
+    }
+    read
+}
+
+/// Why a node cannot be zoomed now, if it cannot: a node in the body, not
+/// its root, shown, and with a view once the window's views exist.
+fn zoom_refusal(state: &WindowState, id: &NodeId) -> Option<&'static str> {
+    let layers = state.tree.borrow();
+    let tree = layers.current();
+    if component_of(tree, id).is_none() {
+        Some("the node is not in the tree")
+    } else if is_frame_node(id) {
+        Some("the window's frame belongs to the shell")
+    } else if !is_in_body(tree, id) {
+        Some("only a node in the body can be zoomed")
+    } else if state.extension_root.as_ref() == Some(id) {
+        Some("the root already fills the body")
+    } else if !is_shown(tree, id) {
+        Some("the node is hidden or under a hidden node")
+    } else if state.views_created && !state.views.borrow().contains_key(id) {
+        Some("the node has no view")
+    } else {
+        None
+    }
+}
+
+/// Replaces the extension's starting zoom with the saved one, if the saved
+/// node can be zoomed now, as `set_zoomed` allows.
+fn give_zoom(state: &mut WindowState, given: Option<String>) {
+    let Some(saved) = given else {
+        state.zoomed = None;
+        return;
+    };
+    let node = NodeId::parse(&saved)
+        .ok()
+        .filter(|node| zoom_refusal(state, node).is_none());
+    if let Some(node) = node {
+        tracing::debug!(node = %node, "zoom given");
+        state.zoomed = Some(node);
+    } else {
+        tracing::debug!(node = %saved, "saved zoom not given");
+        state.zoomed = None;
+    }
+}
+
+/// A zoom in or out by the user: save it soon. The starting zoom an
+/// extension sets before any window opens is not saved for itself.
+fn view_state_changed(cx: &mut App) {
+    if selected_window(cx).is_some() {
+        state_changed(cx);
+    }
 }
 
 fn session_window_state(cx: &App, id: gpui::WindowId) -> Option<Rc<RefCell<WindowState>>> {

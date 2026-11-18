@@ -300,7 +300,7 @@ fn save_on_change_logging(cx: &mut TestAppContext) {
                 let save = stack.iter().position(|label| {
                     label.starts_with("state-save")
                         && label.contains("windows=1")
-                        && label.contains("nodes=3")
+                        && label.contains("nodes=4")
                         && label.contains("reason=change")
                 });
                 let write = stack.iter().position(|label| {
@@ -308,7 +308,7 @@ fn save_on_change_logging(cx: &mut TestAppContext) {
                 });
                 matches!((save, write), (Some(save), Some(write)) if save < write)
             }),
-            "no `state-save{{windows=1, nodes=3, reason=change}}` holding `file-write`: {stacks:#?}"
+            "no `state-save{{windows=1, nodes=4, reason=change}}` holding `file-write`: {stacks:#?}"
         );
 
         // Quitting writes once more: `state-save{reason=quit}` holding
@@ -322,7 +322,7 @@ fn save_on_change_logging(cx: &mut TestAppContext) {
                 let save = stack.iter().position(|label| {
                     label.starts_with("state-save")
                         && label.contains("windows=1")
-                        && label.contains("nodes=3")
+                        && label.contains("nodes=4")
                         && label.contains("reason=quit")
                 });
                 let write = stack.iter().position(|label| {
@@ -330,7 +330,7 @@ fn save_on_change_logging(cx: &mut TestAppContext) {
                 });
                 matches!((save, write), (Some(save), Some(write)) if save < write)
             }),
-            "no `state-save{{windows=1, nodes=3, reason=quit}}` holding `file-write`: {stacks:#?}"
+            "no `state-save{{windows=1, nodes=4, reason=quit}}` holding `file-write`: {stacks:#?}"
         );
         assert!(errors().is_empty(), "{:?}", errors());
     });

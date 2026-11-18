@@ -424,9 +424,19 @@ The card says when its count changed, and the states are saved a short time late
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-soc LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` ten times quickly | One `state-save{windows=1, nodes=4, reason=change}` after the clicks stop. Clicks spread over more than 2 s save once more in between. |
+| `RISO_HOME=/tmp/riso-soc LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` ten times quickly | One `state-save{windows=1, reason=change}` after the clicks stop. Clicks spread over more than 2 s save once more in between. |
 | End the process with `kill -9` | `state.json` holds `a`'s `count: 10`. |
 | Start again | `a` shows `count: 10`; `state given {node=a}`. |
+
+### State feature 3: view-state
+
+The shell's own containers keep their state as the cards do: each tabs container its selected tab, and the window the node that fills it. Use a fresh home: `RISO_HOME=/tmp/riso-view`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-view LAYOUT_TOUR=user-layer cargo run dev`, select the tab `d`, click `zoom` on `d`, quit | `state.json` holds `right`: `{"selected": "d"}` and `window`: `{"zoomed": "d"}`. |
+| Start again | `d` fills the window; `zoom given {node=d}` and `tab given {tabs=right, tab=d}`. Click `zoom` again: `d` is the selected tab of `right`. |
+| Zoom out, select `c`, end the process with `kill -9`, start | `c` is selected, nothing is zoomed. |
 
 ## Keymap feature 1: focused-node
 

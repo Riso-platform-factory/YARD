@@ -57,3 +57,5 @@ target/
 
 # Review sheets for parts: written for the user, not kept in git.
 docs/review/
+
+dist/

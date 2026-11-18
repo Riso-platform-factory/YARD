@@ -1,5 +1,8 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, WindowOptions, px};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 
 #[gpui::test]
 fn each_window_draws_its_own_user_layer_count(cx: &mut TestAppContext) {

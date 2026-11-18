@@ -160,6 +160,7 @@ fn visibility_controls_keep_the_count(cx: &mut gpui::TestAppContext) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -255,6 +256,7 @@ fn operations_controls_apply_and_refuse_through_clicks(cx: &mut gpui::TestAppCon
         let handle = ext.clone();
         ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
             cx.new(|_| Controls {
+                starts: None,
                 buttons: buttons.clone(),
                 ext: handle.clone(),
             })

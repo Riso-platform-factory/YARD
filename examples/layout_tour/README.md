@@ -438,6 +438,16 @@ The shell's own containers keep their state as the cards do: each tabs container
 | Start again | `d` fills the window; `zoom given {node=d}` and `tab given {tabs=right, tab=d}`. Click `zoom` again: `d` is the selected tab of `right`. |
 | Zoom out, select `c`, end the process with `kill -9`, start | `c` is selected, nothing is zoomed. |
 
+### State feature 4: extension-store
+
+The tour keeps a value of its own, outside any node: in the case `user-layer`, the controls show `starts: N`, and each start adds one to the tour's stored `starts`. Use a fresh home: `RISO_HOME=/tmp/riso-store`.
+
+| Command and action | What to look for |
+|---|---|
+| `RISO_HOME=/tmp/riso-store LAYOUT_TOUR=user-layer cargo run dev` | `starts: 1`; `store-read{extension=layout_tour}` with `no saved values`, then `store-save{extension=layout_tour, keys=1, reason=change}`. |
+| Quit, start again | `starts: 2`; `read {keys=1}`; `store/layout_tour.json` holds `"starts": 2`. |
+| End the process with `kill -9` after a second, start again | `starts: 3`. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

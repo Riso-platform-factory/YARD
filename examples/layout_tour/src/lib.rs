@@ -55,7 +55,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -76,6 +79,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -140,6 +144,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -204,6 +209,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -246,6 +252,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -289,6 +296,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -323,6 +331,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -359,6 +368,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -415,6 +425,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -470,6 +481,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -505,6 +517,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -526,6 +539,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -570,6 +584,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -584,6 +599,18 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         }
         "user-layer" => {
             register_card(cx, ext);
+            #[cfg(feature = "dev")]
+            let starts = {
+                let count = ext
+                    .stored(cx, "starts")
+                    .and_then(|value| value.as_u64())
+                    .unwrap_or_default()
+                    .saturating_add(1);
+                ext.store(cx, "starts", count.into());
+                Some(count)
+            };
+            #[cfg(not(feature = "dev"))]
+            let starts = None;
             let buttons = vec![
                 Button::action("hide d", |ext, _, cx| ext.set_hidden(cx, "d", true)),
                 Button::action("reset layout", |ext, window, cx| {
@@ -593,6 +620,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -627,6 +655,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -650,6 +679,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             let handle = ext.clone();
             ext.register(cx, "layout_tour.controls", &[], move |_, _, _, cx| {
                 cx.new(|_| Controls {
+                    starts: None,
                     buttons: buttons.clone(),
                     ext: handle.clone(),
                 })
@@ -1152,6 +1182,7 @@ impl Button {
 }
 
 struct Controls {
+    starts: Option<u64>,
     buttons: Vec<Button>,
     ext: shell::Extension,
 }
@@ -1173,6 +1204,10 @@ impl Render for Controls {
                 div()
                     .debug_selector(|| format!("USER-LAYER-{user_layer_len}"))
                     .child(format!("user layer: {user_layer_len}")),
+            )
+            .children(
+                self.starts
+                    .map(|starts| div().child(format!("starts: {starts}"))),
             )
             .children(self.buttons.iter().enumerate().map(|(index, button)| {
                 let label = (button.label)(cx);

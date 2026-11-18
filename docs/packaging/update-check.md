@@ -22,10 +22,16 @@ A new core crate, `riso_update`, with its first part `riso_update/check` in dev.
 // riso_update::dev
 /// Starts checking `url` for a version newer than `product`'s, showing its
 /// toast through `extension`.
-pub fn start(cx: &mut App, extension: &riso_shell::Extension, product: riso_product::Product, url: &str);
+pub fn start(
+    cx: &mut App,
+    extension: &riso_shell::Extension,
+    product: riso_product::Product,
+    url: &str,
+    client: std::sync::Arc<dyn http_client::HttpClient>,
+);
 ```
 
-A toast is shown through an extension handle, as every toast is, so the startup creates a handle named `update` for it, after the listed extensions.
+The startup gives the real client (`reqwest_client`); a test gives Zed's `http_client::FakeHttpClient` (feature `test-support`). A toast is shown through an extension handle, as every toast is, so the startup creates a handle named `update` for it, after the listed extensions.
 
 ## Logging
 

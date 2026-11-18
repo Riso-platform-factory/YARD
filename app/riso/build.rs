@@ -1,4 +1,7 @@
-use std::{env, fs, path::PathBuf};
+#[path = "build_support.rs"]
+mod build_support;
+
+use std::{env, path::PathBuf};
 
 fn main() {
     println!("cargo:rerun-if-env-changed=PRODUCT_CONFIG");
@@ -7,27 +10,11 @@ fn main() {
         PathBuf::from,
     );
     println!("cargo:rerun-if-changed={}", path.display());
-    let text = fs::read_to_string(&path).unwrap_or_else(|error| {
-        panic!("could not read product config {}: {error}", path.display())
-    });
-    let config: toml::Table = toml::from_str(&text)
-        .unwrap_or_else(|error| panic!("invalid product config {}: {error}", path.display()));
-    for (key, variable) in [("name", "PRODUCT_NAME"), ("version", "PRODUCT_VERSION")] {
-        let value = config
-            .get(key)
-            .and_then(toml::Value::as_str)
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| {
-                panic!(
-                    "product config {}: {key} must be a non-empty string",
-                    path.display()
-                )
-            });
-        assert!(
-            !value.contains(['\r', '\n']),
-            "product config {}: {key} must not contain line breaks",
-            path.display()
-        );
-        println!("cargo:rustc-env={variable}={value}");
-    }
+    let config =
+        build_support::read_product_config(&path).unwrap_or_else(|error| panic!("{error}"));
+    println!("cargo:rerun-if-changed={}", config.icon.display());
+    println!("cargo:rustc-env=PRODUCT_NAME={}", config.name);
+    println!("cargo:rustc-env=PRODUCT_VERSION={}", config.version);
+    println!("cargo:rustc-env=PRODUCT_IDENTIFIER={}", config.identifier);
+    println!("cargo:rustc-env=PRODUCT_ICON={}", config.icon.display());
 }

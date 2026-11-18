@@ -19,6 +19,7 @@ riso_layout = { path = "crates/riso_layout", default-features = false }
 riso_state = { path = "crates/riso_state", default-features = false }
 riso_shell = { path = "crates/riso_shell", default-features = false }
 riso_log = { path = "crates/riso_log", default-features = false }
+riso_product = { path = "crates/riso_product", default-features = false }
 riso_paths = { path = "crates/riso_paths", default-features = false }
 riso_ui = { path = "crates/riso_ui", default-features = false }
 riso_settings = { path = "crates/riso_settings", default-features = false }

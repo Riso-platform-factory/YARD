@@ -7,7 +7,7 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["riso_log/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "riso_settings/dev", "riso_keymap/dev", "command_palette/dev"]
+dev = ["riso_log/dev", "riso_product/dev", "riso_paths/dev", "riso_ui/dev", "riso_layout/dev", "riso_shell/dev", "riso_settings/dev", "riso_keymap/dev", "command_palette/dev"]
 
 [dependencies]
 gpui.workspace = true
@@ -16,6 +16,7 @@ gpui_platform.workspace = true
 riso_layout = { workspace = true, default-features = false }
 riso_shell = { workspace = true, default-features = false }
 riso_log = { workspace = true, default-features = false }
+riso_product = { workspace = true, default-features = false }
 riso_paths = { workspace = true, default-features = false }
 riso_ui = { workspace = true, default-features = false }
 riso_settings = { workspace = true, default-features = false }
@@ -26,6 +27,8 @@ command_palette = { workspace = true, default-features = false }
 
 [dev-dependencies]
 serde_json.workspace = true
+tempfile.workspace = true
+toml.workspace = true
 
 [build-dependencies]
 toml.workspace = true

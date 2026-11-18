@@ -11,10 +11,11 @@ path = "src/riso_log.rs"
 [features]
 default = ["dev"]
 # Compiles the parts that are not in production.
-dev = []
+dev = ["riso_product/dev"]
 
 [dependencies]
 gpui.workspace = true
+riso_product.workspace = true
 zlog.workspace = true
 log.workspace = true
 tracing.workspace = true

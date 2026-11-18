@@ -38,7 +38,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What can be seen | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 1 | `product-identity` | The product config gains an identifier, in reverse-domain form, and an icon. The product and the names derived from it move into a crate without GPUI that every engine can use. It removes `TODO(product-identity)` | The first line of the log names the identifier | none | none | planned |
+| 1 | `product-identity` | The product config gains an identifier, in reverse-domain form, and an icon. The product and the names derived from it move into a crate without GPUI that every engine can use. It removes `TODO(product-identity)` | The first line of the log names the identifier | none | none | dev |
 | 2 | `bundle-macos` | One command builds `<Name>.app` from production code only, with the product's name, identifier, version, and icon | The bundle opens from the Finder under its own name and icon, and writes its logs in the product's directory | `script/bundle-mac`, as reference | 1 | planned |
 | 3 | `open-urls` | The product config names a URL scheme. Opening such a URL starts the application, or reaches the one that is running, and an extension can handle it through its handle | `open riso://hello` shows the URL in the tour's card | `gpui`: `on_open_urls` | 2 | planned |
 | 4 | `update-check` | The application asks an address from the product config for the newest version, and tells the user when there is one | With a test server that offers a newer version, a message appears | `http_client`. `auto_update`, as reference | 2. Window engine: `toasts` | planned |

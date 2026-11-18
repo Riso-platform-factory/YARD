@@ -4698,10 +4698,12 @@ dependencies = [
  "riso_layout",
  "riso_log",
  "riso_paths",
+ "riso_product",
  "riso_settings",
  "riso_shell",
  "riso_ui",
  "serde_json",
+ "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
 ]
@@ -4735,6 +4737,7 @@ dependencies = [
  "gpui",
  "libc",
  "log",
+ "riso_product",
  "serde",
  "serde_json",
  "tempfile",
@@ -4751,6 +4754,13 @@ dependencies = [
  "dirs",
  "log",
  "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "riso_product"
+version = "0.1.0"
+dependencies = [
  "tracing",
 ]
 

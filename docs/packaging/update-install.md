@@ -34,6 +34,9 @@ When feature 4 finds a newer version, the application downloads it, checks it, a
 pub fn start(cx: &mut App, extension: &riso_shell::Extension, product: riso_product::Product, url: &str, client: Arc<dyn http_client::HttpClient>);
 /// The bundle to replace, from the running executable, or why there is none.
 pub fn running_bundle() -> Result<PathBuf, String>;
+/// Downloads, checks, and installs a release over `bundle`, as the running
+/// application does after it finds a newer version; tests call it directly.
+pub async fn install(client: Arc<dyn http_client::HttpClient>, bundle: PathBuf, name: &str, identifier: &str, version: &str, release_url: &str, sha256: &str) -> Result<(), String>;
 ```
 
 ## Logging

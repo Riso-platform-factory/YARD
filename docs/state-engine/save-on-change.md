@@ -8,6 +8,7 @@ A component says when its state changed, and the states are saved a short time l
 
 - **Saying it changed.** A view whose component registered state (feature 1) calls `riso_shell::state_changed(cx)` after its state changes, as the card does after a click.
 - **When it is saved.** The save waits until no change has come for 300 ms, and never longer than 2 s after the first change of a burst, so that a steady stream of changes still saves every 2 s. It saves what feature 1 saves: every window's states in the session's order, with the states still waiting. A change while a save is being written queues one more save after it.
+- **Windows opening and closing** count as changes too: the session (window engine feature 10) writes its windows when one opens or closes, and the state file follows it with the same wait, so that after a crash the `i`-th window of both files is still the same window.
 - **Quitting** writes once more, as feature 1 does, and cancels a save that is waiting, so that the file is written once at quit.
 - **Crashes.** A process that ends without quitting keeps the last state written: at most the last 2 s of changes are lost.
 - **Off the main thread.** The file is written on the background executor, inside its group, as the session and the window bounds are.
@@ -43,7 +44,8 @@ pub fn state_changed(cx: &mut App);
   - changes every 100 ms for 5 s write the file about every 2 s, never more often;
   - the file written after the wait holds the latest states, and a new run from it gives them back (feature 1) without a quit;
   - a change while a save is being written leads to one more save with the newer state;
-  - quitting with a save waiting writes the file once.
+  - quitting with a save waiting writes the file once;
+  - closing one of two windows leads to a save whose windows match the session's.
 - **Logging**, alone in its file: `state changed` at `trace`; `state-save{reason=change}` after the wait and `state-save{reason=quit}` at quit, each holding `file-write`.
 
 ## Test extension: `examples/layout_tour`

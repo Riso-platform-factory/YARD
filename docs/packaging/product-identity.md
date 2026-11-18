@@ -41,7 +41,7 @@ impl Product {
 | The startup builds the product | A group `product{name, version, identifier}`, `debug` `checked`. An identifier of the wrong form is an `ERROR` there (the build refuses it first, so it means a bug) |
 | The start of a run | `run-start <name> <version> <identifier> (<os>)`, and the diagnostic log's `<name> <version> (<identifier>) starting` |
 
-`riso_product` logs before `riso_log::start` runs: what it logs is kept as the earliest lines are kept today.
+`riso_log::start` needs the product, and no trace is listening before it runs. So the startup starts the logs with the build values as they are, then builds the product with `Product::new` right after, inside `app-startup`, so that its group is in the trace; the checked product is the one used from then on. The build script refuses an identifier of the wrong form first, so both have the same values.
 
 ## Where the code changes
 

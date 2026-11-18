@@ -448,6 +448,17 @@ The tour keeps a value of its own, outside any node: in the case `user-layer`, t
 | Quit, start again | `starts: 2`; `read {keys=1}`; `store/layout_tour.json` holds `"starts": 2`. |
 | End the process with `kill -9` after a second, start again | `starts: 3`. |
 
+### Packaging feature 3: open-urls
+
+In the case `user-layer`, the tour handles the URLs that name it and its controls show `url: <last URL>`. macOS sends URLs only to a bundle, so this case runs from a dev bundle with its own name and scheme (`riso-check`), never the real ones. Make a config `/tmp/riso-check.toml` with `name = "riso-check"`, `version = "0.1.0"`, `identifier = "vn.risotech.riso-check"`, `icon = "icon.png"` (copy `app/riso/icon.png` to `/tmp/icon.png`: the icon's path is relative to the config), and `url_scheme = "riso-check"`.
+
+| Command and action | What to look for |
+|---|---|
+| `script/bundle-macos --dev --env RISO_CHECK_HOME=/tmp/riso-urls --env LAYOUT_TOUR=user-layer --config /tmp/riso-check.toml`, then `open dist/riso-check.app` | The tour's window, with its home in `/tmp/riso-urls`. |
+| `open "riso-check://layout_tour/hello?token=secret"` | The controls show `url: riso-check://layout_tour/hello?token=secret`; no second copy starts; the log has `url-open{scheme=riso-check, host=layout_tour}` and `handled`, and no `secret`. |
+| Quit, then `open "riso-check://layout_tour/first"` | The application starts and shows `url: riso-check://layout_tour/first`, with `kept until extensions load` and `handed over {count=1}`. |
+| `open "riso-check://nobody/x"` | `refused` with the reason that no extension is named `nobody`. |
+
 ## Keymap feature 1: focused-node
 
 The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.

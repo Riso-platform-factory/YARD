@@ -8,6 +8,7 @@ pub struct ProductConfig {
     pub name: String,
     pub version: String,
     pub identifier: String,
+    pub url_scheme: String,
     /// The icon's absolute path.
     pub icon: PathBuf,
 }
@@ -41,6 +42,18 @@ pub fn read_product_config(path: &Path) -> Result<ProductConfig, String> {
             "product config {file}: `identifier` {identifier:?} must be at least two labels \
              separated by dots, each of ASCII letters, digits, and `-`, not starting or ending \
              with `-`"
+        ));
+    }
+    let url_scheme = string("url_scheme")?;
+    let mut characters = url_scheme.chars();
+    if !characters.next().is_some_and(|c| c.is_ascii_lowercase())
+        || !characters
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '+' | '-' | '.'))
+    {
+        return Err(format!(
+            "product config {file}: `url_scheme` {url_scheme:?} is invalid. It must \
+             begin with a lowercase ASCII letter and contain only lowercase ASCII letters, \
+             digits, '+', '-', or '.'"
         ));
     }
     let icon = string("icon")?;
@@ -79,6 +92,7 @@ pub fn read_product_config(path: &Path) -> Result<ProductConfig, String> {
         name,
         version,
         identifier,
+        url_scheme,
         icon,
     })
 }

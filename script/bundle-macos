@@ -2,8 +2,9 @@
 set -euo pipefail
 
 usage() {
-    printf 'Usage: %s [--config <product.toml>] [--out <folder>] [-h]\n' "$0"
+    printf 'Usage: %s [--config <product.toml>] [--out <folder>] [--dev [--env KEY=VALUE]...] [-h]\n' "$0"
     printf 'Builds <name>.app from production code. Needs python3 3.11 or newer (tomllib).\n'
+    printf 'With --dev, builds a review bundle with a different product name.\n'
 }
 
 step=arguments
@@ -14,9 +15,17 @@ die() {
 
 config=app/riso/product.toml
 out=dist
+dev=false
+bundle_env=()
 while (( $# )); do
     case "$1" in
         -h) usage; exit 0 ;;
+        --dev) dev=true; shift ;;
+        --env)
+            [[ "${2:-}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || die "$1 requires KEY=VALUE with a shell-style KEY"
+            bundle_env+=("$2")
+            shift 2
+            ;;
         --config|--out)
             [[ -n "${2:-}" && "$2" != -* ]] || die "$1 requires a path"
             if [[ "$1" == --config ]]; then
@@ -29,6 +38,9 @@ while (( $# )); do
         *) die "unknown argument: $1 (use -h for usage)" ;;
     esac
 done
+if ! "$dev" && [[ -n "${bundle_env[0]:-}" ]]; then
+    die "--env requires --dev"
+fi
 [[ "$config" == /* ]] || config="$PWD/$config"
 [[ "$out" == /* ]] || out="$PWD/$out"
 
@@ -59,24 +71,36 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 step=config
-values=$(python3 - "$config" <<'PY'
+values=$(python3 - "$config" "$dev" <<'PY'
+import re
 import sys
 import tomllib
 
-path = sys.argv[1]
-try:
-    with open(path, "rb") as source:
-        config = tomllib.load(source)
-except (OSError, ValueError) as error:
-    sys.exit(f"{path}: {error}")
+def read_config(path):
+    try:
+        with open(path, "rb") as source:
+            return tomllib.load(source)
+    except (OSError, ValueError) as error:
+        sys.exit(f"{path}: {error}")
 
-for key in ("name", "version", "identifier", "icon"):
+path, dev = sys.argv[1:]
+config = read_config(path)
+for key in ("name", "version", "identifier", "icon", "url_scheme"):
     value = config.get(key)
     if not isinstance(value, str) or not value.strip():
         sys.exit(f"{path}: missing non-empty `{key}`")
     if any(character in value for character in ("\r", "\n", "\0")):
         sys.exit(f"{path}: `{key}` must fit on one line")
+    if key == "url_scheme" and not re.fullmatch(r"[a-z][a-z0-9+.\-]*", value):
+        sys.exit(f"{path}: invalid `url_scheme`")
     print(value)
+if dev == "true":
+    # A review bundle must never take the real product's name, directories,
+    # identifier, or URL scheme; macOS compares these without case.
+    real = read_config("app/riso/product.toml")
+    for key in ("name", "identifier", "url_scheme"):
+        if str(config[key]).lower() == str(real.get(key, "")).lower():
+            sys.exit(f"{path}: --dev requires a `{key}` different from the production product's")
 PY
 )
 {
@@ -84,6 +108,7 @@ PY
     IFS= read -r version
     IFS= read -r identifier
     IFS= read -r icon
+    IFS= read -r url_scheme
 } <<< "$values"
 case "$name" in
     */*|.|..) die "$config: name must be a single path component" ;;
@@ -99,8 +124,13 @@ step=build
 printf '%s\n' "$step"
 # The binary's path comes from this build's own report, not from a guessed
 # target folder, so a stale binary of another target is never bundled.
+if "$dev"; then
+    set --
+else
+    set -- --no-default-features
+fi
 binary=$(PRODUCT_CONFIG="$config" cargo build --release -p riso --bin riso \
-        --no-default-features --message-format=json-render-diagnostics |
+        "$@" --message-format=json-render-diagnostics |
     python3 -c '
 import json, sys
 paths = [m["executable"] for m in map(json.loads, sys.stdin)
@@ -128,11 +158,21 @@ printf '%s\n' "$step"
 bundle="$temp_dir/$name.app"
 contents="$bundle/Contents"
 mkdir -p "$contents/MacOS" "$contents/Resources"
-cp "$binary" "$contents/MacOS/$name"
+executable="$contents/MacOS/$name"
+if "$dev"; then
+    cp "$binary" "$executable-bin"
+    cat > "$executable" <<'WRAPPER'
+#!/bin/sh
+exec "$0-bin" dev "$@"
+WRAPPER
+    chmod +x "$executable"
+else
+    cp "$binary" "$executable"
+fi
 mv "$temp_dir/product.icns" "$contents/Resources/$name.icns"
 
 xml_escape() {
-    printf '%s' "$1" | sed -e 's/\&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+    printf '%s' "$1" | sed -e 's/\&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e $'s/\r/\\&#13;/g'
 }
 xml_name=$(xml_escape "$name")
 xml_version=$(xml_escape "$version")
@@ -150,11 +190,30 @@ cat > "$contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>$xml_name</string>
     <key>CFBundleIconFile</key><string>$xml_name.icns</string>
     <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key><string>$xml_identifier</string>
+            <key>CFBundleURLSchemes</key><array><string>$url_scheme</string></array>
+        </dict>
+    </array>
     <key>LSMinimumSystemVersion</key><string>12.0</string>
     <key>NSHighResolutionCapable</key><true/>
-</dict>
-</plist>
 PLIST
+if [[ -n "${bundle_env[0]:-}" ]]; then
+    {
+        printf '    <key>LSEnvironment</key>\n    <dict>\n'
+        for pair in "${bundle_env[@]}"; do
+            printf '        <key>'
+            xml_escape "${pair%%=*}"
+            printf '</key><string>'
+            xml_escape "${pair#*=}"
+            printf '</string>\n'
+        done
+        printf '    </dict>\n'
+    } >> "$contents/Info.plist"
+fi
+printf '</dict>\n</plist>\n' >> "$contents/Info.plist"
 plutil -lint "$contents/Info.plist" >&2
 
 step=sign

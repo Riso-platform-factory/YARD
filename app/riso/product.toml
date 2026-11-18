@@ -4,5 +4,6 @@ name = "riso"
 version = "0.1.0"
 # The reverse-domain identifier, as macOS asks of a bundle identifier.
 identifier = "vn.risotech.riso"
+url_scheme = "riso"
 # A square PNG of at least 512 × 512 pixels, relative to this file.
 icon = "icon.png"

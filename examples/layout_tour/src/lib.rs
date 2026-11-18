@@ -55,7 +55,10 @@ use gpui::{
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
 use riso_layout::{NodeId, Position};
+#[cfg(not(feature = "dev"))]
 use riso_shell as shell;
+#[cfg(feature = "dev")]
+use riso_shell::dev as shell;
 use std::rc::Rc;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -596,6 +599,11 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         }
         "user-layer" => {
             register_card(cx, ext);
+            #[cfg(feature = "dev")]
+            ext.on_open_url(cx, |url, cx| {
+                cx.set_global(LastOpenedUrl(url.to_owned()));
+                cx.refresh_windows();
+            });
             let starts = {
                 let count = ext
                     .stored(cx, "starts")
@@ -1175,6 +1183,12 @@ impl Button {
     }
 }
 
+#[cfg(feature = "dev")]
+struct LastOpenedUrl(String);
+
+#[cfg(feature = "dev")]
+impl gpui::Global for LastOpenedUrl {}
+
 struct Controls {
     starts: Option<u64>,
     buttons: Vec<Button>,
@@ -1186,6 +1200,12 @@ impl Render for Controls {
         tracing::trace!("rendering controls");
         let palette = riso_ui::palette(cx);
         let user_layer_len = shell::window_user_layer_len(window, cx);
+        #[cfg(feature = "dev")]
+        let url_label = cx
+            .try_global::<LastOpenedUrl>()
+            .map(|url| div().child(format!("url: {}", url.0)));
+        #[cfg(not(feature = "dev"))]
+        let url_label = None::<gpui::Div>;
         div()
             .size_full()
             .flex()
@@ -1203,6 +1223,7 @@ impl Render for Controls {
                 self.starts
                     .map(|starts| div().child(format!("starts: {starts}"))),
             )
+            .children(url_label)
             .children(self.buttons.iter().enumerate().map(|(index, button)| {
                 let label = (button.label)(cx);
                 let selector = label.clone();

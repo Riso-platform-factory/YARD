@@ -55,7 +55,7 @@ pub fn set_url_scheme(cx: &mut App, scheme: &str);
 
 ## Test extension: `examples/layout_tour`
 
-The checks need a bundle that runs dev code, even when macOS starts it for a URL, without arguments. `script/bundle-macos --dev [--env KEY=VALUE]…` builds one, for checking only: the binary is built with the dev features; the bundle's executable is a small script that runs it with `dev`; each `--env` goes into `Info.plist`'s `LSEnvironment`, so that macOS sets it however the bundle starts. It refuses to build a dev bundle named as `app/riso/product.toml`'s product, so that a dev bundle never takes the real name, directories, or scheme.
+The checks need a bundle that runs dev code, even when macOS starts it for a URL, without arguments. `script/bundle-macos --dev [--env KEY=VALUE]…` builds one, for checking only: the binary is built with the dev features; the bundle's executable is a small script that runs it with `dev`; each `--env` goes into `Info.plist`'s `LSEnvironment`, so that macOS sets it however the bundle starts. It refuses to build a dev bundle whose name, identifier, or URL scheme is `app/riso/product.toml`'s, compared without case as macOS does, so that a dev bundle never takes the real name, directories, identifier, or scheme. An `--env` key is a shell-style name.
 
 | Command and action | What to look for |
 |---|---|

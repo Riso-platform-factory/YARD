@@ -1,5 +1,5 @@
 //! The build script's check of the product config: a missing or invalid
-//! identifier or icon fails with the file and the key.
+//! identifier, icon, or URL scheme fails with the file and the key.
 
 #[path = "../build_support.rs"]
 mod build_support;
@@ -54,11 +54,15 @@ fn png(width: u32, height: u32) -> Vec<u8> {
 /// Writes `product.toml` with `keys` and, when given, `icon.png`, in a
 /// folder removed when the returned guard drops.
 fn config(keys: &str, icon: Option<&[u8]>) -> (TempDir, PathBuf) {
+    config_with_scheme(keys, icon, "url_scheme = \"sample\"\n")
+}
+
+fn config_with_scheme(keys: &str, icon: Option<&[u8]>, scheme: &str) -> (TempDir, PathBuf) {
     let folder = tempfile::tempdir().unwrap();
     let path = folder.path().join("product.toml");
     std::fs::write(
         &path,
-        format!("name = \"sample\"\nversion = \"1.0\"\n{keys}"),
+        format!("name = \"sample\"\nversion = \"1.0\"\n{keys}{scheme}"),
     )
     .unwrap();
     if let Some(icon) = icon {
@@ -106,7 +110,38 @@ fn the_app_s_own_config_is_valid() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("product.toml");
     let config = build_support::read_product_config(&path).unwrap();
     assert_eq!(config.identifier, "vn.risotech.riso");
+    assert_eq!(config.url_scheme, "riso");
     assert!(config.icon.ends_with("icon.png"));
+}
+
+#[test]
+fn a_url_scheme_accepts_lowercase_ascii_letters_digits_and_punctuation() {
+    let icon = png(512, 512);
+    for scheme in ["a", "sample2+preview-1.test"] {
+        let (_folder, path) =
+            config_with_scheme(ICON, Some(&icon), &format!("url_scheme = {scheme:?}\n"));
+        let config = build_support::read_product_config(&path).unwrap();
+        assert_eq!(config.url_scheme, scheme);
+    }
+}
+
+#[test]
+fn a_missing_or_invalid_url_scheme_is_refused() {
+    let icon = png(512, 512);
+    for scheme in [
+        "",
+        "url_scheme = 3",
+        "url_scheme = \"\"",
+        "url_scheme = \"Riso\"",
+        "url_scheme = \"1riso\"",
+        "url_scheme = \"+riso\"",
+        "url_scheme = \"riso_app\"",
+        "url_scheme = \"riso user\"",
+        "url_scheme = \"riso:\"",
+        "url_scheme = \"risó\"",
+    ] {
+        refused(config_with_scheme(ICON, Some(&icon), scheme), "url_scheme");
+    }
 }
 
 #[test]

@@ -6,15 +6,17 @@ When feature 4 finds a newer version, the application downloads it, checks it, a
 
 ## How it works
 
-- **The release.** The release file's `url` names a `.zip` holding `<name>.app`, as `ditto -c -k --keepParent` makes it, and `sha256` its digest in hex. `script/bundle-macos --zip` writes `<out>/<name>-<version>.zip` beside the bundle and prints its `sha256`, so that a release is made with the same command.
+- **The release.** The release file's `url` names a `.zip` holding `<name>.app`, as `ditto -c -k --keepParent` makes it, and `sha256` its digest in hex. `script/bundle-macos --zip` writes `<out>/<name>-<version>.zip` beside the bundle and prints its `sha256`, computed before the `.zip` is moved into place, so that a release is made with the same command.
 - **Only from a bundle.** The running executable must be inside `<something>.app/Contents/MacOS/`, in a folder the user can write. Otherwise (`cargo run`, a read-only `/Applications`) nothing is downloaded, with a `debug` `not installable {reason}` once: the toast of feature 4 still tells the user.
-- **Download.** Started by feature 4 when it finds a newer version, once per version per run; on the background executor, streamed to a file in a temporary folder beside the bundle, at most 1 GiB, within 10 minutes. The digest is computed while downloading; a different digest stops it.
+- **Download.** Started by feature 4 when it finds a newer version, once per version per run, and only if the bundle on disk is older than the release (a bundle already replaced by a newer one is not replaced again). The release's `url` follows `update_url`'s rule: `https://`, or `http://` only to `127.0.0.1` or `localhost`. On the background executor, streamed to a file in a private temporary folder (`tempfile`, owner-only) beside the bundle, at most 1 GiB, within 10 minutes: the time limit covers the download only, never the steps after it. The digest is computed while downloading; a different digest stops it.
+- **Checks before unpacking.** The `.zip`'s entries are listed first (`zipinfo -1`): an absolute path, a `..` component, an entry outside `<name>.app/`, or more than 2 GiB once unpacked stops it.
 - **Checks before installing**, each a failure that leaves the running bundle as it was:
   - the digest is the release's `sha256`;
-  - the `.zip` unpacks (`ditto -x -k`) to exactly one `<name>.app`;
-  - its `Info.plist` has the running bundle's `CFBundleIdentifier`, and its `CFBundleShortVersionString` is the release's `version`;
-  - `codesign --verify --deep --strict` passes on it.
-- **Installing.** Two renames on the same volume: the running bundle to `<name>.app.old` beside it, the new one into its place; then the old one is removed. If the second rename fails, the first is undone. macOS lets a running application's bundle be renamed: the running process keeps its files until it ends.
+  - the `.zip` unpacks (`ditto -x -k`) to exactly one real folder named `<name>.app`, and nothing else;
+  - no symbolic link inside it points outside it;
+  - its `Info.plist` has the running product's identifier and the release's `version`, both read as strings (`plutil -extract … raw -expect string`);
+  - `/usr/bin/codesign --verify --deep --strict` passes on it.
+- **Installing.** One atomic exchange on the same volume: `renamex_np` with `RENAME_SWAP` swaps the new bundle and the running one, so that `<name>.app` is a complete bundle at every moment, even if the process is killed; then the old one, now in the temporary folder, is removed with it. macOS lets a running application's bundle be swapped: the running process keeps its files until it ends.
 - **The toast.** After installing: `<name> <version> is installed`, with a button `Restart`, which restarts the application (`gpui`'s `restart`). Without a click, the new version runs at the next start.
 - **Failures** are `WARN`s with the reason, never an `ERROR`, and the temporary folder is removed. The next check of feature 4 tries again.
 - **Privacy.** As in feature 4, the logs name the download address's host only.
@@ -45,13 +47,13 @@ pub async fn install(client: Arc<dyn http_client::HttpClient>, bundle: PathBuf, 
 |---|---|
 | Not installable | `debug` `not installable {reason}`, once |
 | Download | A group `update-download{version, host}`, `debug` `downloaded {bytes}` |
-| Install | A group `update-install{version}`, `debug` for each check and rename, `debug` `installed` |
+| Install | A group `update-install{version}`, `debug` for each check and the exchange, `debug` `installed` |
 | Restart | `debug` `restart` |
 | A failure | `WARN` with the reason, in its group |
 
 ## Tests
 
-- **`riso_update`, tests with a fake HTTP client and temporary folders holding small fake bundles** (an `Info.plist` and a script executable, signed ad hoc by the test with `codesign`): a good release is installed in place and the old bundle is gone; a wrong digest, a `.zip` with two apps or none, another identifier, another version, an unsigned bundle, a body over the limit each leave the running bundle untouched, remove the temporary folder, and `WARN`; a failing second rename puts the old bundle back; not a bundle and a read-only folder give `not installable`; one download per version per run.
+- **`riso_update`, tests with a fake HTTP client and temporary folders holding small fake bundles** (an `Info.plist` and a script executable, signed ad hoc by the test with `codesign`): a good release is installed in place and the old bundle is gone; a wrong digest, a `.zip` with two apps or none, another identifier, another version, an unsigned bundle, a body over the limit each leave the running bundle untouched, remove the temporary folder, and `WARN`; a failing exchange leaves the running bundle as it was; a `.zip` with `..`, an absolute path, an extra entry beside the app, or a symbolic link pointing outside is refused before anything is installed; an `http://` release address to another host is refused; a bundle on disk newer than the release is not replaced; not a bundle and a read-only folder give `not installable`; one download per version per run.
 - **Logging**, alone in its file: `update-download{version, host}` with `downloaded`, `update-install{version}` with `installed`, the `WARN`.
 
 ## Check by the lead

@@ -50,7 +50,7 @@ impl Product {
 | `riso_product/product` (new crate, dev) | `Product` and its names |
 | `riso_log/diagnostic_log` dev version | Takes `riso_product::Product`; the identifier in the first lines |
 | `riso_log/lifecycle_trace` dev version, if `run-start` is written there | The identifier in `run-start` |
-| `riso_paths/directories` dev version | Takes the home variable from `riso_product`; the `TODO(product-identity)` is gone |
+| `riso_paths/directories` | Changed when the feature is promoted, not in a dev version: a second `Paths` type would not be the one every other part of `riso_paths` extends. It then takes the home variable from `riso_product`, `home_variable` and its rule are gone, and so is the `TODO(product-identity)`. Until then the dev startup calls `Paths::from_env(product.name)`, whose variable the tests of `riso_product` prove to be the same |
 | `riso/startup` and the app's build script | Dev copy that builds the product with its identifier; `build.rs` reads and checks `identifier` and `icon` |
 
 `app/riso/product.toml` and `app/riso/icon.png` are configuration, without a stage.
@@ -68,7 +68,7 @@ None: the lead agent runs `RISO_HOME=/tmp/riso-product cargo run dev` and reads 
 
 ## Under review
 
-- `riso_product/product`, and `riso_log/diagnostic_log`, `riso_paths/directories`, `riso/startup` in their dev versions
+- `riso_product/product`, and `riso_log/diagnostic_log` (with `riso_log/lifecycle_trace` if it changes), `riso/startup` in their dev versions; `riso_paths/directories` as said above
 
 ## Not in this feature
 

@@ -1,7 +1,5 @@
-#![cfg(feature = "dev")]
-
 use gpui::{App, TestAppContext};
-use riso_shell::dev as shell;
+use riso_shell as shell;
 use std::{
     cell::RefCell,
     collections::BTreeMap,

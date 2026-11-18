@@ -14,7 +14,7 @@
   },
   "riso/startup": {
     "files": {
-      "app/riso/src/startup.rs": "a8472f11cc4311a9"
+      "app/riso/src/startup.rs": "655227b469beff27"
     },
     "promoted": "2026-11-18"
   },
@@ -168,7 +168,7 @@
   },
   "riso_shell/shell": {
     "files": {
-      "crates/riso_shell/src/shell.rs": "7e3bd49c5c9ec397"
+      "crates/riso_shell/src/shell.rs": "dd9d7da3d5b49892"
     },
     "promoted": "2026-11-18"
   },

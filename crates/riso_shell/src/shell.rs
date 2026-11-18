@@ -64,6 +64,7 @@ pub enum Origin {
 }
 
 type WindowOpener = Rc<dyn Fn(&mut App)>;
+type UrlHandler = Rc<dyn Fn(&str, &mut App)>;
 
 type LayoutObserver = Rc<dyn Fn(&mut App)>;
 type LayoutObservers = Rc<RefCell<BTreeMap<u64, LayoutObserver>>>;
@@ -1072,6 +1073,7 @@ struct Registry {
     layout_observers: LayoutObservers,
     next_layout_observer: u64,
     extensions: BTreeSet<String>,
+    urls: UrlRouting,
     components: BTreeMap<ComponentId, Component>,
     action_handlers: Vec<ActionHandler>,
     states: BTreeMap<ComponentId, StateRegistration>,
@@ -1380,6 +1382,7 @@ impl Default for Registry {
             layout_observers: Rc::default(),
             next_layout_observer: 0,
             extensions: BTreeSet::new(),
+            urls: UrlRouting::default(),
             components,
             action_handlers: Vec::new(),
             states: BTreeMap::new(),
@@ -5037,6 +5040,161 @@ fn required_rule_error(
     })
 }
 
+#[derive(Default)]
+struct UrlRouting {
+    scheme: String,
+    handlers: BTreeMap<String, UrlHandler>,
+    pending: VecDeque<Vec<String>>,
+    extensions_loaded: bool,
+    dispatching: bool,
+}
+
+/// Sets the product's URL scheme.
+pub fn set_url_scheme(cx: &mut App, scheme: &str) {
+    cx.default_global::<Registry>().urls.scheme = scheme.to_owned();
+}
+
+/// Queues URLs received from the platform and dispatches them when ready.
+pub fn open_urls(cx: &mut App, urls: Vec<String>) {
+    let routing = &mut cx.default_global::<Registry>().urls;
+    if !routing.extensions_loaded {
+        let _group = tracing::info_span!("urls-open", count = urls.len()).entered();
+        for url in &urls {
+            let _group = url_span(url_parts(url)).entered();
+            tracing::debug!("kept until extensions load");
+        }
+    }
+    routing.pending.push_back(urls);
+    drain_urls(cx);
+}
+
+/// Hands over URLs that arrived before extension loading finished.
+pub fn extensions_loaded(cx: &mut App) {
+    let routing = &mut cx.default_global::<Registry>().urls;
+    if routing.extensions_loaded {
+        return;
+    }
+    routing.extensions_loaded = true;
+    let count: usize = routing.pending.iter().map(Vec::len).sum();
+    if !routing.pending.is_empty() {
+        let _group = tracing::info_span!("urls-handover").entered();
+        tracing::debug!(count, "handed over");
+        drain_urls(cx);
+    }
+}
+
+fn drain_urls(cx: &mut App) {
+    let routing = &mut cx.global_mut::<Registry>().urls;
+    if !routing.extensions_loaded || routing.dispatching {
+        return;
+    }
+    // Calls from a handler append to the queue. The outer drain finishes
+    // this batch and any older queued batches before it reaches those URLs.
+    routing.dispatching = true;
+    while let Some(batch) = cx.global_mut::<Registry>().urls.pending.pop_front() {
+        let _group = tracing::info_span!("urls-open", count = batch.len()).entered();
+        for url in batch {
+            dispatch_url(cx, &url);
+        }
+    }
+    cx.global_mut::<Registry>().urls.dispatching = false;
+}
+
+fn dispatch_url(cx: &mut App, url: &str) {
+    let parts = url_parts(url);
+    let _group = url_span(parts).entered();
+    match url_handler(cx, parts) {
+        Ok(handler) => {
+            handler(url, cx);
+            tracing::debug!("handled");
+        }
+        Err(reason) => tracing::info!(%reason, "refused"),
+    }
+}
+
+fn url_handler(cx: &App, parts: Option<(&str, &str)>) -> Result<UrlHandler, String> {
+    let (scheme, host) = parts.ok_or("invalid URL")?;
+    let registry = cx.global::<Registry>();
+    if !scheme.eq_ignore_ascii_case(&registry.urls.scheme) {
+        return Err("wrong scheme".into());
+    }
+    if host.is_empty() {
+        return Err("no host".into());
+    }
+    let name = host.to_ascii_lowercase();
+    if !registry.extensions.contains(&name) {
+        return Err(format!("no extension {host}"));
+    }
+    registry
+        .urls
+        .handlers
+        .get(&name)
+        .cloned()
+        .ok_or_else(|| format!("no handler for extension {host}"))
+}
+
+fn url_span(parts: Option<(&str, &str)>) -> tracing::Span {
+    let (scheme, host) = parts.unwrap_or_default();
+    tracing::info_span!("url-open", scheme, host)
+}
+
+fn url_parts(url: &str) -> Option<(&str, &str)> {
+    let (scheme, rest) = url.split_once(':')?;
+    let mut scheme_bytes = scheme.bytes();
+    if !scheme_bytes.next()?.is_ascii_alphabetic()
+        || !scheme_bytes.all(|byte| byte.is_ascii_alphanumeric() || b"+-.".contains(&byte))
+        || url.chars().any(|character| {
+            character.is_whitespace() || character.is_control() || "<>\"{}|\\^`".contains(character)
+        })
+        || url.bytes().enumerate().any(|(index, byte)| {
+            byte == b'%'
+                && !url
+                    .as_bytes()
+                    .get(index + 1..index + 3)
+                    .is_some_and(|escape| escape.iter().all(u8::is_ascii_hexdigit))
+        })
+    {
+        return None;
+    }
+    let Some(rest) = rest.strip_prefix("//") else {
+        return Some((scheme, ""));
+    };
+    let authority = rest.split(['/', '?', '#']).next()?;
+    let host_port = match authority.split_once('@') {
+        Some((user, host_port)) if user.bytes().all(|byte| name_byte(byte) || byte == b':') => {
+            host_port
+        }
+        Some(_) => return None,
+        None => authority,
+    };
+    let (host, port) = if let Some(literal) = host_port.strip_prefix('[') {
+        let (address, suffix) = literal.split_once(']')?;
+        address.parse::<std::net::Ipv6Addr>().ok()?;
+        let port = if suffix.is_empty() {
+            ""
+        } else {
+            suffix.strip_prefix(':')?
+        };
+        (&host_port[..address.len() + 2], port)
+    } else {
+        let (host, port) = host_port.split_once(':').unwrap_or((host_port, ""));
+        if !host.bytes().all(name_byte) {
+            return None;
+        }
+        (host, port)
+    };
+    if !port.bytes().all(|byte| byte.is_ascii_digit())
+        || (!port.is_empty() && port.parse::<u16>().is_err())
+    {
+        return None;
+    }
+    Some((scheme, host))
+}
+
+fn name_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || b"-._~!$&'()*+,;=%".contains(&byte)
+}
+
 /// The application-assigned namespace for an extension's contributions.
 #[derive(Clone)]
 pub struct Extension {
@@ -5044,6 +5202,22 @@ pub struct Extension {
 }
 
 impl Extension {
+    /// Registers the handler for URLs that name this extension.
+    pub fn on_open_url(&self, cx: &mut App, handler: impl Fn(&str, &mut App) + 'static) {
+        let _group =
+            tracing::info_span!("url-handler-register", extension = self.name.as_str()).entered();
+        let handlers = &mut cx.default_global::<Registry>().urls.handlers;
+        match handlers.entry(self.name.clone()) {
+            Entry::Vacant(entry) => {
+                entry.insert(Rc::new(handler));
+                tracing::debug!("registered");
+            }
+            Entry::Occupied(entry) => {
+                log::error!("extension {} already has a URL handler", entry.key());
+            }
+        }
+    }
+
     /// Creates an extension handle. Called only by the startup.
     pub fn new(cx: &mut App, name: &str) -> Option<Extension> {
         if name == "riso" {

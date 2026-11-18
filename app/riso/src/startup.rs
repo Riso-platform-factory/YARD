@@ -1,8 +1,15 @@
-use gpui::{App, WindowOptions};
+use gpui::{App, AsyncApp, WindowOptions};
+use std::{cell::RefCell, rc::Rc};
 
 type Init = fn(&mut App, &riso_shell::Extension);
 
 use riso_product::Product;
+
+#[derive(Default)]
+struct OpenUrls {
+    app: Option<AsyncApp>,
+    early: Vec<Vec<String>>,
+}
 
 /// Runs the application with the product's identifier in the logs.
 pub(crate) fn run(
@@ -21,65 +28,92 @@ pub(crate) fn run(
         riso_log::open_files(paths.logs_dir());
     }
     let extensions = extensions.to_vec();
-    gpui_platform::application()
-        .with_assets(riso_ui::Assets)
-        .run(move |cx: &mut App| {
-            {
-                let _group = tracing::info_span!("app-init").entered();
-                riso_log::init_app(cx);
-                riso_settings::init(cx);
-                riso_settings::load(cx, paths.settings_file());
-                riso_settings::watch(cx);
-                riso_ui::init(cx);
-                riso_ui::load_user_themes(cx, &paths.themes_dir());
-                riso_ui::apply_theme_setting(cx);
-                riso_shell::set_window_title(cx, product.name);
-                riso_shell::set_layout_file(cx, paths.layout_file());
-                riso_shell::set_state_file(cx, paths.state_file());
-                riso_shell::set_store_dir(cx, paths.store_dir());
-                let named_paths = paths.clone();
-                riso_shell::set_named_layout_files(cx, move |name| {
-                    named_paths.named_layout_file(name)
-                });
-                riso_shell::bind_default_keys(cx);
-                riso_ui::bind_text_input_keys(cx);
-                riso_shell::handle_quit(cx);
-                cx.on_window_closed(|cx, _| {
-                    if cx.windows().is_empty() {
-                        cx.quit();
-                    }
+    let app = gpui_platform::application().with_assets(riso_ui::Assets);
+    let open_urls = Rc::new(RefCell::new(OpenUrls::default()));
+    app.on_open_urls({
+        let open_urls = open_urls.clone();
+        move |urls| {
+            let mut listener = open_urls.borrow_mut();
+            if let Some(app) = &listener.app {
+                app.spawn(async move |cx| {
+                    cx.update(|cx| riso_shell::open_urls(cx, urls));
                 })
                 .detach();
+            } else {
+                listener.early.push(urls);
             }
-            {
-                let _group =
-                    tracing::info_span!("extensions-load", count = extensions.len()).entered();
-                for (name, init) in extensions {
-                    let _group = tracing::info_span!("extension-init", extension = name).entered();
-                    if let Some(extension) = riso_shell::Extension::new(cx, name) {
-                        init(cx, &extension);
-                    }
+        }
+    });
+    app.run(move |cx: &mut App| {
+        {
+            let _group = tracing::info_span!("app-init").entered();
+            riso_log::init_app(cx);
+            riso_settings::init(cx);
+            riso_settings::load(cx, paths.settings_file());
+            riso_settings::watch(cx);
+            riso_ui::init(cx);
+            riso_ui::load_user_themes(cx, &paths.themes_dir());
+            riso_ui::apply_theme_setting(cx);
+            riso_shell::set_window_title(cx, product.name);
+            riso_shell::set_url_scheme(cx, env!("PRODUCT_URL_SCHEME"));
+            riso_shell::set_layout_file(cx, paths.layout_file());
+            riso_shell::set_state_file(cx, paths.state_file());
+            riso_shell::set_store_dir(cx, paths.store_dir());
+            let named_paths = paths.clone();
+            riso_shell::set_named_layout_files(cx, move |name| named_paths.named_layout_file(name));
+            riso_shell::bind_default_keys(cx);
+            riso_ui::bind_text_input_keys(cx);
+            riso_shell::handle_quit(cx);
+            cx.on_window_closed(|cx, _| {
+                if cx.windows().is_empty() {
+                    cx.quit();
+                }
+            })
+            .detach();
+        }
+        let early_urls = std::mem::take(&mut open_urls.borrow_mut().early);
+        for urls in early_urls {
+            riso_shell::open_urls(cx, urls);
+        }
+        {
+            let _group = tracing::info_span!("extensions-load", count = extensions.len()).entered();
+            for (name, init) in extensions {
+                let _group = tracing::info_span!("extension-init", extension = name).entered();
+                if let Some(extension) = riso_shell::Extension::new(cx, name) {
+                    init(cx, &extension);
                 }
             }
-            riso_keymap::load_user_keymap(cx, &paths.keymap_file());
-            riso_keymap::watch_user_keymap(cx, paths.keymap_file());
-            riso_shell::set_menus(cx, menus(&product));
-            riso_shell::set_window_opener(cx, move |cx| {
-                open_window(cx, product, None);
-            });
-            let session = riso_shell::saved_session(cx, &paths.session_file());
-            riso_shell::track_session(cx, paths.session_file());
-            match session {
-                Some(windows) => {
-                    for (index, saved) in windows.iter().enumerate() {
-                        let window_file = (index == 0).then(|| paths.window_file());
-                        open_session_window(cx, product, saved, window_file);
-                    }
-                }
-                None => open_window(cx, product, Some(paths.window_file())),
-            }
-            riso_log::startup_finished();
+        }
+        // Hand over any URLs that arrived during extension initialization.
+        // GPUI queues subsequent deliveries on the main thread in callback order.
+        let early_urls = {
+            let mut listener = open_urls.borrow_mut();
+            listener.app = Some(cx.to_async());
+            std::mem::take(&mut listener.early)
+        };
+        for urls in early_urls {
+            riso_shell::open_urls(cx, urls);
+        }
+        riso_shell::extensions_loaded(cx);
+        riso_keymap::load_user_keymap(cx, &paths.keymap_file());
+        riso_keymap::watch_user_keymap(cx, paths.keymap_file());
+        riso_shell::set_menus(cx, menus(&product));
+        riso_shell::set_window_opener(cx, move |cx| {
+            open_window(cx, product, None);
         });
+        let session = riso_shell::saved_session(cx, &paths.session_file());
+        riso_shell::track_session(cx, paths.session_file());
+        match session {
+            Some(windows) => {
+                for (index, saved) in windows.iter().enumerate() {
+                    let window_file = (index == 0).then(|| paths.window_file());
+                    open_session_window(cx, product, saved, window_file);
+                }
+            }
+            None => open_window(cx, product, Some(paths.window_file())),
+        }
+        riso_log::startup_finished();
+    });
 }
 
 fn open_window(cx: &mut App, product: Product, window_file: Option<std::path::PathBuf>) {

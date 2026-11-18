@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    printf 'Usage: %s [--config <product.toml>] [--out <folder>] [-h]\n' "$0"
+    printf 'Builds <name>.app from production code. Needs python3 3.11 or newer (tomllib).\n'
+}
+
+step=arguments
+die() {
+    printf '%s: %s\n' "$step" "$*" >&2
+    exit 1
+}
+
+config=app/riso/product.toml
+out=dist
+while (( $# )); do
+    case "$1" in
+        -h) usage; exit 0 ;;
+        --config|--out)
+            [[ -n "${2:-}" && "$2" != -* ]] || die "$1 requires a path"
+            if [[ "$1" == --config ]]; then
+                config=$2
+            else
+                out=$2
+            fi
+            shift 2
+            ;;
+        *) die "unknown argument: $1 (use -h for usage)" ;;
+    esac
+done
+[[ "$config" == /* ]] || config="$PWD/$config"
+[[ "$out" == /* ]] || out="$PWD/$out"
+
+temp_dir=
+rename() {
+    python3 -c 'import os, sys; os.rename(sys.argv[1], sys.argv[2])' "$1" "$2"
+}
+
+cleanup() {
+    local status=$?
+    if (( status != 0 )); then
+        printf '%s: failed (exit %s)\n' "$step" "$status" >&2
+    fi
+    if [[ -n "$temp_dir" ]]; then
+        if (( status != 0 )) &&
+           [[ -e "$temp_dir/previous" || -L "$temp_dir/previous" ]]; then
+            if [[ -e "$destination" || -L "$destination" ]] ||
+               ! rename "$temp_dir/previous" "$destination"; then
+                printf '%s: previous bundle retained at %s/previous\n' "$step" "$temp_dir" >&2
+                return
+            fi
+        fi
+        rm -rf "$temp_dir"
+    fi
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+step=config
+values=$(python3 - "$config" <<'PY'
+import sys
+import tomllib
+
+path = sys.argv[1]
+try:
+    with open(path, "rb") as source:
+        config = tomllib.load(source)
+except (OSError, ValueError) as error:
+    sys.exit(f"{path}: {error}")
+
+for key in ("name", "version", "identifier", "icon"):
+    value = config.get(key)
+    if not isinstance(value, str) or not value.strip():
+        sys.exit(f"{path}: missing non-empty `{key}`")
+    if any(character in value for character in ("\r", "\n", "\0")):
+        sys.exit(f"{path}: `{key}` must fit on one line")
+    print(value)
+PY
+)
+{
+    IFS= read -r name
+    IFS= read -r version
+    IFS= read -r identifier
+    IFS= read -r icon
+} <<< "$values"
+case "$name" in
+    */*|.|..) die "$config: name must be a single path component" ;;
+esac
+icon="${config%/*}/$icon"
+destination="${out%/}/$name.app"
+
+step=stages
+printf '%s\n' "$step"
+env -u RISO_PROMOTE cargo test -p riso --test stages >&2
+
+step=build
+printf '%s\n' "$step"
+# The binary's path comes from this build's own report, not from a guessed
+# target folder, so a stale binary of another target is never bundled.
+binary=$(PRODUCT_CONFIG="$config" cargo build --release -p riso --bin riso \
+        --no-default-features --message-format=json-render-diagnostics |
+    python3 -c '
+import json, sys
+paths = [m["executable"] for m in map(json.loads, sys.stdin)
+         if m.get("reason") == "compiler-artifact" and m.get("executable")
+         and m["target"]["name"] == "riso"]
+if not paths:
+    sys.exit("cargo reported no riso executable")
+print(paths[-1])')
+
+step=icon
+printf '%s\n' "$step"
+mkdir -p "$out"
+temp_dir=$(mktemp -d "${out%/}/.bundle-macos.XXXXXXXX")
+iconset="$temp_dir/product.iconset"
+mkdir "$iconset"
+for size in 16 32 128 256 512; do
+    sips -z "$size" "$size" "$icon" --out "$iconset/icon_${size}x${size}.png" >/dev/null
+    pixels=$(( size * 2 ))
+    sips -z "$pixels" "$pixels" "$icon" --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$iconset" -o "$temp_dir/product.icns" >&2
+
+step=bundle
+printf '%s\n' "$step"
+bundle="$temp_dir/$name.app"
+contents="$bundle/Contents"
+mkdir -p "$contents/MacOS" "$contents/Resources"
+cp "$binary" "$contents/MacOS/$name"
+mv "$temp_dir/product.icns" "$contents/Resources/$name.icns"
+
+xml_escape() {
+    printf '%s' "$1" | sed -e 's/\&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+}
+xml_name=$(xml_escape "$name")
+xml_version=$(xml_escape "$version")
+xml_identifier=$(xml_escape "$identifier")
+cat > "$contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>$xml_name</string>
+    <key>CFBundleDisplayName</key><string>$xml_name</string>
+    <key>CFBundleIdentifier</key><string>$xml_identifier</string>
+    <key>CFBundleShortVersionString</key><string>$xml_version</string>
+    <key>CFBundleVersion</key><string>$xml_version</string>
+    <key>CFBundleExecutable</key><string>$xml_name</string>
+    <key>CFBundleIconFile</key><string>$xml_name.icns</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>LSMinimumSystemVersion</key><string>12.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+PLIST
+plutil -lint "$contents/Info.plist" >&2
+
+step=sign
+printf '%s\n' "$step"
+codesign --force --deep --sign - "$bundle" >&2
+codesign --verify --deep --strict "$bundle" >&2
+
+step=bundle
+if [[ -e "$destination" || -L "$destination" ]]; then
+    rename "$destination" "$temp_dir/previous"
+fi
+rename "$bundle" "$destination"
+printf '%s\n' "$destination"

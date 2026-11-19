@@ -65,14 +65,15 @@ An extension is a Rust crate compiled into the application. The application's co
 |---|---|---|
 | Register components, place nodes, and fill slots of other extensions' components | Layout engine | built |
 | Change the layout while the application runs, and reset it | Layout engine | built |
-| Draw with the theme and the base components | Theme engine, UI kit | partly built |
+| Draw with the theme and the base components | Theme engine, UI kit | built |
 | Declare its settings | Settings engine: `extension-sections` | built |
 | Declare actions and their default keys | Keymap engine: `extension-actions` | built |
-| Put items in the title bar and the status bar, and show a modal or a message | Window engine | partly built: the title bar, the status bar, modals, and toasts |
-| Give a model to everything under one of its nodes, or to a whole window | Layout engine: `contexts` | missing |
-| Keep the state of its components, and values of its own, between runs | State engine | missing |
+| Put items in the title bar and the status bar, and show a modal or a message | Window engine | built: the title bar, the status bar, modals, toasts, questions, and the menu bar |
+| Give a model to everything under one of its nodes, or to a whole window | Layout engine: `contexts` | built |
+| Keep the state of its components, and values of its own, between runs | State engine | built |
+| Handle URLs of the product's scheme that name it | Packaging: `open-urls` | built |
 
-Extensions that come with the platform, such as the command palette, are in a folder of their own, `extensions/`. The keymap engine's roadmap adds the first one.
+Extensions that come with the platform, such as the command palette, are in a folder of their own, `extensions/`.
 
 ## Not engines of the platform
 

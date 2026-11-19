@@ -6,7 +6,7 @@ The frame of a modal, adapted from Zed's `ui::Modal`: a header with a headline, 
 
 ## What code can do
 
-All are riso's own types in `riso_ui`:
+All are YARD's own types in `yard_ui`:
 
 ```rust
 pub struct Modal;          // Modal::new(id).width(Rems).header(ModalHeader).section(Section).footer(ModalFooter)
@@ -22,7 +22,7 @@ pub enum ElevationIndex { Background, Surface, ElevatedSurface, ModalSurface }  
   - **the header** puts the headline in a small muted headline, and the description below it in a muted label;
   - **a section** is a column with its header above its children, padded as Zed's uncontained section; a section header is a small label;
   - **the footer** has a top border in the variant border color, its start slot on the left, and its end slot on the right.
-- **The close button** is an `IconButton` with the icon `Close`, at the right of the header. It is shown only when `on_dismiss` is given, and a click on it calls `on_dismiss`. The frame never closes itself: the owner decides what closing means, as with a button's click. Zed's close button sends `menu::Cancel` to the focused element; riso's calls the owner instead, so that a modal drawn anywhere, with or without the focus, can be closed.
+- **The close button** is an `IconButton` with the icon `Close`, at the right of the header. It is shown only when `on_dismiss` is given, and a click on it calls `on_dismiss`. The frame never closes itself: the owner decides what closing means, as with a button's click. Zed's close button sends `menu::Cancel` to the focused element; yard's calls the owner instead, so that a modal drawn anywhere, with or without the focus, can be closed.
 - **A button knows the surface it is drawn on.** `Button` and `IconButton` gain `.layer(ElevationIndex)`, as Zed's buttons have. A filled or outlined button paints the background of its layer, as Zed's does: on `ModalSurface` the window's background color. Without it, a filled button paints the element background, which on a modal's surface hardly shows. So a modal's filled buttons take `.layer(ElevationIndex::ModalSurface)`, as every Zed modal's do. A button without a layer is drawn as before.
 - **Every part is optional.** A modal with no header draws no header row, and one with no footer no footer row.
 - **An id names each modal,** as in Zed. The close button's id comes from it, and each section is named by its place in the modal, so two sections whose headers have the same label do not share an element.
@@ -30,14 +30,14 @@ pub enum ElevationIndex { Background, Surface, ElevatedSurface, ModalSurface }  
   - drawing a modal logs one line at `trace`, with its id, its headline, and which parts it has: description, close button, the number of sections, footer. Its sections, section headers, and footer log nothing of their own;
   - a button's draw line also names its layer, when it has one;
   - a click on the close button logs `button-click{id}` at `debug`, as every button does, with the owner's callback inside it.
-- Zed's types stay inside `riso_ui`. `Modal` and `ModalHeader` are riso's compositions of riso's and Zed's pieces, because Zed's header hardcodes its close button's action. `Section`, `SectionHeader`, and `ModalFooter` wrap Zed's.
+- Zed's types stay inside `yard_ui`. `Modal` and `ModalHeader` are yard's compositions of yard's and Zed's pieces, because Zed's header hardcodes its close button's action. `Section`, `SectionHeader`, and `ModalFooter` wrap Zed's.
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
-| `riso_ui/modal` (new, dev) | `Modal`, `ModalHeader`, `Section`, `SectionHeader`, `ModalFooter` |
-| `riso_ui/button` | Dev version beside production. `ElevationIndex`, and `layer` on both buttons |
+| `yard_ui/modal` (new, dev) | `Modal`, `ModalHeader`, `Section`, `SectionHeader`, `ModalFooter` |
+| `yard_ui/button` | Dev version beside production. `ElevationIndex`, and `layer` on both buttons |
 
 The startup does not change. `review.rs` loads the gallery.
 
@@ -62,7 +62,7 @@ A fifth page, `modal`, after `divider`, in groups titled as the other pages are.
 - `Footer`: a modal with buttons at the end only, `Cancel` and a filled `Confirm` on the layer `ModalSurface`, and one with a start slot as well, a muted label;
 - `Dismiss`: a full modal whose close button and `Cancel` count, `dismissed 0 times`.
 
-Use a fresh home: `RISO_HOME=/tmp/riso-gallery`.
+Use a fresh home: `YARD_HOME=/tmp/yard-gallery`.
 
 | Command and action | What to look for |
 |---|---|
@@ -73,8 +73,8 @@ Use a fresh home: `RISO_HOME=/tmp/riso-gallery`.
 
 ## Under review
 
-- `riso_ui/modal`
-- `riso_ui/button`, in its dev version, which `modal` is the first to use
+- `yard_ui/modal`
+- `yard_ui/button`, in its dev version, which `modal` is the first to use
 
 ## Not in this feature
 

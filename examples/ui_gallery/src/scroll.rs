@@ -2,12 +2,12 @@ use gpui::{
     App, AppContext, Context, IntoElement, ParentElement, Render, ScrollHandle, ScrollStrategy,
     Styled, UniformListScrollHandle, Window, px, rems,
 };
-use riso_ui::{Button, ButtonStyle, Label, ListItem, ScrollArea, ScrollList, h_flex, v_flex};
+use yard_ui::{Button, ButtonStyle, Label, ListItem, ScrollArea, ScrollList, h_flex, v_flex};
 
 const PARAGRAPH_COUNT: usize = 40;
 const ROW_COUNT: usize = 1000;
 
-pub(super) fn register(cx: &mut App, ext: &riso_shell::Extension) {
+pub(super) fn register(cx: &mut App, ext: &yard_shell::Extension) {
     ext.register(cx, "ui_gallery.scroll", &[], |_, _, _, cx| {
         cx.new(|_| ScrollPage::new()).into()
     });
@@ -30,7 +30,7 @@ impl ScrollPage {
 impl Render for ScrollPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "scroll", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let page = cx.weak_entity();
 
         let area = ScrollArea::new("scroll-area", &self.area_handle)

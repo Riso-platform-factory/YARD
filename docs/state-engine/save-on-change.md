@@ -6,7 +6,7 @@ A component says when its state changed, and the states are saved a short time l
 
 ## How it works
 
-- **Saying it changed.** A view whose component registered state (feature 1) calls `riso_shell::state_changed(cx)` after its state changes, as the card does after a click.
+- **Saying it changed.** A view whose component registered state (feature 1) calls `yard_shell::state_changed(cx)` after its state changes, as the card does after a click.
 - **When it is saved.** The save waits until no change has come for 300 ms, and never longer than 2 s after the first change of a burst, so that a steady stream of changes still saves every 2 s. It saves what feature 1 saves: every window's states in the session's order, with the states still waiting. A change while a save is being written queues one more save after it.
 - **Windows opening and closing** count as changes too: the session (window engine feature 10) writes its windows when one opens or closes, and the state file follows it with the same wait, so that after a crash the `i`-th window of both files is still the same window.
 - **Quitting** writes once more, as feature 1 does, and cancels a save that is waiting, so that the file is written once at quit.
@@ -16,7 +16,7 @@ A component says when its state changed, and the states are saved a short time l
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 /// The calling view's state changed: save the states soon.
 pub fn state_changed(cx: &mut App);
 ```
@@ -33,8 +33,8 @@ pub fn state_changed(cx: &mut App);
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | `state_changed`, the wait, and the save after it |
-| `riso/startup` | Dev copy that uses the dev shell. While `save-on-change` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
+| `yard_shell/shell` dev version | `state_changed`, the wait, and the save after it |
+| `yard/startup` | Dev copy that uses the dev shell. While `save-on-change` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
 | `examples/layout_tour` (no stage) | The card calls `state_changed` after a click |
 
 ## Tests
@@ -52,13 +52,13 @@ pub fn state_changed(cx: &mut App);
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-soc LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` ten times quickly | One `state-save{reason=change}` after the clicks stop. |
+| `YARD_HOME=/tmp/yard-soc LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` ten times quickly | One `state-save{reason=change}` after the clicks stop. |
 | End the process with `kill -9` | `state.json` holds the count. |
 | Start again | `a` shows the count. |
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

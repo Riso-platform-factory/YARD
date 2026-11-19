@@ -16,8 +16,8 @@ fn humanize_formats_namespaces_underscores_words_and_acronyms() {
         "go to line: toggle"
     );
     assert_eq!(
-        humanize_action_name("riso::ToggleZoom"),
-        "riso: toggle zoom"
+        humanize_action_name("yard::ToggleZoom"),
+        "yard: toggle zoom"
     );
     assert_eq!(
         humanize_action_name("editor::FormatHTML"),
@@ -35,10 +35,10 @@ fn humanize_formats_namespaces_underscores_words_and_acronyms() {
 
 #[test]
 fn subsequence_matching_is_case_insensitive_and_rejects_non_subsequences() {
-    assert!(match_query("tz", "riso: toggle zoom").is_some());
-    assert!(match_query("TZ", "riso: toggle zoom").is_some());
+    assert!(match_query("tz", "yard: toggle zoom").is_some());
+    assert!(match_query("TZ", "yard: toggle zoom").is_some());
     assert!(match_query("url", "zed: open URL").is_some());
-    assert!(match_query("zt", "riso: toggle zoom").is_none());
+    assert!(match_query("zt", "yard: toggle zoom").is_none());
     assert!(match_query("qeq", "palette test: quest").is_none());
 }
 
@@ -49,7 +49,7 @@ fn ranking_orders_word_starts_then_fewer_gaps_then_by_name() {
         "palette test: quiet",
         "palette test: banquet",
         "palette test: quest",
-        "riso: toggle zoom",
+        "yard: toggle zoom",
     ];
     let matched: Vec<&str> = rank_candidates("qe", &candidates)
         .into_iter()
@@ -68,14 +68,14 @@ fn ranking_orders_word_starts_then_fewer_gaps_then_by_name() {
 
 #[test]
 fn empty_query_returns_every_command_by_name() {
-    let candidates = ["riso: toggle zoom", "riso: focus down", "riso: hide"];
+    let candidates = ["yard: toggle zoom", "yard: focus down", "yard: hide"];
     let matched: Vec<&str> = rank_candidates("", &candidates)
         .into_iter()
         .map(|index| candidates[index])
         .collect();
     assert_eq!(
         matched,
-        ["riso: focus down", "riso: hide", "riso: toggle zoom"]
+        ["yard: focus down", "yard: hide", "yard: toggle zoom"]
     );
 }
 

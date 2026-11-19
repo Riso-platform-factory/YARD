@@ -6,7 +6,7 @@ The shares of a split are props of the split, so a resize is an operation like t
 
 ## How it works
 
-- **The prop.** A split (`riso.row`, `riso.column`) has one prop, `shares`: an object from a child's node ID to its share, a positive number. A child not in it has the share 1. A split placed without props has equal shares, as today.
+- **The prop.** A split (`yard.row`, `yard.column`) has one prop, `shares`: an object from a child's node ID to its share, a positive number. A child not in it has the share 1. A split placed without props has equal shares, as today.
 - **Why by node ID.** A share follows its child when other children are added, removed, moved, or hidden, and a saved share finds its child at the next start, as feature 12 needed and could not do.
 - **A drag.** While the mouse is down, the split's view changes its shares live, and nothing is recorded, as today. When the mouse is released, the shell runs one `set-props` on the split with the shares of the children shown, by node ID. A drag that changed nothing records nothing.
 - **A double click** on a handle, which gives the split equal shares in Zed, is one `set-props` with `{"shares": null}`, so the shares go back to the default.
@@ -15,12 +15,12 @@ The shares of a split are props of the split, so a resize is an operation like t
 
 ## In the UI kit
 
-`riso_ui`'s axis, which draws a split's children and its handles, tells its owner when a resize ends and when the shares are reset by a double click: `on_resized(Fn(Vec<f32>, &mut Window, &mut App))`, called once at the end of a drag that changed the shares and once on a double click, with the shares of the children shown. Nothing else in the axis changes.
+`yard_ui`'s axis, which draws a split's children and its handles, tells its owner when a resize ends and when the shares are reset by a double click: `on_resized(Fn(Vec<f32>, &mut Window, &mut App))`, called once at the end of a drag that changed the shares and once on a double click, with the shares of the children shown. Nothing else in the axis changes.
 
 ## What code can do
 
 ```rust
-// riso_ui (production, in place)
+// yard_ui (production, in place)
 pub fn axis(…) -> Axis;   // as today
 impl Axis {
     pub fn on_resized(self, f: impl Fn(Vec<f32>, &mut Window, &mut App) + 'static) -> Self;
@@ -33,16 +33,16 @@ The dev shell has every item of the production shell, unchanged; the change is i
 
 | Situation | Log |
 |---|---|
-| A drag ends with changed shares, or a handle is double-clicked | The group `layout-op{op=props, node=<split>, extension=riso}`, with the model's `props set {keys=shares}` and the split's `props-read` |
+| A drag ends with changed shares, or a handle is double-clicked | The group `layout-op{op=props, node=<split>, extension=yard}`, with the model's `props set {keys=shares}` and the split's `props-read` |
 | A drag ends with no change | `debug` `resize ended`, as today, and no operation |
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
-| `riso_ui/axis` (production, in place) | `on_resized`. Stamped again. |
-| `riso_shell/shell` dev version | Splits read their shares from their `shares` prop and run `set-props` from `on_resized`; a reset and a restore give them their props |
-| `riso/startup` | Dev copy that uses the dev shell. While `sizes-as-props` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_ui/axis` (production, in place) | `on_resized`. Stamped again. |
+| `yard_shell/shell` dev version | Splits read their shares from their `shares` prop and run `set-props` from `on_resized`; a reset and a restore give them their props |
+| `yard/startup` | Dev copy that uses the dev shell. While `sizes-as-props` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -64,15 +64,15 @@ The case `user-layer` (feature 11) is used as it is: it has a row of two tabs co
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-sizes LAYOUT_TOUR=user-layer cargo run dev`, drag the line between `left` and `right` to the right | One `layout-op{op=props, node=…}` at the mouse up, not one per step; `user layer: 1`. |
+| `YARD_HOME=/tmp/yard-sizes LAYOUT_TOUR=user-layer cargo run dev`, drag the line between `left` and `right` to the right | One `layout-op{op=props, node=…}` at the mouse up, not one per step; `user layer: 1`. |
 | Quit and start again | The line where it was left; `restored {applied=1, skipped=0}`. |
 | Double-click the line | Equal shares; `user layer: 2`. |
 | Drag it again, then `reset layout` | Equal shares; `user layer: 0`. |
 
 ## Under review
 
-- `riso_ui/axis`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_ui/axis`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

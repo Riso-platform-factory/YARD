@@ -2,7 +2,7 @@
 
 ## What it adds
 
-When feature 4 finds a newer version, the application downloads it, checks it, and puts it in place of the running bundle; the new version runs at the next start, and a toast offers to restart now. As Zed's `auto_update` downloads a release, checks it, and replaces the running application on macOS (`install_release_macos`, as reference: Zed uses a `.dmg` and `rsync`; riso uses a `.zip` and two renames).
+When feature 4 finds a newer version, the application downloads it, checks it, and puts it in place of the running bundle; the new version runs at the next start, and a toast offers to restart now. As Zed's `auto_update` downloads a release, checks it, and replaces the running application on macOS (`install_release_macos`, as reference: Zed uses a `.dmg` and `rsync`; yard uses a `.zip` and two renames).
 
 ## How it works
 
@@ -25,15 +25,15 @@ When feature 4 finds a newer version, the application downloads it, checks it, a
 
 | Part | What changes |
 |---|---|
-| `riso_update/install` (new, dev) | Download, checks, the renames, the toast |
-| `riso_update/check` dev version | Starts the download when it finds a newer version, and passes the release's `url` and `sha256` |
-| `riso/startup` | Dev copy that starts the dev check |
+| `yard_update/install` (new, dev) | Download, checks, the renames, the toast |
+| `yard_update/check` dev version | Starts the download when it finds a newer version, and passes the release's `url` and `sha256` |
+| `yard/startup` | Dev copy that starts the dev check |
 | `script/bundle-macos` (no stage) | `--zip` |
 | Workspace | `sha2` |
 
 ```rust
-// riso_update::dev
-pub fn start(cx: &mut App, extension: &riso_shell::Extension, product: riso_product::Product, url: &str, client: Arc<dyn http_client::HttpClient>);
+// yard_update::dev
+pub fn start(cx: &mut App, extension: &yard_shell::Extension, product: yard_product::Product, url: &str, client: Arc<dyn http_client::HttpClient>);
 /// The bundle to replace, from the running executable, or why there is none.
 pub fn running_bundle() -> Result<PathBuf, String>;
 /// Downloads, checks, and installs a release over `bundle`, as the running
@@ -53,24 +53,24 @@ pub async fn install(client: Arc<dyn http_client::HttpClient>, bundle: PathBuf, 
 
 ## Tests
 
-- **`riso_update`, tests with a fake HTTP client and temporary folders holding small fake bundles** (an `Info.plist` and a script executable, signed ad hoc by the test with `codesign`): a good release is installed in place and the old bundle is gone; a wrong digest, a `.zip` with two apps or none, another identifier, another version, an unsigned bundle, a body over the limit each leave the running bundle untouched, remove the temporary folder, and `WARN`; a failing exchange leaves the running bundle as it was; a `.zip` with `..`, an absolute path, an extra entry beside the app, or a symbolic link pointing outside is refused before anything is installed; an `http://` release address to another host is refused; a bundle on disk newer than the release is not replaced; not a bundle and a read-only folder give `not installable`; one download per version per run.
+- **`yard_update`, tests with a fake HTTP client and temporary folders holding small fake bundles** (an `Info.plist` and a script executable, signed ad hoc by the test with `codesign`): a good release is installed in place and the old bundle is gone; a wrong digest, a `.zip` with two apps or none, another identifier, another version, an unsigned bundle, a body over the limit each leave the running bundle untouched, remove the temporary folder, and `WARN`; a failing exchange leaves the running bundle as it was; a `.zip` with `..`, an absolute path, an extra entry beside the app, or a symbolic link pointing outside is refused before anything is installed; an `http://` release address to another host is refused; a bundle on disk newer than the release is not replaced; not a bundle and a read-only folder give `not installable`; one download per version per run.
 - **Logging**, alone in its file: `update-download{version, host}` with `downloaded`, `update-install{version}` with `installed`, the `WARN`.
 
 ## Check by the lead
 
 With `python3 -m http.server` on `127.0.0.1:8765` in a temporary folder:
 
-1. A config naming `riso-check`, version `0.1.0`, `update_url = "http://127.0.0.1:8765/latest.json"`: `script/bundle-macos --dev --env RISO_CHECK_HOME=/tmp/riso-install --config … --out /tmp/riso-apps` builds `riso-check.app` 0.1.0 with the code under review.
-2. The same config with version `0.2.0`: `script/bundle-macos --dev --env RISO_CHECK_HOME=/tmp/riso-install --zip --config … --out /tmp/upd-srv` makes `riso-check-0.2.0.zip`; `latest.json` names it and its `sha256`.
-3. `open /tmp/riso-apps/riso-check.app`: after about 5 s the toast `riso-check 0.2.0 is installed` with `Restart`; `Info.plist` in `/tmp/riso-apps/riso-check.app` now says `0.2.0`.
-4. Click `Restart`: the log's `run-start` says `riso-check 0.2.0`.
+1. A config naming `yard-check`, version `0.1.0`, `update_url = "http://127.0.0.1:8765/latest.json"`: `script/bundle-macos --dev --env YARD_CHECK_HOME=/tmp/yard-install --config … --out /tmp/yard-apps` builds `yard-check.app` 0.1.0 with the code under review.
+2. The same config with version `0.2.0`: `script/bundle-macos --dev --env YARD_CHECK_HOME=/tmp/yard-install --zip --config … --out /tmp/upd-srv` makes `yard-check-0.2.0.zip`; `latest.json` names it and its `sha256`.
+3. `open /tmp/yard-apps/yard-check.app`: after about 5 s the toast `yard-check 0.2.0 is installed` with `Restart`; `Info.plist` in `/tmp/yard-apps/yard-check.app` now says `0.2.0`.
+4. Click `Restart`: the log's `run-start` says `yard-check 0.2.0`.
 5. A `latest.json` with a wrong `sha256`: no install, the `WARN`, the bundle unchanged.
 
 After the promotion, steps 1 to 4 are run once more with production bundles (without `--dev`).
 
 ## Under review
 
-- `riso_update/install`, and `riso_update/check`, `riso/startup` in their dev versions
+- `yard_update/install`, and `yard_update/check`, `yard/startup` in their dev versions
 
 ## Not in this feature
 

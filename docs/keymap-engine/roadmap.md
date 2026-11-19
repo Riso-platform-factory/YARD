@@ -26,12 +26,12 @@ GPUI already has actions, key contexts, key bindings, and the dispatch of an act
 | From Zed | License | How it is reused |
 |---|---|---|
 | `gpui`: actions, focus handles, `KeyContext`, `KeyBinding`, `bind_keys`, `clear_key_bindings`, `build_action`, `available_actions`, `bindings_for_action` | Apache-2.0 | Used directly |
-| `settings/src/keymap_file.rs`: the format of a keymap file and its loading, 2,811 lines | GPL-3.0-or-later | Not UI, so not copied. riso's loader reads the same format, so a user can bring bindings over from Zed |
+| `settings/src/keymap_file.rs`: the format of a keymap file and its loading, 2,811 lines | GPL-3.0-or-later | Not UI, so not copied. YARD's loader reads the same format, so a user can bring bindings over from Zed |
 | `assets/keymaps/default-macos.json` and the files for Linux and Windows | Part of Zed's repository | Reference for the keys Zed uses: `shift-escape` to zoom, `cmd-}` for the next tab, `cmd-k cmd-left` to focus the pane on the left |
 | `workspace`: `find_pane_in_direction` in `pane_group.rs` | GPL-3.0-or-later | Reference for moving the focus by direction |
-| `command_palette` (1,847 lines), `picker` (2,064 lines) | GPL-3.0-or-later | They cannot be dependencies: they need `workspace`, the database, and the project. The palette is written with the UI kit, with Zed's as the reference for its behavior. The matching of typed text is riso's own |
+| `command_palette` (1,847 lines), `picker` (2,064 lines) | GPL-3.0-or-later | They cannot be dependencies: they need `workspace`, the database, and the project. The palette is written with the UI kit, with Zed's as the reference for its behavior. The matching of typed text is yard's own |
 
-Focus and the shell's actions are in `riso_shell`. The user's file is read by a new crate, `riso_keymap`.
+Focus and the shell's actions are in `yard_shell`. The user's file is read by a new crate, `yard_keymap`.
 
 ## Features
 
@@ -56,7 +56,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 6 | `user-keymap` | `keymap.json` in the config directory, in Zed's format, is loaded after the defaults. It adds bindings, replaces them, and removes them. An entry that cannot be read is a `WARN` that names it, and the others still load. `riso_paths` names the file | A file that moves zoom to another key: the new key zooms, the old one does not | `gpui`: `KeyBinding::load`, `build_action` | 3 | production |
+| 6 | `user-keymap` | `keymap.json` in the config directory, in Zed's format, is loaded after the defaults. It adds bindings, replaces them, and removes them. An entry that cannot be read is a `WARN` that names it, and the others still load. `yard_paths` names the file | A file that moves zoom to another key: the new key zooms, the old one does not | `gpui`: `KeyBinding::load`, `build_action` | 3 | production |
 | 7 | `keymap-reload` | The file is read again when it changes while the application runs, with the check the settings engine uses | Editing the file changes the key at once | `gpui`: `clear_key_bindings` | 6. Settings engine: `live-reload` | production |
 
 ### Commands by name

@@ -2,13 +2,13 @@
 
 ## What it adds
 
-The product config names a URL scheme. Opening such a URL, from a browser or with `open riso://layout_tour/hello`, starts the application, or reaches the one that is running, and the extension the URL names handles it through its handle, as Zed handles `zed://` links through `on_open_urls`.
+The product config names a URL scheme. Opening such a URL, from a browser or with `open yard://layout_tour/hello`, starts the application, or reaches the one that is running, and the extension the URL names handles it through its handle, as Zed handles `zed://` links through `on_open_urls`.
 
 ## How it works
 
-- **The config.** `app/riso/product.toml` gains `url_scheme = "riso"`. `build.rs` checks it as a URL scheme (a lowercase ASCII letter, then lowercase letters, digits, `+`, `-`, or `.`) and gives `PRODUCT_URL_SCHEME`; a missing or invalid value fails the build with the file and the key, as feature 1's keys do.
+- **The config.** `app/yard/product.toml` gains `url_scheme = "yard"`. `build.rs` checks it as a URL scheme (a lowercase ASCII letter, then lowercase letters, digits, `+`, `-`, or `.`) and gives `PRODUCT_URL_SCHEME`; a missing or invalid value fails the build with the file and the key, as feature 1's keys do.
 - **The bundle.** `script/bundle-macos` writes `CFBundleURLTypes` into `Info.plist`, with the scheme and the identifier as its name, so that macOS knows the application opens it.
-- **Which extension.** The URL's host names the extension: `riso://layout_tour/hello?x=1` goes to `layout_tour`, which receives the whole URL. An extension handles only the URLs that name it; it cannot ask for another's.
+- **Which extension.** The URL's host names the extension: `yard://layout_tour/hello?x=1` goes to `layout_tour`, which receives the whole URL. An extension handles only the URLs that name it; it cannot ask for another's.
 - **Through the handle.** `Extension::on_open_url(cx, handler)` registers the extension's handler, once; a second registration is refused with an `ERROR`, as feature 1 refuses a second state registration. The handler runs on the main thread with the URL as a string.
 - **Refused URLs**, each with an `INFO` `refused {reason}` and nothing else: another scheme; no host; a host that is not a loaded extension; an extension without a handler; a URL that does not parse.
 - **Before the extensions are loaded.** macOS can give the URL that started the application before the startup has loaded the extensions. The shell keeps such URLs and hands them over, in order, once the extensions are loaded.
@@ -18,7 +18,7 @@ The product config names a URL scheme. Opening such a URL, from a browser or wit
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 impl Extension {
     pub fn on_open_url(&self, cx: &mut App, handler: impl Fn(&str, &mut App) + 'static);
 }
@@ -42,8 +42,8 @@ pub fn set_url_scheme(cx: &mut App, scheme: &str);
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | `on_open_url`, `open_urls`, `extensions_loaded`, `set_url_scheme`, the routing, keeping early URLs |
-| `riso/startup` | Dev copy that registers `on_open_urls` before the application runs, gives the shell the scheme, and tells it when the extensions are loaded. While `open-urls` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
+| `yard_shell/shell` dev version | `on_open_url`, `open_urls`, `extensions_loaded`, `set_url_scheme`, the routing, keeping early URLs |
+| `yard/startup` | Dev copy that registers `on_open_urls` before the application runs, gives the shell the scheme, and tells it when the extensions are loaded. While `open-urls` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
 | App build script, `product.toml`, `script/bundle-macos` (no stage) | `url_scheme`, `PRODUCT_URL_SCHEME`, `CFBundleURLTypes`; the script's `--dev` and `--env` |
 | `examples/layout_tour` (no stage) | In the case `user-layer`, the controls show `url: <last URL>` once one arrives |
 
@@ -55,18 +55,18 @@ pub fn set_url_scheme(cx: &mut App, scheme: &str);
 
 ## Test extension: `examples/layout_tour`
 
-The checks need a bundle that runs dev code, even when macOS starts it for a URL, without arguments. `script/bundle-macos --dev [--env KEY=VALUE]…` builds one, for checking only: the binary is built with the dev features; the bundle's executable is a small script that runs it with `dev`; each `--env` goes into `Info.plist`'s `LSEnvironment`, so that macOS sets it however the bundle starts. It refuses to build a dev bundle whose name, identifier, or URL scheme is `app/riso/product.toml`'s, compared without case as macOS does, so that a dev bundle never takes the real name, directories, identifier, or scheme. An `--env` key is a shell-style name.
+The checks need a bundle that runs dev code, even when macOS starts it for a URL, without arguments. `script/bundle-macos --dev [--env KEY=VALUE]…` builds one, for checking only: the binary is built with the dev features; the bundle's executable is a small script that runs it with `dev`; each `--env` goes into `Info.plist`'s `LSEnvironment`, so that macOS sets it however the bundle starts. It refuses to build a dev bundle whose name, identifier, or URL scheme is `app/yard/product.toml`'s, compared without case as macOS does, so that a dev bundle never takes the real name, directories, identifier, or scheme. An `--env` key is a shell-style name.
 
 | Command and action | What to look for |
 |---|---|
-| `script/bundle-macos --dev --env RISO_CHECK_HOME=/tmp/riso-urls --env LAYOUT_TOUR=user-layer --config <a config naming riso-check, scheme riso-check>`, then `open dist/riso-check.app` | The tour's window, with its home in `/tmp/riso-urls`. |
-| `open "riso-check://layout_tour/hello?token=secret"` | The controls show `url: riso-check://layout_tour/hello?token=secret`; no second copy starts; the log has `url-open{scheme=riso-check, host=layout_tour}` and `handled`, and no `secret`. |
-| Quit, then `open "riso-check://layout_tour/first"` with the application closed | It starts and shows `url: riso-check://layout_tour/first`, with `kept until extensions load` and `handed over {count=1}`. |
-| `open "riso-check://nobody/x"` | `refused {reason=no extension nobody}`. |
+| `script/bundle-macos --dev --env YARD_CHECK_HOME=/tmp/yard-urls --env LAYOUT_TOUR=user-layer --config <a config naming yard-check, scheme yard-check>`, then `open dist/yard-check.app` | The tour's window, with its home in `/tmp/yard-urls`. |
+| `open "yard-check://layout_tour/hello?token=secret"` | The controls show `url: yard-check://layout_tour/hello?token=secret`; no second copy starts; the log has `url-open{scheme=yard-check, host=layout_tour}` and `handled`, and no `secret`. |
+| Quit, then `open "yard-check://layout_tour/first"` with the application closed | It starts and shows `url: yard-check://layout_tour/first`, with `kept until extensions load` and `handed over {count=1}`. |
+| `open "yard-check://nobody/x"` | `refused {reason=no extension nobody}`. |
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

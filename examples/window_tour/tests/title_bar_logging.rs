@@ -44,8 +44,8 @@ impl tracing::Subscriber for Trace {
         attributes.record(&mut fields);
         let label = format!("{}{}", attributes.metadata().name(), fields.0);
         let target = attributes.metadata().target();
-        if target.starts_with("riso_shell")
-            || target.starts_with("riso_ui")
+        if target.starts_with("yard_shell")
+            || target.starts_with("yard_ui")
             || target.starts_with("window_tour")
         {
             let mut stack: Vec<String> = captured
@@ -65,9 +65,9 @@ impl tracing::Subscriber for Trace {
 
     fn event(&self, event: &tracing::Event<'_>) {
         let target = event.metadata().target();
-        if !target.starts_with("riso_shell")
-            && !target.starts_with("riso_layout")
-            && !target.starts_with("riso_ui")
+        if !target.starts_with("yard_shell")
+            && !target.starts_with("yard_layout")
+            && !target.starts_with("yard_ui")
             && !target.starts_with("window_tour")
         {
             return;
@@ -99,7 +99,7 @@ struct Diagnostics;
 
 impl log::Log for Diagnostics {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        metadata.target().starts_with("window_tour") || metadata.target().starts_with("riso_shell")
+        metadata.target().starts_with("window_tour") || metadata.target().starts_with("yard_shell")
     }
 
     fn log(&self, record: &log::Record<'_>) {
@@ -157,13 +157,13 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
 
     log::set_logger(&Diagnostics).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
-    cx.update(riso_ui::init);
+    cx.update(yard_ui::init);
 
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         let ext = cx.update(|cx| {
-            riso_shell::bind_default_keys(cx);
-            let ext = riso_shell::Extension::new(cx, "window_tour").unwrap();
+            yard_shell::bind_default_keys(cx);
+            let ext = yard_shell::Extension::new(cx, "window_tour").unwrap();
             window_tour::init(cx, &ext);
             ext
         });
@@ -174,10 +174,10 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
             let window = cx.update(|cx| {
                 cx.open_window(
                     gpui::WindowOptions {
-                        titlebar: Some(riso_ui::titlebar_options("riso")),
+                        titlebar: Some(yard_ui::titlebar_options("yard")),
                         ..Default::default()
                     },
-                    riso_shell::new_shell,
+                    yard_shell::new_shell,
                 )
                 .unwrap()
             });
@@ -215,7 +215,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                     visual.update(|window, cx| {
                         window.refresh();
                         let _ = window.draw(cx);
-                        assert!(riso_shell::has_toast(window, cx));
+                        assert!(yard_shell::has_toast(window, cx));
                     });
                 }
                 let action = visual.debug_bounds("TOAST-ACTION").unwrap();
@@ -223,7 +223,7 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::has_toast(window, cx));
+                    assert!(!yard_shell::has_toast(window, cx));
                 });
             } else if mode == "modal-layer" {
                 let card = visual.debug_bounds("CARD-root").unwrap();
@@ -241,14 +241,14 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::has_modal(window, cx));
+                    assert!(yard_shell::has_modal(window, cx));
                 });
                 let done = visual.debug_bounds("MODAL-DONE").expect("done button");
                 visual.simulate_click(done.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::has_modal(window, cx));
+                    assert!(!yard_shell::has_modal(window, cx));
                 });
 
                 let open = visual.debug_bounds("OPEN-MODAL").unwrap();
@@ -256,14 +256,14 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::has_modal(window, cx));
+                    assert!(yard_shell::has_modal(window, cx));
                 });
                 let close = visual.debug_bounds("ICON-Close").expect("close button");
                 visual.simulate_click(close.center(), Default::default());
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::has_modal(window, cx));
+                    assert!(!yard_shell::has_modal(window, cx));
                 });
 
                 let dimmed = visual
@@ -273,13 +273,13 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(riso_shell::has_modal(window, cx));
+                    assert!(yard_shell::has_modal(window, cx));
                 });
                 visual.simulate_keystrokes("escape");
                 visual.update(|window, cx| {
                     window.refresh();
                     let _ = window.draw(cx);
-                    assert!(!riso_shell::has_modal(window, cx));
+                    assert!(!yard_shell::has_modal(window, cx));
                 });
             } else if mode != "prompts" {
                 let ping = visual
@@ -322,8 +322,8 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
                         visual.update(|window, cx| {
                             window.refresh();
                             let _ = window.draw(cx);
-                            assert!(!riso_shell::is_hidden(cx, "title"));
-                            assert!(!riso_shell::is_hidden(cx, "ping"));
+                            assert!(!yard_shell::is_hidden(cx, "title"));
+                            assert!(!yard_shell::is_hidden(cx, "ping"));
                         });
                         assert!(visual.debug_bounds("BAR-TITLE").is_some());
                         assert!(visual.debug_bounds("BAR-PING").is_some());
@@ -338,9 +338,9 @@ fn title_bar_case_places_three_nodes_after_window_frame(cx: &mut TestAppContext)
 
     // Every extension creation places the shell's window-frame group first.
     for frame_span in [
-        "root-place node=\"window\" component=\"riso.window\"",
-        "node-place node=\"title_bar\" component=\"riso.title_bar\" parent=\"window\" slot=\"title_bar\"",
-        "node-place node=\"body\" component=\"riso.body\" parent=\"window\" slot=\"body\"",
+        "root-place node=\"window\" component=\"yard.window\"",
+        "node-place node=\"title_bar\" component=\"yard.title_bar\" parent=\"window\" slot=\"title_bar\"",
+        "node-place node=\"body\" component=\"yard.body\" parent=\"window\" slot=\"body\"",
     ] {
         assert!(
             captured

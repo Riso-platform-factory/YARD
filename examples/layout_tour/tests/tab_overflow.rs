@@ -1,5 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-use riso_shell as shell;
+use yard_shell as shell;
 
 #[gpui::test]
 fn select_t20_scrolls_it_into_view_and_records_nothing(cx: &mut TestAppContext) {
@@ -24,7 +24,7 @@ fn select_t20_scrolls_it_into_view_and_records_nothing(cx: &mut TestAppContext) 
         return;
     }
     cx.update(|cx| {
-        riso_ui::init(cx);
+        yard_ui::init(cx);
         let ext = shell::Extension::new(cx, "layout_tour").unwrap();
         layout_tour::init(cx, &ext);
     });

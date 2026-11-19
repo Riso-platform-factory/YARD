@@ -139,16 +139,16 @@ fn gallery_builds_its_pages_and_logs_per_case(cx: &mut TestAppContext) {
 
     log::set_logger(&Diagnostics).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
-    cx.update(riso_ui::init);
+    cx.update(yard_ui::init);
 
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
-            let ext = riso_shell::Extension::new(cx, "ui_gallery").unwrap();
+            let ext = yard_shell::Extension::new(cx, "ui_gallery").unwrap();
             ui_gallery::init(cx, &ext);
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), yard_shell::new_shell)
                 .unwrap()
         });
         let handle = AnyWindowHandle::from(window);

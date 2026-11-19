@@ -6,18 +6,18 @@ The shell declares GPUI actions that act on the focused node: zoom it or zoom ou
 
 ## The actions
 
-They are in the namespace `riso`, as the shell's components are:
+They are in the namespace `yard`, as the shell's components are:
 
 | Action | What it does | As Zed's |
 |---|---|---|
-| `riso::ToggleZoom` | Zooms the focused node; when a node is zoomed, zooms out | `workspace::ToggleZoom` |
-| `riso::Hide` | Hides the focused node | Zed hides a dock; riso hides any node |
-| `riso::SelectNextTab` | Selects the next tab of the tabs container that holds the focused node, after the last one the first | `pane::ActivateNextItem` |
-| `riso::SelectPreviousTab` | The previous tab, before the first one the last | `pane::ActivatePreviousItem` |
+| `yard::ToggleZoom` | Zooms the focused node; when a node is zoomed, zooms out | `workspace::ToggleZoom` |
+| `yard::Hide` | Hides the focused node | Zed hides a dock; yard hides any node |
+| `yard::SelectNextTab` | Selects the next tab of the tabs container that holds the focused node, after the last one the first | `pane::ActivateNextItem` |
+| `yard::SelectPreviousTab` | The previous tab, before the first one the last | `pane::ActivatePreviousItem` |
 
 - **"The focused node"** is the innermost node with the focus, as `focused-node` defines it.
-- **"Its tabs container"** is the nearest `riso.tabs` node at or above it. A focused tabs container selects among its own tabs. A card inside a row inside tabs selects among those tabs.
-- **The operations are the shell's own,** the ones an extension already uses: zooming, zooming out, hiding, and selecting a tab. Each is checked by the same rules. The shell acts on its own behalf, as extension `riso`.
+- **"Its tabs container"** is the nearest `yard.tabs` node at or above it. A focused tabs container selects among its own tabs. A card inside a row inside tabs selects among those tabs.
+- **The operations are the shell's own,** the ones an extension already uses: zooming, zooming out, hiding, and selecting a tab. Each is checked by the same rules. The shell acts on its own behalf, as extension `yard`.
 - After `Hide`, no node has the focus, as `focused-node` says of a hidden node. The focus goes to the shell's root, which is no node, so that the next action still reaches the shell and is refused.
 - After a tab is selected, the focus goes to the tabs container, so that the next `SelectNextTab` continues there.
 - When a node strictly inside the tabs container is zoomed, selecting a tab zooms out first, so that the new tab is seen and the container can take the focus. When the tabs container itself, or a node above it, is zoomed, the zoom stays.
@@ -44,7 +44,7 @@ Each action runs in a group, `layout-action{action, node}`, with `node` the focu
 ## What code can do
 
 ```rust
-actions!(riso, [ToggleZoom, Hide, SelectNextTab, SelectPreviousTab]);
+actions!(yard, [ToggleZoom, Hide, SelectNextTab, SelectPreviousTab]);
 pub fn selected_tab(cx: &App, tabs: &str) -> Option<NodeId>;
 ```
 
@@ -54,8 +54,8 @@ pub fn selected_tab(cx: &App, tabs: &str) -> Option<NodeId>;
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` | Dev version beside production. The actions, their handlers, next and previous tab, `selected_tab`, and the logging |
-| `riso/startup` | Dev copy, with the dev shell |
+| `yard_shell/shell` | Dev version beside production. The actions, their handlers, next and previous tab, `selected_tab`, and the logging |
+| `yard/startup` | Dev copy, with the dev shell |
 
 `examples/layout_tour` builds against the dev shell.
 
@@ -83,7 +83,7 @@ A new case, `actions`: a row with a `controls` card, card `a`, and a tabs contai
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

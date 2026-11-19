@@ -1,5 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-use riso_shell as shell;
+use yard_shell as shell;
 
 #[gpui::test]
 fn context_controls_share_count_refuse_invalid_move_and_reset(cx: &mut TestAppContext) {
@@ -23,7 +23,7 @@ fn context_controls_share_count_refuse_invalid_move_and_reset(cx: &mut TestAppCo
         return;
     }
     cx.update(|cx| {
-        riso_ui::init(cx);
+        yard_ui::init(cx);
         let ext = shell::Extension::new(cx, "layout_tour").unwrap();
         layout_tour::init(cx, &ext);
     });

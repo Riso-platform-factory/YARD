@@ -9,7 +9,7 @@ This is how a Zed panel reaches its `Workspace` and its `Project` without being 
 ## How it works
 
 - **Giving.** `Extension::provide::<M>(cx, component, create)` declares that each node of a component of the extension gives a model of type `M`. `create` makes the model, an `Entity<M>`, once per node, when the node's view is created; the model lives as long as the node's view. `Extension::provide_window::<M>(cx, model)` gives a model to the whole window.
-- **Asking.** `riso_shell::context::<M>(cx, node)` returns the model of type `M` of the nearest node above `node` whose component gives one, or the window's, or none. A view asks when it needs the model, for example each time it renders, so that after a move it receives the model of its new place.
+- **Asking.** `yard_shell::context::<M>(cx, node)` returns the model of type `M` of the nearest node above `node` whose component gives one, or the window's, or none. A view asks when it needs the model, for example each time it renders, so that after a move it receives the model of its new place.
 - **Requiring.** `Extension::require_context::<M>(cx, component)` declares that a component needs a model of type `M` above its nodes.
 - **The rule** is a rule of the shell, checked with its other rules from the declarations, not from created models:
 
@@ -23,7 +23,7 @@ This is how a Zed panel reaches its `Workspace` and its `Project` without being 
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 impl Extension {
     pub fn provide<M: 'static>(&self, cx: &mut App, component: &str,
         create: impl Fn(&NodeId, &mut App) -> Entity<M> + 'static);
@@ -48,8 +48,8 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | `provide`, `provide_window`, `require_context`, `context`, models kept per node and dropped with its view, and the rule in the shell's rules for `place`, `add`, and `move` |
-| `riso/startup` | Dev copy that uses the dev shell. While `contexts` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_shell/shell` dev version | `provide`, `provide_window`, `require_context`, `context`, models kept per node and dropped with its view, and the rule in the shell's rules for `place`, `add`, and `move` |
+| `yard/startup` | Dev copy that uses the dev shell. While `contexts` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -71,7 +71,7 @@ A new case, `contexts`. Its component `layout_tour.counter` gives a model `Count
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-contexts LAYOUT_TOUR=contexts cargo run dev` | `counter` with `left` and `right`, both showing `0`, and `outside`. `context-declare` for `provide` and `require`; `context created {node=counter, model=Count}`. |
+| `YARD_HOME=/tmp/yard-contexts LAYOUT_TOUR=contexts cargo run dev` | `counter` with `left` and `right`, both showing `0`, and `outside`. `context-declare` for `provide` and `require`; `context created {node=counter, model=Count}`. |
 | Click `+1` twice | `left` and `right` both show `2`. |
 | Click `move left to root` | Refused: `left requires a Count model, and none is above root`. |
 | Click `move outside into counter` | `outside` moves into the counter: it requires nothing. |
@@ -79,7 +79,7 @@ A new case, `contexts`. Its component `layout_tour.counter` gives a model `Count
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

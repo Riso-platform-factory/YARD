@@ -23,13 +23,13 @@ An extension asks for them through its handle. `place_root` and `place` are for 
 
 ## Rules
 
-The model in `riso_layout` checks what it can know without components. The shell checks the rest, because it knows the components.
+The model in `yard_layout` checks what it can know without components. The shell checks the rest, because it knows the components.
 
 | Rule | Checked by | Log when refused |
 |---|---|---|
 | An ID or slot name breaks the slug rule | shell | `ERROR`: a bug of the extension |
 | `add`: the node ID is already in the tree, or the parent is not | model | `INFO` |
-| `add`: the component is not registered, is not in the extension's namespace or `riso`, or the parent's component does not declare the slot | shell | `INFO` |
+| `add`: the component is not registered, is not in the extension's namespace or `yard`, or the parent's component does not declare the slot | shell | `INFO` |
 | `remove`, `move`, `hide`, `show`: the node is not in the tree, or is the root | model | `INFO` |
 | `move`: the target parent is not in the tree | model | `INFO` |
 | `move`: the target parent is the node itself or is under it, which would make a cycle | model | `INFO` |
@@ -63,9 +63,9 @@ The model in `riso_layout` checks what it can know without components. The shell
 
 | Part | What changes |
 |---|---|
-| `riso_layout/tree` | Dev version: `Operation`, `Tree::apply` with the model's rules, and the cycle check |
-| `riso_shell/shell` | Dev version: `add`, `remove`, `move_node`, and `set_hidden` on `Extension`, all through one path that checks the shell's rules, applies the operation, and reconciles views. Slots read the tree at render time. |
-| `riso/startup` | Dev copy that uses the dev shell |
+| `yard_layout/tree` | Dev version: `Operation`, `Tree::apply` with the model's rules, and the cycle check |
+| `yard_shell/shell` | Dev version: `add`, `remove`, `move_node`, and `set_hidden` on `Extension`, all through one path that checks the shell's rules, applies the operation, and reconciles views. Slots read the tree at render time. |
+| `yard/startup` | Dev copy that uses the dev shell |
 
 ## Test extension: `examples/layout_tour`
 
@@ -84,8 +84,8 @@ The model in `riso_layout` checks what it can know without components. The shell
 
 ## Under review
 
-- `riso_layout/tree` and `riso_shell/shell`, in their dev versions
-- `riso/startup`, as a dev copy
+- `yard_layout/tree` and `yard_shell/shell`, in their dev versions
+- `yard/startup`, as a dev copy
 
 ## Not in this feature
 

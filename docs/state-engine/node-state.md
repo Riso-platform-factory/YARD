@@ -14,7 +14,7 @@ As the roadmap's decisions say:
   It is refused with an `ERROR` for an invalid ID, a component outside the extension's namespace, or a second registration.
 - **What is saved.** The windows are the session's (window engine feature 10), in its order, the main window first: a window the session leaves out because it cannot be read (its handle is gone, or it has no layout) is left out here too, for the same reason, so that the `i`-th window of both files is the same window. For each, every node that has a view of a component with registered state: its node ID, its component's ID, and its state; and every saved state not given yet in this run, kept as it was read, so that a node that has no view this run keeps its state for the next. Copies of item slots are not saved (`item-state`, later).
 - **When.** When the application quits, before its windows close. Closing the last window quits the application, so that window's states are taken when it closes, before its views are dropped, as the session keeps it.
-- **Where.** In `state.json` in the data directory, named by `riso_paths` (`Paths::state_file`), written with foundation 6's atomic write. The format: a `version` (1) and the `windows`, each a map from node ID to its `component` and `state`. A new crate without GPUI, `riso_state`, owns the format, as `riso_layout/saved` owns the layout's.
+- **Where.** In `state.json` in the data directory, named by `yard_paths` (`Paths::state_file`), written with foundation 6's atomic write. The format: a `version` (1) and the `windows`, each a map from node ID to its `component` and `state`. A new crate without GPUI, `yard_state`, owns the format, as `yard_layout/saved` owns the layout's.
 - **Given back.** At the start, the window opened `i`-th from the session gets the `i`-th window's states; with no session, the one window gets the first. When a node's view is first created and the state file holds a state for its ID:
   - with the same component, `restore_state` is called with it;
   - with another component, it is not given, with a `debug` `state skipped {node, saved, component}`;
@@ -26,12 +26,12 @@ As the roadmap's decisions say:
 ## What code can do
 
 ```rust
-// riso_paths (dev part `state_file`)
+// yard_paths (dev part `state_file`)
 impl Paths {
     pub fn state_file(&self) -> PathBuf;
 }
 
-// riso_shell::dev
+// yard_shell::dev
 pub trait NodeState: Render {
     fn save_state(&self, cx: &App) -> serde_json::Value;
     fn restore_state(&mut self, state: serde_json::Value, window: &mut Window, cx: &mut Context<Self>);
@@ -45,7 +45,7 @@ pub fn set_state_file(cx: &mut App, file: PathBuf);
 pub fn window_user_layer_len(window: &Window, cx: &App) -> usize;
 ```
 
-`riso_state` (new crate, no GPUI): the format's types and `encode`/`decode`, with its own logging.
+`yard_state` (new crate, no GPUI): the format's types and `encode`/`decode`, with its own logging.
 
 ## Logging
 
@@ -60,15 +60,15 @@ pub fn window_user_layer_len(window: &Window, cx: &App) -> usize;
 
 | Part | What changes |
 |---|---|
-| `riso_state` (new crate, no GPUI) | The format; its first part is dev |
-| `riso_paths/state_file` (new, dev) | `Paths::state_file`: `state.json` in the data directory |
-| `riso_shell/shell` dev version | `NodeState`, `register_state`, `set_state_file`, taking states at quit and at the last close, giving them back at view creation |
-| `riso/startup` | Dev copy that gives the shell its state file. While `node-state` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
+| `yard_state` (new crate, no GPUI) | The format; its first part is dev |
+| `yard_paths/state_file` (new, dev) | `Paths::state_file`: `state.json` in the data directory |
+| `yard_shell/shell` dev version | `NodeState`, `register_state`, `set_state_file`, taking states at quit and at the last close, giving them back at view creation |
+| `yard/startup` | Dev copy that gives the shell its state file. While `node-state` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
 | `examples/layout_tour` (no stage) | The card registers its count as its state; the `user layer: N` label shows its own window's count with `window_user_layer_len` |
 
 ## Tests
 
-- **`riso_state`, unit tests:** encode and decode give the same windows; a broken file, another `version`, and unknown fields are handled as above.
+- **`yard_state`, unit tests:** encode and decode give the same windows; a broken file, another `version`, and unknown fields are handled as above.
 - **Paths, unit test:** `state_file()` is `state.json` in the data directory.
 - **Shell, GPUI tests, with the dev shell:** a stateful card counted to 3, quit, a new run with the file: the card shows 3; a node whose component changed gets no state; two windows keep their own states in order; a window from `NewWindow` gets none; a view created again in the run starts from its default; the last window's states are kept when closing it quits; the registration refusals.
 - **Logging**, alone in its file: `state-restore{file}`, `state given {node}` inside `component-create`, and `state-save{windows, nodes}` holding `file-write`.
@@ -77,13 +77,13 @@ pub fn window_user_layer_len(window: &Window, cx: &App) -> usize;
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-state LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` three times, quit | `state-save{windows=1, nodes=…}`; `state.json` holds `a`'s count. |
+| `YARD_HOME=/tmp/yard-state LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` three times, quit | `state-save{windows=1, nodes=…}`; `state.json` holds `a`'s count. |
 | Start again | `a` shows `count: 3`; `state given {node=a}`. |
 | Press `cmd-shift-n`, count `c` in the new window twice, quit, start | Both windows are back (feature 10), each with its own counts. |
 
 ## Under review
 
-- `riso_state` (its first part), `riso_paths/state_file`, and `riso_shell/shell`, `riso/startup` in their dev versions
+- `yard_state` (its first part), `yard_paths/state_file`, and `yard_shell/shell`, `yard/startup` in their dev versions
 
 ## Not in this feature
 

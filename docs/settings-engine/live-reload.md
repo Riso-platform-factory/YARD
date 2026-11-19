@@ -7,7 +7,7 @@ While the application runs, the engine checks `settings.json` once a second. Whe
 ## Checking the file
 
 - Every second, the engine reads the file's bytes and compares them with what it read the second before. The file is small, so this costs nothing. A file's modification time is not used: two quick writes of the same length can keep the same time on some file systems, and an editor can restore it, so a time would miss a change.
-- The check is plain code without GPUI, in `riso_paths`, so that the keymap file can use it later with a timer of its own:
+- The check is plain code without GPUI, in `yard_paths`, so that the keymap file can use it later with a timer of its own:
 
   ```rust
   pub struct FileCheck { .. }
@@ -67,9 +67,9 @@ fn changed_sections(applied: &[(&'static str, Option<Value>)], content: &Map<Str
 
 | Part | What changes |
 |---|---|
-| `riso_paths/file_check` (new, dev) | `FileCheck` and `FileState` |
-| `riso_settings/sections` | Dev version beside production. It adds `watch` and `observe`, and reading again |
-| `riso/startup` | Dev copy. It calls the dev `init`, `load`, then `watch`, in `app-init` |
+| `yard_paths/file_check` (new, dev) | `FileCheck` and `FileState` |
+| `yard_settings/sections` | Dev version beside production. It adds `watch` and `observe`, and reading again |
+| `yard/startup` | Dev copy. It calls the dev `init`, `load`, then `watch`, in `app-init` |
 
 ## Tests
 
@@ -85,7 +85,7 @@ fn changed_sections(applied: &[(&'static str, Option<Value>)], content: &Map<Str
 
 ## Test extension: `examples/settings_tour`
 
-The card observes its section and draws again when told. Use a fresh home: `RISO_HOME=/tmp/riso-settings`. Start with `SETTINGS_TOUR=card cargo run dev`, then, while it runs:
+The card observes its section and draws again when told. Use a fresh home: `YARD_HOME=/tmp/yard-settings`. Start with `SETTINGS_TOUR=card cargo run dev`, then, while it runs:
 
 | Edit of `config/settings.json` | What to look for |
 |---|---|
@@ -97,8 +97,8 @@ The card observes its section and draws again when told. Use a fresh home: `RISO
 
 ## Under review
 
-- `riso_paths/file_check`
-- `riso_settings/sections` and `riso/startup`, in their dev versions
+- `yard_paths/file_check`
+- `yard_settings/sections` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

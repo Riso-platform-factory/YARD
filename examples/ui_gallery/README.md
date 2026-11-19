@@ -1,10 +1,10 @@
 # ui_gallery
 
-A test extension for the UI kit, the base components in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the UI kit again, or when the next UI kit feature is under review.
+A test extension for the UI kit, the base components in `yard_ui`. When `app/yard/src/dev/review.rs` lists it as `("ui_gallery", ui_gallery::init)` among the extensions it passes to the startup, and `app/yard/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the UI kit again, or when the next UI kit feature is under review.
 
 Without `UI_GALLERY` it does nothing, so a plain `cargo run dev` shows only what the app really does. With `UI_GALLERY=all`, it places a tabs container as the root, with one tab per page and one page per base component. A page shows every variant of its component, each naming itself, in groups with an upper-case muted title beside a hairline, as Zed's component preview does.
 
-Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/tmp/riso-gallery`.
+Use a fresh home, so that the user's real files are never touched: `YARD_HOME=/tmp/yard-gallery`.
 
 ## Feature 1: gallery-and-text
 
@@ -54,7 +54,7 @@ Each modal is drawn in place on the page, not above the window.
 
 ## Removing it
 
-Remove it from the list of extensions in `app/riso/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/riso/Cargo.toml`, and the app runs as it should without it.
+Remove it from the list of extensions in `app/yard/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/yard/Cargo.toml`, and the app runs as it should without it.
 
 ## Feature 6: list
 
@@ -87,18 +87,18 @@ The `scroll` page shows, on the left, a scroll area 300 px tall with forty parag
 | Command and action | What to look for |
 |---|---|
 | `UI_GALLERY=all cargo run dev`, open the `scroll` tab, scroll each side | Both scroll smoothly. The thumb appears while scrolling and fades after a moment. |
-| Scroll the list fast to the end | `Row 999` at the bottom. With `RISO_LIFECYCLE=info,riso_ui=trace`, `rows drawn` in the trace with small counts. |
+| Scroll the list fast to the end | `Row 999` at the bottom. With `YARD_LIFECYCLE=info,yard_ui=trace`, `rows drawn` in the trace with small counts. |
 | Click `go to 500` | `Row 500` is in view. |
 | Drag the list's thumb | The rows follow. |
 | `{"theme": {"mode": "light"}}` | The thumb follows the theme. |
 
 ## Feature 9: key-hint
 
-The `key-hint` page lists every action of the shell with a default key in the window's context (all but `riso::Dismiss`, whose key works only inside a modal): the action's name, then its keys at the right, as Zed's command palette shows a command. A second group shows the same keys in the label style, and one disabled.
+The `key-hint` page lists every action of the shell with a default key in the window's context (all but `yard::Dismiss`, whose key works only inside a modal): the action's name, then its keys at the right, as Zed's command palette shows a command. A second group shows the same keys in the label style, and one disabled.
 
 | Command and action | What to look for |
 |---|---|
-| `UI_GALLERY=all cargo run dev`, open the `key-hint` tab | `riso::ToggleZoom` with `⇧⎋`, `riso::SelectNextTab` with `⌥⌘→` (the last binding, as Zed shows it), `riso::FocusLeft` with `⌘K ⌘←`, `riso::Quit` with `⌘Q`, and the others. |
+| `UI_GALLERY=all cargo run dev`, open the `key-hint` tab | `yard::ToggleZoom` with `⇧⎋`, `yard::SelectNextTab` with `⌥⌘→` (the last binding, as Zed shows it), `yard::FocusLeft` with `⌘K ⌘←`, `yard::Quit` with `⌘Q`, and the others. |
 | Beside Zed's command palette (`cmd-shift-p`) | The keys match in size, spacing, and colors. |
 | `{"theme": {"mode": "light"}}` | The keys follow the theme. |
 

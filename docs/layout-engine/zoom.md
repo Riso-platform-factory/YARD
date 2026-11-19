@@ -46,8 +46,8 @@ This follows Zed's `dock.rs` and workspace.
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` | A dev version beside production: the zoomed node, `set_zoomed` and `zoom_out` on `Extension`, drawing the zoomed view only, and clearing the zoom when an operation removes or hides the zoomed node |
-| `riso/startup` | A dev copy that uses the dev shell |
+| `yard_shell/shell` | A dev version beside production: the zoomed node, `set_zoomed` and `zoom_out` on `Extension`, drawing the zoomed view only, and clearing the zoom when an operation removes or hides the zoomed node |
+| `yard/startup` | A dev copy that uses the dev shell |
 
 ## Test extension: `examples/layout_tour`
 
@@ -62,7 +62,7 @@ The card gains a line, `zoom` or `zoom out`. Clicking it zooms its own node, or 
 
 ## Under review
 
-`riso_shell/shell` and `riso/startup`, in their dev versions.
+`yard_shell/shell` and `yard/startup`, in their dev versions.
 
 ## Not in this feature
 

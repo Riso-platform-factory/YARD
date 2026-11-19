@@ -1,13 +1,13 @@
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, rems};
-use riso_ui::{Button, IconButton, IconName, Tooltip, h_flex, v_flex};
+use yard_ui::{Button, IconButton, IconName, Tooltip, h_flex, v_flex};
 
-pub(super) fn register(cx: &mut App, ext: &riso_shell::Extension) {
+pub(super) fn register(cx: &mut App, ext: &yard_shell::Extension) {
     ext.register(cx, "ui_gallery.tooltip", &[], |_, _, _, cx| {
         cx.new(|_| TooltipPage).into()
     });
 }
 
-pub(super) fn place(cx: &mut App, ext: &riso_shell::Extension) {
+pub(super) fn place(cx: &mut App, ext: &yard_shell::Extension) {
     ext.place(cx, "tooltip", "ui_gallery.tooltip", "root", "children");
     tracing::debug!(page = "tooltip", "page placed");
 }
@@ -17,10 +17,10 @@ struct TooltipPage;
 impl Render for TooltipPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "tooltip", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let text = Button::new("tooltip-text", "Text").tooltip(Tooltip::text("Save the file"));
         let keys = Button::new("tooltip-keys", "Keys")
-            .tooltip(Tooltip::for_action("Quit the gallery", &riso_shell::Quit));
+            .tooltip(Tooltip::for_action("Quit the gallery", &yard_shell::Quit));
         let detail = Button::new("tooltip-detail", "Detail").tooltip(Tooltip::with_meta(
             "Save the file",
             None,

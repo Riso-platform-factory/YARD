@@ -18,9 +18,9 @@ One value joins the section `theme`. Its JSON name and its values are Zed's:
 
 ## How
 
-- Zed's components ask the settings provider for the density, and size their spacing by it through Zed's `DynamicSpacing`. riso's provider returns the default density today.
-- The density joins the global of `riso_ui` that holds the UI font, and the provider reads it from there.
-- riso's own code has no spacing that depends on the density. It is not changed.
+- Zed's components ask the settings provider for the density, and size their spacing by it through Zed's `DynamicSpacing`. YARD's provider returns the default density today.
+- The density joins the global of `yard_ui` that holds the UI font, and the provider reads it from there.
+- YARD's own code has no spacing that depends on the density. It is not changed.
 
 ## Rules
 
@@ -38,10 +38,10 @@ Applying the density runs in a group, `density-apply{density}`, at startup insid
 
 | Part | What changes |
 |---|---|
-| `riso_ui/theming` | Dev version beside production. The global holds the density, and the provider returns it |
-| `riso_ui/theme_setting` | Dev version beside production. The value, its group, and its rules |
-| `riso_shell/shell` | Dev version beside production, with only its paths changed: the shell reads the UI font from `riso_ui`'s global, whose type the dev version of `theming` holds |
-| `riso/startup` | Dev copy, with the dev functions and the dev shell |
+| `yard_ui/theming` | Dev version beside production. The global holds the density, and the provider returns it |
+| `yard_ui/theme_setting` | Dev version beside production. The value, its group, and its rules |
+| `yard_shell/shell` | Dev version beside production, with only its paths changed: the shell reads the UI font from `yard_ui`'s global, whose type the dev version of `theming` holds |
+| `yard/startup` | Dev copy, with the dev functions and the dev shell |
 
 ## Tests
 
@@ -55,7 +55,7 @@ Applying the density runs in a group, `density-apply{density}`, at startup insid
 
 ## Test extension: `examples/theme_tour`
 
-The card's tab bar shows the density. Use a fresh home: `RISO_HOME=/tmp/riso-theme THEME_TOUR=card cargo run dev`, then edit `config/settings.json` while it runs:
+The card's tab bar shows the density. Use a fresh home: `YARD_HOME=/tmp/yard-theme THEME_TOUR=card cargo run dev`, then edit `config/settings.json` while it runs:
 
 | Edit | What to look for |
 |---|---|
@@ -65,8 +65,8 @@ The card's tab bar shows the density. Use a fresh home: `RISO_HOME=/tmp/riso-the
 
 ## Under review
 
-- `riso_ui/theming`, `riso_ui/theme_setting`, `riso_shell/shell`, and `riso/startup`, in their dev versions
+- `yard_ui/theming`, `yard_ui/theme_setting`, `yard_shell/shell`, and `yard/startup`, in their dev versions
 
 ## Not in this feature
 
-- A density for riso's own components: each component adopts it when it is wrapped in the UI kit.
+- A density for YARD's own components: each component adopts it when it is wrapped in the UI kit.

@@ -9,8 +9,8 @@ license.workspace = true
 gpui.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-riso_settings = { workspace = true, default-features = false }
-riso_shell = { workspace = true, default-features = false }
-riso_ui = { workspace = true, default-features = false }
+yard_settings = { workspace = true, default-features = false }
+yard_shell = { workspace = true, default-features = false }
+yard_ui = { workspace = true, default-features = false }
 log.workspace = true
 tracing.workspace = true

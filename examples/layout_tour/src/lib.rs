@@ -54,9 +54,9 @@ use gpui::{
     App, AppContext, Bounds, Context, InteractiveElement, IntoElement, ParentElement, Pixels,
     Render, Size, StatefulInteractiveElement, Styled, WeakEntity, Window, canvas, div,
 };
-use riso_layout::{NodeId, Position};
-use riso_shell as shell;
 use std::rc::Rc;
+use yard_layout::{NodeId, Position};
+use yard_shell as shell;
 
 pub fn init(cx: &mut App, ext: &shell::Extension) {
     let case = std::env::var("LAYOUT_TOUR").unwrap_or_default();
@@ -82,8 +82,8 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
-            ext.place(cx, "side", "riso.column", "root", "children");
+            place_root(ext, cx, "root", "yard.row");
+            ext.place(cx, "side", "yard.column", "root", "children");
             ext.place(cx, "left", "layout_tour.card", "side", "children");
             ext.place(cx, "extra", "layout_tour.card", "side", "children");
             ext.place(cx, "main", "layout_tour.controls", "root", "children");
@@ -92,7 +92,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place_with_props(
                 cx,
                 "toggle_left",
-                "riso.toggle",
+                "yard.toggle",
                 "status_bar",
                 "left",
                 serde_json::json!({"node": "left", "icon": "info", "alone": true}),
@@ -100,7 +100,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place_with_props(
                 cx,
                 "toggle_extra",
-                "riso.toggle",
+                "yard.toggle",
                 "status_bar",
                 "left",
                 serde_json::json!({"node": "extra", "icon": "plus", "alone": true}),
@@ -108,7 +108,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
             ext.place_with_props(
                 cx,
                 "toggle_right",
-                "riso.toggle",
+                "yard.toggle",
                 "status_bar",
                 "right",
                 serde_json::json!({"node": "right", "icon": "warning"}),
@@ -147,10 +147,10 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "layout", "riso.column");
+            place_root(ext, cx, "layout", "yard.column");
             ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
-            ext.place(cx, "root", "riso.row", "layout", "children");
-            ext.place(cx, "left", "riso.column", "root", "children");
+            ext.place(cx, "root", "yard.row", "layout", "children");
+            ext.place(cx, "left", "yard.column", "root", "children");
             ext.place(cx, "top", "layout_tour.list", "left", "children");
             ext.place(cx, "bottom", "layout_tour.list", "left", "children");
             ext.place(cx, "right", "layout_tour.card", "root", "children");
@@ -212,9 +212,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "layout", "riso.column");
+            place_root(ext, cx, "layout", "yard.column");
             ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
-            ext.place(cx, "root", "riso.row", "layout", "children");
+            ext.place(cx, "root", "yard.row", "layout", "children");
             ext.place(cx, "counter", "layout_tour.counter", "root", "children");
             ext.place(cx, "left", "layout_tour.count_card", "counter", "body");
             ext.place(cx, "right", "layout_tour.count_card", "counter", "body");
@@ -255,7 +255,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             for node in ["a", "b", "c"] {
                 ext.place(cx, node, "layout_tour.card", "root", "children");
@@ -299,9 +299,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "layout", "riso.column");
+            place_root(ext, cx, "layout", "yard.column");
             ext.place(cx, "controls", "layout_tour.controls", "layout", "children");
-            ext.place(cx, "root", "riso.row", "layout", "children");
+            ext.place(cx, "root", "yard.row", "layout", "children");
             ext.place(cx, "frame", "layout_tour.frame", "root", "children");
             ext.place(cx, "first", "layout_tour.card", "frame", "content");
             ext.place(cx, "loose", "layout_tour.card", "root", "children");
@@ -334,10 +334,10 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "side", "layout_tour.card", "root", "children");
-            ext.place(cx, "main", "riso.column", "root", "children");
+            ext.place(cx, "main", "yard.column", "root", "children");
             ext.place(cx, "editor", "layout_tour.editor", "main", "children");
             ext.place(cx, "notes", "layout_tour.card", "main", "children");
         }
@@ -371,9 +371,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
-            ext.place(cx, "cards", "riso.tabs", "root", "children");
+            ext.place(cx, "cards", "yard.tabs", "root", "children");
             ext.place_with_props(
                 cx,
                 "alpha",
@@ -428,9 +428,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
-            ext.place(cx, "cards", "riso.row", "root", "children");
+            ext.place(cx, "cards", "yard.row", "root", "children");
             ext.place_with_props(
                 cx,
                 "alpha",
@@ -484,9 +484,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.column");
+            place_root(ext, cx, "root", "yard.column");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
-            ext.place(cx, "tabs", "riso.tabs", "root", "children");
+            ext.place(cx, "tabs", "yard.tabs", "root", "children");
             for index in 1..=20 {
                 let node = format!("t{index:02}");
                 ext.place(cx, &node, "layout_tour.card", "tabs", "children");
@@ -520,10 +520,10 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "a", "layout_tour.card", "root", "children");
-            ext.place(cx, "right", "riso.tabs", "root", "children");
+            ext.place(cx, "right", "yard.tabs", "root", "children");
             for node in ["b", "c", "d"] {
                 ext.place(cx, node, "layout_tour.card", "right", "children");
             }
@@ -542,12 +542,12 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.column");
+            place_root(ext, cx, "root", "yard.column");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place_with_props(
                 cx,
                 "row",
-                "riso.row",
+                "yard.row",
                 "root",
                 "children",
                 serde_json::json!({"sizes": {"side": 240}}),
@@ -587,9 +587,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.column");
+            place_root(ext, cx, "root", "yard.column");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
-            ext.place(cx, "row", "riso.row", "root", "children");
+            ext.place(cx, "row", "yard.row", "root", "children");
             ext.place(cx, "panel", "layout_tour.panel", "row", "children");
             ext.place(cx, "wide", "layout_tour.wide", "row", "children");
             ext.place(cx, "plain", "layout_tour.card", "row", "children");
@@ -624,10 +624,10 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
-            ext.place(cx, "left", "riso.tabs", "root", "children");
-            ext.place(cx, "right", "riso.tabs", "root", "children");
+            ext.place(cx, "left", "yard.tabs", "root", "children");
+            ext.place(cx, "right", "yard.tabs", "root", "children");
             for (node, parent) in [("a", "left"), ("b", "left"), ("c", "right"), ("d", "right")] {
                 ext.place(cx, node, "layout_tour.card", parent, "children");
             }
@@ -639,9 +639,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         }
         "two-tabs" => {
             register_card(cx, ext);
-            place_root(ext, cx, "root", "riso.row");
-            ext.place(cx, "left", "riso.tabs", "root", "children");
-            ext.place(cx, "right", "riso.tabs", "root", "children");
+            place_root(ext, cx, "root", "yard.row");
+            ext.place(cx, "left", "yard.tabs", "root", "children");
+            ext.place(cx, "right", "yard.tabs", "root", "children");
             ext.place(cx, "a", "layout_tour.card", "left", "children");
             ext.place(cx, "b", "layout_tour.card", "left", "children");
             ext.place(cx, "c", "layout_tour.card", "right", "children");
@@ -659,10 +659,10 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             ext.place(cx, "a", "layout_tour.card", "root", "children");
-            ext.place(cx, "right", "riso.column", "root", "children");
+            ext.place(cx, "right", "yard.column", "root", "children");
             ext.place(cx, "b", "layout_tour.card", "right", "children");
             ext.place(cx, "c", "layout_tour.card", "right", "children");
         }
@@ -683,10 +683,10 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 })
                 .into()
             });
-            place_root(ext, cx, "root", "riso.row");
+            place_root(ext, cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             let parent = if case == "hide-tab" {
-                ext.place(cx, "right", "riso.tabs", "root", "children");
+                ext.place(cx, "right", "yard.tabs", "root", "children");
                 "right"
             } else {
                 "root"
@@ -699,7 +699,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
         | "tabs-in-split" | "empty-tabs" | "zoom" => {
             register_card(cx, ext);
             if case == "reserved" {
-                ext.register(cx, "riso.badge", &[], |_, _, _, cx| {
+                ext.register(cx, "yard.badge", &[], |_, _, _, cx| {
                     cx.new(|_| gpui::Empty).into()
                 });
                 return;
@@ -709,11 +709,11 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 cx,
                 "root",
                 if case == "column" {
-                    "riso.column"
+                    "yard.column"
                 } else if case == "tabs" || case == "empty-tabs" {
-                    "riso.tabs"
+                    "yard.tabs"
                 } else {
-                    "riso.row"
+                    "yard.row"
                 },
             );
             if case != "empty-split" && case != "empty-tabs" {
@@ -729,9 +729,9 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                         cx,
                         "right",
                         if case == "tabs-in-split" || case == "zoom" {
-                            "riso.tabs"
+                            "yard.tabs"
                         } else {
-                            "riso.column"
+                            "yard.column"
                         },
                         "root",
                         "children",
@@ -803,7 +803,7 @@ fn place_root(ext: &shell::Extension, cx: &mut App, node: &str, component: &str)
             ext.place_root_with_props(
                 cx,
                 "tour_frame",
-                "riso.row",
+                "yard.row",
                 serde_json::json!({"sizes": {"inspector": 360}}),
             );
             ext.place(cx, node, component, "tour_frame", "children");
@@ -878,13 +878,13 @@ enum Tint {
 }
 
 impl Tint {
-    fn text_color(self) -> riso_ui::TextColor {
+    fn text_color(self) -> yard_ui::TextColor {
         match self {
-            Self::Default => riso_ui::TextColor::Default,
-            Self::Accent => riso_ui::TextColor::Accent,
-            Self::Success => riso_ui::TextColor::Success,
-            Self::Warning => riso_ui::TextColor::Warning,
-            Self::Error => riso_ui::TextColor::Error,
+            Self::Default => yard_ui::TextColor::Default,
+            Self::Accent => yard_ui::TextColor::Accent,
+            Self::Success => yard_ui::TextColor::Success,
+            Self::Warning => yard_ui::TextColor::Warning,
+            Self::Error => yard_ui::TextColor::Error,
         }
     }
 }
@@ -931,18 +931,18 @@ impl shell::Titled for TintedCard {
     fn title(&self, _: &App) -> gpui::SharedString {
         self.props.title.clone().into()
     }
-    fn icon(&self, _: &App) -> Option<riso_ui::IconName> {
+    fn icon(&self, _: &App) -> Option<yard_ui::IconName> {
         match self.props.icon {
             CardIcon::None => None,
-            CardIcon::Info => Some(riso_ui::IconName::Info),
-            CardIcon::Warning => Some(riso_ui::IconName::Warning),
+            CardIcon::Info => Some(yard_ui::IconName::Info),
+            CardIcon::Warning => Some(yard_ui::IconName::Warning),
         }
     }
 }
 
 impl Render for TintedCard {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         div()
             .debug_selector(|| format!("CARD-{}", self.node))
             .relative()
@@ -962,11 +962,11 @@ impl Render for TintedCard {
                     .border_color(palette.border),
             )
             .child(
-                riso_ui::Label::new(self.props.title.clone())
-                    .size(riso_ui::LabelSize::Large)
+                yard_ui::Label::new(self.props.title.clone())
+                    .size(yard_ui::LabelSize::Large)
                     .color(self.props.tint.text_color()),
             )
-            .child(riso_ui::Label::new(self.node.clone()).color(riso_ui::TextColor::Muted))
+            .child(yard_ui::Label::new(self.node.clone()).color(yard_ui::TextColor::Muted))
     }
 }
 
@@ -977,13 +977,13 @@ struct Frame {
 
 impl Render for Frame {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        riso_ui::v_flex()
+        yard_ui::v_flex()
             .size_full()
             .min_h_0()
             .child(
-                riso_ui::Label::new(self.node.clone())
-                    .size(riso_ui::LabelSize::Small)
-                    .color(riso_ui::TextColor::Muted),
+                yard_ui::Label::new(self.node.clone())
+                    .size(yard_ui::LabelSize::Small)
+                    .color(yard_ui::TextColor::Muted),
             )
             .children(
                 self.slots
@@ -1057,7 +1057,7 @@ impl Render for Card {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let size = format!("{} × {}", self.size.width, self.size.height);
         tracing::trace!(node = %self.node, size = %size, "rendering card");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let entity = cx.entity().downgrade();
         let zoomed = shell::zoomed(cx).as_deref() == Some(self.node.as_str());
         let focus = shell::focus_handle(cx, &self.node).and_then(|handle| {
@@ -1192,7 +1192,7 @@ struct Controls {
 impl Render for Controls {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering controls");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let user_layer_len = shell::window_user_layer_len(window, cx);
         let url_label = cx
             .try_global::<LastOpenedUrl>()
@@ -1247,9 +1247,9 @@ struct Counter {
 impl Render for Counter {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(node = %self.node, "rendering counter");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let model = self.model.clone();
-        riso_ui::v_flex()
+        yard_ui::v_flex()
             .size_full()
             .p_2()
             .gap_1()
@@ -1257,11 +1257,11 @@ impl Render for Counter {
             .border_color(palette.border)
             .bg(palette.background)
             .child(
-                riso_ui::h_flex()
+                yard_ui::h_flex()
                     .gap_2()
-                    .child(riso_ui::Label::new(self.node.clone()))
+                    .child(yard_ui::Label::new(self.node.clone()))
                     .child(div().debug_selector(|| "CONTEXT-PLUS".into()).child(
-                        riso_ui::Button::new("context-plus", "+1").on_click(move |window, cx| {
+                        yard_ui::Button::new("context-plus", "+1").on_click(move |window, cx| {
                             let _group = tracing::info_span!("count-increment").entered();
                             model.update(cx, |count, cx| {
                                 count.0 += 1;
@@ -1272,7 +1272,7 @@ impl Render for Counter {
                         }),
                     )),
             )
-            .child(riso_ui::Label::new(format!(
+            .child(yard_ui::Label::new(format!(
                 "count: {}",
                 self.model.read(cx).0
             )))
@@ -1293,10 +1293,10 @@ impl Render for CountCard {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(node = %self.node, "rendering count card");
         let count = shell::context::<Count>(cx, &self.node).map(|model| model.read(cx).0);
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let node = self.node.clone();
         let label = count.map_or_else(|| "none".into(), |count| count.to_string());
-        riso_ui::v_flex()
+        yard_ui::v_flex()
             .size_full()
             .p_2()
             .gap_1()
@@ -1304,8 +1304,8 @@ impl Render for CountCard {
             .border_color(palette.border)
             .bg(palette.background)
             .debug_selector(move || format!("CONTEXT-{node}-{label}"))
-            .child(riso_ui::Label::new(self.node.clone()))
-            .child(riso_ui::Label::new(
+            .child(yard_ui::Label::new(self.node.clone()))
+            .child(yard_ui::Label::new(
                 count.map_or_else(|| "none".into(), |count| count.to_string()),
             ))
     }
@@ -1355,8 +1355,8 @@ impl shell::Emptiable for List {
 impl Render for List {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(node = %self.node, items = self.items, "rendering list");
-        let palette = riso_ui::palette(cx);
-        riso_ui::v_flex()
+        let palette = yard_ui::palette(cx);
+        yard_ui::v_flex()
             .debug_selector(|| format!("LIST-{}", self.node))
             .size_full()
             .p_2()
@@ -1364,15 +1364,15 @@ impl Render for List {
             .border_1()
             .border_color(palette.border)
             .bg(palette.background)
-            .child(riso_ui::Label::new(self.node.clone()))
+            .child(yard_ui::Label::new(self.node.clone()))
             .child(
-                riso_ui::Label::new(format!("items: {}", self.items))
-                    .color(riso_ui::TextColor::Muted),
+                yard_ui::Label::new(format!("items: {}", self.items))
+                    .color(yard_ui::TextColor::Muted),
             )
-            .children((1..=self.items).map(|item| riso_ui::Label::new(format!("item {item}"))))
+            .children((1..=self.items).map(|item| yard_ui::Label::new(format!("item {item}"))))
     }
 }
 
-fn item_label(cx: &App, node: &str) -> Option<riso_ui::Label> {
-    shell::item(cx, node).map(riso_ui::Label::new)
+fn item_label(cx: &App, node: &str) -> Option<yard_ui::Label> {
+    shell::item(cx, node).map(yard_ui::Label::new)
 }

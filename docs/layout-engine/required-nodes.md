@@ -18,13 +18,13 @@ Zed has the same rule without naming it: its center pane group cannot be closed 
 | `show`, `move`, `add`, `set-props`, zoom | never, by this rule | |
 
   `{required}` names the first required node found under `node`, in the order of the tree.
-- **Everywhere an operation comes from.** The rule holds for an extension's call, for the `riso::Hide` action of the keymap, for a drag, and for a saved operation being restored at startup: a saved `hide` or `remove` that the rule refuses is skipped with an `INFO`, as feature 12 skips any refused operation.
+- **Everywhere an operation comes from.** The rule holds for an extension's call, for the `yard::Hide` action of the keymap, for a drag, and for a saved operation being restored at startup: a saved `hide` or `remove` that the rule refuses is skipped with an `INFO`, as feature 12 skips any refused operation.
 - **The default layout** is not checked: a default layout that hides a required node is the extension's choice at startup, before the window opens.
 
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 impl Extension {
     pub fn require(&self, cx: &mut App, component: &str);
 }
@@ -44,8 +44,8 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | `require`, and the rule in the shell's rules for `hide` and `remove` |
-| `riso/startup` | Dev copy that uses the dev shell. While `required-nodes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_shell/shell` dev version | `require`, and the rule in the shell's rules for `hide` and `remove` |
+| `yard/startup` | Dev copy that uses the dev shell. While `required-nodes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -54,7 +54,7 @@ The dev shell has every other item of the production shell, unchanged.
   - hiding and removing its parent, and its grandparent, are refused, naming the required node;
   - a sibling of the required node, which holds no required node, can be hidden and removed;
   - the required node can be moved, and its props set;
-  - the `riso::Hide` action, dispatched with the required node focused, is refused (it has no default key);
+  - the `yard::Hide` action, dispatched with the required node focused, is refused (it has no default key);
   - a saved `hide` of a required node is skipped at restore with an `INFO`, and the next operations are still applied;
   - `require` before and after `register` both work;
   - `require` refused for another extension's component, an invalid ID, and a second time, each with an `ERROR`.
@@ -66,7 +66,7 @@ A new case, `required`. The layout is the controls, then a row with `side` (a ca
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-required LAYOUT_TOUR=required cargo run dev` | `side`, then `main` with `editor` and `notes`. `component-require{component=layout_tour.editor}` with `required`. |
+| `YARD_HOME=/tmp/yard-required LAYOUT_TOUR=required cargo run dev` | `side`, then `main` with `editor` and `notes`. `component-require{component=layout_tour.editor}` with `required`. |
 | Click `hide editor` | Refused: an `INFO`, `editor cannot be hidden: it is required`. Nothing changes. |
 | Click `remove main` | Refused: `main cannot be removed: it holds the required node editor`. |
 | Click `hide notes`, then `hide side` | Both are hidden. |
@@ -74,7 +74,7 @@ A new case, `required`. The layout is the controls, then a row with `side` (a ca
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

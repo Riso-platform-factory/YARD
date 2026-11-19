@@ -4,7 +4,7 @@
 
 The user layer is saved to disk every time it changes. At the next start, the default layout is built as always, and then the saved user layer is applied to it. An operation that no longer fits the default layout is skipped and logged, and the rest is applied. This happens, for example, when its node is gone because an extension changed or was removed.
 
-## Foundation 6: atomic file write, in `riso_paths`
+## Foundation 6: atomic file write, in `yard_paths`
 
 - `write_atomic(path, bytes)` writes the file in one step. A reader sees the old content or the new content, never half a file.
   - It writes to a temporary file beside the target, syncs it, and renames it over the target.
@@ -12,7 +12,7 @@ The user layer is saved to disk every time it changes. At the next start, the de
   - It creates the parent folders.
   - It runs in a group, `file-write{path}`.
   - A failure is a `WARN` in the diagnostic log, with the path and the error. The caller decides what the failure means.
-- **The file of the saved layout is `layout.json` in the data directory.** `riso_paths` names it, through `Paths::layout_file()`, because no other crate builds a path to the application's files.
+- **The file of the saved layout is `layout.json` in the data directory.** `yard_paths` names it, through `Paths::layout_file()`, because no other crate builds a path to the application's files.
 - This is built here, with its first user, as the foundations roadmap says.
 
 ## What is saved
@@ -25,7 +25,7 @@ The user layer is saved to disk every time it changes. At the next start, the de
   - each operation names its kind and its fields by their IDs: `add` with node, component, parent, and slot; `remove` with node; `move` with node, parent, slot, and index; `hide` and `show` with node;
   - a `move` to the end of a slot has no `index`, so that the file never holds a number that depends on the platform; a missing `index` means last;
   - the extension that asked for each operation is kept, so that the namespace rule of `add` can be checked again when the operation is restored.
-- **The model owns the format.** A new part, `riso_layout/saved`, encodes and decodes it without GPUI. Decoding checks every ID with the slug rules.
+- **The model owns the format.** A new part, `yard_layout/saved`, encodes and decodes it without GPUI. Decoding checks every ID with the slug rules.
 
 ## When it is saved
 
@@ -57,15 +57,15 @@ In step 3, each saved operation is checked by the same rules as a live one, the 
 
 | Part | What changes |
 |---|---|
-| `riso_paths/write_atomic` (new, dev) | Foundation 6 |
-| `riso_paths/layout_file` (new, dev) | `Paths::layout_file()` |
-| `riso_layout/saved` (new, dev) | Encoding and decoding the user layer, with its version |
-| `riso_shell/shell` | Dev version beside production. It sets the layout file, saves after every recorded operation and every reset, and restores in `new_shell` after the default is fixed and before the views are created. |
-| `riso/startup` | Dev copy. It gives the shell `paths.layout_file()` in `app-init`. |
+| `yard_paths/write_atomic` (new, dev) | Foundation 6 |
+| `yard_paths/layout_file` (new, dev) | `Paths::layout_file()` |
+| `yard_layout/saved` (new, dev) | Encoding and decoding the user layer, with its version |
+| `yard_shell/shell` | Dev version beside production. It sets the layout file, saves after every recorded operation and every reset, and restores in `new_shell` after the default is fixed and before the views are created. |
+| `yard/startup` | Dev copy. It gives the shell `paths.layout_file()` in `app-init`. |
 
 ## Test extension: `examples/layout_tour`
 
-Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/tmp/riso-layout`.
+Use a fresh home, so that the user's real files are never touched: `YARD_HOME=/tmp/yard-layout`.
 
 | Command and action | What to look for |
 |---|---|
@@ -77,8 +77,8 @@ Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/t
 
 ## Under review
 
-- `riso_paths/write_atomic`, `riso_paths/layout_file`, and `riso_layout/saved`
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_paths/write_atomic`, `yard_paths/layout_file`, and `yard_layout/saved`
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

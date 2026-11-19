@@ -1,339 +1,339 @@
 {
   "command_palette/palette": {
     "files": {
-      "extensions/command_palette/src/palette.rs": "eea4e79089092321",
-      "extensions/command_palette/src/palette/matching.rs": "8b9eae7a278af041"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso/menus": {
-    "files": {
-      "app/riso/src/menus.rs": "31e19650bc44e38e"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso/startup": {
-    "files": {
-      "app/riso/src/startup.rs": "4e46111b393dd5c1"
+      "extensions/command_palette/src/palette.rs": "e667d56e10cc3838",
+      "extensions/command_palette/src/palette/matching.rs": "0dcb0101b9b3eb6d"
     },
     "promoted": "2026-11-19"
   },
-  "riso_keymap/keymap_reload": {
+  "yard/menus": {
     "files": {
-      "crates/riso_keymap/src/keymap_reload.rs": "d6bee587fe04b7ca"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_keymap/user_keymap": {
-    "files": {
-      "crates/riso_keymap/src/user_keymap.rs": "ddaa888736102aa9"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_layout/layers": {
-    "files": {
-      "crates/riso_layout/src/layers.rs": "09b43d5b9dde2b48"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso_layout/saved": {
-    "files": {
-      "crates/riso_layout/src/saved.rs": "638195f916177451"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso_layout/tree": {
-    "files": {
-      "crates/riso_layout/src/tree.rs": "fa083f572d07682a"
-    },
-    "promoted": "2026-11-16"
-  },
-  "riso_log/diagnostic_log": {
-    "files": {
-      "crates/riso_log/src/diagnostic_log.rs": "6aebd1c59b39651d"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_log/lifecycle_trace": {
-    "files": {
-      "crates/riso_log/src/lifecycle_trace.rs": "b4c19d1735171ed0",
-      "crates/riso_log/src/lifecycle_trace/known_errors.rs": "c015cb918d362274",
-      "crates/riso_log/src/lifecycle_trace/lifecycle.rs": "34ed85f497f06ca7",
-      "crates/riso_log/src/lifecycle_trace/record.rs": "ea754fdee914644c",
-      "crates/riso_log/src/lifecycle_trace/writer.rs": "436e091b6110dd08"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_paths/directories": {
-    "files": {
-      "crates/riso_paths/src/directories.rs": "a6a40020c9034429"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_paths/file_check": {
-    "files": {
-      "crates/riso_paths/src/file_check.rs": "c90740584b27f254"
-    },
-    "promoted": "2026-11-12"
-  },
-  "riso_paths/keymap_file": {
-    "files": {
-      "crates/riso_paths/src/keymap_file.rs": "463c0d40af210250"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_paths/layout_file": {
-    "files": {
-      "crates/riso_paths/src/layout_file.rs": "948a8fe115eef463"
-    },
-    "promoted": "2026-11-12"
-  },
-  "riso_paths/named_layout_file": {
-    "files": {
-      "crates/riso_paths/src/named_layout_file.rs": "11cc726784f0be6d"
-    },
-    "promoted": "2026-11-16"
-  },
-  "riso_paths/session_file": {
-    "files": {
-      "crates/riso_paths/src/session_file.rs": "9257ebed7253632c"
-    },
-    "promoted": "2026-11-17"
-  },
-  "riso_paths/settings_file": {
-    "files": {
-      "crates/riso_paths/src/settings_file.rs": "2a4eb2f8441264c6"
-    },
-    "promoted": "2026-11-12"
-  },
-  "riso_paths/state_file": {
-    "files": {
-      "crates/riso_paths/src/state_file.rs": "cdc68833491a2062"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_paths/store_dir": {
-    "files": {
-      "crates/riso_paths/src/store_dir.rs": "8416516adb0b0f6d"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_paths/themes_dir": {
-    "files": {
-      "crates/riso_paths/src/themes_dir.rs": "c43c4b602859145e"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_paths/window_file": {
-    "files": {
-      "crates/riso_paths/src/window_file.rs": "5daf2706e4d3fd72"
-    },
-    "promoted": "2026-11-17"
-  },
-  "riso_paths/write_atomic": {
-    "files": {
-      "crates/riso_paths/src/write_atomic.rs": "c1071920f441312d"
-    },
-    "promoted": "2026-11-12"
-  },
-  "riso_product/product": {
-    "files": {
-      "crates/riso_product/src/product.rs": "c6117c01617ca094"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_settings/sections": {
-    "files": {
-      "crates/riso_settings/src/sections.rs": "b2be6630dd5b40c4"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_settings/write": {
-    "files": {
-      "crates/riso_settings/src/write.rs": "fd0145e4fa353e97"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_shell/prompt": {
-    "files": {
-      "crates/riso_shell/src/prompt.rs": "14d4cba5ee0573e7"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_shell/session": {
-    "files": {
-      "crates/riso_shell/src/session.rs": "9e5144550892d691"
-    },
-    "promoted": "2026-11-17"
-  },
-  "riso_shell/shell": {
-    "files": {
-      "crates/riso_shell/src/shell.rs": "dd9d7da3d5b49892"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_shell/window_bounds": {
-    "files": {
-      "crates/riso_shell/src/window_bounds.rs": "e35a71fc27072c6a"
-    },
-    "promoted": "2026-11-17"
-  },
-  "riso_state/format": {
-    "files": {
-      "crates/riso_state/src/format.rs": "019a5377525c5900"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_state/store": {
-    "files": {
-      "crates/riso_state/src/store.rs": "f55fd50323c40f71"
-    },
-    "promoted": "2026-11-18"
-  },
-  "riso_ui/axis": {
-    "files": {
-      "crates/riso_ui/src/axis.rs": "19bd540110386317"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso_ui/button": {
-    "files": {
-      "crates/riso_ui/src/button.rs": "ef50685ad5d69b12"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso_ui/divider": {
-    "files": {
-      "crates/riso_ui/src/divider.rs": "3c8ddc057b198a1f"
-    },
-    "promoted": "2026-11-13"
-  },
-  "riso_ui/icon": {
-    "files": {
-      "crates/riso_ui/src/icon.rs": "430b85085e2690a3"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso_ui/key_hint": {
-    "files": {
-      "crates/riso_ui/src/key_hint.rs": "40f172a2a9870ee6"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/list": {
-    "files": {
-      "crates/riso_ui/src/list.rs": "59b8e5a1a3e6c5d8"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/modal": {
-    "files": {
-      "crates/riso_ui/src/modal.rs": "b1f2126591c74361"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/modal_layer": {
-    "files": {
-      "crates/riso_ui/src/modal_layer.rs": "56fc8ecfd2981307"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/modal_surface": {
-    "files": {
-      "crates/riso_ui/src/modal_surface.rs": "02bd9e65be1bf385"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso_ui/scroll": {
-    "files": {
-      "crates/riso_ui/src/scroll.rs": "f141f2a01d88bf78"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/stack": {
-    "files": {
-      "crates/riso_ui/src/stack.rs": "08e93a167b4de235"
-    },
-    "promoted": "2026-11-13"
-  },
-  "riso_ui/status_bar": {
-    "files": {
-      "crates/riso_ui/src/status_bar.rs": "3962fe9b074df48c"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/tabs": {
-    "files": {
-      "crates/riso_ui/src/tabs.rs": "2921ccc9e2381c08"
-    },
-    "promoted": "2026-11-16"
-  },
-  "riso_ui/text": {
-    "files": {
-      "crates/riso_ui/src/text.rs": "433e112c4caa28a2"
-    },
-    "promoted": "2026-11-13"
-  },
-  "riso_ui/text_input": {
-    "files": {
-      "crates/riso_ui/src/text_input.rs": "bbdfaac6411a8d1d",
-      "crates/riso_ui/src/text_input/editing.rs": "e2b5311acf788493",
-      "crates/riso_ui/src/text_input/failure.rs": "ac76ae1ac650aa0d"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/theme_list": {
-    "files": {
-      "crates/riso_ui/src/theme_list.rs": "38b2126055806b45"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/theme_setting": {
-    "files": {
-      "crates/riso_ui/src/theme_setting.rs": "b298c46a4bf2ac8a"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/theming": {
-    "files": {
-      "crates/riso_ui/src/theming.rs": "a6260fb6ad613af3",
-      "crates/riso_ui/src/theming/themes.rs": "008f29caa14ce46f"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/title_bar": {
-    "files": {
-      "crates/riso_ui/src/title_bar.rs": "abc728b1265e5bd2"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/toast_layer": {
-    "files": {
-      "crates/riso_ui/src/toast_layer.rs": "7c68b1efabd73a51"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_ui/tooltip": {
-    "files": {
-      "crates/riso_ui/src/tooltip.rs": "98155bce99ff7396"
-    },
-    "promoted": "2026-11-15"
-  },
-  "riso_ui/user_themes": {
-    "files": {
-      "crates/riso_ui/src/user_themes.rs": "2b41c1d33d199b2c"
-    },
-    "promoted": "2026-11-14"
-  },
-  "riso_update/check": {
-    "files": {
-      "crates/riso_update/src/check.rs": "a2062542b5db58a7"
+      "app/yard/src/menus.rs": "c0def53a5a042b72"
     },
     "promoted": "2026-11-19"
   },
-  "riso_update/install": {
+  "yard/startup": {
     "files": {
-      "crates/riso_update/src/install.rs": "7dfefd5c3a3a152a"
+      "app/yard/src/startup.rs": "e3b96933b2cd9bed"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_keymap/keymap_reload": {
+    "files": {
+      "crates/yard_keymap/src/keymap_reload.rs": "8730e21a3b67c0f7"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_keymap/user_keymap": {
+    "files": {
+      "crates/yard_keymap/src/user_keymap.rs": "ddaa888736102aa9"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_layout/layers": {
+    "files": {
+      "crates/yard_layout/src/layers.rs": "09b43d5b9dde2b48"
+    },
+    "promoted": "2026-11-15"
+  },
+  "yard_layout/saved": {
+    "files": {
+      "crates/yard_layout/src/saved.rs": "638195f916177451"
+    },
+    "promoted": "2026-11-15"
+  },
+  "yard_layout/tree": {
+    "files": {
+      "crates/yard_layout/src/tree.rs": "fa083f572d07682a"
+    },
+    "promoted": "2026-11-16"
+  },
+  "yard_log/diagnostic_log": {
+    "files": {
+      "crates/yard_log/src/diagnostic_log.rs": "a4e1548a3a18409c"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_log/lifecycle_trace": {
+    "files": {
+      "crates/yard_log/src/lifecycle_trace.rs": "b4c19d1735171ed0",
+      "crates/yard_log/src/lifecycle_trace/known_errors.rs": "c015cb918d362274",
+      "crates/yard_log/src/lifecycle_trace/lifecycle.rs": "34ed85f497f06ca7",
+      "crates/yard_log/src/lifecycle_trace/record.rs": "ea754fdee914644c",
+      "crates/yard_log/src/lifecycle_trace/writer.rs": "436e091b6110dd08"
+    },
+    "promoted": "2026-11-18"
+  },
+  "yard_paths/directories": {
+    "files": {
+      "crates/yard_paths/src/directories.rs": "07fb9c7e67e83127"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_paths/file_check": {
+    "files": {
+      "crates/yard_paths/src/file_check.rs": "c90740584b27f254"
+    },
+    "promoted": "2026-11-12"
+  },
+  "yard_paths/keymap_file": {
+    "files": {
+      "crates/yard_paths/src/keymap_file.rs": "463c0d40af210250"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_paths/layout_file": {
+    "files": {
+      "crates/yard_paths/src/layout_file.rs": "948a8fe115eef463"
+    },
+    "promoted": "2026-11-12"
+  },
+  "yard_paths/named_layout_file": {
+    "files": {
+      "crates/yard_paths/src/named_layout_file.rs": "11cc726784f0be6d"
+    },
+    "promoted": "2026-11-16"
+  },
+  "yard_paths/session_file": {
+    "files": {
+      "crates/yard_paths/src/session_file.rs": "9257ebed7253632c"
+    },
+    "promoted": "2026-11-17"
+  },
+  "yard_paths/settings_file": {
+    "files": {
+      "crates/yard_paths/src/settings_file.rs": "2a4eb2f8441264c6"
+    },
+    "promoted": "2026-11-12"
+  },
+  "yard_paths/state_file": {
+    "files": {
+      "crates/yard_paths/src/state_file.rs": "cdc68833491a2062"
+    },
+    "promoted": "2026-11-18"
+  },
+  "yard_paths/store_dir": {
+    "files": {
+      "crates/yard_paths/src/store_dir.rs": "8416516adb0b0f6d"
+    },
+    "promoted": "2026-11-18"
+  },
+  "yard_paths/themes_dir": {
+    "files": {
+      "crates/yard_paths/src/themes_dir.rs": "c43c4b602859145e"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_paths/window_file": {
+    "files": {
+      "crates/yard_paths/src/window_file.rs": "5daf2706e4d3fd72"
+    },
+    "promoted": "2026-11-17"
+  },
+  "yard_paths/write_atomic": {
+    "files": {
+      "crates/yard_paths/src/write_atomic.rs": "c1071920f441312d"
+    },
+    "promoted": "2026-11-12"
+  },
+  "yard_product/product": {
+    "files": {
+      "crates/yard_product/src/product.rs": "c1d4473e3061f2ed"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_settings/sections": {
+    "files": {
+      "crates/yard_settings/src/sections.rs": "e8902f4843410e5e"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_settings/write": {
+    "files": {
+      "crates/yard_settings/src/write.rs": "916aea9aced5694e"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_shell/prompt": {
+    "files": {
+      "crates/yard_shell/src/prompt.rs": "14d4cba5ee0573e7"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_shell/session": {
+    "files": {
+      "crates/yard_shell/src/session.rs": "3c400e9077c47b59"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_shell/shell": {
+    "files": {
+      "crates/yard_shell/src/shell.rs": "3fd867885d0b4c5f"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_shell/window_bounds": {
+    "files": {
+      "crates/yard_shell/src/window_bounds.rs": "f70b982972b907f1"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_state/format": {
+    "files": {
+      "crates/yard_state/src/format.rs": "019a5377525c5900"
+    },
+    "promoted": "2026-11-18"
+  },
+  "yard_state/store": {
+    "files": {
+      "crates/yard_state/src/store.rs": "f55fd50323c40f71"
+    },
+    "promoted": "2026-11-18"
+  },
+  "yard_ui/axis": {
+    "files": {
+      "crates/yard_ui/src/axis.rs": "19bd540110386317"
+    },
+    "promoted": "2026-11-15"
+  },
+  "yard_ui/button": {
+    "files": {
+      "crates/yard_ui/src/button.rs": "ef50685ad5d69b12"
+    },
+    "promoted": "2026-11-15"
+  },
+  "yard_ui/divider": {
+    "files": {
+      "crates/yard_ui/src/divider.rs": "3c8ddc057b198a1f"
+    },
+    "promoted": "2026-11-13"
+  },
+  "yard_ui/icon": {
+    "files": {
+      "crates/yard_ui/src/icon.rs": "430b85085e2690a3"
+    },
+    "promoted": "2026-11-15"
+  },
+  "yard_ui/key_hint": {
+    "files": {
+      "crates/yard_ui/src/key_hint.rs": "40f172a2a9870ee6"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/list": {
+    "files": {
+      "crates/yard_ui/src/list.rs": "59b8e5a1a3e6c5d8"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/modal": {
+    "files": {
+      "crates/yard_ui/src/modal.rs": "b1f2126591c74361"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/modal_layer": {
+    "files": {
+      "crates/yard_ui/src/modal_layer.rs": "56fc8ecfd2981307"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/modal_surface": {
+    "files": {
+      "crates/yard_ui/src/modal_surface.rs": "02bd9e65be1bf385"
+    },
+    "promoted": "2026-11-15"
+  },
+  "yard_ui/scroll": {
+    "files": {
+      "crates/yard_ui/src/scroll.rs": "f141f2a01d88bf78"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/stack": {
+    "files": {
+      "crates/yard_ui/src/stack.rs": "08e93a167b4de235"
+    },
+    "promoted": "2026-11-13"
+  },
+  "yard_ui/status_bar": {
+    "files": {
+      "crates/yard_ui/src/status_bar.rs": "3962fe9b074df48c"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/tabs": {
+    "files": {
+      "crates/yard_ui/src/tabs.rs": "2921ccc9e2381c08"
+    },
+    "promoted": "2026-11-16"
+  },
+  "yard_ui/text": {
+    "files": {
+      "crates/yard_ui/src/text.rs": "433e112c4caa28a2"
+    },
+    "promoted": "2026-11-13"
+  },
+  "yard_ui/text_input": {
+    "files": {
+      "crates/yard_ui/src/text_input.rs": "bbdfaac6411a8d1d",
+      "crates/yard_ui/src/text_input/editing.rs": "e2b5311acf788493",
+      "crates/yard_ui/src/text_input/failure.rs": "ac76ae1ac650aa0d"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/theme_list": {
+    "files": {
+      "crates/yard_ui/src/theme_list.rs": "777ece11721047f4"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_ui/theme_setting": {
+    "files": {
+      "crates/yard_ui/src/theme_setting.rs": "6ca20c69a02b88cf"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_ui/theming": {
+    "files": {
+      "crates/yard_ui/src/theming.rs": "a6260fb6ad613af3",
+      "crates/yard_ui/src/theming/themes.rs": "0ab36c6557c592d2"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_ui/title_bar": {
+    "files": {
+      "crates/yard_ui/src/title_bar.rs": "abc728b1265e5bd2"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/toast_layer": {
+    "files": {
+      "crates/yard_ui/src/toast_layer.rs": "7c68b1efabd73a51"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_ui/tooltip": {
+    "files": {
+      "crates/yard_ui/src/tooltip.rs": "98155bce99ff7396"
+    },
+    "promoted": "2026-11-15"
+  },
+  "yard_ui/user_themes": {
+    "files": {
+      "crates/yard_ui/src/user_themes.rs": "2b41c1d33d199b2c"
+    },
+    "promoted": "2026-11-14"
+  },
+  "yard_update/check": {
+    "files": {
+      "crates/yard_update/src/check.rs": "4a49a5fa19444e3f"
+    },
+    "promoted": "2026-11-19"
+  },
+  "yard_update/install": {
+    "files": {
+      "crates/yard_update/src/install.rs": "7dfefd5c3a3a152a"
     },
     "promoted": "2026-11-19"
   }

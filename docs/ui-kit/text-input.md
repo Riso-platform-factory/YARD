@@ -34,7 +34,7 @@ Adapted from GPUI's `crates/gpui/examples/input.rs` (Apache-2.0), as the earlier
 ## What code can do
 
 ```rust
-// riso_ui
+// yard_ui
 pub enum TextInputEvent { Changed, Confirmed }
 
 /// A GPUI view: `Render`, `Focusable`, `EventEmitter<TextInputEvent>`.
@@ -67,8 +67,8 @@ pub fn bind_text_input_keys(cx: &mut App);
 
 | Part | What changes |
 |---|---|
-| `riso_ui/text_input` (new, dev) | `TextInput`, `TextInputEvent`, `bind_text_input_keys`, with GPUI's notice for the example it adapts. The earlier project's `crew_ui/src/dev/text_input.rs` and its `editing` module are ported, with its multi-line parts removed |
-| `riso/startup` | Dev version beside production: `riso_ui::bind_text_input_keys(cx)` in `app-init`, after `riso_shell::bind_default_keys` |
+| `yard_ui/text_input` (new, dev) | `TextInput`, `TextInputEvent`, `bind_text_input_keys`, with GPUI's notice for the example it adapts. The earlier project's `crew_ui/src/dev/text_input.rs` and its `editing` module are ported, with its multi-line parts removed |
+| `yard/startup` | Dev version beside production: `yard_ui::bind_text_input_keys(cx)` in `app-init`, after `yard_shell::bind_default_keys` |
 
 ## Tests
 
@@ -100,8 +100,8 @@ A new page, `text-input`. It shows two inputs in frames drawn as Zed's picker dr
 
 ## Under review
 
-- `riso_ui/text_input`, new
-- `riso/startup`, in its dev version
+- `yard_ui/text_input`, new
+- `yard/startup`, in its dev version
 
 ## Not in this feature
 

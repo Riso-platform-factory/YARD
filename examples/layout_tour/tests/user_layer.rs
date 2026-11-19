@@ -1,5 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-use riso_shell as shell;
+use yard_shell as shell;
 
 // Select the extension case in a separate process, before GPUI starts threads.
 #[gpui::test]
@@ -24,7 +24,7 @@ fn controls_reset_the_real_user_layer_case(cx: &mut TestAppContext) {
         return;
     }
     cx.update(|cx| {
-        riso_ui::init(cx);
+        yard_ui::init(cx);
         let ext = shell::Extension::new(cx, "layout_tour").unwrap();
         layout_tour::init(cx, &ext);
     });

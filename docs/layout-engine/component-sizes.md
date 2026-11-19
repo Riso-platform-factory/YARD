@@ -19,16 +19,16 @@ A component declares a minimum size, and optionally a preferred size, in rems, s
 
 ## In the UI kit
 
-`riso_ui`'s axis takes a minimum for each child: `AxisChild { size: AxisSize, min: Pixels }` instead of a bare `AxisSize`. It no longer has minimums of its own.
+`yard_ui`'s axis takes a minimum for each child: `AxisChild { size: AxisSize, min: Pixels }` instead of a bare `AxisSize`. It no longer has minimums of its own.
 
 ## What code can do
 
 ```rust
-// riso_ui (production, in place)
+// yard_ui (production, in place)
 pub struct AxisChild { pub size: AxisSize, pub min: Pixels }
 pub fn axis(id, direction, children: Rc<RefCell<Vec<AxisChild>>>, elements) -> Axis;   // was Vec<AxisSize>
 
-// riso_shell::dev
+// yard_shell::dev
 pub struct SizeHints { pub min: Size<Rems>, pub preferred: Size<Option<Rems>> }
 impl Extension {
     pub fn size_hints(&self, cx: &mut App, component: &str, hints: SizeHints);
@@ -48,10 +48,10 @@ impl Extension {
 
 | Part | What changes |
 |---|---|
-| `riso_ui/axis` (production, in place) | `AxisChild` with a minimum per child; the constants 80 and 100 go. Stamped again. |
-| `riso_shell/shell` (production, in place) | Only what the changed axis signature needs: production splits pass today's minimums, 80 px across and 100 px down, per child. Stamped again. |
-| `riso_shell/shell` dev version | `SizeHints`, `size_hints`, minimums of components and containers in rems, and preferred sizes |
-| `riso/startup` | Dev copy that uses the dev shell. While `component-sizes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_ui/axis` (production, in place) | `AxisChild` with a minimum per child; the constants 80 and 100 go. Stamped again. |
+| `yard_shell/shell` (production, in place) | Only what the changed axis signature needs: production splits pass today's minimums, 80 px across and 100 px down, per child. Stamped again. |
+| `yard_shell/shell` dev version | `SizeHints`, `size_hints`, minimums of components and containers in rems, and preferred sizes |
+| `yard/startup` | Dev copy that uses the dev shell. While `component-sizes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -70,7 +70,7 @@ A new case, `component-sizes`. Its component `layout_tour.wide` declares a minim
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-sizes2 LAYOUT_TOUR=component-sizes cargo run dev` | `panel` 15 rems wide (240 px at the default font), `wide` and `plain` sharing the rest. `size-hints` for both components. |
+| `YARD_HOME=/tmp/yard-sizes2 LAYOUT_TOUR=component-sizes cargo run dev` | `panel` 15 rems wide (240 px at the default font), `wide` and `plain` sharing the rest. `size-hints` for both components. |
 | Drag the line between `wide` and `plain` to the left | It stops when `wide` is 20 rems (320 px). |
 | Drag the line between `wide` and `plain` to the right | `plain` stops at 5 rems (80 px). |
 | Set `"theme": {"ui_font_size": 20}` in `settings.json`, then drag again | The limits move: `wide` stops at 400 px, `panel` is 300 px. |
@@ -78,8 +78,8 @@ A new case, `component-sizes`. Its component `layout_tour.wide` declares a minim
 
 ## Under review
 
-- `riso_ui/axis` and production `riso_shell/shell`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_ui/axis` and production `yard_shell/shell`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

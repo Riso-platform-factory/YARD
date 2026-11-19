@@ -1,5 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-use riso_shell as shell;
+use yard_shell as shell;
 
 // A separate process selects the real extension case before GPUI starts threads.
 // It also keeps card renders separate from the unit binary's tracing capture.
@@ -25,7 +25,7 @@ fn card_clicks_zoom_and_restore_the_layout(cx: &mut TestAppContext) {
         return;
     }
     cx.update(|cx| {
-        riso_ui::init(cx);
+        yard_ui::init(cx);
         let ext = shell::Extension::new(cx, "layout_tour").unwrap();
         layout_tour::init(cx, &ext);
     });

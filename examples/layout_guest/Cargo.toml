@@ -7,8 +7,8 @@ license.workspace = true
 
 [dependencies]
 gpui = { workspace = true, default-features = false }
-riso_layout = { workspace = true, default-features = false }
-riso_shell = { workspace = true, default-features = false }
-riso_ui = { workspace = true, default-features = false }
+yard_layout = { workspace = true, default-features = false }
+yard_shell = { workspace = true, default-features = false }
+yard_ui = { workspace = true, default-features = false }
 log.workspace = true
 tracing.workspace = true

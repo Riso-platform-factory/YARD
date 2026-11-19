@@ -7,7 +7,7 @@ An extension keeps named values of its own between runs, through its handle, as 
 ## How it works
 
 - **Through the handle.** An extension reads and writes its values with its `Extension` handle, by a key: a non-empty string. A value is JSON. The handle reaches only its own extension's values, so that another extension can neither read nor change them: there is no call that takes another extension's name.
-- **Where.** Each extension's values are in their own file, `<data>/store/<extension>.json`. `riso_paths` names the folder (`Paths::store_dir`). The format: a `version` (1) and the `values`, a map from key to value. `riso_state` owns it, as it owns `state.json`'s.
+- **Where.** Each extension's values are in their own file, `<data>/store/<extension>.json`. `yard_paths` names the folder (`Paths::store_dir`). The format: a `version` (1) and the `values`, a map from key to value. `yard_state` owns it, as it owns `state.json`'s.
 - **Reading.** An extension's file is read once, the first time the extension reads or writes a value, and kept in memory for the rest of the run.
   - A missing file means no values: `debug`.
   - A broken file, or one of another `version`, also means no values, with a `WARN`, never an `ERROR`. The next save writes over it, as the state file is written over.
@@ -19,13 +19,13 @@ An extension keeps named values of its own between runs, through its handle, as 
 ## What code can do
 
 ```rust
-// riso_paths (dev part `store_dir`)
+// yard_paths (dev part `store_dir`)
 impl Paths {
     /// The folder of the extensions' stores.
     pub fn store_dir(&self) -> PathBuf;
 }
 
-// riso_shell::dev
+// yard_shell::dev
 impl Extension {
     pub fn stored(&self, cx: &mut App, key: &str) -> Option<serde_json::Value>;
     pub fn store(&self, cx: &mut App, key: &str, value: serde_json::Value);
@@ -36,7 +36,7 @@ pub fn set_store_dir(cx: &mut App, dir: PathBuf);
 
 An empty key is refused with an `INFO` `refused {reason}`: `stored` gives `None`, and `store` and `unstore` do nothing.
 
-`riso_state` (dev part `store`): the format's type and `encode_store`/`decode_store`, with their own logging.
+`yard_state` (dev part `store`): the format's type and `encode_store`/`decode_store`, with their own logging.
 
 ## Logging
 
@@ -50,15 +50,15 @@ An empty key is refused with an `INFO` `refused {reason}`: `stored` gives `None`
 
 | Part | What changes |
 |---|---|
-| `riso_state/store` (new, dev) | The store's format |
-| `riso_paths/store_dir` (new, dev) | `Paths::store_dir`: `store` in the data directory |
-| `riso_shell/shell` dev version | `stored`, `store`, `unstore`, `set_store_dir`, reading, and saving with feature 2's wait and at quit |
-| `riso/startup` | Dev copy that gives the shell its store folder. While `extension-store` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
+| `yard_state/store` (new, dev) | The store's format |
+| `yard_paths/store_dir` (new, dev) | `Paths::store_dir`: `store` in the data directory |
+| `yard_shell/shell` dev version | `stored`, `store`, `unstore`, `set_store_dir`, reading, and saving with feature 2's wait and at quit |
+| `yard/startup` | Dev copy that gives the shell its store folder. While `extension-store` is under review, `cargo run dev` loads `review` and `layout_tour` on it |
 | `examples/layout_tour` (no stage) | In the case `user-layer`, the controls show `starts: N`: each start adds one to the tour's stored `starts` |
 
 ## Tests
 
-- **`riso_state`, unit tests:** encode and decode give the same values; a broken file, another `version`, and unknown fields are handled as above.
+- **`yard_state`, unit tests:** encode and decode give the same values; a broken file, another `version`, and unknown fields are handled as above.
 - **Paths, unit test:** `store_dir()` is `store` in the data directory.
 - **Shell, GPUI tests, with the dev shell:**
   - a value stored, quit, a new run with the folder: `stored` gives it back;
@@ -74,13 +74,13 @@ An empty key is refused with an `INFO` `refused {reason}`: `stored` gives `None`
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-store LAYOUT_TOUR=user-layer cargo run dev` | The controls show `starts: 1`; `store-read{extension=layout_tour}` with `no saved values`, then `store-save{extension=layout_tour, keys=1, reason=change}`. |
+| `YARD_HOME=/tmp/yard-store LAYOUT_TOUR=user-layer cargo run dev` | The controls show `starts: 1`; `store-read{extension=layout_tour}` with `no saved values`, then `store-save{extension=layout_tour, keys=1, reason=change}`. |
 | Quit, start again | `starts: 2`; `read {keys=1}`; `store/layout_tour.json` holds `"starts": 2`. |
 | End the process with `kill -9` after a second, start again | `starts: 3`. |
 
 ## Under review
 
-- `riso_state/store`, `riso_paths/store_dir`, and `riso_shell/shell`, `riso/startup` in their dev versions
+- `yard_state/store`, `yard_paths/store_dir`, and `yard_shell/shell`, `yard/startup` in their dev versions
 
 ## Not in this feature
 

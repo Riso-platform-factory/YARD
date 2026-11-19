@@ -31,7 +31,7 @@ As Zed's `crates/workspace/src/toast_layer.rs` and `crates/notifications/src/sta
 ## What code can do
 
 ```rust
-// riso_ui
+// yard_ui
 pub enum ToastKind { Info, Warning, Error }
 
 /// What a toast shows.
@@ -57,15 +57,15 @@ impl ToastLayer {
     pub fn has_active_toast(&self) -> bool;
 }
 
-// riso_shell
+// yard_shell
 impl Extension {
-    pub fn show_toast(&self, toast: riso_ui::Toast, window: &mut Window, cx: &mut App);
+    pub fn show_toast(&self, toast: yard_ui::Toast, window: &mut Window, cx: &mut App);
     pub fn hide_toast(&self, window: &mut Window, cx: &mut App);
 }
 pub fn has_toast(window: &Window, cx: &App) -> bool;
 ```
 
-These are the only new public items. `ToastLayer` keeps every type of Zed inside `riso_ui`; its API uses riso's and GPUI's types only. Each window's shell holds its own layer.
+These are the only new public items. `ToastLayer` keeps every type of Zed inside `yard_ui`; its API uses yard's and GPUI's types only. Each window's shell holds its own layer.
 
 For tests, the toast's elements have the debug selectors `TOAST` (the row), `TOAST-ACTION` (its button), and `TOAST-DISMISS` (its close button).
 
@@ -85,8 +85,8 @@ For tests, the toast's elements have the debug selectors `TOAST` (the row), `TOA
 
 | Part | What changes |
 |---|---|
-| `riso_ui/toast_layer` (new, dev) | `ToastKind`, `Toast`, `ToastHideReason`, and `ToastLayer`, adapted from Zed's `toast_layer.rs` and `status_toast.rs`, with Zed's notice: the state, the timer, the closing, and the drawing. One change from Zed: the time left is measured with GPUI's clock, `BackgroundExecutor::now`, instead of `Instant::now`, so that the test clock drives it |
-| `riso_shell/shell` | Dev version beside production. Each shell holds a `ToastLayer` and draws it above the frame and below the modal layer; `show_toast`, `hide_toast`, `has_toast` |
+| `yard_ui/toast_layer` (new, dev) | `ToastKind`, `Toast`, `ToastHideReason`, and `ToastLayer`, adapted from Zed's `toast_layer.rs` and `status_toast.rs`, with Zed's notice: the state, the timer, the closing, and the drawing. One change from Zed: the time left is measured with GPUI's clock, `BackgroundExecutor::now`, instead of `Instant::now`, so that the test clock drives it |
+| `yard_shell/shell` | Dev version beside production. Each shell holds a `ToastLayer` and draws it above the frame and below the modal layer; `show_toast`, `hide_toast`, `has_toast` |
 
 The startup does not change.
 
@@ -108,7 +108,7 @@ The startup does not change.
 
 ## Test extension: `examples/window_tour`
 
-A new case, `WINDOW_TOUR=toasts`. It places a card as the root with three buttons, `info`, `warning`, and `error`, which show a toast of each kind with a line of text. The error toast has a button `Retry`, whose handler logs `retry clicked` from the extension. Use a fresh home: `RISO_HOME=/tmp/riso-window`.
+A new case, `WINDOW_TOUR=toasts`. It places a card as the root with three buttons, `info`, `warning`, and `error`, which show a toast of each kind with a line of text. The error toast has a button `Retry`, whose handler logs `retry clicked` from the extension. Use a fresh home: `YARD_HOME=/tmp/yard-window`.
 
 | Command and action | What to look for |
 |---|---|
@@ -122,8 +122,8 @@ A new case, `WINDOW_TOUR=toasts`. It places a card as the root with three button
 
 ## Under review
 
-- `riso_ui/toast_layer`, new
-- `riso_shell/shell`, in its dev version
+- `yard_ui/toast_layer`, new
+- `yard_shell/shell`, in its dev version
 
 ## Not in this feature
 

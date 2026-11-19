@@ -11,7 +11,7 @@ The engine keeps the default layout apart from what changed it while the applica
   - A refused operation is not recorded.
   - The current tree is always the default layout with the user layer applied.
 - **Kept beside the user layer, not in it:** the shares of a split, the selected tab, and the zoom. They are view state. Feature 12 decides what to save of them.
-- **The model lives in `riso_layout`.** A new part, `riso_layout/layers`, holds the default tree, the list of operations, and the current tree. Recording and resetting are checked there, without GPUI.
+- **The model lives in `yard_layout`.** A new part, `yard_layout/layers`, holds the default tree, the list of operations, and the current tree. Recording and resetting are checked there, without GPUI.
 
 ## Reset
 
@@ -42,10 +42,10 @@ Resetting with an empty user layer changes nothing, and logs that.
 
 | Part | What changes |
 |---|---|
-| `riso_layout/layers` (new, dev) | The default tree, the user layer, recording, reset, and the current tree |
-| `riso_layout/tree` (production, in place) | `Tree` derives `Clone`, so that the default tree can be kept. Stamped again with this feature. |
-| `riso_shell/shell` | Dev version beside production. Its registry keeps a `Layers` instead of a bare `Tree`. It fixes the default when the window opens, records every applied operation, offers `reset_layout`, and reconciles views, shares, tabs, and zoom after a reset. |
-| `riso/startup` | Dev copy that uses the dev shell |
+| `yard_layout/layers` (new, dev) | The default tree, the user layer, recording, reset, and the current tree |
+| `yard_layout/tree` (production, in place) | `Tree` derives `Clone`, so that the default tree can be kept. Stamped again with this feature. |
+| `yard_shell/shell` | Dev version beside production. Its registry keeps a `Layers` instead of a bare `Tree`. It fixes the default when the window opens, records every applied operation, offers `reset_layout`, and reconciles views, shares, tabs, and zoom after a reset. |
+| `yard/startup` | Dev copy that uses the dev shell |
 
 ## Test extension: `examples/layout_tour`
 
@@ -60,9 +60,9 @@ The controls gain a `reset layout` button and a line `user layer: N`. `N` is the
 
 ## Under review
 
-- `riso_layout/layers`
-- `riso_layout/tree`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_layout/layers`
+- `yard_layout/tree`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

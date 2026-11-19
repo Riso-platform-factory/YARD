@@ -6,7 +6,7 @@ At startup, the engine reads the user's `settings.json` once. When a section is 
 
 ## The file
 
-- `settings.json` in the config directory. `riso_paths` names it, through `Paths::settings_file()`.
+- `settings.json` in the config directory. `yard_paths` names it, through `Paths::settings_file()`.
 - It is one JSON object, with one key per section:
 
   ```json
@@ -35,7 +35,7 @@ pub fn load(cx: &mut App, path: PathBuf);
 | No file | Every section has its defaults | `debug`: `no settings file` |
 | The file cannot be read, is not valid JSON, or is not a JSON object | Every section has its defaults. The file is left as it is | `WARN`: `the settings file cannot be read: <reason>` |
 | The file is read | Its content is kept for the sections | `debug`: `loaded {sections}`, the number of top-level keys |
-| `load` a second time | Panic: `riso_settings::load runs once` | — |
+| `load` a second time | Panic: `yard_settings::load runs once` | — |
 
 `register::<T>` runs in `settings-register{section}`, as before:
 
@@ -50,7 +50,7 @@ A broken section does not affect the other sections.
 
 ## Plain code
 
-Reading the file and decoding a section are plain functions, without GPUI, in `riso_settings/sections`. They are tested without a window:
+Reading the file and decoding a section are plain functions, without GPUI, in `yard_settings/sections`. They are tested without a window:
 
 - reading gives the JSON object, nothing, or the reason it cannot be read;
 - decoding a section from the object gives its value, nothing, or the reason it cannot be read.
@@ -61,9 +61,9 @@ Reading the file and decoding a section are plain functions, without GPUI, in `r
 
 | Part | What changes |
 |---|---|
-| `riso_paths/settings_file` (new, dev) | `Paths::settings_file()`: `settings.json` in the config directory |
-| `riso_settings/sections` | Dev version beside production, `src/dev/sections.rs`. It adds `load`, and `register` decodes from the file |
-| `riso/startup` | Dev copy. It calls the dev `init`, then `load(cx, paths.settings_file())`, in `app-init` |
+| `yard_paths/settings_file` (new, dev) | `Paths::settings_file()`: `settings.json` in the config directory |
+| `yard_settings/sections` | Dev version beside production, `src/dev/sections.rs`. It adds `load`, and `register` decodes from the file |
+| `yard/startup` | Dev copy. It calls the dev `init`, then `load(cx, paths.settings_file())`, in `app-init` |
 
 The dev version of `sections` has globals of its own. The dev startup and the tour use only the dev functions.
 
@@ -83,7 +83,7 @@ The dev version of `sections` has globals of its own. The dev startup and the to
 
 ## Test extension: `examples/settings_tour`
 
-The tour's section gets `#[serde(default)]`. It uses the dev functions. The tour writes no file: the user writes it. Use a fresh home: `RISO_HOME=/tmp/riso-settings`.
+The tour's section gets `#[serde(default)]`. It uses the dev functions. The tour writes no file: the user writes it. Use a fresh home: `YARD_HOME=/tmp/yard-settings`.
 
 | File `config/settings.json` | `SETTINGS_TOUR=card cargo run dev` shows |
 |---|---|
@@ -95,8 +95,8 @@ The tour's section gets `#[serde(default)]`. It uses the dev functions. The tour
 
 ## Under review
 
-- `riso_paths/settings_file`
-- `riso_settings/sections` and `riso/startup`, in their dev versions
+- `yard_paths/settings_file`
+- `yard_settings/sections` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

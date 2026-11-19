@@ -6,13 +6,13 @@ A test extension that shows the layout tree beside any case of the layout tour: 
 
 ## How it works
 
-- **What the shell gives.** `riso_shell::inspect(cx)` returns the window's tree as a list of `NodeInfo`, depth first, in each node's slots' order and then each slot's children's order, as the tree holds them (shown or hidden), with the copies of an item slot (feature 28) in their slot. `NodeInfo` holds:
+- **What the shell gives.** `yard_shell::inspect(cx)` returns the window's tree as a list of `NodeInfo`, depth first, in each node's slots' order and then each slot's children's order, as the tree holds them (shown or hidden), with the copies of an item slot (feature 28) in their slot. `NodeInfo` holds:
   - `id`, `depth` (the root is 0), `slot` (the parent's slot, none for the root);
   - `component`, `extension`, `props` (the node's props as JSON, `null` when it has none);
   - `hidden` (its own hidden flag; for a copy, its template's);
   - `origin`: `Default` (placed in the default layout), `NamedLayout(name)` (added by the shown named layout's operations, feature 30), `UserLayer` (added by an operation of the user layer), or `Copy(key)` (a copy of an item slot).
-- **Following changes.** `riso_shell::observe_layout(cx, f)` calls `f` after the tree changes: an operation applied, a reset, a restore, a switch of named layout, and items that change an item slot's copies. It is called once per change, after the change is complete, never during a render. A change of view state only (a selected tab, a zoom, focus, a split's sizes while its handle is being dragged) does not call it; the end of a drag, which records the sizes as props (feature 19), is an operation and calls it once. The returned `Subscription` stops it when dropped.
-- **Where the inspector stands.** The body holds one root. With `LAYOUT_INSPECTOR` set, the layout tour places a `riso.row` root `tour_frame`, with the props `{"sizes": {"inspector": 360}}` (feature 20), and places each case's root in it instead of as the root, with the same ID. The extension `layout_inspector`, loaded after `layout_tour`, places its node `inspector`, of its component `layout_inspector.panel`, in `tour_frame`'s slot `children`, last (feature 3: a node in another extension's slot), so it keeps a fixed width of 360 px. Without `LAYOUT_INSPECTOR`, the tour places its roots as today and the inspector places nothing.
+- **Following changes.** `yard_shell::observe_layout(cx, f)` calls `f` after the tree changes: an operation applied, a reset, a restore, a switch of named layout, and items that change an item slot's copies. It is called once per change, after the change is complete, never during a render. A change of view state only (a selected tab, a zoom, focus, a split's sizes while its handle is being dragged) does not call it; the end of a drag, which records the sizes as props (feature 19), is an operation and calls it once. The returned `Subscription` stops it when dropped.
+- **Where the inspector stands.** The body holds one root. With `LAYOUT_INSPECTOR` set, the layout tour places a `yard.row` root `tour_frame`, with the props `{"sizes": {"inspector": 360}}` (feature 20), and places each case's root in it instead of as the root, with the same ID. The extension `layout_inspector`, loaded after `layout_tour`, places its node `inspector`, of its component `layout_inspector.panel`, in `tour_frame`'s slot `children`, last (feature 3: a node in another extension's slot), so it keeps a fixed width of 360 px. Without `LAYOUT_INSPECTOR`, the tour places its roots as today and the inspector places nothing.
 - **Its look**, as Zed's syntax tree view (`crates/language_tools/src/syntax_tree_view.rs`, `render_node`): a `List` of the UI kit with a `ListHeader` `Layout` and the number of nodes, then one `ListItem` per node, indented by its depth (`indent_level`), in a vertical scroll:
   - its start shows the node ID, then its component and its props as one line, muted and truncated;
   - its end shows its extension and its origin (`default`, the named layout's name, `user`, or `copy <key>`), muted, small;
@@ -22,7 +22,7 @@ A test extension that shows the layout tree beside any case of the layout tour: 
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 pub struct NodeInfo {
     pub id: SharedString,
     pub depth: usize,
@@ -53,8 +53,8 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | `NodeInfo`, `Origin`, `inspect`, `observe_layout` |
-| `riso/startup` | Dev copy that uses the dev shell. While `inspector` is under review, `cargo run dev` loads `review`, `layout_tour`, and `layout_inspector` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_shell/shell` dev version | `NodeInfo`, `Origin`, `inspect`, `observe_layout` |
+| `yard/startup` | Dev copy that uses the dev shell. While `inspector` is under review, `cargo run dev` loads `review`, `layout_tour`, and `layout_inspector` on it, and not the command palette, which is built on the production shell's extension handle |
 | `examples/layout_inspector` (new example crate, no stage) | The extension `layout_inspector` and its panel |
 | `examples/layout_tour` (no stage) | `tour_frame` under `LAYOUT_INSPECTOR` |
 
@@ -71,7 +71,7 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-inspect LAYOUT_INSPECTOR=1 LAYOUT_TOUR=user-layer cargo run dev` | The case on the left, the inspector on the right: `Layout`, then `tour_frame`, `root` and the case's nodes under it (`left` with `a`, `b`; `right` with `c`, `d`; the controls), then `inspector`, indented; each `default`. |
+| `YARD_HOME=/tmp/yard-inspect LAYOUT_INSPECTOR=1 LAYOUT_TOUR=user-layer cargo run dev` | The case on the left, the inspector on the right: `Layout`, then `tour_frame`, `root` and the case's nodes under it (`left` with `a`, `b`; `right` with `c`, `d`; the controls), then `inspector`, indented; each `default`. |
 | Drag tab `b` onto the top edge of `right`'s content (feature 26) | Rows `split-1` and `tabs-1` appear, `user`; `b` is under `tabs-1`. |
 | Click `hide d` | `d`'s row is disabled. |
 | Click `reset layout` | The rows are as at the start. |
@@ -79,7 +79,7 @@ The dev shell has every other item of the production shell, unchanged.
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

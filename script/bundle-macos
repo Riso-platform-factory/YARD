@@ -14,7 +14,7 @@ die() {
     exit 1
 }
 
-config=app/riso/product.toml
+config=app/yard/product.toml
 out=dist
 dev=false
 zip=false
@@ -100,7 +100,7 @@ for key in ("name", "version", "identifier", "icon", "url_scheme"):
 if dev == "true":
     # A review bundle must never take the real product's name, directories,
     # identifier, or URL scheme; macOS compares these without case.
-    real = read_config("app/riso/product.toml")
+    real = read_config("app/yard/product.toml")
     for key in ("name", "identifier", "url_scheme"):
         if str(config[key]).lower() == str(real.get(key, "")).lower():
             sys.exit(f"{path}: --dev requires a `{key}` different from the production product's")
@@ -126,7 +126,7 @@ destination="${out%/}/$name.app"
 
 step=stages
 printf '%s\n' "$step"
-env -u RISO_PROMOTE cargo test -p riso --test stages >&2
+env -u YARD_PROMOTE cargo test -p yard --test stages >&2
 
 step=build
 printf '%s\n' "$step"
@@ -137,15 +137,15 @@ if "$dev"; then
 else
     set -- --no-default-features
 fi
-binary=$(PRODUCT_CONFIG="$config" cargo build --release -p riso --bin riso \
+binary=$(PRODUCT_CONFIG="$config" cargo build --release -p yard --bin yard \
         "$@" --message-format=json-render-diagnostics |
     python3 -c '
 import json, sys
 paths = [m["executable"] for m in map(json.loads, sys.stdin)
          if m.get("reason") == "compiler-artifact" and m.get("executable")
-         and m["target"]["name"] == "riso"]
+         and m["target"]["name"] == "yard"]
 if not paths:
-    sys.exit("cargo reported no riso executable")
+    sys.exit("cargo reported no yard executable")
 print(paths[-1])')
 
 step=icon

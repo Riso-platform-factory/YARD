@@ -10,13 +10,13 @@ use gpui::{
     Subscription, UniformListScrollHandle, Window, div, rems,
 };
 use matching::rank_candidates;
-use riso_shell::Extension;
-use riso_ui::ModalSurface;
-use riso_ui::{
+use std::{cell::RefCell, collections::BTreeSet, rc::Rc};
+use yard_shell::Extension;
+use yard_ui::ModalSurface;
+use yard_ui::{
     Divider, KeyHint, Label, List, ListItem, ListItemSpacing, ModalView, ScrollList, TextInput,
     TextInputEvent, h_flex,
 };
-use std::{cell::RefCell, collections::BTreeSet, rc::Rc};
 
 gpui::actions!(command_palette, [Toggle]);
 

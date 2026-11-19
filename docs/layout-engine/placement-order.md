@@ -6,7 +6,7 @@ A placement, an `add`, or a `move` can say where in the slot the node goes by na
 
 ## The model
 
-In `riso_layout`, without GPUI:
+In `yard_layout`, without GPUI:
 
 - **`Position`** is one of `Last` (the default), `First`, `Index(n)` (as today; past the end means last), `Before(node)`, and `After(node)`.
 - **`Operation::Add` and `Operation::Move`** carry a `Position` instead of `Move`'s index. `Add` was always last; it now takes a position too.
@@ -35,7 +35,7 @@ A saved `before` or `after` whose node is no longer in the slot is skipped at re
 ## What code can do
 
 ```rust
-// riso_layout (production, in place)
+// yard_layout (production, in place)
 pub enum Position { Last, First, Index(usize), Before(NodeId), After(NodeId) }
 pub enum Operation {
     Add { node: Node, parent: NodeId, slot: SlotName, at: Position },
@@ -44,8 +44,8 @@ pub enum Operation {
 }
 impl Tree { pub fn place_at(&mut self, node: Node, parent: &NodeId, slot: SlotName, at: Position) -> Result<(), PlaceError>; }
 
-// riso_shell::dev
-pub struct Placement { pub props: serde_json::Value, pub at: riso_layout::Position }
+// yard_shell::dev
+pub struct Placement { pub props: serde_json::Value, pub at: yard_layout::Position }
 impl Extension {
     pub fn place_at(&self, cx: &mut App, node: &str, component: &str, parent: &str, slot: &str, at: Position);
     pub fn place_with(&self, cx: &mut App, node: &str, component: &str, parent: &str, slot: &str, placement: Placement);
@@ -68,11 +68,11 @@ impl Extension {
 
 | Part | What changes |
 |---|---|
-| `riso_layout/tree` (production, in place) | `Position`, `Add` and `Move` with a position, `place_at`, and the resolving rules. Stamped again. |
-| `riso_layout/saved` (production, in place) | `first`, `before`, `after` on `add` and `move`. Stamped again. |
-| `riso_shell/shell` (production, in place) | Only what the changed variants need: `move_node` and drags build `Position::Index`, and placements build `Position::Last`. Stamped again. |
-| `riso_shell/shell` dev version | `Placement`, `place_at`, `place_with`, `add_at`, `add_with`, `move_to` |
-| `riso/startup` | Dev copy that uses the dev shell. While `placement-order` is under review, `cargo run dev` loads `review`, `layout_tour`, and `layout_guest` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_layout/tree` (production, in place) | `Position`, `Add` and `Move` with a position, `place_at`, and the resolving rules. Stamped again. |
+| `yard_layout/saved` (production, in place) | `first`, `before`, `after` on `add` and `move`. Stamped again. |
+| `yard_shell/shell` (production, in place) | Only what the changed variants need: `move_node` and drags build `Position::Index`, and placements build `Position::Last`. Stamped again. |
+| `yard_shell/shell` dev version | `Placement`, `place_at`, `place_with`, `add_at`, `add_with`, `move_to` |
+| `yard/startup` | Dev copy that uses the dev shell. While `placement-order` is under review, `cargo run dev` loads `review`, `layout_tour`, and `layout_guest` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -97,7 +97,7 @@ A new case, `placement-order`. `layout_tour` places, in a row, the controls, the
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-order LAYOUT_TOUR=placement-order cargo run dev` | The row: controls, `a`, `guest`, `b`, `c`. `placed {index=2}` in `node-place{node=guest}`. |
+| `YARD_HOME=/tmp/yard-order LAYOUT_TOUR=placement-order cargo run dev` | The row: controls, `a`, `guest`, `b`, `c`. `placed {index=2}` in `node-place{node=guest}`. |
 | Click `c first` | `c` moves to the front of the row, before the controls. |
 | Click `a after b` | `a` moves right after `b`. |
 | Click `b before ghost` | Refused with an `INFO`: `ghost is not in root.children`. |
@@ -107,8 +107,8 @@ A new case, `placement-order`. `layout_tour` places, in a row, the controls, the
 
 ## Under review
 
-- `riso_layout/tree`, `riso_layout/saved`, and production `riso_shell/shell`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_layout/tree`, `yard_layout/saved`, and production `yard_shell/shell`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

@@ -9,7 +9,7 @@ The engine lists the registered themes, each with its name and whether it is lig
 As Zed's `theme_selector` and `theme_settings::set_theme`:
 
 - **The list.** Every theme of the registry, bundled and the user's, as entries of a name and an appearance. Dark themes come first, then light ones; each group by name.
-- **Choosing.** `choose_theme(cx, name)` writes the theme section of `settings.json` with `riso_settings::write`, as Zed's `set_theme` changes Zed's setting:
+- **Choosing.** `choose_theme(cx, name)` writes the theme section of `settings.json` with `yard_settings::write`, as Zed's `set_theme` changes Zed's setting:
   - a dark theme goes in `dark`, a light one in `light`;
   - `mode` changes to the theme's appearance, unless `mode` is `system` and the theme's appearance is the system's: then the system keeps choosing, and the new theme shows because it is the one for that appearance.
   The write reaches the window as an edit of the file does: the theme setting applies it at once.
@@ -19,7 +19,7 @@ As Zed's `theme_selector` and `theme_settings::set_theme`:
 ## What code can do
 
 ```rust
-// riso_ui
+// yard_ui
 pub enum ThemeAppearance { Light, Dark }
 pub struct ThemeEntry { pub name: SharedString, pub appearance: ThemeAppearance }
 
@@ -43,7 +43,7 @@ These are the only new public items.
 
 | Part | What changes |
 |---|---|
-| `riso_ui/theme_list` (new, dev) | `ThemeAppearance`, `ThemeEntry`, `theme_list`, `choose_theme`. `ThemeSettings` of `riso_ui/theme_setting` gains `Serialize`, which `riso_settings::write` needs: a change to that production part, stamped again; nothing else in it changes |
+| `yard_ui/theme_list` (new, dev) | `ThemeAppearance`, `ThemeEntry`, `theme_list`, `choose_theme`. `ThemeSettings` of `yard_ui/theme_setting` gains `Serialize`, which `yard_settings::write` needs: a change to that production part, stamped again; nothing else in it changes |
 
 ## Tests
 
@@ -57,7 +57,7 @@ These are the only new public items.
 
 ## Test extension: `examples/settings_tour`
 
-A new case, `SETTINGS_TOUR=themes`: the tour's card shows the theme list with the UI kit's `List`: a header `Themes`, one `ListItem` per theme, its name, and its appearance as a muted label at the end, the active theme selected. A click on an item chooses it. With the Ayu fixture in the themes folder, the list holds the five themes. Use a fresh home: `RISO_HOME=/tmp/riso-settings`.
+A new case, `SETTINGS_TOUR=themes`: the tour's card shows the theme list with the UI kit's `List`: a header `Themes`, one `ListItem` per theme, its name, and its appearance as a muted label at the end, the active theme selected. A click on an item chooses it. With the Ayu fixture in the themes folder, the list holds the five themes. Use a fresh home: `YARD_HOME=/tmp/yard-settings`.
 
 | Command and action | What to look for |
 |---|---|
@@ -68,8 +68,8 @@ A new case, `SETTINGS_TOUR=themes`: the tour's card shows the theme list with th
 
 ## Under review
 
-- `riso_ui/theme_list`, new
-- `riso_ui/theme_setting`, changed by one derive
+- `yard_ui/theme_list`, new
+- `yard_ui/theme_setting`, changed by one derive
 
 ## Not in this feature
 

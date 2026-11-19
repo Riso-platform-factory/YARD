@@ -1,8 +1,8 @@
 use gpui::{
     Action, AppContext, InteractiveElement, IntoElement, Styled, TestAppContext, VisualTestContext,
 };
-use riso_shell::Extension;
 use std::{cell::RefCell, rc::Rc};
+use yard_shell::Extension;
 
 /// The palette's key, per the contract: `cmd-shift-p` on macOS and
 /// `ctrl-shift-p` elsewhere.
@@ -23,7 +23,7 @@ gpui::actions!(palette_test, [Banquet, Bequest, Quest, Quiet]);
 type Runs = Rc<RefCell<Vec<(&'static str, Option<String>)>>>;
 
 fn record(runs: &Runs, action: &'static str, window: &gpui::Window, cx: &gpui::App) {
-    let node = riso_shell::focused_node(window, cx).map(|node| node.to_string());
+    let node = yard_shell::focused_node(window, cx).map(|node| node.to_string());
     runs.borrow_mut().push((action, node));
 }
 
@@ -39,7 +39,7 @@ impl gpui::Render for Card {
             .size_full();
         // The element handling the card's actions tracks the node's own
         // handle: they are available only while this card has the focus.
-        if let Some(handle) = riso_shell::focus_handle(cx, &self.node) {
+        if let Some(handle) = yard_shell::focus_handle(cx, &self.node) {
             card = card
                 .track_focus(&handle)
                 .key_context("palette_test")
@@ -64,7 +64,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<yard_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -75,12 +75,12 @@ fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) 
 
 /// The node the dev shell says has the focus, if any.
 fn focused(visual: &mut VisualTestContext) -> Option<String> {
-    visual.update(|window, cx| riso_shell::focused_node(window, cx).map(|node| node.to_string()))
+    visual.update(|window, cx| yard_shell::focused_node(window, cx).map(|node| node.to_string()))
 }
 
 /// Whether the dev shell's layer shows a modal.
 fn has_modal(visual: &mut VisualTestContext) -> bool {
-    visual.update(|window, cx| riso_shell::has_modal(window, cx))
+    visual.update(|window, cx| yard_shell::has_modal(window, cx))
 }
 
 /// Clicks the center of the element with `selector`.
@@ -145,12 +145,12 @@ fn recorded(runs: &Runs) -> Vec<(&'static str, Option<String>)> {
 /// Opens a window over a row of cards `a` and `b`, after running the
 /// palette's `init` on its own extension, as the startup runs every
 /// extension's.
-fn open_cards_app(cx: &mut TestAppContext, runs: Runs) -> gpui::WindowHandle<riso_shell::Shell> {
-    cx.update(riso_ui::init);
+fn open_cards_app(cx: &mut TestAppContext, runs: Runs) -> gpui::WindowHandle<yard_shell::Shell> {
+    cx.update(yard_ui::init);
     cx.update(|cx| {
         // The startup binds the default keys in `app-init`, before extensions run.
-        riso_shell::bind_default_keys(cx);
-        riso_ui::bind_text_input_keys(cx);
+        yard_shell::bind_default_keys(cx);
+        yard_ui::bind_text_input_keys(cx);
         let palette = Extension::new(cx, "command_palette").unwrap();
         command_palette::init(cx, &palette);
         let test = Extension::new(cx, "palette_test").unwrap();
@@ -161,13 +161,13 @@ fn open_cards_app(cx: &mut TestAppContext, runs: Runs) -> gpui::WindowHandle<ris
             })
             .into()
         });
-        test.place_root(cx, "root", "riso.row");
+        test.place_root(cx, "root", "yard.row");
         for node in ["a", "b"] {
             test.place(cx, node, "palette_test.card", "root", "children");
         }
     });
     let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
+        cx.open_window(gpui::WindowOptions::default(), yard_shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));
@@ -178,7 +178,7 @@ fn open_cards_app(cx: &mut TestAppContext, runs: Runs) -> gpui::WindowHandle<ris
 /// Opens the palette, types `qe`, presses `keys` (a keystroke sequence, ""
 /// for none), then `enter`, and checks the one command that ran and where.
 fn enter_runs(
-    window: gpui::WindowHandle<riso_shell::Shell>,
+    window: gpui::WindowHandle<yard_shell::Shell>,
     cx: &mut TestAppContext,
     visual: &mut VisualTestContext,
     runs: &Runs,
@@ -262,14 +262,14 @@ fn the_list_holds_the_cards_and_the_shells_actions_by_readable_name(cx: &mut Tes
         "palette_test::Bequest",
         "palette_test::Quest",
         "palette_test::Quiet",
-        "riso::FocusDown",
-        "riso::FocusLeft",
-        "riso::FocusRight",
-        "riso::FocusUp",
-        "riso::Hide",
-        "riso::SelectNextTab",
-        "riso::SelectPreviousTab",
-        "riso::ToggleZoom",
+        "yard::FocusDown",
+        "yard::FocusLeft",
+        "yard::FocusRight",
+        "yard::FocusUp",
+        "yard::Hide",
+        "yard::SelectNextTab",
+        "yard::SelectPreviousTab",
+        "yard::ToggleZoom",
     ] {
         assert!(
             expected.iter().any(|candidate| candidate == name),
@@ -286,19 +286,19 @@ fn the_list_holds_the_cards_and_the_shells_actions_by_readable_name(cx: &mut Tes
         "the first row by name ran `palette_test::Banquet` on the focused card"
     );
     // The shell's own actions are listed at their place in the name order:
-    // `riso: focus right` moves the focus from `a` to `b`.
+    // `yard: focus right` moves the focus from `a` to `b`.
     visual.simulate_keystrokes(TOGGLE_KEY);
     draw(window, cx);
-    click(&mut visual, row(row_of(&expected, "riso::FocusRight")));
+    click(&mut visual, row(row_of(&expected, "yard::FocusRight")));
     draw(window, cx);
     assert_eq!(
         focused(&mut visual).as_deref(),
         Some("b"),
-        "the listed `riso: focus right` ran where the focus was"
+        "the listed `yard: focus right` ran where the focus was"
     );
     click(&mut visual, "CARD-a");
     draw(window, cx);
-    // The palette's `Toggle` is not listed: `toggle` matches `riso: toggle
+    // The palette's `Toggle` is not listed: `toggle` matches `yard: toggle
     // zoom` alone.
     visual.simulate_keystrokes(TOGGLE_KEY);
     draw(window, cx);
@@ -313,9 +313,9 @@ fn the_list_holds_the_cards_and_the_shells_actions_by_readable_name(cx: &mut Tes
     draw(window, cx);
     assert!(!has_modal(&mut visual));
     assert_eq!(
-        cx.update(|cx| riso_shell::zoomed(cx)).as_deref(),
+        cx.update(|cx| yard_shell::zoomed(cx)).as_deref(),
         Some("a"),
-        "the one `toggle` match ran `riso::ToggleZoom` on `a`"
+        "the one `toggle` match ran `yard::ToggleZoom` on `a`"
     );
 }
 

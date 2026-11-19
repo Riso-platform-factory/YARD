@@ -40,8 +40,8 @@ The groups and lines inside `window{id}` are as before, so every earlier log, re
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | The application's registry keeps what extensions register; each window's shell holds its layout; calls act on the active window; `window{id}` and `window-close{window}` |
-| `riso/startup` | Dev copy that uses the dev shell. While `window-tree` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_shell/shell` dev version | The application's registry keeps what extensions register; each window's shell holds its layout; calls act on the active window; `window{id}` and `window-close{window}` |
+| `yard/startup` | Dev copy that uses the dev shell. While `window-tree` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -55,11 +55,11 @@ The groups and lines inside `window{id}` are as before, so every earlier log, re
 
 ## Test extension: `examples/layout_tour`
 
-No new case: every case runs as before. `RISO_HOME=/tmp/riso-wtree LAYOUT_TOUR=user-layer cargo run dev`, drag a tab and reset: the same as in feature 26, with `window{id=…}` around each operation in the log.
+No new case: every case runs as before. `YARD_HOME=/tmp/yard-wtree LAYOUT_TOUR=user-layer cargo run dev`, drag a tab and reset: the same as in feature 26, with `window{id=…}` around each operation in the log.
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

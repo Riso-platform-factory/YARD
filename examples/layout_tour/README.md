@@ -1,6 +1,6 @@
 # layout_tour
 
-A test extension for the layout engine. When `app/riso/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the layout engine again, or when the next feature that it shows is under review.
+A test extension for the layout engine. When `app/yard/src/dev/review.rs` lists it as `("layout_tour", layout_tour::init)` among the extensions it passes to the startup, and `app/yard/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the layout engine again, or when the next feature that it shows is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does: an empty window in the theme's background. With a case, it registers components and places nodes through the handle the startup gives it, as any extension would.
 
@@ -46,7 +46,7 @@ An ERROR fails its group and every group around it, up to `app-startup`.
 
 ### Feature 4: split
 
-`riso.row` and `riso.column` are the shell's own components, with one slot, `children`. Any extension may place them.
+`yard.row` and `yard.column` are the shell's own components, with one slot, `children`. Any extension may place them.
 
 | Command | What to look for |
 |---|---|
@@ -56,13 +56,13 @@ An ERROR fails its group and every group around it, up to `app-startup`.
 | `LAYOUT_TOUR=one cargo run dev` | A row with only `a`, which fills the window. |
 | `LAYOUT_TOUR=empty-split cargo run dev` | A row with no children: only the background, and `split created {axis=row, children=0}`. |
 | `LAYOUT_TOUR=row LAYOUT_GUEST=split cargo run dev` | The guest's card is a fourth, equal child of the host's row. |
-| `LAYOUT_TOUR=reserved cargo run dev` | Registering `riso.badge` is refused with an ERROR: `riso` is the shell's namespace. |
+| `LAYOUT_TOUR=reserved cargo run dev` | Registering `yard.badge` is refused with an ERROR: `yard` is the shell's namespace. |
 
 Resizing the window keeps the shares equal; each card's size catches up a frame after the resize.
 
 ### Feature 5: split-resize
 
-No new case: the splits of feature 4 are resized by hand. In the trace, with `riso_ui` at `debug`, each drag logs `resize started {id, handle}` and `resize ended {id, shares}`, where `id` is the split's node ID.
+No new case: the splits of feature 4 are resized by hand. In the trace, with `yard_ui` at `debug`, each drag logs `resize started {id, handle}` and `resize ended {id, shares}`, where `id` is the split's node ID.
 
 | Command and action | What to look for |
 |---|---|
@@ -76,7 +76,7 @@ No new case: the splits of feature 4 are resized by hand. In the trace, with `ri
 
 ### Feature 6: tabs
 
-`riso.tabs` is the shell's own component, with one slot, `children`, shown one at a time under a tab bar drawn with Zed's `Tab` and `TabBar`. Each tab's label is its child's node ID.
+`yard.tabs` is the shell's own component, with one slot, `children`, shown one at a time under a tab bar drawn with Zed's `Tab` and `TabBar`. Each tab's label is its child's node ID.
 
 | Command and action | What to look for |
 |---|---|
@@ -115,7 +115,7 @@ The card has a counter: clicking `count: N` adds one. `layout_tour.controls` sho
 
 ### Feature 9: drag-to-move
 
-Any tab can be dragged. A drop moves its node as the shell, in `layout-op{op=move, node, extension=riso}`. With `riso_shell` at `debug`, a drag logs `drag started` and a drop that moves nothing logs `drop ignored`.
+Any tab can be dragged. A drop moves its node as the shell, in `layout-op{op=move, node, extension=yard}`. With `yard_shell` at `debug`, a drag logs `drag started` and a drop that moves nothing logs `drop ignored`.
 
 | Command and action | What to look for |
 |---|---|
@@ -151,23 +151,23 @@ The controls show `user layer: N`, the number of operations applied since the wi
 
 ### Feature 12: save-restore
 
-The user layer is saved to `data/layout.json` after every recorded operation and every reset, and applied again at the next start. Use a fresh home, so that no real file is touched: `RISO_HOME=/tmp/riso-layout`.
+The user layer is saved to `data/layout.json` after every recorded operation and every reset, and applied again at the next start. Use a fresh home, so that no real file is touched: `YARD_HOME=/tmp/yard-layout`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-layout LAYOUT_TOUR=user-layer cargo run dev`, drag tab `a` onto `right`'s bar, `hide d`, quit | `layout-save` and `file-write` inside each `layout-op`; `layout.json` holds a `move` (no `index`: it went last) and a `hide`. |
+| `YARD_HOME=/tmp/yard-layout LAYOUT_TOUR=user-layer cargo run dev`, drag tab `a` onto `right`'s bar, `hide d`, quit | `layout-save` and `file-write` inside each `layout-op`; `layout.json` holds a `move` (no `index`: it went last) and a `hide`. |
 | The same command again | `layout-restore` ends with `restored {applied=2, skipped=0}`; `right` shows `c`, `a`, and `d` is hidden; `user layer: 2`. |
-| `RISO_HOME=/tmp/riso-layout LAYOUT_TOUR=tabs cargo run dev` | The `tabs` layout has no `right` and no `d`: both operations are `skipped` with INFO, and the default `tabs` layout is shown. |
+| `YARD_HOME=/tmp/yard-layout LAYOUT_TOUR=tabs cargo run dev` | The `tabs` layout has no `right` and no `d`: both operations are `skipped` with INFO, and the default `tabs` layout is shown. |
 | `reset layout`, quit, start `user-layer` again | `layout.json` holds no operation; the default layout. |
 | Write `not json` into `layout.json`, start `user-layer` | A WARN, `the saved layout cannot be read`, and the default layout; the file is left as it is. |
 
 ### Feature 13: props
 
-The card `layout_tour.tinted` takes props `title` (default `Untitled`) and `tint` (`default`, `accent`, `success`, `warning`, or `error`; default `default`), and shows its title in a large label colored by its tint. The case places `alpha` (`title: Alpha`, `tint: accent`), `beta` (no props), and `broken` (`title: Broken`, `tint: 42`). Use a fresh home: `RISO_HOME=/tmp/riso-props`.
+The card `layout_tour.tinted` takes props `title` (default `Untitled`) and `tint` (`default`, `accent`, `success`, `warning`, or `error`; default `default`), and shows its title in a large label colored by its tint. The case places `alpha` (`title: Alpha`, `tint: accent`), `beta` (no props), and `broken` (`title: Broken`, `tint: 42`). Use a fresh home: `YARD_HOME=/tmp/yard-props`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-props LAYOUT_TOUR=props cargo run dev` | `Alpha` in the accent color, `Untitled`, and `Broken` in the default color. One `WARN` inside `props-read{node=broken}`: `prop tint of node broken cannot be read`. |
+| `YARD_HOME=/tmp/yard-props LAYOUT_TOUR=props cargo run dev` | `Alpha` in the accent color, `Untitled`, and `Broken` in the default color. One `WARN` inside `props-read{node=broken}`: `prop tint of node broken cannot be read`. |
 | Click `rename beta` | `Beta`. `layout-op{op=props, node=beta}` holds `props set {keys=title}`, `props-read`, and `view told {node=beta}`. |
 | Click `tint beta warning` | `Beta` in the warning color. |
 | Click `clear alpha's tint` | `Alpha` in the default color. |
@@ -177,22 +177,22 @@ The card `layout_tour.tinted` takes props `title` (default `Untitled`) and `tint
 
 ### Feature 14: titles
 
-The card `layout_tour.tinted` gives its tab a title from its `title` prop and an icon from its `icon` prop (`none`, `info`, or `warning`). The case places a tabs container with `alpha` (`title: Alpha`, `icon: info`), `beta` (`title: Beta`), and `gamma`, a plain card that gives no title. Use a fresh home: `RISO_HOME=/tmp/riso-titles`.
+The card `layout_tour.tinted` gives its tab a title from its `title` prop and an icon from its `icon` prop (`none`, `info`, or `warning`). The case places a tabs container with `alpha` (`title: Alpha`, `icon: info`), `beta` (`title: Beta`), and `gamma`, a plain card that gives no title. Use a fresh home: `YARD_HOME=/tmp/yard-titles`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-titles LAYOUT_TOUR=titles cargo run dev` | Tabs `ⓘ Alpha`, `Beta`, and `gamma`; the selected tab's title in the default color, the others muted. `title-register{component=layout_tour.tinted}` with `gives titles`. |
+| `YARD_HOME=/tmp/yard-titles LAYOUT_TOUR=titles cargo run dev` | Tabs `ⓘ Alpha`, `Beta`, and `gamma`; the selected tab's title in the default color, the others muted. `title-register{component=layout_tour.tinted}` with `gives titles`. |
 | Click `rename beta` | The tab reads `Bravo`. |
 | Drag tab `Alpha` to the end of the bar | It moves, with its title and icon. |
 | `reset layout` | `Alpha`, `Beta`, `gamma` again. |
 
 ### Feature 15: required-nodes
 
-The component `layout_tour.editor`, a card, is declared required. The case places the controls, then a row with `side` and `main`, a column holding `editor` and `notes`. Use a fresh home: `RISO_HOME=/tmp/riso-required`.
+The component `layout_tour.editor`, a card, is declared required. The case places the controls, then a row with `side` and `main`, a column holding `editor` and `notes`. Use a fresh home: `YARD_HOME=/tmp/yard-required`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-required LAYOUT_TOUR=required cargo run dev` | `side`, then `main` with `editor` and `notes`. `component-require{component=layout_tour.editor}` with `required`. |
+| `YARD_HOME=/tmp/yard-required LAYOUT_TOUR=required cargo run dev` | `side`, then `main` with `editor` and `notes`. `component-require{component=layout_tour.editor}` with `required`. |
 | Click `hide editor` | Refused: an `INFO`, `editor cannot be hidden: it is required`. Nothing changes. |
 | Click `remove main` | Refused: `main cannot be removed: it holds the required node editor`. |
 | Click `hide notes`, then `hide side` | Both are hidden. |
@@ -200,11 +200,11 @@ The component `layout_tour.editor`, a card, is declared required. The case place
 
 ### Feature 16: slot-count
 
-The card `layout_tour.frame` has a slot `content` for one, shown under a small header. The case places the controls, then a row with `frame` (holding `first`) and `loose`, and tries at startup to place `extra` in `frame.content` too. Use a fresh home: `RISO_HOME=/tmp/riso-slot-count`.
+The card `layout_tour.frame` has a slot `content` for one, shown under a small header. The case places the controls, then a row with `frame` (holding `first`) and `loose`, and tries at startup to place `extra` in `frame.content` too. Use a fresh home: `YARD_HOME=/tmp/yard-slot-count`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-slot-count LAYOUT_TOUR=slot-count cargo run dev` | `frame` showing `first`, and `loose`; no `extra`. `slot-declare{component=layout_tour.frame, slot=content}`, and an `INFO` in `node-place{node=extra}`: `frame.content holds one node, and already holds first`. |
+| `YARD_HOME=/tmp/yard-slot-count LAYOUT_TOUR=slot-count cargo run dev` | `frame` showing `first`, and `loose`; no `extra`. `slot-declare{component=layout_tour.frame, slot=content}`, and an `INFO` in `node-place{node=extra}`: `frame.content holds one node, and already holds first`. |
 | Click `add second to frame` | Refused with the `INFO`. |
 | Click `move loose into frame` | Refused with the `INFO`. |
 | Click `move first to root` | `first` leaves the frame, which is now empty. |
@@ -212,11 +212,11 @@ The card `layout_tour.frame` has a slot `content` for one, shown under a small h
 
 ### Feature 17: placement-order
 
-`layout_tour` places in the row the controls, then cards `a`, `b`, and `c`. `layout_guest`, loaded after it, places its card `guest` before `b`, without knowing how many cards there are. Use a fresh home: `RISO_HOME=/tmp/riso-order`.
+`layout_tour` places in the row the controls, then cards `a`, `b`, and `c`. `layout_guest`, loaded after it, places its card `guest` before `b`, without knowing how many cards there are. Use a fresh home: `YARD_HOME=/tmp/yard-order`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-order LAYOUT_TOUR=placement-order cargo run dev` | The row: controls, `a`, `guest`, `b`, `c`. `node placed` with `index=2` in `node-place{node=guest}`. |
+| `YARD_HOME=/tmp/yard-order LAYOUT_TOUR=placement-order cargo run dev` | The row: controls, `a`, `guest`, `b`, `c`. `node placed` with `index=2` in `node-place{node=guest}`. |
 | Click `c first` | `c` moves to the front of the row, before the controls, which move one place right. |
 | Click `a after b` | `a` moves right after `b`. |
 | Click `b before ghost` | Refused with an `INFO`: `ghost is not in root.children`. |
@@ -226,11 +226,11 @@ The card `layout_tour.frame` has a slot `content` for one, shown under a small h
 
 ### Feature 18: contexts
 
-`layout_tour.counter` gives a model `Count`, a number, shown under its header with a `+1` button. `layout_tour.count_card` requires a `Count` and shows the number it receives. The case places the controls, then a row with `counter` holding `left` and `right` (count cards) and `outside`, a plain card. Use a fresh home: `RISO_HOME=/tmp/riso-contexts`.
+`layout_tour.counter` gives a model `Count`, a number, shown under its header with a `+1` button. `layout_tour.count_card` requires a `Count` and shows the number it receives. The case places the controls, then a row with `counter` holding `left` and `right` (count cards) and `outside`, a plain card. Use a fresh home: `YARD_HOME=/tmp/yard-contexts`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-contexts LAYOUT_TOUR=contexts cargo run dev` | `counter` with `left` and `right`, both showing `0`, and `outside`. `context-declare` for `provide` and `require`; `context created {node=counter, model=Count}`. |
+| `YARD_HOME=/tmp/yard-contexts LAYOUT_TOUR=contexts cargo run dev` | `counter` with `left` and `right`, both showing `0`, and `outside`. `context-declare` for `provide` and `require`; `context created {node=counter, model=Count}`. |
 | Click `+1` twice | `left` and `right` both show `2`. |
 | Click `move left to root` | Refused: `left requires a Count model, and none is above root`. |
 | Click `move outside into counter` | `outside` moves into the counter: it requires nothing. |
@@ -238,22 +238,22 @@ The card `layout_tour.frame` has a slot `content` for one, shown under a small h
 
 ### Feature 19: sizes-as-props
 
-The shares of a split are its `shares` prop, by node ID, so a resize is an operation. The `user-layer` case shows it. Use a fresh home: `RISO_HOME=/tmp/riso-sizes`.
+The shares of a split are its `shares` prop, by node ID, so a resize is an operation. The `user-layer` case shows it. Use a fresh home: `YARD_HOME=/tmp/yard-sizes`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-sizes LAYOUT_TOUR=user-layer cargo run dev`, drag the line between `left` and `right` | At the mouse up, one `layout-op{op=props, node=root, extension=riso}` with `props set {keys=shares}`; `user layer: 1`. `layout.json` holds the shares by node ID. |
+| `YARD_HOME=/tmp/yard-sizes LAYOUT_TOUR=user-layer cargo run dev`, drag the line between `left` and `right` | At the mouse up, one `layout-op{op=props, node=root, extension=yard}` with `props set {keys=shares}`; `user layer: 1`. `layout.json` holds the shares by node ID. |
 | Quit and start again | The line where it was left; `restored {applied=1, skipped=0}`. |
 | Double-click the line | Equal shares, with `shares reset` and one `layout-op{op=props}`. |
 | Drag it again, then `reset layout` | Equal shares; `user layer: 0`. |
 
 ### Feature 20: fixed-sizes
 
-A child of a split is fixed when the split's `sizes` prop gives it a size in pixels. The case places the controls above a row with `side`, fixed at 240 px, and `main`, flexible. Use a fresh home: `RISO_HOME=/tmp/riso-fixed`.
+A child of a split is fixed when the split's `sizes` prop gives it a size in pixels. The case places the controls above a row with `side`, fixed at 240 px, and `main`, flexible. Use a fresh home: `YARD_HOME=/tmp/yard-fixed`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-fixed LAYOUT_TOUR=fixed-sizes cargo run dev` | `side` shows `240px` wide, `main` the rest. |
+| `YARD_HOME=/tmp/yard-fixed LAYOUT_TOUR=fixed-sizes cargo run dev` | `side` shows `240px` wide, `main` the rest. |
 | Make the window wider, then narrower | `side` stays `240px`; only `main` changes. |
 | Make the window very narrow | `main` stops at its minimum (80 px), then `side` shrinks; widen it again and `side` is `240px` again. |
 | Drag the line between `side` and `main` | `side` gets the new width; one `layout-op{op=props, node=row}` with `props set` naming `sizes`. Quit and start: the same width. |
@@ -261,11 +261,11 @@ A child of a split is fixed when the split's `sizes` prop gives it a size in pix
 
 ### Feature 21: component-sizes
 
-`layout_tour.wide` declares a minimum of 20 rems across, and `layout_tour.panel` a preferred width of 15 rems. The case places the controls above a row with `panel`, `wide`, and `plain`, a card with no hints (its minimum is the default 5 rems). Use a fresh home: `RISO_HOME=/tmp/riso-sizes2`.
+`layout_tour.wide` declares a minimum of 20 rems across, and `layout_tour.panel` a preferred width of 15 rems. The case places the controls above a row with `panel`, `wide`, and `plain`, a card with no hints (its minimum is the default 5 rems). Use a fresh home: `YARD_HOME=/tmp/yard-sizes2`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-sizes2 LAYOUT_TOUR=component-sizes cargo run dev` | `panel` 240 px wide (15 rems at the default font), `wide` and `plain` sharing the rest. `size-hints` for both components. |
+| `YARD_HOME=/tmp/yard-sizes2 LAYOUT_TOUR=component-sizes cargo run dev` | `panel` 240 px wide (15 rems at the default font), `wide` and `plain` sharing the rest. `size-hints` for both components. |
 | Drag the line between `wide` and `plain` to the left, but not past half of `wide`'s minimum | It stops when `wide` is 320 px (20 rems). Further than half of it, `wide` snaps shut (feature 22). |
 | Drag it to the right | `plain` stops at 80 px (5 rems). |
 | With `{"theme": {"ui_font_size": 20}}` in `settings.json` and a fresh home | `panel` is 300 px, and `wide` is held at its minimum of 400 px. |
@@ -273,11 +273,11 @@ A child of a split is fixed when the split's `sizes` prop gives it a size in pix
 
 ### Feature 22: snap-hide
 
-Dragging a split's line past half a child's minimum hides that child; a hidden child of a split leaves a line that drags it out again. The `fixed-sizes` case shows it. Use a fresh home: `RISO_HOME=/tmp/riso-snap`.
+Dragging a split's line past half a child's minimum hides that child; a hidden child of a split leaves a line that drags it out again. The `fixed-sizes` case shows it. Use a fresh home: `YARD_HOME=/tmp/yard-snap`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-snap LAYOUT_TOUR=fixed-sizes cargo run dev`, drag the line between `side` and `main` far to the left | Past half of `side`'s minimum, `snap preview {shut=true}`, and at the mouse up `layout-op{op=hide, node=side, extension=riso}`. `main` takes the whole row. |
+| `YARD_HOME=/tmp/yard-snap LAYOUT_TOUR=fixed-sizes cargo run dev`, drag the line between `side` and `main` far to the left | Past half of `side`'s minimum, `snap preview {shut=true}`, and at the mouse up `layout-op{op=hide, node=side, extension=yard}`. `main` takes the whole row. |
 | Grab the window's left edge just inside it (the line's hit area is the first 8 px) and drag right | `side` comes back; `layout-op{op=show, node=side}`. |
 | Drag it shut, then back before releasing | Nothing is recorded. |
 | Drag it shut, quit, start again | `side` is still hidden; drag it out and it is back. |
@@ -285,11 +285,11 @@ Dragging a split's line past half a child's minimum hides that child; a hidden c
 
 ### Feature 23: empty-nodes
 
-`layout_tour.list` shows its items and says it is empty when it has none. The case places the controls above a row with `left`, a column of two lists, `top` (two items) and `bottom` (none), and `right`, a plain card. Use a fresh home: `RISO_HOME=/tmp/riso-empty`.
+`layout_tour.list` shows its items and says it is empty when it has none. The case places the controls above a row with `left`, a column of two lists, `top` (two items) and `bottom` (none), and `right`, a plain card. Use a fresh home: `YARD_HOME=/tmp/yard-empty`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-empty LAYOUT_TOUR=empty-nodes cargo run dev` | `left` shows only `top`, at the column's full height; `bottom` takes no room. `empty-register{component=layout_tour.list}` with `can be empty`. |
+| `YARD_HOME=/tmp/yard-empty LAYOUT_TOUR=empty-nodes cargo run dev` | `left` shows only `top`, at the column's full height; `bottom` takes no room. `empty-register{component=layout_tour.list}` with `can be empty`. |
 | Click `add to bottom` | `bottom` appears under `top`, and they share the column; `emptiness changed {node=bottom, empty=false}`. |
 | Click `clear top`, then `clear bottom` | `top` disappears, then `bottom`, and then the whole `left` column: `right` takes the row (`emptiness changed {node=left, empty=true}`). |
 | Click `add to top` | `left` comes back with `top`. |
@@ -297,46 +297,46 @@ Dragging a split's line past half a child's minimum hides that child; a hidden c
 
 ### Feature 24: close-tab
 
-A tab has a close button, shown when the pointer is over the tab, as in Zed; a middle click on a tab closes it too. In the `titles` case, `gamma` is required, so its tab has no button. Use a fresh home: `RISO_HOME=/tmp/riso-close`.
+A tab has a close button, shown when the pointer is over the tab, as in Zed; a middle click on a tab closes it too. In the `titles` case, `gamma` is required, so its tab has no button. Use a fresh home: `YARD_HOME=/tmp/yard-close`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-close LAYOUT_TOUR=titles cargo run dev`, rest the pointer on tab `Beta` | A close button appears at its right; resting on it shows `Close Tab`. The selected tab `Alpha` shows none until the pointer is over it, as in Zed. |
-| Click `Beta`'s close button | `Beta` goes; `tab close {node=beta}`, `layout-op{op=remove, node=beta, extension=riso}`, `view dropped {node=beta}`. |
+| `YARD_HOME=/tmp/yard-close LAYOUT_TOUR=titles cargo run dev`, rest the pointer on tab `Beta` | A close button appears at its right; resting on it shows `Close Tab`. The selected tab `Alpha` shows none until the pointer is over it, as in Zed. |
+| Click `Beta`'s close button | `Beta` goes; `tab close {node=beta}`, `layout-op{op=remove, node=beta, extension=yard}`, `view dropped {node=beta}`. |
 | Middle-click tab `Alpha` | `Alpha` goes, and `gamma` is selected. |
 | Rest on `gamma` | No close button: it is required. |
 | Quit and start again, then `reset layout` | The closed tabs are still closed; after the reset, all three are back. |
 
 ### Feature 25: tab-overflow
 
-A tab bar scrolls sideways when its tabs do not fit, and the selected tab is scrolled into view. The case places the controls above a tabs container with twenty cards, `t01` to `t20`. `select t20` reaches `t20` with the shell's tab actions (one `SelectPreviousTab` from `t01`, which wraps). Use a fresh home: `RISO_HOME=/tmp/riso-overflow`.
+A tab bar scrolls sideways when its tabs do not fit, and the selected tab is scrolled into view. The case places the controls above a tabs container with twenty cards, `t01` to `t20`. `select t20` reaches `t20` with the shell's tab actions (one `SelectPreviousTab` from `t01`, which wraps). Use a fresh home: `YARD_HOME=/tmp/yard-overflow`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-overflow LAYOUT_TOUR=tab-overflow cargo run dev` | The bar shows the first tabs; the rest are past its end. |
-| Scroll over the bar with the trackpad or the wheel | The tabs slide. With `RISO_LIFECYCLE=info,riso_shell=trace`, `tab bar scrolled {tabs, offset}`. |
+| `YARD_HOME=/tmp/yard-overflow LAYOUT_TOUR=tab-overflow cargo run dev` | The bar shows the first tabs; the rest are past its end. |
+| Scroll over the bar with the trackpad or the wheel | The tabs slide. With `YARD_LIFECYCLE=info,yard_shell=trace`, `tab bar scrolled {tabs, offset}`. |
 | Click `select t20` | The bar scrolls so that `t20` is whole at its end; `tab scrolled into view {node=t20}`. |
-| Press `alt-cmd-right` (`riso::SelectNextTab`) | `t01` is selected and the bar scrolls back to the start. |
+| Press `alt-cmd-right` (`yard::SelectNextTab`) | `t01` is selected and the bar scrolls back to the start. |
 | `user layer: 0` all along | Nothing was recorded. |
 
 ### Feature 26: split-on-drop
 
-Dropping a tab on an edge of a container's child splits around it: a new row or column holds the target and a new tabs container with the dropped tab, on the side of the edge. An edge along the parent split's axis still moves the tab into that split, as feature 9. Dropping on the center of a tabs container's content moves the tab into it. The case `user-layer` is used as it is. Use a fresh home: `RISO_HOME=/tmp/riso-splitdrop`.
+Dropping a tab on an edge of a container's child splits around it: a new row or column holds the target and a new tabs container with the dropped tab, on the side of the edge. An edge along the parent split's axis still moves the tab into that split, as feature 9. Dropping on the center of a tabs container's content moves the tab into it. The case `user-layer` is used as it is. Use a fresh home: `YARD_HOME=/tmp/yard-splitdrop`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-splitdrop LAYOUT_TOUR=user-layer cargo run dev`, drag tab `b` onto the top edge of `right`'s content | While dragging, the top half of `right`'s content is highlighted. After the drop, a column stands where `right` was: a new tabs container with `b` above `right`; `split-on-drop{node=b, target=right, edge=top}` with four `layout-op` groups; `user layer: 4`. |
+| `YARD_HOME=/tmp/yard-splitdrop LAYOUT_TOUR=user-layer cargo run dev`, drag tab `b` onto the top edge of `right`'s content | While dragging, the top half of `right`'s content is highlighted. After the drop, a column stands where `right` was: a new tabs container with `b` above `right`; `split-on-drop{node=b, target=right, edge=top}` with four `layout-op` groups; `user layer: 4`. |
 | Drag tab `d` onto the center of `left`'s content | The whole of `left`'s content is highlighted; `d` moves into `left`, last, and is selected. |
 | Quit and start again | The same layout: `restored {applied=5, skipped=0}`. |
 | `reset layout` | `left` with `a`, `b` and `right` with `c`, `d` again. |
 
 ### Feature 27: toggle
 
-Buttons in the status bar show and hide nodes, as Zed's dock buttons show and hide its panels. The body is a row: a column `side` with cards `left` (shown) and `extra` (hidden at start), then `main`, a column of controls with `reset layout`, then card `right`. The status bar holds, on its left, a toggle for `left` (icon `info`) and one for `extra` (icon `plus`), both with `alone`, and on its right a toggle for `right` (icon `warning`). Use a fresh home: `RISO_HOME=/tmp/riso-toggle`.
+Buttons in the status bar show and hide nodes, as Zed's dock buttons show and hide its panels. The body is a row: a column `side` with cards `left` (shown) and `extra` (hidden at start), then `main`, a column of controls with `reset layout`, then card `right`. The status bar holds, on its left, a toggle for `left` (icon `info`) and one for `extra` (icon `plus`), both with `alone`, and on its right a toggle for `right` (icon `warning`). Use a fresh home: `YARD_HOME=/tmp/yard-toggle`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-toggle LAYOUT_TOUR=toggle cargo run dev` | The status bar shows three buttons; those of `left` and `right` are toggled, that of `extra` is not. |
+| `YARD_HOME=/tmp/yard-toggle LAYOUT_TOUR=toggle cargo run dev` | The status bar shows three buttons; those of `left` and `right` are toggled, that of `extra` is not. |
 | Click the first toggle | `left` hides; the button is no longer toggled; `toggle{node=left, shown=false}` with one `layout-op{op=hide}`. |
 | Click it again | `left` shows. |
 | Click `extra`'s toggle | `left` hides and then `extra` shows, in `side`; two `layout-op` groups inside `toggle{node=extra, shown=true}`. |
@@ -344,11 +344,11 @@ Buttons in the status bar show and hide nodes, as Zed's dock buttons show and hi
 
 ### Feature 28: item-slots
 
-A slot shows one copy of its template for each item of a model, and items come and go without layout operations. The case's model `Names` starts with `ada`, `bob`, `cy`; the row `names_row` is an item slot over it, with one template, the card `name`, whose copies `name@<key>` show their key. Use a fresh home: `RISO_HOME=/tmp/riso-items`.
+A slot shows one copy of its template for each item of a model, and items come and go without layout operations. The case's model `Names` starts with `ada`, `bob`, `cy`; the row `names_row` is an item slot over it, with one template, the card `name`, whose copies `name@<key>` show their key. Use a fresh home: `YARD_HOME=/tmp/yard-items`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-items LAYOUT_TOUR=item-slots cargo run dev` | Three cards in a row: `ada`, `bob`, `cy`. `item-slot-declare{node=names_row, slot=children, model=Names}`. |
+| `YARD_HOME=/tmp/yard-items LAYOUT_TOUR=item-slots cargo run dev` | Three cards in a row: `ada`, `bob`, `cy`. `item-slot-declare{node=names_row, slot=children, model=Names}`. |
 | Click `count` on `bob`'s card twice, then `add dee` | A fourth card `dee`; `items-changed{added=dee}` with one `item-copy{key=dee}`; `bob` still shows `count: 2`. |
 | Click `remove ada` | `ada`'s card goes; `view dropped {node=name@ada}`. |
 | Click `reverse` | The cards are in the reverse order; `bob` still shows `count: 2`. |
@@ -357,11 +357,11 @@ A slot shows one copy of its template for each item of a model, and items come a
 
 ### Feature 29: item-tabs
 
-A tabs container over an item slot is a tab bar of its model's items, as Zed's pane is a tab bar of its open items: each tab has a close button and the bar ends with a `+`. The buttons only ask the model. The case's model `Names` starts with `ada`, `bob`, `cy`; it closes an item by removing its key, except `ada`, which it keeps, and makes a new item `new-<n>`. Each card is titled by its key. Use a fresh home: `RISO_HOME=/tmp/riso-itemtabs`.
+A tabs container over an item slot is a tab bar of its model's items, as Zed's pane is a tab bar of its open items: each tab has a close button and the bar ends with a `+`. The buttons only ask the model. The case's model `Names` starts with `ada`, `bob`, `cy`; it closes an item by removing its key, except `ada`, which it keeps, and makes a new item `new-<n>`. Each card is titled by its key. Use a fresh home: `YARD_HOME=/tmp/yard-itemtabs`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-itemtabs LAYOUT_TOUR=item-tabs cargo run dev` | Three tabs, `ada`, `bob`, `cy`, and a `+` at the bar's end. |
+| `YARD_HOME=/tmp/yard-itemtabs LAYOUT_TOUR=item-tabs cargo run dev` | Three tabs, `ada`, `bob`, `cy`, and a `+` at the bar's end. |
 | Rest on `bob`'s tab, click its close button | `bob`'s tab goes; `item-close{key=bob}` holding `items-changed{removed=bob}` and `view dropped {node=name@bob}`. |
 | Click `ada`'s close button | `ada` stays; `items unchanged`. |
 | Click `+` twice | Tabs `new-1` and `new-2` appear, each selected when it appears. |
@@ -369,12 +369,12 @@ A tabs container over an item slot is a tab bar of its model's items, as Zed's p
 
 ### Feature 30: named-layouts
 
-An extension registers named layouts, each a list of operations over the default; the window shows one at a time and switches between them, keeping the views of the nodes both show. Each named layout has its own user layer and file. The case is a row of cards `a`, `b`, `c` beside controls: `default`, `swap`, `focus`, `hide c`, `reset layout`, and the shown layout's name. `layout_tour.swap` moves `c` before `a`; `layout_tour.focus` hides `a` and `c` and adds a card `d`. Use a fresh home: `RISO_HOME=/tmp/riso-named`.
+An extension registers named layouts, each a list of operations over the default; the window shows one at a time and switches between them, keeping the views of the nodes both show. Each named layout has its own user layer and file. The case is a row of cards `a`, `b`, `c` beside controls: `default`, `swap`, `focus`, `hide c`, `reset layout`, and the shown layout's name. `layout_tour.swap` moves `c` before `a`; `layout_tour.focus` hides `a` and `c` and adds a card `d`. Use a fresh home: `YARD_HOME=/tmp/yard-named`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-named LAYOUT_TOUR=named-layouts cargo run dev` | `a`, `b`, `c`; shown: `riso.default`. Two `named-layout-register` groups. |
-| Click `count` on `b` twice, then `swap` | `c`, `a`, `b`; `b` still shows `count: 2`; `layout-switch{from=riso.default, to=layout_tour.swap}` with `switched {kept=…, dropped=0, created=0}`. |
+| `YARD_HOME=/tmp/yard-named LAYOUT_TOUR=named-layouts cargo run dev` | `a`, `b`, `c`; shown: `yard.default`. Two `named-layout-register` groups. |
+| Click `count` on `b` twice, then `swap` | `c`, `a`, `b`; `b` still shows `count: 2`; `layout-switch{from=yard.default, to=layout_tour.swap}` with `switched {kept=…, dropped=0, created=0}`. |
 | Click `focus` | `b` and `d` only; `b` still shows `count: 2`; `d` is created, `a` and `c` hidden. |
 | Click `swap`, then `hide c`, then `default` | In `swap`, `c` hides; back in `default`, `c` is shown: the hide is in `layouts/layout_tour.swap.json` only. |
 | Click `swap` again, then `reset layout` | `c` is back, before `a`: only `swap`'s user layer was dropped. |
@@ -385,83 +385,83 @@ With `LAYOUT_INSPECTOR` set, every case's root is placed in a row `tour_frame`, 
 
 ### Window feature 8: window-tree
 
-The layout belongs to its window. With one window, every case runs as before; the log names the window: `shell-create{root, window}`, each operation, reset, restore, and drop inside `window{id=…}`, and `window-close{window}` with `view dropped` when the window closes. `RISO_HOME=/tmp/riso-wtree LAYOUT_TOUR=user-layer cargo run dev`, drag tab `b` onto the top edge of `right`'s content, then `reset layout`: the same as in feature 26, inside `window{id=…}`.
+The layout belongs to its window. With one window, every case runs as before; the log names the window: `shell-create{root, window}`, each operation, reset, restore, and drop inside `window{id=…}`, and `window-close{window}` with `view dropped` when the window closes. `YARD_HOME=/tmp/yard-wtree LAYOUT_TOUR=user-layer cargo run dev`, drag tab `b` onto the top edge of `right`'s content, then `reset layout`: the same as in feature 26, inside `window{id=…}`.
 
 ### Window feature 9: new-window
 
-`riso::NewWindow` opens another window with the default layout, rearranged on its own. Use a fresh home: `RISO_HOME=/tmp/riso-newwin`.
+`yard::NewWindow` opens another window with the default layout, rearranged on its own. Use a fresh home: `YARD_HOME=/tmp/yard-newwin`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-newwin LAYOUT_TOUR=user-layer cargo run dev`, press `cmd-shift-n` | A second window with the default layout, cascaded from the first and as large; `window-new`. |
+| `YARD_HOME=/tmp/yard-newwin LAYOUT_TOUR=user-layer cargo run dev`, press `cmd-shift-n` | A second window with the default layout, cascaded from the first and as large; `window-new`. |
 | Drag tab `b` onto the top edge of `right` in the second window | Only the second window splits (`user layer: 4`); the first shows `user layer: 0`. |
 | `File > New Window` | A third window. |
 | Close the windows one by one | `window-close{window}` for each; the application quits with the last. |
 
 ### Window feature 10: restore-windows
 
-The windows open at quit come back at the next start, each with its place, its size, its named layout, and its own user layers, from `session.json`. Use a fresh home: `RISO_HOME=/tmp/riso-session`.
+The windows open at quit come back at the next start, each with its place, its size, its named layout, and its own user layers, from `session.json`. Use a fresh home: `YARD_HOME=/tmp/yard-session`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-session LAYOUT_TOUR=user-layer cargo run dev`, click `hide d`, press `cmd-shift-n`, move the new window, drag tab `b` onto the top edge of `right` in it, quit | `session-save{windows=2}`; `session.json` lists both windows. |
+| `YARD_HOME=/tmp/yard-session LAYOUT_TOUR=user-layer cargo run dev`, click `hide d`, press `cmd-shift-n`, move the new window, drag tab `b` onto the top edge of `right` in it, quit | `session-save{windows=2}`; `session.json` lists both windows. |
 | Start again | Both windows are back where they were: the first with `d` hidden, the second split; `restored {windows=2}`. |
 | Close the second window, quit, start | One window. |
 
 ### State feature 1: node-state
 
-The card keeps its count across a restart: it registers its count as its node's state, saved to `state.json` when the application quits and given back when the card's view is first created. Each window keeps its own cards' counts, and the `user layer: N` label shows its own window's count. Use a fresh home: `RISO_HOME=/tmp/riso-state`.
+The card keeps its count across a restart: it registers its count as its node's state, saved to `state.json` when the application quits and given back when the card's view is first created. Each window keeps its own cards' counts, and the `user layer: N` label shows its own window's count. Use a fresh home: `YARD_HOME=/tmp/yard-state`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-state LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` three times, quit with `cmd-q` | `state-save{windows=1, nodes=4}`; `state.json` holds `a`'s `count: 3`. |
+| `YARD_HOME=/tmp/yard-state LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` three times, quit with `cmd-q` | `state-save{windows=1, nodes=4}`; `state.json` holds `a`'s `count: 3`. |
 | Start again | `a` shows `count: 3`; `state given {node=a}`. |
 | Press `cmd-shift-n`, count `c` in the new window twice, quit, start | Both windows are back, each with its own counts and its own `user layer` count. |
 
 ### State feature 2: save-on-change
 
-The card says when its count changed, and the states are saved a short time later: 300 ms after the last change, and never more than 2 s after the first change of a burst. A crash loses at most the last 2 s. Opening the window also saves once, since a window opening counts as a change. Use a fresh home: `RISO_HOME=/tmp/riso-soc`.
+The card says when its count changed, and the states are saved a short time later: 300 ms after the last change, and never more than 2 s after the first change of a burst. A crash loses at most the last 2 s. Opening the window also saves once, since a window opening counts as a change. Use a fresh home: `YARD_HOME=/tmp/yard-soc`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-soc LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` ten times quickly | One `state-save{windows=1, reason=change}` after the clicks stop. Clicks spread over more than 2 s save once more in between. |
+| `YARD_HOME=/tmp/yard-soc LAYOUT_TOUR=user-layer cargo run dev`, click `count` on `a` ten times quickly | One `state-save{windows=1, reason=change}` after the clicks stop. Clicks spread over more than 2 s save once more in between. |
 | End the process with `kill -9` | `state.json` holds `a`'s `count: 10`. |
 | Start again | `a` shows `count: 10`; `state given {node=a}`. |
 
 ### State feature 3: view-state
 
-The shell's own containers keep their state as the cards do: each tabs container its selected tab, and the window the node that fills it. Use a fresh home: `RISO_HOME=/tmp/riso-view`.
+The shell's own containers keep their state as the cards do: each tabs container its selected tab, and the window the node that fills it. Use a fresh home: `YARD_HOME=/tmp/yard-view`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-view LAYOUT_TOUR=user-layer cargo run dev`, select the tab `d`, click `zoom` on `d`, quit | `state.json` holds `right`: `{"selected": "d"}` and `window`: `{"zoomed": "d"}`. |
+| `YARD_HOME=/tmp/yard-view LAYOUT_TOUR=user-layer cargo run dev`, select the tab `d`, click `zoom` on `d`, quit | `state.json` holds `right`: `{"selected": "d"}` and `window`: `{"zoomed": "d"}`. |
 | Start again | `d` fills the window; `zoom given {node=d}` and `tab given {tabs=right, tab=d}`. Click `zoom` again: `d` is the selected tab of `right`. |
 | Zoom out, select `c`, end the process with `kill -9`, start | `c` is selected, nothing is zoomed. |
 
 ### State feature 4: extension-store
 
-The tour keeps a value of its own, outside any node: in the case `user-layer`, the controls show `starts: N`, and each start adds one to the tour's stored `starts`. Use a fresh home: `RISO_HOME=/tmp/riso-store`.
+The tour keeps a value of its own, outside any node: in the case `user-layer`, the controls show `starts: N`, and each start adds one to the tour's stored `starts`. Use a fresh home: `YARD_HOME=/tmp/yard-store`.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-store LAYOUT_TOUR=user-layer cargo run dev` | `starts: 1`; `store-read{extension=layout_tour}` with `no saved values`, then `store-save{extension=layout_tour, keys=1, reason=change}`. |
+| `YARD_HOME=/tmp/yard-store LAYOUT_TOUR=user-layer cargo run dev` | `starts: 1`; `store-read{extension=layout_tour}` with `no saved values`, then `store-save{extension=layout_tour, keys=1, reason=change}`. |
 | Quit, start again | `starts: 2`; `read {keys=1}`; `store/layout_tour.json` holds `"starts": 2`. |
 | End the process with `kill -9` after a second, start again | `starts: 3`. |
 
 ### Packaging feature 3: open-urls
 
-In the case `user-layer`, the tour handles the URLs that name it and its controls show `url: <last URL>`. macOS sends URLs only to a bundle, so this case runs from a dev bundle with its own name and scheme (`riso-check`), never the real ones. Make a config `/tmp/riso-check.toml` with `name = "riso-check"`, `version = "0.1.0"`, `identifier = "vn.risotech.riso-check"`, `icon = "icon.png"` (copy `app/riso/icon.png` to `/tmp/icon.png`: the icon's path is relative to the config), and `url_scheme = "riso-check"`.
+In the case `user-layer`, the tour handles the URLs that name it and its controls show `url: <last URL>`. macOS sends URLs only to a bundle, so this case runs from a dev bundle with its own name and scheme (`yard-check`), never the real ones. Make a config `/tmp/yard-check.toml` with `name = "yard-check"`, `version = "0.1.0"`, `identifier = "vn.risotech.yard-check"`, `icon = "icon.png"` (copy `app/yard/icon.png` to `/tmp/icon.png`: the icon's path is relative to the config), and `url_scheme = "yard-check"`.
 
 | Command and action | What to look for |
 |---|---|
-| `script/bundle-macos --dev --env RISO_CHECK_HOME=/tmp/riso-urls --env LAYOUT_TOUR=user-layer --config /tmp/riso-check.toml`, then `open dist/riso-check.app` | The tour's window, with its home in `/tmp/riso-urls`. |
-| `open "riso-check://layout_tour/hello?token=secret"` | The controls show `url: riso-check://layout_tour/hello?token=secret`; no second copy starts; the log has `url-open{scheme=riso-check, host=layout_tour}` and `handled`, and no `secret`. |
-| Quit, then `open "riso-check://layout_tour/first"` | The application starts and shows `url: riso-check://layout_tour/first`, with `kept until extensions load` and `handed over {count=1}`. |
-| `open "riso-check://nobody/x"` | `refused` with the reason that no extension is named `nobody`. |
+| `script/bundle-macos --dev --env YARD_CHECK_HOME=/tmp/yard-urls --env LAYOUT_TOUR=user-layer --config /tmp/yard-check.toml`, then `open dist/yard-check.app` | The tour's window, with its home in `/tmp/yard-urls`. |
+| `open "yard-check://layout_tour/hello?token=secret"` | The controls show `url: yard-check://layout_tour/hello?token=secret`; no second copy starts; the log has `url-open{scheme=yard-check, host=layout_tour}` and `handled`, and no `secret`. |
+| Quit, then `open "yard-check://layout_tour/first"` | The application starts and shows `url: yard-check://layout_tour/first`, with `kept until extensions load` and `handed over {count=1}`. |
+| `open "yard-check://nobody/x"` | `refused` with the reason that no extension is named `nobody`. |
 
 ## Keymap feature 1: focused-node
 
-The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.
+The card shows `focused` when its node has the keyboard focus, and `contains focus` when a node inside it has it. Use a fresh home: `YARD_HOME=/tmp/yard-layout`.
 
 | Command and action | What to look for |
 |---|---|
@@ -506,24 +506,24 @@ The case `actions` with keys instead of its buttons:
 
 ## Removing it
 
-Remove it from the list of extensions in `app/riso/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/riso/Cargo.toml`, and the app runs as it should without it.
+Remove it from the list of extensions in `app/yard/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/yard/Cargo.toml`, and the app runs as it should without it.
 
 ## Keymap feature 6: user-keymap
 
-With a `keymap.json` in the fresh home's `config/`, the user's keys act on the `zoom` case's cards. Use `RISO_HOME=/tmp/riso-keys`.
+With a `keymap.json` in the fresh home's `config/`, the user's keys act on the `zoom` case's cards. Use `YARD_HOME=/tmp/yard-keys`.
 
 | Command and action | What to look for |
 |---|---|
-| Write `[{"context": "Shell", "bindings": {"cmd-shift-z": "riso::ToggleZoom", "shift-escape": null}}]` to `config/keymap.json`; `LAYOUT_TOUR=zoom cargo run dev`; click card `b`; press `cmd-shift-z` | `b` zooms. `keymap-load` with two `bound` lines and `user keys bound {count=2, skipped=0}`. |
+| Write `[{"context": "Shell", "bindings": {"cmd-shift-z": "yard::ToggleZoom", "shift-escape": null}}]` to `config/keymap.json`; `LAYOUT_TOUR=zoom cargo run dev`; click card `b`; press `cmd-shift-z` | `b` zooms. `keymap-load` with two `bound` lines and `user keys bound {count=2, skipped=0}`. |
 | Press `shift-escape` | Nothing: the default key is removed. |
 | Add an entry with an unknown action and one with keys `cmd-+-x` | Each a `WARN` naming it; the good entries still work. |
 
 ## Keymap feature 7: keymap-reload
 
-`keymap.json` is read again within a second of a change, while riso runs.
+`keymap.json` is read again within a second of a change, while yard runs.
 
 | Command and action | What to look for |
 |---|---|
-| `LAYOUT_TOUR=zoom cargo run dev` with no `keymap.json`; click card `b`; write `[{"context": "Shell", "bindings": {"cmd-shift-z": "riso::ToggleZoom"}}]` to `config/keymap.json`; press `cmd-shift-z` | `b` zooms, without restarting. `keymap-reload` with `defaults bound` and `keymap-load` inside it. |
+| `LAYOUT_TOUR=zoom cargo run dev` with no `keymap.json`; click card `b`; write `[{"context": "Shell", "bindings": {"cmd-shift-z": "yard::ToggleZoom"}}]` to `config/keymap.json`; press `cmd-shift-z` | `b` zooms, without restarting. `keymap-reload` with `defaults bound` and `keymap-load` inside it. |
 | Remove that binding from the file; press `cmd-shift-z` | Nothing. `shift-escape` still zooms. |
 | Break the file (delete a bracket) | The `WARN`; the default keys still work. |

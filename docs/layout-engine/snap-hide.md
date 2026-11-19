@@ -15,12 +15,12 @@ Dragging a split's line far past a child's minimum hides that child, as a `hide`
 
 ## In the UI kit
 
-`riso_ui`'s axis knows which children are collapsed: `AxisChild` gains `collapsed: bool`. A collapsed child takes no room, its line drags it open, and the axis tells its owner what a drag did: `Resized::Dragged { sizes, snapped_shut: Vec<usize>, snapped_open: Vec<usize> }` by the children's indices, beside `Resized::Reset`. Snapping is the owner's choice: `Axis::can_collapse(f)` says which children may snap shut; without it no child does, and a drag stops at the minimum as before.
+`yard_ui`'s axis knows which children are collapsed: `AxisChild` gains `collapsed: bool`. A collapsed child takes no room, its line drags it open, and the axis tells its owner what a drag did: `Resized::Dragged { sizes, snapped_shut: Vec<usize>, snapped_open: Vec<usize> }` by the children's indices, beside `Resized::Reset`. Snapping is the owner's choice: `Axis::can_collapse(f)` says which children may snap shut; without it no child does, and a drag stops at the minimum as before.
 
 ## What code can do
 
 ```rust
-// riso_ui (production, in place)
+// yard_ui (production, in place)
 pub struct AxisChild { pub size: AxisSize, pub min: Pixels, pub collapsed: bool }
 pub enum Resized { Dragged { sizes: Vec<AxisSize>, snapped_shut: Vec<usize>, snapped_open: Vec<usize> }, Reset }
 ```
@@ -31,7 +31,7 @@ The dev shell has every item of the production shell, unchanged; the change is i
 
 | Situation | Log |
 |---|---|
-| A child is snapped shut or open at the mouse up | The `layout-op{op=hide, node}` or `layout-op{op=show, node}` of feature 8, with `extension=riso`, and the `set-props` of feature 19 if a size changed |
+| A child is snapped shut or open at the mouse up | The `layout-op{op=hide, node}` or `layout-op{op=show, node}` of feature 8, with `extension=yard`, and the `set-props` of feature 19 if a size changed |
 | A child passes half its minimum during a drag | `debug` `snap preview {split, child, shut}`, once each time it crosses |
 | A required child would be snapped | `debug` `required child kept {split, child}`, and the drag stops at its minimum |
 
@@ -39,10 +39,10 @@ The dev shell has every item of the production shell, unchanged; the change is i
 
 | Part | What changes |
 |---|---|
-| `riso_ui/axis` (production, in place) | `collapsed`, collapsed lines, snapping, and `Resized::Dragged` with the snapped indices. Stamped again. |
-| `riso_shell/shell` (production, in place) | Only what the changed signature needs: production splits pass `collapsed: false` and do not show hidden children, as today. Stamped again. |
-| `riso_shell/shell` dev version | Splits pass hidden children as collapsed, and turn snaps into `hide` and `show` operations |
-| `riso/startup` | Dev copy that uses the dev shell. While `snap-hide` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_ui/axis` (production, in place) | `collapsed`, collapsed lines, snapping, and `Resized::Dragged` with the snapped indices. Stamped again. |
+| `yard_shell/shell` (production, in place) | Only what the changed signature needs: production splits pass `collapsed: false` and do not show hidden children, as today. Stamped again. |
+| `yard_shell/shell` dev version | Splits pass hidden children as collapsed, and turn snaps into `hide` and `show` operations |
+| `yard/startup` | Dev copy that uses the dev shell. While `snap-hide` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -53,7 +53,7 @@ The dev shell has every item of the production shell, unchanged; the change is i
   - a required node is never snapped shut;
   - a child hidden by `set_hidden` also shows a collapsed line that brings it back;
   - the snaps are saved and restored with the user layer, and a reset shows the child again.
-- **Logging**, alone in its file: a snap shut gives `layout-op{op=hide, extension=riso}`; `snap preview` once per crossing.
+- **Logging**, alone in its file: a snap shut gives `layout-op{op=hide, extension=yard}`; `snap preview` once per crossing.
 
 ## Test extension: `examples/layout_tour`
 
@@ -61,7 +61,7 @@ The case `fixed-sizes` of feature 20 is used as it is: `side` is a fixed card be
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-snap LAYOUT_TOUR=fixed-sizes cargo run dev`, drag the line between `side` and `main` far to the left | Past half of `side`'s minimum, `side` collapses; at the mouse up, `layout-op{op=hide, node=side}`. A thin line stays at the left edge. |
+| `YARD_HOME=/tmp/yard-snap LAYOUT_TOUR=fixed-sizes cargo run dev`, drag the line between `side` and `main` far to the left | Past half of `side`'s minimum, `side` collapses; at the mouse up, `layout-op{op=hide, node=side}`. A thin line stays at the left edge. |
 | Drag that line to the right | `side` comes back; `layout-op{op=show, node=side}`. |
 | Drag it shut, then back before releasing | Nothing is recorded. |
 | Drag it shut, quit, start again | `side` is still hidden, with its line; drag it out and it is back at 240 px. |
@@ -69,8 +69,8 @@ The case `fixed-sizes` of feature 20 is used as it is: `side` is a fixed card be
 
 ## Under review
 
-- `riso_ui/axis` and production `riso_shell/shell`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_ui/axis` and production `yard_shell/shell`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

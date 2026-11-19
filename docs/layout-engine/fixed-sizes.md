@@ -21,12 +21,12 @@ A child of a split is either flexible, with a share as today, or fixed, with a s
 
 ## In the UI kit
 
-`riso_ui`'s axis takes, for each child, a share or a fixed size: `AxisSize::Flex(share)` or `AxisSize::Fixed(pixels)`. It lays them out and drags them as above. `on_resized` now tells a drag from a double click: it reports `Resized::Dragged(sizes)` with the sizes as they are after a drag, and `Resized::Reset` after a double click, so that a drag that happens to end on equal shares is still a drag. A caller that passes only shares sees today's layout.
+`yard_ui`'s axis takes, for each child, a share or a fixed size: `AxisSize::Flex(share)` or `AxisSize::Fixed(pixels)`. It lays them out and drags them as above. `on_resized` now tells a drag from a double click: it reports `Resized::Dragged(sizes)` with the sizes as they are after a drag, and `Resized::Reset` after a double click, so that a drag that happens to end on equal shares is still a drag. A caller that passes only shares sees today's layout.
 
 ## What code can do
 
 ```rust
-// riso_ui (production, in place)
+// yard_ui (production, in place)
 pub enum AxisSize { Flex(f32), Fixed(Pixels) }
 pub fn axis(id, direction, sizes: Rc<RefCell<Vec<AxisSize>>>, children) -> Axis;   // was Vec<f32>
 impl Axis {
@@ -48,10 +48,10 @@ The dev shell has every item of the production shell, unchanged; the change is i
 
 | Part | What changes |
 |---|---|
-| `riso_ui/axis` (production, in place) | `AxisSize`, layout and dragging with fixed children, `Resized` and `on_resized` with it. Stamped again. |
-| `riso_shell/shell` (production, in place) | Only what the changed axis signature needs: its splits pass `AxisSize::Flex` as today. Stamped again. |
-| `riso_shell/shell` dev version | Splits read `sizes` from their props and pass fixed children to the axis |
-| `riso/startup` | Dev copy that uses the dev shell. While `fixed-sizes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_ui/axis` (production, in place) | `AxisSize`, layout and dragging with fixed children, `Resized` and `on_resized` with it. Stamped again. |
+| `yard_shell/shell` (production, in place) | Only what the changed axis signature needs: its splits pass `AxisSize::Flex` as today. Stamped again. |
+| `yard_shell/shell` dev version | Splits read `sizes` from their props and pass fixed children to the axis |
+| `yard/startup` | Dev copy that uses the dev shell. While `fixed-sizes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -76,7 +76,7 @@ A new case, `fixed-sizes`. The layout is a row with `side`, a card fixed at 240 
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-fixed LAYOUT_TOUR=fixed-sizes cargo run dev` | `side` shows `240px` wide, `main` the rest. |
+| `YARD_HOME=/tmp/yard-fixed LAYOUT_TOUR=fixed-sizes cargo run dev` | `side` shows `240px` wide, `main` the rest. |
 | Make the window wider, then narrower | `side` stays `240px`; only `main` changes. |
 | Make the window very narrow | `main` stops at its minimum, then `side` shrinks; widen it again and `side` is `240px` again. |
 | Drag the line between `side` and `main` | `side` gets the new width; one `layout-op{op=props}` naming `sizes`. Quit and start: the same width. |
@@ -84,8 +84,8 @@ A new case, `fixed-sizes`. The layout is a row with `side`, a card fixed at 240 
 
 ## Under review
 
-- `riso_ui/axis` and production `riso_shell/shell`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_ui/axis` and production `yard_shell/shell`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

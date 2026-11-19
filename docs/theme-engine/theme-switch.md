@@ -25,8 +25,8 @@ Each switch runs in the same group as at startup, `theme-apply{mode, theme}`. GP
 
 | Part | What changes |
 |---|---|
-| `riso_ui/theme_setting` | Dev version beside production. It observes the section, switches, and refreshes the windows. The observation lasts as long as the application |
-| `riso/startup` | Dev copy, calling the dev `apply_theme_setting` |
+| `yard_ui/theme_setting` | Dev version beside production. It observes the section, switches, and refreshes the windows. The observation lasts as long as the application |
+| `yard/startup` | Dev copy, calling the dev `apply_theme_setting` |
 
 ## Tests
 
@@ -50,7 +50,7 @@ Start `THEME_TOUR=card cargo run dev` with a fresh home and no file, then edit `
 
 ## Under review
 
-- `riso_ui/theme_setting` and `riso/startup`, in their dev versions
+- `yard_ui/theme_setting` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

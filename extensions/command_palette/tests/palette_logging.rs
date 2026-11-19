@@ -1,9 +1,9 @@
 use gpui::{Action, AppContext, InteractiveElement, IntoElement, Styled, TestAppContext};
-use riso_shell::Extension;
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
 };
+use yard_shell::Extension;
 
 /// The palette's key, per the contract: `cmd-shift-p` on macOS and
 /// `ctrl-shift-p` elsewhere.
@@ -96,7 +96,7 @@ impl tracing::Subscriber for Trace {
 struct Diagnostics;
 impl log::Log for Diagnostics {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        metadata.target().starts_with("riso") || metadata.target().starts_with("command_palette")
+        metadata.target().starts_with("yard") || metadata.target().starts_with("command_palette")
     }
     fn log(&self, record: &log::Record<'_>) {
         if self.enabled(record.metadata()) {
@@ -118,7 +118,7 @@ impl gpui::Render for Card {
             .size_full();
         // The element handling the card's actions tracks the node's own
         // handle: they are available only while this card has the focus.
-        if let Some(handle) = riso_shell::focus_handle(cx, &self.node) {
+        if let Some(handle) = yard_shell::focus_handle(cx, &self.node) {
             card = card
                 .track_focus(&handle)
                 .key_context("palette_test")
@@ -131,7 +131,7 @@ impl gpui::Render for Card {
     }
 }
 
-fn draw(window: gpui::WindowHandle<riso_shell::Shell>, cx: &mut TestAppContext) {
+fn draw(window: gpui::WindowHandle<yard_shell::Shell>, cx: &mut TestAppContext) {
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.refresh();
@@ -193,14 +193,14 @@ fn expected_commands(visual: &mut gpui::VisualTestContext) -> Vec<String> {
 fn listing_matching_and_running_commands_log_what_the_contract_tables(cx: &mut TestAppContext) {
     log::set_logger(&Diagnostics).unwrap();
     log::set_max_level(log::LevelFilter::Trace);
-    cx.update(riso_ui::init);
+    cx.update(yard_ui::init);
     let trace = Trace::default();
     let expected = tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
             // The startup binds the default keys in `app-init`, before extensions run.
             let _group = tracing::info_span!("app-init").entered();
-            riso_shell::bind_default_keys(cx);
-            riso_ui::bind_text_input_keys(cx);
+            yard_shell::bind_default_keys(cx);
+            yard_ui::bind_text_input_keys(cx);
         });
         cx.update(|cx| {
             // The startup wraps each extension's setup in `extension-init`.
@@ -217,13 +217,13 @@ fn listing_matching_and_running_commands_log_what_the_contract_tables(cx: &mut T
                 })
                 .into()
             });
-            test.place_root(cx, "root", "riso.row");
+            test.place_root(cx, "root", "yard.row");
             for node in ["a", "b"] {
                 test.place(cx, node, "palette_test.card", "root", "children");
             }
         });
         let window = cx.update(|cx| {
-            cx.open_window(gpui::WindowOptions::default(), riso_shell::new_shell)
+            cx.open_window(gpui::WindowOptions::default(), yard_shell::new_shell)
                 .unwrap()
         });
         cx.simulate_window_resize(window.into(), gpui::size(gpui::px(800.), gpui::px(600.)));
@@ -262,14 +262,14 @@ fn listing_matching_and_running_commands_log_what_the_contract_tables(cx: &mut T
         "palette_test::Bequest",
         "palette_test::Quest",
         "palette_test::Quiet",
-        "riso::FocusDown",
-        "riso::FocusLeft",
-        "riso::FocusRight",
-        "riso::FocusUp",
-        "riso::Hide",
-        "riso::SelectNextTab",
-        "riso::SelectPreviousTab",
-        "riso::ToggleZoom",
+        "yard::FocusDown",
+        "yard::FocusLeft",
+        "yard::FocusRight",
+        "yard::FocusUp",
+        "yard::Hide",
+        "yard::SelectNextTab",
+        "yard::SelectPreviousTab",
+        "yard::ToggleZoom",
     ] {
         assert!(
             expected.iter().any(|candidate| candidate == name),

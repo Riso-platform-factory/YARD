@@ -2,13 +2,13 @@
 
 ## Goal
 
-Packaging turns an application built on risoapp into a product that a user installs: an application bundle with its name, its identifier, its icon, and its version, built from production code only. After that, it keeps the installed application up to date.
+Packaging turns an application built on YARD into a product that a user installs: an application bundle with its name, its identifier, its icon, and its version, built from production code only. After that, it keeps the installed application up to date.
 
 ## What is built
 
-- `app/riso/product.toml` holds the product's `name` and `version`. `PRODUCT_CONFIG=<path>` names another file when the application is packaged.
+- `app/yard/product.toml` holds the product's `name` and `version`. `PRODUCT_CONFIG=<path>` names another file when the application is packaged.
 - The engines take every name from the product: the log files, the environment variables, the directories.
-- `cargo check -p riso --no-default-features` builds the application without any dev code.
+- `cargo check -p yard --no-default-features` builds the application without any dev code.
 
 ## Decisions already made
 
@@ -40,7 +40,7 @@ Status is one of: planned, dev, production.
 |---|---|---|---|---|---|---|
 | 1 | `product-identity` | The product config gains an identifier, in reverse-domain form, and an icon. The product and the names derived from it move into a crate without GPUI that every engine can use. It removes `TODO(product-identity)` | The first line of the log names the identifier | none | none | production |
 | 2 | `bundle-macos` | One command builds `<Name>.app` from production code only, with the product's name, identifier, version, and icon | The bundle opens from the Finder under its own name and icon, and writes its logs in the product's directory | `script/bundle-mac`, as reference | 1 | production |
-| 3 | `open-urls` | The product config names a URL scheme. Opening such a URL starts the application, or reaches the one that is running, and an extension can handle it through its handle | `open riso://hello` shows the URL in the tour's card | `gpui`: `on_open_urls` | 2 | production |
+| 3 | `open-urls` | The product config names a URL scheme. Opening such a URL starts the application, or reaches the one that is running, and an extension can handle it through its handle | `open yard://hello` shows the URL in the tour's card | `gpui`: `on_open_urls` | 2 | production |
 | 4 | `update-check` | The application asks an address from the product config for the newest version, and tells the user when there is one | With a test server that offers a newer version, a message appears | `http_client`. `auto_update`, as reference | 2. Window engine: `toasts` | production |
 | 5 | `update-install` | The application downloads the newer version, checks it, and installs it. The new version runs at the next start | The installed bundle replaces itself with the newer one from the test server | `auto_update`, as reference | 4 | production |
 

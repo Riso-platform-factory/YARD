@@ -15,7 +15,7 @@ So a user without a section now gets One Light on a light Mac, where before the 
 
 ## How
 
-- **At startup,** `system` chooses by the OS's appearance as GPUI gives it, `window_appearance`. Zed's `theme` crate keeps it in its `SystemAppearance`, which `riso_ui::init` already sets up.
+- **At startup,** `system` chooses by the OS's appearance as GPUI gives it, `window_appearance`. Zed's `theme` crate keeps it in its `SystemAppearance`, which `yard_ui::init` already sets up.
 - **While running,** GPUI tells a window when its appearance changes. The theme engine does not open windows, so it offers a function that the code that opens a window calls once for it:
 
   ```rust
@@ -39,8 +39,8 @@ So a user without a section now gets One Light on a light Mac, where before the 
 
 | Part | What changes |
 |---|---|
-| `riso_ui/theme_setting` | Dev version beside production. `system` in `Mode`, the new default, and `follow_appearance` |
-| `riso/startup` | Dev copy. It calls `riso_ui::dev::follow_appearance(window, cx)` in the main window's builder, before `riso_shell::new_shell` |
+| `yard_ui/theme_setting` | Dev version beside production. `system` in `Mode`, the new default, and `follow_appearance` |
+| `yard/startup` | Dev copy. It calls `yard_ui::dev::follow_appearance(window, cx)` in the main window's builder, before `yard_shell::new_shell` |
 
 ## Tests
 
@@ -54,7 +54,7 @@ So a user without a section now gets One Light on a light Mac, where before the 
 
 ## Test extension: `examples/theme_tour`
 
-Use a fresh home and no file: `RISO_HOME=/tmp/riso-theme THEME_TOUR=card cargo run dev`.
+Use a fresh home and no file: `YARD_HOME=/tmp/yard-theme THEME_TOUR=card cargo run dev`.
 
 | Action | What to look for |
 |---|---|
@@ -64,7 +64,7 @@ Use a fresh home and no file: `RISO_HOME=/tmp/riso-theme THEME_TOUR=card cargo r
 
 ## Under review
 
-- `riso_ui/theme_setting` and `riso/startup`, in their dev versions
+- `yard_ui/theme_setting` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

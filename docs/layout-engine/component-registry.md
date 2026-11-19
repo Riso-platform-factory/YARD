@@ -30,17 +30,17 @@ An extension registers a component type and places one node of it as the root of
 
 ## Where the code lives
 
-- **`riso_layout`**, a new crate without GPUI, holds the model: the IDs and their rule, the node, and the tree with its root.
-  - It is the part `riso_layout/tree`.
+- **`yard_layout`**, a new crate without GPUI, holds the model: the IDs and their rule, the node, and the tree with its root.
+  - It is the part `yard_layout/tree`.
   - It is tested without a window.
-- **`riso_shell`**, a new crate, binds the model to GPUI.
+- **`yard_shell`**, a new crate, binds the model to GPUI.
   - It holds the registry of component types and the window's root view, which shows the root node.
   - Its API for extensions is two functions: register a component type, and place the root.
-  - It is the part `riso_shell/shell`.
-- **`riso/startup`** changes through a dev copy, as in the earlier foundations:
+  - It is the part `yard_shell/shell`.
+- **`yard/startup`** changes through a dev copy, as in the earlier foundations:
   - the extensions load before the window opens;
-  - the window's root view comes from `riso_shell`.
-- **`riso_ui/theming`** gains the color `text`, which the test card needs to write its ID. This is a change to a production part. It is stamped again only when you approve it.
+  - the window's root view comes from `yard_shell`.
+- **`yard_ui/theming`** gains the color `text`, which the test card needs to write its ID. This is a change to a production part. It is stamped again only when you approve it.
 
 ## Logging
 
@@ -69,7 +69,7 @@ The card shows its node ID and its own size in pixels. It writes in the theme's 
 
 ## Under review
 
-`riso_layout/tree`, `riso_shell/shell`, the dev copy of `riso/startup`, and the change to `riso_ui/theming`. They are reviewed and promoted together, as one feature.
+`yard_layout/tree`, `yard_shell/shell`, the dev copy of `yard/startup`, and the change to `yard_ui/theming`. They are reviewed and promoted together, as one feature.
 
 ## Not in this feature
 

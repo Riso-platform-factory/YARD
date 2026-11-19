@@ -1,5 +1,5 @@
-/// Turns a GPUI action name such as `riso::ToggleZoom` into its readable
-/// palette label, such as `riso: toggle zoom`.
+/// Turns a GPUI action name such as `yard::ToggleZoom` into its readable
+/// palette label, such as `yard: toggle zoom`.
 pub fn humanize_action_name(name: &str) -> String {
     let mut parts = Vec::new();
     for segment in name.split("::") {

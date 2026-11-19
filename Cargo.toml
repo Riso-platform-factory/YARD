@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*", "app/*", "examples/*", "extensions/*"]
-default-members = ["app/riso"]
+default-members = ["app/yard"]
 
 [workspace.package]
 edition = "2024"
@@ -17,16 +17,16 @@ theme = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f2
 http_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 reqwest_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 zlog = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
-riso_layout = { path = "crates/riso_layout", default-features = false }
-riso_state = { path = "crates/riso_state", default-features = false }
-riso_shell = { path = "crates/riso_shell", default-features = false }
-riso_log = { path = "crates/riso_log", default-features = false }
-riso_product = { path = "crates/riso_product", default-features = false }
-riso_paths = { path = "crates/riso_paths", default-features = false }
-riso_ui = { path = "crates/riso_ui", default-features = false }
-riso_settings = { path = "crates/riso_settings", default-features = false }
-riso_keymap = { path = "crates/riso_keymap", default-features = false }
-riso_update = { path = "crates/riso_update", default-features = false }
+yard_layout = { path = "crates/yard_layout", default-features = false }
+yard_state = { path = "crates/yard_state", default-features = false }
+yard_shell = { path = "crates/yard_shell", default-features = false }
+yard_log = { path = "crates/yard_log", default-features = false }
+yard_product = { path = "crates/yard_product", default-features = false }
+yard_paths = { path = "crates/yard_paths", default-features = false }
+yard_ui = { path = "crates/yard_ui", default-features = false }
+yard_settings = { path = "crates/yard_settings", default-features = false }
+yard_keymap = { path = "crates/yard_keymap", default-features = false }
+yard_update = { path = "crates/yard_update", default-features = false }
 command_palette = { path = "extensions/command_palette", default-features = false }
 dirs = "6"
 futures = "0.3"

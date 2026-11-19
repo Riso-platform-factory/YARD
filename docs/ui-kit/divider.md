@@ -12,7 +12,7 @@ pub struct Divider;   // Divider::horizontal(), Divider::vertical(), Divider::ho
 pub enum DividerColor { Border, BorderFaded, BorderVariant }   // default BorderVariant, as Zed's
 ```
 
-- These are riso's own types in `riso_ui`, mapped privately to Zed's.
+- These are YARD's own types in `yard_ui`, mapped privately to Zed's.
 - **A divider fills its parent's width when horizontal, or its height when vertical,** with a line one pixel thick, as Zed's.
 - **`inset`** keeps a small margin at both ends.
 - **The colors come from the theme:**
@@ -26,7 +26,7 @@ pub enum DividerColor { Border, BorderFaded, BorderVariant }   // default Border
 
 | Part | What changes |
 |---|---|
-| `riso_ui/divider` (new, dev) | `Divider` and `DividerColor` |
+| `yard_ui/divider` (new, dev) | `Divider` and `DividerColor` |
 
 The startup does not change. `review.rs` loads the gallery.
 
@@ -53,7 +53,7 @@ A fourth page, `divider`, after `button`, in groups titled as the other pages ar
 
 ## Under review
 
-- `riso_ui/divider`
+- `yard_ui/divider`
 
 ## Not in this feature
 

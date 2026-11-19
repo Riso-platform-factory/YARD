@@ -6,7 +6,7 @@ A button with a label, an icon, or both, wrapped from Zed's `ui` crate, in Zed's
 
 ## What code can do
 
-All are riso's own types in `riso_ui`:
+All are YARD's own types in `yard_ui`:
 
 ```rust
 pub struct Button;      // Button::new(id, label)
@@ -36,13 +36,13 @@ Both buttons take:
 - **Logging:**
   - drawing a button logs one line at `trace`, with its id, style, size, and whether it is disabled or toggled;
   - a click logs `button-click{id}` at `debug`, around the owner's callback, so whatever the owner logs while it handles the click is inside it.
-- Zed's types stay inside `riso_ui`. The button maps riso's `IconName`, `IconSize`, and `TextColor` to Zed's privately, in its own part, so the production parts `text` and `icon` do not change.
+- Zed's types stay inside `yard_ui`. The button maps yard's `IconName`, `IconSize`, and `TextColor` to Zed's privately, in its own part, so the production parts `text` and `icon` do not change.
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
-| `riso_ui/button` (new, dev) | `Button`, `IconButton`, and their enums |
+| `yard_ui/button` (new, dev) | `Button`, `IconButton`, and their enums |
 
 The startup does not change. `review.rs` loads the gallery.
 
@@ -66,7 +66,7 @@ A third page, `button`, after `icon`, in groups titled as the other pages are:
 - `State`: a disabled `Button` and `IconButton`, and a toggled one of each;
 - `Click`: a `Button` that counts its clicks, `clicked 0 times`, and an `IconButton` that toggles itself on each click. Both log their click.
 
-Use a fresh home: `RISO_HOME=/tmp/riso-gallery`.
+Use a fresh home: `YARD_HOME=/tmp/yard-gallery`.
 
 | Command and action | What to look for |
 |---|---|
@@ -79,7 +79,7 @@ Use a fresh home: `RISO_HOME=/tmp/riso-gallery`.
 
 ## Under review
 
-- `riso_ui/button`
+- `yard_ui/button`
 
 ## Not in this feature
 

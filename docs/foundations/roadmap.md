@@ -7,12 +7,12 @@ A foundation that nothing uses yet cannot be seen in the application. So the one
 | # | Foundation | What it gives | Who needs it | Status |
 |---|---|---|---|---|
 | 1 | Product build config | The application's name and version, read from `product.toml` when it is built | every engine | production |
-| 2 | Log engine, `riso_log` | The lifecycle trace and the diagnostic log | every engine | production |
-| 3 | Startup, `riso/startup` | The log first, then the log files, the GPUI app, the main window, the extensions | the application | production |
-| 4 | Directories, `riso_paths` | The config, data, and logs directories of the application, from the platform or from `<NAME>_HOME` | the log files now; saved layouts later | production |
-| 5 | UI boundary and theme, `riso_ui` | The one crate that may use Zed's GPL crates. First content: the theme's colors and fonts, with fixed defaults | the first layout feature, which draws with the theme | production |
-| 6 | Atomic file write, in `riso_paths` | Writing a file in one step, so a crash never leaves half a file | with its first user: saving the user's layout | production |
-| 7 | Tab widgets, in `riso_ui` | `Tab` and `TabBar`, wrapped from Zed's `ui` | with its first user: the tabs container | production |
+| 2 | Log engine, `yard_log` | The lifecycle trace and the diagnostic log | every engine | production |
+| 3 | Startup, `yard/startup` | The log first, then the log files, the GPUI app, the main window, the extensions | the application | production |
+| 4 | Directories, `yard_paths` | The config, data, and logs directories of the application, from the platform or from `<NAME>_HOME` | the log files now; saved layouts later | production |
+| 5 | UI boundary and theme, `yard_ui` | The one crate that may use Zed's GPL crates. First content: the theme's colors and fonts, with fixed defaults | the first layout feature, which draws with the theme | production |
+| 6 | Atomic file write, in `yard_paths` | Writing a file in one step, so a crash never leaves half a file | with its first user: saving the user's layout | production |
+| 7 | Tab widgets, in `yard_ui` | `Tab` and `TabBar`, wrapped from Zed's `ui` | with its first user: the tabs container | production |
 
 ## What each planned foundation covers
 
@@ -24,8 +24,8 @@ A foundation that nothing uses yet cannot be seen in the application. So the one
 
 ### 5. UI boundary and theme
 
-- `riso_ui` is the only crate that depends on Zed's GPL crates (`ui`, `theme`) or holds code copied from them. It exposes riso's own types and functions, and re-exports nothing of Zed. Every other crate draws through it. A test fails when another crate depends on a GPL crate of Zed.
-- This keeps the license changeable later: replacing the inside of `riso_ui` frees everything outside it.
+- `yard_ui` is the only crate that depends on Zed's GPL crates (`ui`, `theme`) or holds code copied from them. It exposes YARD's own types and functions, and re-exports nothing of Zed. Every other crate draws through it. A test fails when another crate depends on a GPL crate of Zed.
+- This keeps the license changeable later: replacing the inside of `yard_ui` frees everything outside it.
 - First content: colors by name, the UI font and the code font with their sizes, and Zed's default themes. The values are fixed defaults until a settings engine exists.
 
 ### 6. Atomic file write
@@ -34,7 +34,7 @@ A foundation that nothing uses yet cannot be seen in the application. So the one
 
 ### 7. Tab widgets
 
-- `Tab` and `TabBar` as riso types that wrap Zed's.
+- `Tab` and `TabBar` as YARD types that wrap Zed's.
 
 ## Not in this roadmap
 

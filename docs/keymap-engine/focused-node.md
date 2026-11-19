@@ -44,8 +44,8 @@ The change is seen when the window next draws, as GPUI reports focus changes onc
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` | Dev version beside production. A focus handle per node, a wrapper that tracks it, the two functions, and the logging |
-| `riso/startup` | Dev copy, with the dev shell |
+| `yard_shell/shell` | Dev version beside production. A focus handle per node, a wrapper that tracks it, the two functions, and the logging |
+| `yard/startup` | Dev copy, with the dev shell |
 
 `examples/layout_tour` builds against the dev shell while this feature is under review.
 
@@ -63,7 +63,7 @@ The change is seen when the window next draws, as GPUI reports focus changes onc
 
 ## Test extension: `examples/layout_tour`
 
-The card's text gains a line: `focused` when its node has the focus, `contains focus` when it contains it, and nothing otherwise. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.
+The card's text gains a line: `focused` when its node has the focus, `contains focus` when it contains it, and nothing otherwise. Use a fresh home: `YARD_HOME=/tmp/yard-layout`.
 
 | Command and action | What to look for |
 |---|---|
@@ -74,7 +74,7 @@ The card's text gains a line: `focused` when its node has the focus, `contains f
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

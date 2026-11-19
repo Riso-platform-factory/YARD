@@ -2,17 +2,17 @@
 
 ## Goal
 
-The UI kit is the set of base components that everything is drawn with: text, icons, buttons, lists, inputs, menus. They are in `riso_ui`, wrapped from Zed's `ui` crate. Software built on risoapp then looks and behaves like Zed, and no crate outside `riso_ui` touches Zed's GPL code.
+The UI kit is the set of base components that everything is drawn with: text, icons, buttons, lists, inputs, menus. They are in `yard_ui`, wrapped from Zed's `ui` crate. Software built on YARD then looks and behaves like Zed, and no crate outside `yard_ui` touches Zed's GPL code.
 
 A base component is not a layout component. It has no node ID, it is not registered with the shell, and it holds no place in the tree. A layout component uses base components inside its own drawing.
 
 ## What is built
 
-In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with riso's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, states, layers, and tooltips; `Divider`; the frame of a modal, `Modal` with `ModalHeader`, `Section`, and `ModalFooter`; the parts of a list, `List`, `ListItem`, `ListHeader`, and `ListSeparator`; `TextInput`, an input of one line; `ScrollArea` and `ScrollList`, with Zed's scrollbar; `KeyHint`, the keys of an action as Zed draws them; and `Tooltip`, which a button shows when the pointer rests on it. The gallery is `examples/ui_gallery`.
+In production, in `yard_ui`: `Tab` and `TabBar`, with dragging and dropping; the axis that lays out a split with its handles; `Label` and `Headline` with their sizes and `TextColor`; the row and column helpers `h_flex` and `v_flex`; and `Icon` with yard's `IconName` and `IconSize`, drawn from the SVG files that `Assets` bundles; `Button` and `IconButton` with their styles, sizes, states, layers, and tooltips; `Divider`; the frame of a modal, `Modal` with `ModalHeader`, `Section`, and `ModalFooter`; the parts of a list, `List`, `ListItem`, `ListHeader`, and `ListSeparator`; `TextInput`, an input of one line; `ScrollArea` and `ScrollList`, with Zed's scrollbar; `KeyHint`, the keys of an action as Zed draws them; and `Tooltip`, which a button shows when the pointer rests on it. The gallery is `examples/ui_gallery`.
 
 ## Rules
 
-- Every base component is a type of riso's own. No type of Zed appears in what `riso_ui` exposes.
+- Every base component is a type of YARD's own. No type of Zed appears in what `yard_ui` exposes.
 - A component of the shell or of an extension never writes a color, a font family, or a size of text in pixels. It uses the base components and the palette. When the kit lacks a part that Zed has, the part is wrapped here. It is not imitated with plain elements.
 - Before a part is wrapped, the way Zed's own views use it is read: its sizes, its spacing, its colors, its states. The wrapper keeps them.
 - A base component is wrapped when a feature of another roadmap needs it, or when the user asks for it. The table gives the order in which the other roadmaps need them.
@@ -27,7 +27,7 @@ In production, in `riso_ui`: `Tab` and `TabBar`, with dragging and dropping; the
 
 | From Zed | License | How it is reused |
 |---|---|---|
-| `ui`: about 40 components | GPL-3.0-or-later | A dependency of `riso_ui`, as today. Each component is wrapped in a type of riso's own |
+| `ui`: about 40 components | GPL-3.0-or-later | A dependency of `yard_ui`, as today. Each component is wrapped in a type of YARD's own |
 | `icons`, and the icon files in `assets/icons` | The crate is GPL-3.0-or-later. Most are Lucide's, under the ISC license, whose text `assets/icons/LICENSES` holds; the others are Zed's own, under GPL-3.0-or-later. Zed does not mark which file is which | The crate comes with `ui`. The files that are used are copied with their license |
 | `menu`: the actions of menus and lists (confirm, cancel, next, previous) | GPL-3.0-or-later | It comes with `ui` |
 | `ui_input` | GPL-3.0-or-later | Not used. Its input field needs an editor given from outside, which in Zed is the `editor` crate |
@@ -63,7 +63,7 @@ These are wrapped when something first needs them. Nothing planned needs them ye
 | `toggle` | A checkbox and a switch | `Checkbox`, `Switch` |
 | `callout` | A message inside a view, with a severity | `Callout`, `Banner` |
 | `tree-item` | An item of a tree that opens and closes, with indent guides | `TreeViewItem`, `Disclosure`, `IndentGuides` |
-| `code-text` | Read-only text in the code font. It is the first user of the theme engine's `code-font` | none: riso's own, on GPUI's text |
+| `code-text` | Read-only text in the code font. It is the first user of the theme engine's `code-font` | none: YARD's own, on GPUI's text |
 | `text-area` | An input of several lines, with wrapping, scrolling, and undo | `gpui/examples/input.rs` |
-| `markdown` | Markdown drawn as text | none: riso's own |
+| `markdown` | Markdown drawn as text | none: YARD's own |
 | `data-table`, `progress` | A table of rows and columns, and a progress bar | Zed's data table and progress components |

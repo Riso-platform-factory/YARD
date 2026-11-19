@@ -1,10 +1,10 @@
 # theme_tour
 
-A test extension for the theme engine, in `riso_ui`. When `app/riso/src/dev/review.rs` lists it as `("theme_tour", theme_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the theme engine again, or when the next theme feature is under review.
+A test extension for the theme engine, in `yard_ui`. When `app/yard/src/dev/review.rs` lists it as `("theme_tour", theme_tour::init)` among the extensions it passes to the startup, and `app/yard/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the theme engine again, or when the next theme feature is under review.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With `THEME_TOUR=card`, it places one card as the root. The card shows a tab bar with two tabs, the active theme's name, each color of the palette as a swatch with its name, and a line that names the UI font and its size. A change of theme can then be seen at a glance.
 
-Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/tmp/riso-theme`.
+Use a fresh home, so that the user's real files are never touched: `YARD_HOME=/tmp/yard-theme`.
 
 The default mode is `system`. So the rows below that rely on the default, such as no file, a broken section, or a deleted file, show `One Dark` on a Mac in dark mode and `One Light` on a Mac in light mode. The tour writes no file: write `config/settings.json` under the fresh home yourself.
 
@@ -64,4 +64,4 @@ Start `THEME_TOUR=card cargo run dev` with a fresh home and no file, then edit `
 
 ## Removing it
 
-Remove it from the list of extensions in `app/riso/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/riso/Cargo.toml`, and the app runs as it should without it.
+Remove it from the list of extensions in `app/yard/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/yard/Cargo.toml`, and the app runs as it should without it.

@@ -8,10 +8,10 @@ Four actions move the focus to the node on the left, on the right, above, or bel
 
 | Action | macOS | Linux and Windows | As Zed's |
 |---|---|---|---|
-| `riso::FocusLeft` | `cmd-k cmd-left` | `ctrl-k ctrl-left` | `workspace::ActivatePaneLeft` |
-| `riso::FocusRight` | `cmd-k cmd-right` | `ctrl-k ctrl-right` | `workspace::ActivatePaneRight` |
-| `riso::FocusUp` | `cmd-k cmd-up` | `ctrl-k ctrl-up` | `workspace::ActivatePaneUp` |
-| `riso::FocusDown` | `cmd-k cmd-down` | `ctrl-k ctrl-down` | `workspace::ActivatePaneDown` |
+| `yard::FocusLeft` | `cmd-k cmd-left` | `ctrl-k ctrl-left` | `workspace::ActivatePaneLeft` |
+| `yard::FocusRight` | `cmd-k cmd-right` | `ctrl-k ctrl-right` | `workspace::ActivatePaneRight` |
+| `yard::FocusUp` | `cmd-k cmd-up` | `ctrl-k ctrl-up` | `workspace::ActivatePaneUp` |
+| `yard::FocusDown` | `cmd-k cmd-down` | `ctrl-k ctrl-down` | `workspace::ActivatePaneDown` |
 
 Each key is two keystrokes. GPUI waits up to a second for the second one. The keys are bound with the other defaults, in `bind_default_keys`, in the context `Shell`.
 
@@ -52,8 +52,8 @@ pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>>;
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` | Dev version beside production. The four actions, the bounds of each drawn node, the choice of the target, and their keys in `bind_default_keys` |
-| `riso/startup` | Unchanged: it already calls `bind_default_keys` |
+| `yard_shell/shell` | Dev version beside production. The four actions, the bounds of each drawn node, the choice of the target, and their keys in `bind_default_keys` |
+| `yard/startup` | Unchanged: it already calls `bind_default_keys` |
 
 ## Tests
 
@@ -72,7 +72,7 @@ pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>>;
 
 ## Test extension: `examples/layout_tour`
 
-The case `nested-split`, a row of `a` and a column `right` of `b` above `c`, shows the moves. Use a fresh home: `RISO_HOME=/tmp/riso-layout`.
+The case `nested-split`, a row of `a` and a column `right` of `b` above `c`, shows the moves. Use a fresh home: `YARD_HOME=/tmp/yard-layout`.
 
 | Command and action | What to look for |
 |---|---|
@@ -82,9 +82,9 @@ The case `nested-split`, a row of `a` and a column `right` of `b` above `c`, sho
 
 ## Under review
 
-- `riso_shell/shell`, in its dev version, with `riso/startup`'s dev copy to use it
+- `yard_shell/shell`, in its dev version, with `yard/startup`'s dev copy to use it
 
 ## Not in this feature
 
-- Moving the focus into a dock or a panel: riso has none.
+- Moving the focus into a dock or a panel: yard has none.
 - Moving a node itself by direction, and resizing a split by keys: later.

@@ -8,7 +8,7 @@ The theme engine and the layout engine do not know each other. The layout decide
 
 ## What is built
 
-In production, in `riso_ui/theming`, with fixed values, and the theme chosen in the settings by `riso_ui/theme_setting`:
+In production, in `yard_ui/theming`, with fixed values, and the theme chosen in the settings by `yard_ui/theme_setting`:
 
 - IBM Plex Sans is bundled, and is the default UI font at 16px. The section `theme` chooses the UI font's family and size.
 - Zed's One Dark and One Light are loaded into Zed's theme registry. One Dark is active.
@@ -17,7 +17,7 @@ In production, in `riso_ui/theming`, with fixed values, and the theme chosen in 
 
 ## Decisions already made
 
-- The section `theme` of the settings holds the theme, the fonts, and the density. `riso_ui` declares it.
+- The section `theme` of the settings holds the theme, the fonts, and the density. `yard_ui` declares it.
 - A theme name that is not registered keeps the active theme, and is logged as a `WARN`.
 - A color is added to the palette when something draws with it. So the palette grows with the other roadmaps, not with this one.
 - Theme and font files come from Zed unchanged, each with its license and a `NOTICE`.
@@ -32,7 +32,7 @@ In production, in `riso_ui/theming`, with fixed values, and the theme chosen in 
 
 | From Zed | License | How it is reused |
 |---|---|---|
-| `theme`: the registry, the color tables, `SystemAppearance`, `UiDensity`, the settings provider | GPL-3.0-or-later | A dependency of `riso_ui`, as today |
+| `theme`: the registry, the color tables, `SystemAppearance`, `UiDensity`, the settings provider | GPL-3.0-or-later | A dependency of `yard_ui`, as today |
 | `theme_settings` | GPL-3.0-or-later | It cannot be a dependency: it needs Zed's `settings`. It is the reference for the shape of the section (`mode`, `light`, `dark`, the fonts) and for `setup_ui_font` and `load_user_theme` |
 | `theme_selector` | GPL-3.0-or-later | It cannot be a dependency: it needs `picker`, which needs `workspace`. A selector is an extension, written with the UI kit |
 | `assets/themes`: One, Ayu, Gruvbox. `assets/fonts/lilex` | Each family has its own license file | Copied unchanged, with the license |
@@ -61,7 +61,7 @@ Status is one of: planned, dev, production.
 
 | # | Slug | What it adds | What the test extension shows | From Zed | Needs | Status |
 |---|---|---|---|---|---|---|
-| 6 | `user-themes` | Theme files in Zed's format, in the folder `themes` of the config directory, are registered at startup. A file that cannot be read is a `WARN` that names it, and the others still load. `riso_paths` names the folder | Zed's Ayu file dropped in the folder and named in `settings.json` | `riso_ui`'s loader of Zed's theme files, which reads One today. `load_user_theme`, as reference | 1 | production |
+| 6 | `user-themes` | Theme files in Zed's format, in the folder `themes` of the config directory, are registered at startup. A file that cannot be read is a `WARN` that names it, and the others still load. `yard_paths` names the folder | Zed's Ayu file dropped in the folder and named in `settings.json` | `yard_ui`'s loader of Zed's theme files, which reads One today. `load_user_theme`, as reference | 1 | production |
 | 7 | `theme-list` | The engine lists the registered themes, each with its name and whether it is light or dark. With the settings engine's `write`, a component can offer the choice | The tour lists the themes. A click on one writes the setting, and the window changes | `theme`'s registry | Settings engine: `write`. UI kit: `list` | production |
 
 ### By need

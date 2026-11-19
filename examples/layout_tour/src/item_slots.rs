@@ -33,7 +33,7 @@ pub(super) fn init(cx: &mut App, ext: &shell::Extension) {
         },
     );
     place_root(ext, cx, "root", "layout_tour.names");
-    ext.place(cx, "names_row", "riso.row", "root", "children");
+    ext.place(cx, "names_row", "yard.row", "root", "children");
     ext.item_slot::<Names>(cx, "names_row", "children");
     ext.place(cx, "name", "layout_tour.card", "names_row", "children");
 }
@@ -46,14 +46,14 @@ struct NamesView {
 impl Render for NamesView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering names");
-        let mut controls = riso_ui::h_flex().gap_2();
+        let mut controls = yard_ui::h_flex().gap_2();
         for (id, label) in [
             ("add-dee", "add dee"),
             ("remove-ada", "remove ada"),
             ("reverse", "reverse"),
         ] {
             let model = self.model.clone();
-            controls = controls.child(riso_ui::Button::new(id, label).on_click(move |_, cx| {
+            controls = controls.child(yard_ui::Button::new(id, label).on_click(move |_, cx| {
                 let _group = tracing::info_span!("names-change", action = id).entered();
                 model.update(cx, |names, cx| {
                     match id {
@@ -69,12 +69,12 @@ impl Render for NamesView {
                 });
             }));
         }
-        riso_ui::v_flex()
+        yard_ui::v_flex()
             .size_full()
             .gap_2()
             .p_2()
             .child(controls)
-            .child(riso_ui::Label::new(format!(
+            .child(yard_ui::Label::new(format!(
                 "user layer: {}",
                 shell::user_layer_len(cx)
             )))

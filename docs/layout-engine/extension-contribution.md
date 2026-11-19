@@ -44,15 +44,15 @@ The startup runs the extensions in the order of the list. An extension that plac
 
 ## Where the code changes
 
-- **`riso_shell/shell`.** `register`, `place_root`, and `place` become methods of the extension's handle, `Extension`. They are no longer free functions.
-- **`riso/startup`.**
+- **`yard_shell/shell`.** `register`, `place_root`, and `place` become methods of the extension's handle, `Extension`. They are no longer free functions.
+- **`yard/startup`.**
   - The startup receives `(name, init)` pairs, and checks the names.
   - It creates each extension's handle, and runs each `init` with it inside `extension-init`.
   - The init function's type becomes `fn(&mut App, &Extension)`.
-- **`app/riso/src/main.rs`.** Its empty list keeps working; only its type changes. It is a root file, with no code of its own.
+- **`app/yard/src/main.rs`.** Its empty list keeps working; only its type changes. It is a root file, with no code of its own.
 - **`review.rs`.** Its `announce` becomes an extension named `review`.
 
-Both `riso_shell/shell` and `riso/startup` are changed through dev versions, as in features 1 and 2. `cargo run` stays as approved until promotion.
+Both `yard_shell/shell` and `yard/startup` are changed through dev versions, as in features 1 and 2. `cargo run` stays as approved until promotion.
 
 ## Test extensions
 
@@ -71,7 +71,7 @@ Two extensions, so that one can be removed:
 
 ## Under review
 
-`riso_shell/shell` and `riso/startup`, in their dev versions.
+`yard_shell/shell` and `yard/startup`, in their dev versions.
 
 ## Not in this feature
 

@@ -10,7 +10,7 @@ The first base components, and the gallery that shows them.
 
 ## What code can do
 
-All of these are riso's own types in `riso_ui`. No type of Zed appears in them.
+All of these are YARD's own types in `yard_ui`. No type of Zed appears in them.
 
 ```rust
 pub struct Label;      // Label::new(text).size(LabelSize).color(TextColor)
@@ -37,31 +37,31 @@ pub fn v_flex() -> Div;   // a column
   - `Default`, `Muted`, `Accent`, `Disabled`, and `Placeholder` are the theme's text colors;
   - `Error`, `Warning`, and `Success` are its status colors.
 - A headline is drawn in the theme's text color, as in Zed: Zed's headline has no other color.
-- `h_flex` and `v_flex` are the same plain GPUI helpers as Zed's. riso writes them itself; nothing of Zed is needed for them.
+- `h_flex` and `v_flex` are the same plain GPUI helpers as Zed's. YARD writes them itself; nothing of Zed is needed for them.
 - Labels and headlines draw as Zed's do. Drawing happens every frame, so each draw logs one line at `trace`, a label's with its size and color and a headline's with its size, and nothing above `trace`. The gallery logs what it builds.
 
 ## The gallery
 
 `examples/ui_gallery` is a test extension:
 
-- With `UI_GALLERY=all`, it places a `riso.tabs` container as the root. It has one tab per page, each page a component of the gallery's own. A page's tab is its node ID.
+- With `UI_GALLERY=all`, it places a `yard.tabs` container as the root. It has one tab per page, each page a component of the gallery's own. A page's tab is its node ID.
 - Its first page, `text`, shows, from top to bottom:
   - a headline per `HeadlineSize`, each saying its size's name;
   - a label per `LabelSize`, each saying its size's name;
   - a label per `TextColor`, each saying its color's name;
   - a row of three labels made with `h_flex`, and a column of three made with `v_flex`.
 - Each group has a title above it, as Zed's component preview draws a group's title (`component_layout.rs`): the group's name in upper case, a label at `LabelSize::XSmall` and `TextColor::Muted`, beside a hairline in the palette's `border` that fills the rest of the row.
-- A page draws only with `riso_ui`: its components, the palette, and rems.
+- A page draws only with `yard_ui`: its components, the palette, and rems.
 - It runs in a group, `gallery-build{pages}`, and logs each page it places at `debug`.
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
-| `riso_ui/text` (new, dev) | `Label`, `LabelSize`, `Headline`, `HeadlineSize`, `TextColor` |
-| `riso_ui/stack` (new, dev) | `h_flex` and `v_flex` |
+| `yard_ui/text` (new, dev) | `Label`, `LabelSize`, `Headline`, `HeadlineSize`, `TextColor` |
+| `yard_ui/stack` (new, dev) | `h_flex` and `v_flex` |
 
-The startup does not change. `review.rs` loads the gallery, and the gallery builds against `riso_ui::dev`.
+The startup does not change. `review.rs` loads the gallery, and the gallery builds against `yard_ui::dev`.
 
 ## Tests
 
@@ -74,7 +74,7 @@ The startup does not change. `review.rs` loads the gallery, and the gallery buil
 
 ## Test extension: `examples/ui_gallery`
 
-Use a fresh home: `RISO_HOME=/tmp/riso-gallery`.
+Use a fresh home: `YARD_HOME=/tmp/yard-gallery`.
 
 | Command | What to look for |
 |---|---|
@@ -87,7 +87,7 @@ The page is checked beside Zed's component preview of `Label` and `Headline`: th
 
 ## Under review
 
-- `riso_ui/text` and `riso_ui/stack`
+- `yard_ui/text` and `yard_ui/stack`
 
 ## Not in this feature
 

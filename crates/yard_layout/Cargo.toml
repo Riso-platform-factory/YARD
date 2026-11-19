@@ -1,0 +1,18 @@
+[package]
+name = "yard_layout"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/yard_layout.rs"
+
+[features]
+default = ["dev"]
+dev = []
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true

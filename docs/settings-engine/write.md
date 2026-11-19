@@ -6,7 +6,7 @@ Code changes one value of a section, and the engine writes it to `settings.json`
 
 ## How it works
 
-- **One value.** `riso_settings::write::<T>(cx, field, value)` sets `field` of the section `T` to `value`. The section must be registered. `field` must be one of the section's: a key of the section's defaults, serialized. So a section that can be written also implements `serde::Serialize`.
+- **One value.** `yard_settings::write::<T>(cx, field, value)` sets `field` of the section `T` to `value`. The section must be registered. `field` must be one of the section's: a key of the section's defaults, serialized. So a section that can be written also implements `serde::Serialize`.
 - **The file as it is now.** The engine reads the file again right before it writes, so an edit the user made in the last second is kept. A missing file is created, with only this section and this value. A section missing from the file is added at its end.
 - **Nothing is written** when:
   - the file cannot be read or is not a JSON object: the user's file is left as it is, so a broken edit is not lost;
@@ -16,12 +16,12 @@ Code changes one value of a section, and the engine writes it to `settings.json`
 - **The value is the same** as the file's: nothing is written.
 - **The form of the file.** The engine writes the whole file as JSON with two-space indentation and a final newline, keeping the order of every key. A file the user wrote in another form is rewritten in this one. Comments are not supported: the file is plain JSON, as the roadmap decided.
 - **At once.** After the write, the engine reads the new content as the file check does, publishes the sections whose content changed, and tells their users. The next check of the file finds nothing new.
-- The write uses `riso_paths::write_atomic`.
+- The write uses `yard_paths::write_atomic`.
 
 ## What code can do
 
 ```rust
-// riso_settings
+// yard_settings
 /// Sets `field` of the section `T` to `value` in the settings file.
 pub fn write<T: Settings + serde::Serialize>(cx: &mut App, field: &str, value: serde_json::Value);
 ```
@@ -45,10 +45,10 @@ This is the only new public item. The workspace's `serde_json` gets its `preserv
 
 | Part | What changes |
 |---|---|
-| `riso_settings/write` (new, dev) | `write` |
-| `riso_settings/sections` (production, changed and stamped again) | Three changes that `write` needs, with no change of behavior or of logging: the store keeps the file's path after `watch` starts; the part of the file check's reload that applies a new content, publishes the changed sections, and tells their users becomes a function of its own, which the reload and `write` both call; and two crate-private functions give the file's path and whether a key is registered. Every existing test of `sections` passes unchanged |
+| `yard_settings/write` (new, dev) | `write` |
+| `yard_settings/sections` (production, changed and stamped again) | Three changes that `write` needs, with no change of behavior or of logging: the store keeps the file's path after `watch` starts; the part of the file check's reload that applies a new content, publishes the changed sections, and tells their users becomes a function of its own, which the reload and `write` both call; and two crate-private functions give the file's path and whether a key is registered. Every existing test of `sections` passes unchanged |
 
-`sections` cannot have a dev version beside it, as the shell has: every crate, `riso_ui` included, reads the one store of `sections`, so a copy would hold another store that nobody reads.
+`sections` cannot have a dev version beside it, as the shell has: every crate, `yard_ui` included, reads the one store of `sections`, so a copy would hold another store that nobody reads.
 
 ## Tests
 
@@ -65,7 +65,7 @@ This is the only new public item. The workspace's `serde_json` gets its `preserv
 
 ## Test extension: `examples/settings_tour`
 
-A new case, `SETTINGS_TOUR=write`: the card as in `card`, with two buttons under the values. `size +1` writes `size` as the shown value plus one. `wrong type` writes `size` as the text `"big"`. Use a fresh home: `RISO_HOME=/tmp/riso-settings`.
+A new case, `SETTINGS_TOUR=write`: the card as in `card`, with two buttons under the values. `size +1` writes `size` as the shown value plus one. `wrong type` writes `size` as the text `"big"`. Use a fresh home: `YARD_HOME=/tmp/yard-settings`.
 
 | Command and action | What to look for |
 |---|---|
@@ -76,7 +76,7 @@ A new case, `SETTINGS_TOUR=write`: the card as in `card`, with two buttons under
 
 ## Under review
 
-- `riso_settings/write`, new
+- `yard_settings/write`, new
 
 ## Not in this feature
 

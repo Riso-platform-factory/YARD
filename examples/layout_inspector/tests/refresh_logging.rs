@@ -43,12 +43,12 @@ impl tracing::Subscriber for Trace {
     fn event(&self, event: &tracing::Event<'_>) {
         let mut fields = Fields::default();
         event.record(&mut fields);
-        if event.metadata().target().starts_with("riso_shell")
+        if event.metadata().target().starts_with("yard_shell")
             && fields.0.contains("layout inspected")
         {
             self.0.lock().unwrap().inspected += 1;
         }
-        if event.metadata().target().starts_with("riso_shell")
+        if event.metadata().target().starts_with("yard_shell")
             && *event.metadata().level() == tracing::Level::INFO
             && fields.0 == " message=no window"
         {
@@ -57,7 +57,7 @@ impl tracing::Subscriber for Trace {
         if fields.0.contains("layout observers") {
             self.0.lock().unwrap().observer_lines.push(fields.0.clone());
         }
-        if event.metadata().target().starts_with("riso_ui")
+        if event.metadata().target().starts_with("yard_ui")
             && fields.0.contains("rendering label")
             && fields.0.contains("color=Disabled")
         {
@@ -80,7 +80,7 @@ fn refresh_is_one_group_per_change_and_draws_do_not_inspect(cx: &mut TestAppCont
         let calls = std::rc::Rc::new(std::cell::Cell::new(0));
         let counter = calls.clone();
         let _sentinel =
-            cx.update(|cx| riso_shell::observe_layout(cx, move |_| counter.set(counter.get() + 1)));
+            cx.update(|cx| yard_shell::observe_layout(cx, move |_| counter.set(counter.get() + 1)));
         let before = trace.0.lock().unwrap().refreshes.len();
         cx.update(|cx| host.set_hidden(cx, "a", true));
         assert_eq!(&trace.0.lock().unwrap().refreshes[before..], [" nodes=5"]);

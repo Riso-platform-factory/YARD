@@ -21,7 +21,7 @@ A slot says whether it holds one node or many. Every slot holds many, as today, 
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 impl Extension {
     pub fn slot_for_one(&self, cx: &mut App, component: &str, slot: &str);
 }
@@ -42,8 +42,8 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | `slot_for_one`, and the rule in the shell's rules for `place`, `add`, and `move` |
-| `riso/startup` | Dev copy that uses the dev shell. While `slot-count` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_shell/shell` dev version | `slot_for_one`, and the rule in the shell's rules for `place`, `add`, and `move` |
+| `yard/startup` | Dev copy that uses the dev shell. While `slot-count` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -65,7 +65,7 @@ A new case, `slot-count`. Its card `layout_tour.frame` has a slot `content` for 
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-slot-count LAYOUT_TOUR=slot-count cargo run dev` | `frame` showing `first`, and `loose`. `slot-declare{component=layout_tour.frame, slot=content}`. The case also tries to place a second card, `extra`, in `frame.content` at startup: an `INFO`, `frame.content holds one node, and already holds first`, and no `extra`. |
+| `YARD_HOME=/tmp/yard-slot-count LAYOUT_TOUR=slot-count cargo run dev` | `frame` showing `first`, and `loose`. `slot-declare{component=layout_tour.frame, slot=content}`. The case also tries to place a second card, `extra`, in `frame.content` at startup: an `INFO`, `frame.content holds one node, and already holds first`, and no `extra`. |
 | Click `add second to frame` | Refused with the `INFO`. |
 | Click `move loose into frame` | Refused with the `INFO`. |
 | Click `move first to root` | `first` leaves the frame, which is now empty. |
@@ -73,9 +73,9 @@ A new case, `slot-count`. Its card `layout_tour.frame` has a slot `content` for 
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 
-- Declaring the shell's own slots (`riso.window`, `riso.body`) for one: when a feature needs it.
+- Declaring the shell's own slots (`yard.window`, `yard.body`) for one: when a feature needs it.
 - A slot that holds at most some other number of nodes.

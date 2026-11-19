@@ -6,7 +6,7 @@ mod tooltip;
 use gpui::{
     App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
 };
-use riso_ui::{
+use yard_ui::{
     Button, ButtonSize, ButtonStyle, Divider, DividerColor, ElevationIndex, Headline, HeadlineSize,
     Icon, IconButton, IconButtonShape, IconName, IconSize, Label, LabelSize, List, ListHeader,
     ListItem, ListItemSpacing, ListSeparator, Modal, ModalFooter, ModalHeader, Section,
@@ -53,7 +53,7 @@ const DIVIDER_COLORS: [DividerColor; 3] = [
     DividerColor::BorderVariant,
 ];
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &yard_shell::Extension) {
     let case = std::env::var("UI_GALLERY").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -88,7 +88,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             scroll::register(cx, ext);
             key_hint::register(cx, ext);
             tooltip::register(cx, ext);
-            ext.place_root(cx, "root", "riso.tabs");
+            ext.place_root(cx, "root", "yard.tabs");
             ext.place(cx, "text", "ui_gallery.text", "root", "children");
             tracing::debug!(page = "text", "page placed");
             ext.place(cx, "icon", "ui_gallery.icon", "root", "children");
@@ -151,7 +151,7 @@ fn group(title: &str, content: impl IntoElement) -> Div {
 impl Render for TextPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "text", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         v_flex()
             .size_full()
             .p(rems(1.))
@@ -199,7 +199,7 @@ impl Render for TextPage {
 impl Render for IconPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "icon", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         v_flex()
             .size_full()
             .p(rems(1.))
@@ -245,7 +245,7 @@ struct ButtonPage {
 impl Render for ButtonPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "button", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let counter = cx.weak_entity();
         let toggle = cx.weak_entity();
         v_flex()
@@ -349,7 +349,7 @@ struct DividerPage;
 impl Render for DividerPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "divider", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         v_flex()
             .size_full()
             .p(rems(1.))
@@ -408,7 +408,7 @@ impl ModalPage {
 impl Render for ModalPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "modal", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let close = cx.weak_entity();
         let cancel = cx.weak_entity();
         v_flex()
@@ -608,7 +608,7 @@ impl ListPage {
 impl Render for ListPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "list", "rendering page");
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let selected = self.selected;
         let sparse_selected = self.sparse_selected;
         let indent_selected = self.indent_selected;

@@ -26,7 +26,7 @@ pub fn ui_font(cx: &App) -> Font;
 pub fn ui_font_size(cx: &App) -> Pixels;
 ```
 
-- Their values are kept in a global of `riso_ui`, which the theme setting updates.
+- Their values are kept in a global of `yard_ui`, which the theme setting updates.
 - The settings provider that Zed's `ui` components ask reads the same global. So Zed's components, the tab bar among them, follow too.
 - The shell's root view already sets each window's rem size from `ui_font_size`, and its font from `ui_font`, every time it draws. It now reads them from the global.
 
@@ -51,10 +51,10 @@ Applying the font runs in a group, `ui-font-apply{family, size}`, at startup ins
 
 | Part | What changes |
 |---|---|
-| `riso_ui/theming` | Dev version beside production, with its folder. `ui_font(cx)` and `ui_font_size(cx)` read the global, and so does the settings provider |
-| `riso_ui/theme_setting` | Dev version beside production. The two values, their rules, and the global |
-| `riso_shell/shell` | Dev version beside production. It reads `ui_font(cx)` and `ui_font_size(cx)` |
-| `riso/startup` | Dev copy, with the dev shell and the dev theme setting |
+| `yard_ui/theming` | Dev version beside production, with its folder. `ui_font(cx)` and `ui_font_size(cx)` read the global, and so does the settings provider |
+| `yard_ui/theme_setting` | Dev version beside production. The two values, their rules, and the global |
+| `yard_shell/shell` | Dev version beside production. It reads `ui_font(cx)` and `ui_font_size(cx)` |
+| `yard/startup` | Dev copy, with the dev shell and the dev theme setting |
 
 `examples/theme_tour` builds against the dev versions. `examples/settings_tour` and `layout_tour` change their calls to `ui_font(cx)` and `ui_font_size(cx)` when this feature is promoted.
 
@@ -71,7 +71,7 @@ Applying the font runs in a group, `ui-font-apply{family, size}`, at startup ins
 
 ## Test extension: `examples/theme_tour`
 
-The card gains a tab bar at its top, `riso_ui`'s `TabBar` with two tabs, `a` and `b`, so that its height can be seen. The card's last line states the UI font and its size, read with `ui_font(cx)` and `ui_font_size(cx)`. Use a fresh home: `RISO_HOME=/tmp/riso-theme THEME_TOUR=card cargo run dev`, then edit `config/settings.json` while it runs:
+The card gains a tab bar at its top, `yard_ui`'s `TabBar` with two tabs, `a` and `b`, so that its height can be seen. The card's last line states the UI font and its size, read with `ui_font(cx)` and `ui_font_size(cx)`. Use a fresh home: `YARD_HOME=/tmp/yard-theme THEME_TOUR=card cargo run dev`, then edit `config/settings.json` while it runs:
 
 | Edit | What to look for |
 |---|---|
@@ -83,7 +83,7 @@ The card gains a tab bar at its top, `riso_ui`'s `TabBar` with two tabs, `a` and
 
 ## Under review
 
-- `riso_ui/theming`, `riso_ui/theme_setting`, `riso_shell/shell`, and `riso/startup`, in their dev versions
+- `yard_ui/theming`, `yard_ui/theme_setting`, `yard_shell/shell`, and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

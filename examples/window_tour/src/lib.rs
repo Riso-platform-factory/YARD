@@ -12,12 +12,12 @@ use gpui::{
     InteractiveElement, IntoElement, ParentElement, Pixels, Render, Size, Styled, WeakEntity,
     Window, canvas, div, rems,
 };
-use riso_ui::{
+use yard_ui::{
     Button, ButtonSize, ButtonStyle, ElevationIndex, Label, LabelSize, Modal, ModalFooter,
     ModalHeader, ModalView, Section, palette, v_flex,
 };
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &yard_shell::Extension) {
     let case = std::env::var("WINDOW_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -246,7 +246,7 @@ struct Card {
     modals: bool,
     toasts: bool,
     prompts: bool,
-    ext: riso_shell::Extension,
+    ext: yard_shell::Extension,
     node: String,
     size: Size<Pixels>,
 }
@@ -288,11 +288,11 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = palette(cx);
         let entity = cx.entity().downgrade();
-        let focused = riso_shell::focus_handle(cx, &self.node)
+        let focused = yard_shell::focus_handle(cx, &self.node)
             .is_some_and(|handle| handle.is_focused(window));
         let mut card = v_flex();
         if self.status {
-            let hidden = riso_shell::is_hidden(cx, "title") || riso_shell::is_hidden(cx, "ping");
+            let hidden = yard_shell::is_hidden(cx, "title") || yard_shell::is_hidden(cx, "ping");
             let ext = self.ext.clone();
             card = card.child(
                 div()
@@ -308,8 +308,8 @@ impl Render for Card {
                             },
                         )
                         .on_click(move |_, cx| {
-                            let hidden = riso_shell::is_hidden(cx, "title")
-                                || riso_shell::is_hidden(cx, "ping");
+                            let hidden = yard_shell::is_hidden(cx, "title")
+                                || yard_shell::is_hidden(cx, "ping");
                             ext.set_hidden(cx, "title", !hidden);
                             ext.set_hidden(cx, "ping", !hidden);
                         }),
@@ -318,9 +318,9 @@ impl Render for Card {
         }
         if self.toasts {
             for (label, kind, text) in [
-                ("info", riso_ui::ToastKind::Info, "An information message."),
-                ("warning", riso_ui::ToastKind::Warning, "A warning message."),
-                ("error", riso_ui::ToastKind::Error, "An error message."),
+                ("info", yard_ui::ToastKind::Info, "An information message."),
+                ("warning", yard_ui::ToastKind::Warning, "A warning message."),
+                ("error", yard_ui::ToastKind::Error, "An error message."),
             ] {
                 let ext = self.ext.clone();
                 card = card.child(
@@ -328,8 +328,8 @@ impl Render for Card {
                         .debug_selector(move || format!("SHOW-TOAST-{label}"))
                         .self_start()
                         .child(Button::new(label, label).on_click(move |window, cx| {
-                            let mut toast = riso_ui::Toast::new(kind, text);
-                            if kind == riso_ui::ToastKind::Error {
+                            let mut toast = yard_ui::Toast::new(kind, text);
+                            if kind == yard_ui::ToastKind::Error {
                                 toast =
                                     toast.action("Retry", |_, _| tracing::info!("retry clicked"));
                             }
@@ -377,7 +377,7 @@ impl Render for Card {
                         .child(Button::new("ask", "ask").on_click(move |window, cx| {
                             const ANSWERS: &[&str] = &["Save", "Don't Save", "Cancel"];
                             ask_ext.prompt(
-                                riso_shell::Prompt::new(
+                                yard_shell::Prompt::new(
                                     gpui::PromptLevel::Warning,
                                     "Save changes?",
                                     ANSWERS,
@@ -398,7 +398,7 @@ impl Render for Card {
                                 const FIRST: &[&str] = &["OK"];
                                 const SECOND: &[&str] = &["Yes", "No"];
                                 twice_ext.prompt(
-                                    riso_shell::Prompt::new(
+                                    yard_shell::Prompt::new(
                                         gpui::PromptLevel::Info,
                                         "First question",
                                         FIRST,
@@ -408,7 +408,7 @@ impl Render for Card {
                                     |answer, _| log_answer(FIRST, answer),
                                 );
                                 twice_ext.prompt(
-                                    riso_shell::Prompt::new(
+                                    yard_shell::Prompt::new(
                                         gpui::PromptLevel::Info,
                                         "Second question",
                                         SECOND,

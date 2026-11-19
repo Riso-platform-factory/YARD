@@ -13,16 +13,16 @@ This is what Zed's docks do when they have no panel to show, and what its pane g
 - **Containers:**
   - a split gives an empty child no room and no handle, and its other children share the length as if that child were hidden; an empty child keeps its entry in `shares` and `sizes`, and gets its size back when it is no longer empty;
   - a tabs container drops an empty child's tab, and selects its first shown child when the selected one becomes empty, as it does for a hidden child;
-  - a container (`riso.row`, `riso.column`, `riso.tabs`) is empty when at least one of its children is empty and every other one is empty or hidden; a container whose children are all hidden and none empty is not empty, so that feature 22's collapsed lines still bring them back; a container with no children is not empty; an empty container is treated by its own parent as above, all the way up;
+  - a container (`yard.row`, `yard.column`, `yard.tabs`) is empty when at least one of its children is empty and every other one is empty or hidden; a container whose children are all hidden and none empty is not empty, so that feature 22's collapsed lines still bring them back; a container with no children is not empty; an empty container is treated by its own parent as above, all the way up;
   - the window's root and the shell's frame (title bar, body, status bar) are never treated as empty.
-- **Not a hidden node.** An empty node is not hidden: `is_hidden` is false, the `riso::Hide` action and the operations of feature 8 see it as shown, and it has no collapsed line of feature 22, since dragging it out would show nothing. A node that is both hidden and empty stays hidden when it stops being empty.
+- **Not a hidden node.** An empty node is not hidden: `is_hidden` is false, the `yard::Hide` action and the operations of feature 8 see it as shown, and it has no collapsed line of feature 22, since dragging it out would show nothing. A node that is both hidden and empty stays hidden when it stops being empty.
 - **Focus.** If the focused node becomes empty, the focus moves as it does when a focused node is hidden.
 - **Zoom.** If the zoomed node (feature 10) becomes empty, the shell zooms out after that frame, with `debug` `zoomed node is empty {node}`, so the empty node gets no room and the focus leaves it. Nothing is recorded.
 
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 pub trait Emptiable: gpui::Render {
     fn is_empty(&self, cx: &App) -> bool;
 }
@@ -46,8 +46,8 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Part | What changes |
 |---|---|
-| `riso_shell/shell` dev version | `Emptiable`, `register_empty`, `is_empty`, and containers that give empty children no room |
-| `riso/startup` | Dev copy that uses the dev shell. While `empty-nodes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_shell/shell` dev version | `Emptiable`, `register_empty`, `is_empty`, and containers that give empty children no room |
+| `yard/startup` | Dev copy that uses the dev shell. While `empty-nodes` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -66,7 +66,7 @@ A new case, `empty-nodes`. Its component `layout_tour.list` shows a number of it
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-empty LAYOUT_TOUR=empty-nodes cargo run dev` | `left` shows only `top`, at the column's full height; `bottom` is empty and takes no room. |
+| `YARD_HOME=/tmp/yard-empty LAYOUT_TOUR=empty-nodes cargo run dev` | `left` shows only `top`, at the column's full height; `bottom` is empty and takes no room. |
 | Click `add to bottom` | `bottom` appears under `top`, and they share the column; `emptiness changed {node=bottom, empty=false}`. |
 | Click `clear top`, then `clear bottom` | `top` disappears, then `bottom`, and then the whole `left` column: `right` takes the row. |
 | Click `add to top` | `left` comes back with `top`. |
@@ -74,7 +74,7 @@ A new case, `empty-nodes`. Its component `layout_tour.list` shows a number of it
 
 ## Under review
 
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

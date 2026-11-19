@@ -8,7 +8,7 @@ The engine does not know what a setting means. The theme engine owns the section
 
 ## Decisions already made
 
-- `settings.json` is one JSON object with one key per section. It is in the config directory, and `riso_paths` names it.
+- `settings.json` is one JSON object with one key per section. It is in the config directory, and `yard_paths` names it.
 - Every value of a section has a default in code. A value in the file replaces the default. A value that is missing keeps it.
 - A section that cannot be read keeps the value it had, and is logged as a `WARN`. The other sections are not affected.
 - A file that is not valid JSON changes nothing. A file that is deleted gives every section its defaults. A key that nothing declared is left alone.
@@ -20,16 +20,16 @@ The engine does not know what a setting means. The theme engine owns the section
 - Features are built in the order of the table, one at a time. Each one follows the workflow in `AGENTS.md` from foundation to production.
 - A feature starts with a short contract in this folder, `docs/settings-engine/<slug>.md`. The user approves the contract before any code.
 - One test extension, `examples/settings_tour`, grows with the features. Its card shows the values of its own section as the engine gives them, so every change of the file can be seen.
-- Every run of the tour uses a fresh `RISO_HOME`, so the user's real `settings.json` is never touched.
+- Every run of the tour uses a fresh `YARD_HOME`, so the user's real `settings.json` is never touched.
 
 ## Reusing Zed
 
 | From Zed | License | How it is reused |
 |---|---|---|
 | `gpui`: globals and observers | Apache-2.0 | Used directly |
-| `settings`, `settings_content`, `settings_json`, `settings_macros`, `migrator` | GPL-3.0-or-later | Not used and not copied. They are not UI, so they have no place in `riso_ui`, and `settings` is the store of Zed's own settings. They are read as reference: `settings_store.rs` for sections, `settings_file.rs` for watching the file, `settings_json.rs` for writing a value back |
+| `settings`, `settings_content`, `settings_json`, `settings_macros`, `migrator` | GPL-3.0-or-later | Not used and not copied. They are not UI, so they have no place in `yard_ui`, and `settings` is the store of Zed's own settings. They are read as reference: `settings_store.rs` for sections, `settings_file.rs` for watching the file, `settings_json.rs` for writing a value back |
 
-The engine is riso's own code, in a new crate, `riso_settings`. The earlier project's `crew_settings` (230 lines, with its tests) already does features 1 to 3, and is ported.
+The engine is YARD's own code, in a new crate, `yard_settings`. The earlier project's `crew_settings` (230 lines, with its tests) already does features 1 to 3, and is ported.
 
 ## Features
 

@@ -6,7 +6,7 @@ The application asks an address named by the product config for the newest versi
 
 ## How it works
 
-- **The config.** `product.toml` can name `update_url`, the address of a small JSON file describing the newest release. Without it the application never checks (`debug` `no update address`): riso's own config names none, since riso has no release server yet. `build.rs` checks it when present: an `https://` URL, or `http://` only to `127.0.0.1` or `localhost`, for checks on this machine. When `update_url` is present, `version` must be a semantic version (`0.1.0`, not `1.0`), since it is compared with the release's: the build fails otherwise, with the file and the key. It gives `PRODUCT_UPDATE_URL`, empty when absent.
+- **The config.** `product.toml` can name `update_url`, the address of a small JSON file describing the newest release. Without it the application never checks (`debug` `no update address`): yard's own config names none, since yard has no release server yet. `build.rs` checks it when present: an `https://` URL, or `http://` only to `127.0.0.1` or `localhost`, for checks on this machine. When `update_url` is present, `version` must be a semantic version (`0.1.0`, not `1.0`), since it is compared with the release's: the build fails otherwise, with the file and the key. It gives `PRODUCT_UPDATE_URL`, empty when absent.
 - **The release file.** JSON: `{"version": "0.2.0", "url": "<download address>", "sha256": "<hex>"}`. This feature reads `version`; `url` and `sha256` are read by feature 5, and must be present, so that a release file this feature accepts is one feature 5 can install. Unknown fields are allowed.
 - **When.** Once shortly after the first window opens (5 s, so that the start is not slowed), then every 24 hours while the application runs. One check at a time.
 - **Comparing.** The versions are compared as semantic versions (`semver`) by precedence, against the product's version: build metadata (`+build.1`) does not make a version newer, and a pre-release (`0.2.0-beta`) is newer than `0.1.0` but older than `0.2.0`. Newer: a toast. The same or older: nothing for the user, a `debug` line. A version that cannot be read is a failure.
@@ -17,16 +17,16 @@ The application asks an address named by the product config for the newest versi
 
 ## Where the code lives
 
-A new core crate, `riso_update`, with its first part `riso_update/check` in dev. It depends on `riso_product`, `riso_shell` (for the toast), `http_client`, `reqwest_client`, and `semver`, and is started by the startup:
+A new core crate, `yard_update`, with its first part `yard_update/check` in dev. It depends on `yard_product`, `yard_shell` (for the toast), `http_client`, `reqwest_client`, and `semver`, and is started by the startup:
 
 ```rust
-// riso_update::dev
+// yard_update::dev
 /// Starts checking `url` for a version newer than `product`'s, showing its
 /// toast through `extension`.
 pub fn start(
     cx: &mut App,
-    extension: &riso_shell::Extension,
-    product: riso_product::Product,
+    extension: &yard_shell::Extension,
+    product: yard_product::Product,
     url: &str,
     client: std::sync::Arc<dyn http_client::HttpClient>,
 );
@@ -46,30 +46,30 @@ The startup gives the real client (`reqwest_client`); a test gives Zed's `http_c
 
 | Part | What changes |
 |---|---|
-| `riso_update/check` (new crate, dev) | The checks, the comparison, the toast |
-| `riso/startup` | Dev copy that calls `riso_update::dev::start` when `PRODUCT_UPDATE_URL` is not empty. While `update-check` is under review, `cargo run dev` loads `review` on it |
+| `yard_update/check` (new crate, dev) | The checks, the version check, the toast |
+| `yard/startup` | Dev copy that calls `yard_update::dev::start` when `PRODUCT_UPDATE_URL` is not empty. While `update-check` is under review, `cargo run dev` loads `review` on it |
 | App build script (no stage) | `update_url`, `PRODUCT_UPDATE_URL` |
 | Workspace | `http_client`, `reqwest_client` from Zed's repository at `gpui`'s revision; `semver` |
 
 ## Tests
 
 - **Build script:** `update_url` absent, `https://`, `http://127.0.0.1:…`, and refused `http://example.com`, `ftp://…`, an unreadable URL.
-- **`riso_update`, GPUI tests with a fake HTTP client:** a newer version shows one toast; the same and an older version show none; a second check of the same version does not show it again; a failure status, a broken file, a missing `url` or `sha256`, and an unreadable version each give a `WARN` and no toast; the first check waits 5 s and the next 24 hours (with the test clock); no check runs while one is running.
+- **`yard_update`, GPUI tests with a fake HTTP client:** a newer version shows one toast; the same and an older version show none; a second check of the same version does not show it again; a failure status, a broken file, a missing `url` or `sha256`, and an unreadable version each give a `WARN` and no toast; the first check waits 5 s and the next 24 hours (with the test clock); no check runs while one is running.
 - **Logging**, alone in its file: `update-check{current}` with `newer` and with the `WARN`; `toast shown`.
 
 ## Check by the lead
 
-No test extension. With a config naming `riso-check` and `update_url = "http://127.0.0.1:8765/latest.json"`, and `python3 -m http.server 8765` serving a `latest.json` in a temporary folder:
+No test extension. With a config naming `yard-check` and `update_url = "http://127.0.0.1:8765/latest.json"`, and `python3 -m http.server 8765` serving a `latest.json` in a temporary folder:
 
 | Command and action | What to look for |
 |---|---|
-| `latest.json` says `0.2.0`; `RISO_CHECK_HOME=/tmp/riso-update PRODUCT_CONFIG=/tmp/riso-check.toml cargo run dev` | After about 5 s, the toast `riso-check 0.2.0 is available`; `update-check{current=0.1.0}` with `newer {version=0.2.0}`. |
+| `latest.json` says `0.2.0`; `YARD_CHECK_HOME=/tmp/yard-update PRODUCT_CONFIG=/tmp/yard-check.toml cargo run dev` | After about 5 s, the toast `yard-check 0.2.0 is available`; `update-check{current=0.1.0}` with `newer {version=0.2.0}`. |
 | `latest.json` says `0.1.0` | No toast; `up to date {version=0.1.0}`. |
 | The server stopped | No toast; the `WARN` with the reason. |
 
 ## Under review
 
-- `riso_update/check`, and `riso/startup` in its dev version
+- `yard_update/check`, and `yard/startup` in its dev version
 
 ## Not in this feature
 

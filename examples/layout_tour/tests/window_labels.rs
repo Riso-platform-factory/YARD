@@ -1,5 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, WindowOptions, px};
-use riso_shell as shell;
+use yard_shell as shell;
 
 #[gpui::test]
 fn each_window_draws_its_own_user_layer_count(cx: &mut TestAppContext) {
@@ -24,7 +24,7 @@ fn each_window_draws_its_own_user_layer_count(cx: &mut TestAppContext) {
     }
 
     let extension = cx.update(|cx| {
-        riso_ui::init(cx);
+        yard_ui::init(cx);
         let ext = shell::Extension::new(cx, "layout_tour").unwrap();
         layout_tour::init(cx, &ext);
         ext

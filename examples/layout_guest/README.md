@@ -2,7 +2,7 @@
 
 A second test extension for the layout engine, the guest of `layout_tour`. It places its own card in a slot of the host's card. Removing it shows that the host's slot is then empty.
 
-When `app/riso/src/dev/review.rs` lists it as `("layout_guest", layout_guest::init)`, after `layout_tour`, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it with the name the application gives it. The features it covers are in production, so it is not loaded now; add both back to check them again.
+When `app/yard/src/dev/review.rs` lists it as `("layout_guest", layout_guest::init)`, after `layout_tour`, and `app/yard/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it with the name the application gives it. The features it covers are in production, so it is not loaded now; add both back to check them again.
 
 Without a case it does nothing. It has no stage and is never in production.
 
@@ -22,4 +22,4 @@ The case is chosen with the environment variable `LAYOUT_GUEST`. An unknown case
 
 ## Removing it
 
-Remove it from the list of extensions in `app/riso/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/riso/Cargo.toml`. The host's slot is then empty, and the app runs as it should.
+Remove it from the list of extensions in `app/yard/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/yard/Cargo.toml`. The host's slot is then empty, and the app runs as it should.

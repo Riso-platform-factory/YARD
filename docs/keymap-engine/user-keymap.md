@@ -11,11 +11,11 @@ As Zed's keymap file, read with GPUI's own pieces (`KeyBinding::load`, `App::bui
 - **The file.** A JSON array of sections. Each section has an optional `context`, a key-context predicate as GPUI reads it (`"Shell"`, `"Shell && !ModalLayer"`), and `bindings`, an object from keystrokes to an action:
   ```json
   [
-    { "context": "Shell", "bindings": { "cmd-shift-z": "riso::ToggleZoom", "shift-escape": null } },
-    { "bindings": { "cmd-alt-q": ["zed::Unbind", "riso::Quit"] } }
+    { "context": "Shell", "bindings": { "cmd-shift-z": "yard::ToggleZoom", "shift-escape": null } },
+    { "bindings": { "cmd-alt-q": ["zed::Unbind", "yard::Quit"] } }
   ]
   ```
-  An action is its name, `"riso::ToggleZoom"`, or a name with its input, `["name", {…}]`, as Zed writes it.
+  An action is its name, `"yard::ToggleZoom"`, or a name with its input, `["name", {…}]`, as Zed writes it.
 - **Adding and replacing.** A binding is added after the defaults. For the same keystrokes in the same context, the later binding wins, so the user's replaces the default.
 - **Removing.** `null` as the action disables those keystrokes in that context: GPUI's `NoAction`. `["zed::Unbind", "<action>"]` removes the default binding of that action for those keystrokes, as Zed's `Unbind`.
 - **What cannot be read,** each a `WARN` that names it, and the rest still loads:
@@ -24,23 +24,23 @@ As Zed's keymap file, read with GPUI's own pieces (`KeyBinding::load`, `App::bui
   - a binding whose keystrokes cannot be parsed, or whose action GPUI does not know or cannot build from its input: that binding is skipped.
 - **No file:** nothing is bound and nothing is wrong.
 - **When.** Once, at startup, after every extension's `init`, so that every default key is bound before the user's, and before the menus are set, so that the menus are built over the user's keys. Reading the file again when it changes is the next feature, `keymap-reload`.
-- `riso_paths` names the file: `config/keymap.json`.
+- `yard_paths` names the file: `config/keymap.json`.
 
 ## What code can do
 
 ```rust
-// riso_paths
+// yard_paths
 impl Paths {
     /// The user's keymap file.
     pub fn keymap_file(&self) -> PathBuf;
 }
 
-// riso_keymap
+// yard_keymap
 /// Reads `path` and binds its keys after the defaults. Returns how many bindings were bound.
 pub fn load_user_keymap(cx: &mut App, path: &Path) -> usize;
 ```
 
-These are the only new public items. `riso_keymap` is the keymap engine's crate; if it does not exist yet, this feature creates it, with the stages of every crate, depending only on `gpui`, `riso_paths`, `serde_json`, `tracing`, and `log`.
+These are the only new public items. `yard_keymap` is the keymap engine's crate; if it does not exist yet, this feature creates it, with the stages of every crate, depending only on `gpui`, `yard_paths`, `serde_json`, `tracing`, and `log`.
 
 ## Logging
 
@@ -56,9 +56,9 @@ These are the only new public items. `riso_keymap` is the keymap engine's crate;
 
 | Part | What changes |
 |---|---|
-| `riso_paths/keymap_file` (new, dev) | `Paths::keymap_file` |
-| `riso_keymap/user_keymap` (new, dev) | `load_user_keymap` |
-| `riso/startup` | Dev version beside production: `riso_keymap::load_user_keymap(cx, &paths.keymap_file())` after `extensions-load`, before `set_menus` |
+| `yard_paths/keymap_file` (new, dev) | `Paths::keymap_file` |
+| `yard_keymap/user_keymap` (new, dev) | `load_user_keymap` |
+| `yard/startup` | Dev version beside production: `yard_keymap::load_user_keymap(cx, &paths.keymap_file())` after `extensions-load`, before `set_menus` |
 
 ## Tests
 
@@ -75,19 +75,19 @@ These are the only new public items. `riso_keymap` is the keymap engine's crate;
 
 ## Test extension: `examples/layout_tour`
 
-The layout tour's `zoom` case gives cards to act on with the shell's keys; with a `keymap.json` in the fresh home, the user's keys act on them. Use `RISO_HOME=/tmp/riso-keys`.
+The layout tour's `zoom` case gives cards to act on with the shell's keys; with a `keymap.json` in the fresh home, the user's keys act on them. Use `YARD_HOME=/tmp/yard-keys`.
 
 | Command and action | What to look for |
 |---|---|
-| Write `[{"context": "Shell", "bindings": {"cmd-shift-z": "riso::ToggleZoom", "shift-escape": null}}]` to `config/keymap.json`; `LAYOUT_TOUR=zoom cargo run dev`; click card `b`; press `cmd-shift-z` | `b` zooms. `keymap-load` with two `bound` lines and `user keys bound {count=2, skipped=0}`. |
+| Write `[{"context": "Shell", "bindings": {"cmd-shift-z": "yard::ToggleZoom", "shift-escape": null}}]` to `config/keymap.json`; `LAYOUT_TOUR=zoom cargo run dev`; click card `b`; press `cmd-shift-z` | `b` zooms. `keymap-load` with two `bound` lines and `user keys bound {count=2, skipped=0}`. |
 | Press `shift-escape` | Nothing: the default key is removed. |
 | Add an entry with an unknown action and one with keys `cmd-+-x` | Each a `WARN` naming it; the good entries still work. |
 
 ## Under review
 
-- `riso_paths/keymap_file`, new
-- `riso_keymap/user_keymap`, new
-- `riso/startup`, in its dev version
+- `yard_paths/keymap_file`, new
+- `yard_keymap/user_keymap`, new
+- `yard/startup`, in its dev version
 
 ## Not in this feature
 

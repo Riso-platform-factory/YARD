@@ -17,7 +17,7 @@ As Zed does with GPUI's `Window::prompt`:
 ## What code can do
 
 ```rust
-// riso_shell
+// yard_shell
 pub struct Prompt { .. }
 impl Prompt {
     /// A question with its level, its message, and its buttons, in order.
@@ -52,7 +52,7 @@ These are the only new public items. A button's label goes to GPUI as `&str`, as
 
 | Part | What changes |
 |---|---|
-| `riso_shell/prompt` (new, dev) | `Prompt`, and `Extension::prompt` in an `impl Extension` of its own: it calls GPUI's `Window::prompt` and spawns the waiting for the answer, instrumented with the group |
+| `yard_shell/prompt` (new, dev) | `Prompt`, and `Extension::prompt` in an `impl Extension` of its own: it calls GPUI's `Window::prompt` and spawns the waiting for the answer, instrumented with the group |
 
 The shell does not change, and the startup does not change.
 
@@ -68,7 +68,7 @@ The shell does not change, and the startup does not change.
 
 ## Test extension: `examples/window_tour`
 
-A new case, `WINDOW_TOUR=prompts`. It places a card as the root with two buttons. `ask` asks a warning, `Save changes?`, with the detail `Your changes will be lost if you don't save them.` and the buttons `Save`, `Don't Save`, and `Cancel`. `ask twice` asks an information, `First question`, with the button `OK`, and right after it `Second question`, with the buttons `Yes` and `No`. Each callback logs `answered` with the label it got, or `no answer`. Use a fresh home: `RISO_HOME=/tmp/riso-window`.
+A new case, `WINDOW_TOUR=prompts`. It places a card as the root with two buttons. `ask` asks a warning, `Save changes?`, with the detail `Your changes will be lost if you don't save them.` and the buttons `Save`, `Don't Save`, and `Cancel`. `ask twice` asks an information, `First question`, with the button `OK`, and right after it `Second question`, with the buttons `Yes` and `No`. Each callback logs `answered` with the label it got, or `no answer`. Use a fresh home: `YARD_HOME=/tmp/yard-window`.
 
 | Command and action | What to look for |
 |---|---|
@@ -79,9 +79,9 @@ A new case, `WINDOW_TOUR=prompts`. It places a card as the root with two buttons
 
 ## Under review
 
-- `riso_shell/prompt`, new
+- `yard_shell/prompt`, new
 
 ## Not in this feature
 
-- Questions drawn by riso instead of the OS (GPUI's `set_prompt_builder`, which Zed uses on Linux): with Linux and Windows.
+- Questions drawn by YARD instead of the OS (GPUI's `set_prompt_builder`, which Zed uses on Linux): with Linux and Windows.
 - Choosing a file or a folder (`prompt_for_paths`): when an application first needs it.

@@ -2,23 +2,23 @@
 
 ## What it adds
 
-The product config gains what a package needs besides the name and the version: an identifier, in reverse-domain form, and an icon. The product and the names derived from it move into a new crate without GPUI, `riso_product`, that every engine can use, so that `riso_paths` stops repeating `riso_log`'s rule for the environment prefix. The first line of the log names the identifier.
+The product config gains what a package needs besides the name and the version: an identifier, in reverse-domain form, and an icon. The product and the names derived from it move into a new crate without GPUI, `yard_product`, that every engine can use, so that `yard_paths` stops repeating `yard_log`'s rule for the environment prefix. The first line of the log names the identifier.
 
 ## How it works
 
-- **The config.** `app/riso/product.toml` gains two keys:
-  - `identifier = "vn.risotech.riso"`: at least two labels separated by dots, each of ASCII letters, digits, and `-`, not starting or ending with `-`; as macOS asks of a bundle identifier.
+- **The config.** `app/yard/product.toml` gains two keys:
+  - `identifier = "vn.risotech.yard"`: at least two labels separated by dots, each of ASCII letters, digits, and `-`, not starting or ending with `-`; as macOS asks of a bundle identifier.
   - `icon = "icon.png"`: a path relative to the config file, to a square PNG of at least 512 × 512 pixels.
   `build.rs` refuses a missing or invalid value, as it refuses a missing name: the build fails with the file and the key. It gives the code `PRODUCT_IDENTIFIER`, and `PRODUCT_ICON`, the icon's absolute path.
-- **The icon.** `app/riso/icon.png`, 1024 × 1024. The lead agent provides it with the contract; it is a placeholder until the user gives the real one.
-- **`riso_product`.** A new core crate, without GPUI and without any other crate of the workspace. It holds `Product { name, version, identifier }` and the names derived from the name: the environment prefix, the home variable (`<PREFIX>_HOME`), and the lifecycle variable (`<PREFIX>_LIFECYCLE`). One rule makes the prefix: upper case, and every character that is not an ASCII letter or digit becomes `_`, as both crates do today.
-- **Using it.** `riso_log` and `riso_paths` take the product's names from `riso_product`, and keep no rule of their own. `riso_log::Product` and `riso_paths::home_variable` are gone; callers use `riso_product`. The startup builds the product once from `PRODUCT_NAME`, `PRODUCT_VERSION`, and `PRODUCT_IDENTIFIER`, and gives it to both.
-- **The first line.** The lifecycle trace begins `run-start riso 0.1.0 vn.risotech.riso (macos)`, and the diagnostic log's first line of a run is `riso 0.1.0 (vn.risotech.riso) starting`.
+- **The icon.** `app/yard/icon.png`, 1024 × 1024. The lead agent provides it with the contract; it is a placeholder until the user gives the real one.
+- **`yard_product`.** A new core crate, without GPUI and without any other crate of the workspace. It holds `Product { name, version, identifier }` and the names derived from the name: the environment prefix, the home variable (`<PREFIX>_HOME`), and the lifecycle variable (`<PREFIX>_LIFECYCLE`). One rule makes the prefix: upper case, and every character that is not an ASCII letter or digit becomes `_`, as both crates do today.
+- **Using it.** `yard_log` and `yard_paths` take the product's names from `yard_product`, and keep no rule of their own. `yard_log::Product` and `yard_paths::home_variable` are gone; callers use `yard_product`. The startup builds the product once from `PRODUCT_NAME`, `PRODUCT_VERSION`, and `PRODUCT_IDENTIFIER`, and gives it to both.
+- **The first line.** The lifecycle trace begins `run-start yard 0.1.0 vn.risotech.yard (macos)`, and the diagnostic log's first line of a run is `yard 0.1.0 (vn.risotech.yard) starting`.
 
 ## What code can do
 
 ```rust
-// riso_product (dev part `product`)
+// yard_product (dev part `product`)
 #[derive(Debug, Clone, Copy)]
 pub struct Product {
     pub name: &'static str,
@@ -41,34 +41,34 @@ impl Product {
 | The startup builds the product | A group `product{name, version, identifier}`, `debug` `checked`. An identifier of the wrong form is an `ERROR` there (the build refuses it first, so it means a bug) |
 | The start of a run | `run-start <name> <version> <identifier> (<os>)`, and the diagnostic log's `<name> <version> (<identifier>) starting` |
 
-`riso_log::start` needs the product, and no trace is listening before it runs. So the startup starts the logs with the build values as they are, then builds the product with `Product::new` right after, inside `app-startup`, so that its group is in the trace; the checked product is the one used from then on. The build script refuses an identifier of the wrong form first, so both have the same values.
+`yard_log::start` needs the product, and no trace is listening before it runs. So the startup starts the logs with the build values as they are, then builds the product with `Product::new` right after, inside `app-startup`, so that its group is in the trace; the checked product is the one used from then on. The build script refuses an identifier of the wrong form first, so both have the same values.
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
-| `riso_product/product` (new crate, dev) | `Product` and its names |
-| `riso_log/diagnostic_log` dev version | Takes `riso_product::Product`; the identifier in the first lines |
-| `riso_log/lifecycle_trace` dev version, if `run-start` is written there | The identifier in `run-start` |
-| `riso_paths/directories` | Changed when the feature is promoted, not in a dev version: a second `Paths` type would not be the one every other part of `riso_paths` extends. It then takes the home variable from `riso_product`, `home_variable` and its rule are gone, and so is the `TODO(product-identity)`. Until then the dev startup calls `Paths::from_env(product.name)`, whose variable the tests of `riso_product` prove to be the same |
-| `riso/startup` and the app's build script | Dev copy that builds the product with its identifier; `build.rs` reads and checks `identifier` and `icon` |
+| `yard_product/product` (new crate, dev) | `Product` and its names |
+| `yard_log/diagnostic_log` dev version | Takes `yard_product::Product`; the identifier in the first lines |
+| `yard_log/lifecycle_trace` dev version, if `run-start` is written there | The identifier in `run-start` |
+| `yard_paths/directories` | Changed when the feature is promoted, not in a dev version: a second `Paths` type would not be the one every other part of `yard_paths` extends. It then takes the home variable from `yard_product`, `home_variable` and its rule are gone, and so is the `TODO(product-identity)`. Until then the dev startup calls `Paths::from_env(product.name)`, whose variable the tests of `yard_product` prove to be the same |
+| `yard/startup` and the app's build script | Dev copy that builds the product with its identifier; `build.rs` reads and checks `identifier` and `icon` |
 
-`app/riso/product.toml` and `app/riso/icon.png` are configuration, without a stage.
+`app/yard/product.toml` and `app/yard/icon.png` are configuration, without a stage.
 
 ## Tests
 
-- **`riso_product`, unit tests:** the prefix, home, and lifecycle names for names with spaces, dashes, digits, and non-ASCII letters, as the current tests of both crates check them; identifiers accepted and refused.
+- **`yard_product`, unit tests:** the prefix, home, and lifecycle names for names with spaces, dashes, digits, and non-ASCII letters, as the current tests of both crates check them; identifiers accepted and refused.
 - **Build script:** a config without `identifier`, with an invalid one, without `icon`, or with an icon that is missing or not a square PNG of at least 512 pixels fails with the file and the key (run as a test of the build function, not of Cargo).
 - **Logs:** `run-start` and the first diagnostic line hold the identifier; the `product` group with `checked`.
-- **`AGENTS.md` and the stages test:** `riso_product` has a `dev` feature and stages like every crate.
+- **`AGENTS.md` and the stages test:** `yard_product` has a `dev` feature and stages like every crate.
 
 ## Test extension
 
-None: the lead agent runs `RISO_HOME=/tmp/riso-product cargo run dev` and reads the first line of the trace and of `riso.log`.
+None: the lead agent runs `YARD_HOME=/tmp/yard-product cargo run dev` and reads the first line of the trace and of `yard.log`.
 
 ## Under review
 
-- `riso_product/product`, and `riso_log/diagnostic_log` (with `riso_log/lifecycle_trace` if it changes), `riso/startup` in their dev versions; `riso_paths/directories` as said above
+- `yard_product/product`, and `yard_log/diagnostic_log` (with `yard_log/lifecycle_trace` if it changes), `yard/startup` in their dev versions; `yard_paths/directories` as said above
 
 ## Not in this feature
 

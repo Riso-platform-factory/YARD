@@ -979,9 +979,9 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_shell",
- "riso_ui",
  "tracing",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -3053,9 +3053,9 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_shell",
- "riso_ui",
  "tracing",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -3093,10 +3093,10 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_layout",
- "riso_shell",
- "riso_ui",
  "tracing",
+ "yard_layout",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -3105,9 +3105,9 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_shell",
- "riso_ui",
  "tracing",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -3116,12 +3116,12 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_layout",
- "riso_shell",
- "riso_ui",
  "serde",
  "serde_json",
  "tracing",
+ "yard_layout",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -5009,162 +5009,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "riso"
-version = "0.1.0"
-dependencies = [
- "command_palette",
- "gpui",
- "gpui_platform",
- "reqwest_client",
- "riso_keymap",
- "riso_layout",
- "riso_log",
- "riso_paths",
- "riso_product",
- "riso_settings",
- "riso_shell",
- "riso_ui",
- "riso_update",
- "semver",
- "serde_json",
- "tempfile",
- "toml 0.9.12+spec-1.1.0",
- "tracing",
-]
-
-[[package]]
-name = "riso_keymap"
-version = "0.1.0"
-dependencies = [
- "gpui",
- "log",
- "riso_paths",
- "schemars",
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
-name = "riso_layout"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
-name = "riso_log"
-version = "0.1.0"
-dependencies = [
- "gpui",
- "libc",
- "log",
- "riso_product",
- "serde",
- "serde_json",
- "tempfile",
- "tracing",
- "tracing-log",
- "tracing-subscriber",
- "zlog",
-]
-
-[[package]]
-name = "riso_paths"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "log",
- "riso_product",
- "tempfile",
- "tracing",
-]
-
-[[package]]
-name = "riso_product"
-version = "0.1.0"
-dependencies = [
- "tracing",
-]
-
-[[package]]
-name = "riso_settings"
-version = "0.1.0"
-dependencies = [
- "gpui",
- "log",
- "riso_paths",
- "serde",
- "serde_json",
- "tracing",
-]
-
-[[package]]
-name = "riso_shell"
-version = "0.1.0"
-dependencies = [
- "gpui",
- "log",
- "riso_layout",
- "riso_paths",
- "riso_settings",
- "riso_state",
- "riso_ui",
- "serde",
- "serde_json",
- "tempfile",
- "tracing",
-]
-
-[[package]]
-name = "riso_state"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "riso_ui"
-version = "0.1.0"
-dependencies = [
- "gpui",
- "gpui_apple",
- "log",
- "riso_settings",
- "serde",
- "serde_json",
- "theme",
- "tracing",
- "ui",
- "unicode-segmentation",
-]
-
-[[package]]
-name = "riso_update"
-version = "0.1.0"
-dependencies = [
- "futures",
- "gpui",
- "http_client",
- "libc",
- "log",
- "riso_product",
- "riso_shell",
- "riso_ui",
- "semver",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tracing",
-]
-
-[[package]]
 name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5598,12 +5442,12 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_settings",
- "riso_shell",
- "riso_ui",
  "serde",
  "serde_json",
  "tracing",
+ "yard_settings",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -6134,9 +5978,9 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_shell",
- "riso_ui",
  "tracing",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -6603,9 +6447,9 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_shell",
- "riso_ui",
  "tracing",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -7334,9 +7178,9 @@ version = "0.1.0"
 dependencies = [
  "gpui",
  "log",
- "riso_shell",
- "riso_ui",
  "tracing",
+ "yard_shell",
+ "yard_ui",
 ]
 
 [[package]]
@@ -7939,6 +7783,162 @@ name = "y4m"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
+
+[[package]]
+name = "yard"
+version = "0.1.0"
+dependencies = [
+ "command_palette",
+ "gpui",
+ "gpui_platform",
+ "reqwest_client",
+ "semver",
+ "serde_json",
+ "tempfile",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "yard_keymap",
+ "yard_layout",
+ "yard_log",
+ "yard_paths",
+ "yard_product",
+ "yard_settings",
+ "yard_shell",
+ "yard_ui",
+ "yard_update",
+]
+
+[[package]]
+name = "yard_keymap"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tracing",
+ "yard_paths",
+]
+
+[[package]]
+name = "yard_layout"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "yard_log"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "libc",
+ "log",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "tracing-log",
+ "tracing-subscriber",
+ "yard_product",
+ "zlog",
+]
+
+[[package]]
+name = "yard_paths"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "log",
+ "tempfile",
+ "tracing",
+ "yard_product",
+]
+
+[[package]]
+name = "yard_product"
+version = "0.1.0"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
+name = "yard_settings"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "serde",
+ "serde_json",
+ "tracing",
+ "yard_paths",
+]
+
+[[package]]
+name = "yard_shell"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "yard_layout",
+ "yard_paths",
+ "yard_settings",
+ "yard_state",
+ "yard_ui",
+]
+
+[[package]]
+name = "yard_state"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "yard_ui"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "gpui_apple",
+ "log",
+ "serde",
+ "serde_json",
+ "theme",
+ "tracing",
+ "ui",
+ "unicode-segmentation",
+ "yard_settings",
+]
+
+[[package]]
+name = "yard_update"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "gpui",
+ "http_client",
+ "libc",
+ "log",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tracing",
+ "yard_product",
+ "yard_shell",
+ "yard_ui",
+]
 
 [[package]]
 name = "yazi"

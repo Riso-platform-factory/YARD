@@ -42,7 +42,7 @@ impl tracing::Subscriber for RenderedSizes {
 // Alone in this test binary so every card render uses this subscriber.
 #[gpui::test]
 fn the_card_renders_each_measured_size_and_settles(cx: &mut gpui::TestAppContext) {
-    cx.update(riso_ui::init);
+    cx.update(yard_ui::init);
     let trace = RenderedSizes::default();
     let notifications = Rc::new(Cell::new(0));
     tracing::subscriber::with_default(trace.clone(), || {
@@ -134,7 +134,7 @@ fn the_card_renders_each_measured_size_and_settles(cx: &mut gpui::TestAppContext
 fn visibility_controls_keep_the_count(cx: &mut gpui::TestAppContext) {
     for tabs in [false, true] {
         let mut app = cx.new_app();
-        app.update(riso_ui::init);
+        app.update(yard_ui::init);
         let card = Rc::new(std::cell::RefCell::new(None));
         let window = app.update(|cx| {
             let ext = shell::Extension::new(cx, "layout_tour").unwrap();
@@ -166,10 +166,10 @@ fn visibility_controls_keep_the_count(cx: &mut gpui::TestAppContext) {
                 })
                 .into()
             });
-            ext.place_root(cx, "root", "riso.row");
+            ext.place_root(cx, "root", "yard.row");
             ext.place(cx, "controls", "layout_tour.controls", "root", "children");
             let parent = if tabs {
-                ext.place(cx, "right", "riso.tabs", "root", "children");
+                ext.place(cx, "right", "yard.tabs", "root", "children");
                 "right"
             } else {
                 "root"
@@ -225,7 +225,7 @@ fn visibility_controls_keep_the_count(cx: &mut gpui::TestAppContext) {
 
 fn operations_controls_apply_and_refuse_through_clicks(cx: &mut gpui::TestAppContext) {
     let mut app = cx.new_app();
-    app.update(riso_ui::init);
+    app.update(yard_ui::init);
     let cards = Rc::new(std::cell::RefCell::new(BTreeMap::new()));
     let card_windows = Rc::new(std::cell::RefCell::new(BTreeMap::new()));
     let window = app.update(|cx| {
@@ -262,10 +262,10 @@ fn operations_controls_apply_and_refuse_through_clicks(cx: &mut gpui::TestAppCon
             })
             .into()
         });
-        ext.place_root(cx, "root", "riso.row");
+        ext.place_root(cx, "root", "yard.row");
         ext.place(cx, "controls", "layout_tour.controls", "root", "children");
         ext.place(cx, "a", "layout_tour.card", "root", "children");
-        ext.place(cx, "right", "riso.column", "root", "children");
+        ext.place(cx, "right", "yard.column", "root", "children");
         ext.place(cx, "b", "layout_tour.card", "right", "children");
         ext.place(cx, "c", "layout_tour.card", "right", "children");
         cx.open_window(gpui::WindowOptions::default(), shell::new_shell)

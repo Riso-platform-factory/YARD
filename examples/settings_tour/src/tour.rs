@@ -1,5 +1,5 @@
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
-use riso_settings::{Settings, get};
+use yard_settings::{Settings, get};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
@@ -23,7 +23,7 @@ impl Settings for TourSettings {
     const KEY: &'static str = "settings_tour";
 }
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &yard_shell::Extension) {
     let case = std::env::var("SETTINGS_TOUR").unwrap_or_default();
     if case.is_empty() {
         return;
@@ -38,7 +38,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
             ext.register(cx, "settings_tour.card", &[], move |_, _, _, cx| {
                 cx.new(|cx| {
                     let card = cx.weak_entity();
-                    let subscription = riso_settings::observe::<TourSettings>(cx, move |cx| {
+                    let subscription = yard_settings::observe::<TourSettings>(cx, move |cx| {
                         let _ = card.update(cx, |_, cx| cx.notify());
                     });
                     Card {
@@ -59,7 +59,7 @@ pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
     }
 }
 
-pub fn guest_init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn guest_init(cx: &mut App, ext: &yard_shell::Extension) {
     let case = std::env::var("SETTINGS_TOUR").unwrap_or_default();
     if case != "guest" {
         return;
@@ -77,15 +77,15 @@ impl Render for Card {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering card");
         let settings = get::<TourSettings>(cx);
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         let card = div()
             .size_full()
             .flex()
             .flex_col()
             .p_2()
             .gap_1()
-            .font(riso_ui::ui_font(cx))
-            .text_size(riso_ui::ui_font_size(cx))
+            .font(yard_ui::ui_font(cx))
+            .text_size(yard_ui::ui_font_size(cx))
             .text_color(palette.text)
             .bg(palette.background)
             .border_1()
@@ -97,13 +97,13 @@ impl Render for Card {
         if self.write {
             let size = settings.size;
             card.child(
-                riso_ui::Button::new("size-plus-one", "size +1").on_click(move |_, cx| {
-                    riso_settings::write::<TourSettings>(cx, "size", serde_json::json!(size + 1));
+                yard_ui::Button::new("size-plus-one", "size +1").on_click(move |_, cx| {
+                    yard_settings::write::<TourSettings>(cx, "size", serde_json::json!(size + 1));
                 }),
             )
             .child(
-                riso_ui::Button::new("wrong-type", "wrong type").on_click(|_, cx| {
-                    riso_settings::write::<TourSettings>(cx, "size", serde_json::json!("big"));
+                yard_ui::Button::new("wrong-type", "wrong type").on_click(|_, cx| {
+                    yard_settings::write::<TourSettings>(cx, "size", serde_json::json!("big"));
                 }),
             )
         } else {

@@ -10,12 +10,12 @@ path = "src/command_palette.rs"
 
 [features]
 default = ["dev"]
-dev = ["riso_shell/dev", "riso_ui/dev"]
+dev = ["yard_shell/dev", "yard_ui/dev"]
 
 [dependencies]
 gpui.workspace = true
-riso_shell = { workspace = true, default-features = false }
-riso_ui = { workspace = true, default-features = false }
+yard_shell = { workspace = true, default-features = false }
+yard_ui = { workspace = true, default-features = false }
 tracing.workspace = true
 
 [dev-dependencies]

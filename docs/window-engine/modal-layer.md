@@ -24,25 +24,25 @@ As Zed's `crates/workspace/src/modal_layer.rs`:
 ## What code can do
 
 ```rust
-// riso_ui
+// yard_ui
 pub trait ModalView: gpui::ManagedView {      // Render + Focusable + EventEmitter<DismissEvent>
     fn dims_background(&self) -> bool { false }
 }
 pub struct ModalLayer;                         // a GPUI view, held by the shell
 
-// riso_shell
+// yard_shell
 impl Extension {
-    pub fn toggle_modal<V: riso_ui::ModalView>(
+    pub fn toggle_modal<V: yard_ui::ModalView>(
         &self, window: &mut Window, cx: &mut App,
         build: impl FnOnce(&mut Window, &mut Context<V>) -> V,
     );
     pub fn hide_modal(&self, window: &mut Window, cx: &mut App);
 }
 pub fn has_modal(window: &Window, cx: &App) -> bool;
-// the action riso::Dismiss, bound to escape in the key context ModalLayer
+// the action yard::Dismiss, bound to escape in the key context ModalLayer
 ```
 
-`ModalLayer` keeps every type of Zed inside `riso_ui`; its API uses GPUI's types only. Each window's shell holds its own layer.
+`ModalLayer` keeps every type of Zed inside `yard_ui`; its API uses GPUI's types only. Each window's shell holds its own layer.
 
 ## Logging
 
@@ -53,14 +53,14 @@ pub fn has_modal(window: &Window, cx: &App) -> bool;
 | A toggle closes the open modal of the same type | `modal-hide` with `reason=toggle`, and no `modal-show` |
 | `hide_modal` or escape with no modal open | Nothing |
 | The layer draws a modal | One `trace` line per draw: the modal's name and whether the background is dimmed. Nothing while no modal is open |
-| The default keys are bound | `keys-bind` counts one more key, `escape` for `riso::Dismiss`, logged as its other keys are, with the action's full name |
+| The default keys are bound | `keys-bind` counts one more key, `escape` for `yard::Dismiss`, logged as its other keys are, with the action's full name |
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
-| `riso_ui/modal_layer` (new, dev) | `ModalView` and `ModalLayer`, adapted from Zed, with Zed's notice: the state, the focus, the closing, and the drawing |
-| `riso_shell/shell` | Dev version beside production. Each shell holds a `ModalLayer` and draws it above the frame; the action `Dismiss` and its default key; `toggle_modal`, `hide_modal`, `has_modal` |
+| `yard_ui/modal_layer` (new, dev) | `ModalView` and `ModalLayer`, adapted from Zed, with Zed's notice: the state, the focus, the closing, and the drawing |
+| `yard_shell/shell` | Dev version beside production. Each shell holds a `ModalLayer` and draws it above the frame; the action `Dismiss` and its default key; `toggle_modal`, `hide_modal`, `has_modal` |
 
 The startup does not change.
 
@@ -82,7 +82,7 @@ The startup does not change.
 
 ## Test extension: `examples/window_tour`
 
-A new case, `WINDOW_TOUR=modal-layer`. It places a card as the root with two buttons, `open modal` and `open dimmed modal`. Each opens a modal drawn with the UI kit's `Modal`: the headline `window_tour`, a line of text, a close button, and a footer button `Done` that also closes it. Its close button and `Done` each log `modal closed` from the extension; escape and a click outside are the layer's, and log only the layer's lines. Use a fresh home: `RISO_HOME=/tmp/riso-window`.
+A new case, `WINDOW_TOUR=modal-layer`. It places a card as the root with two buttons, `open modal` and `open dimmed modal`. Each opens a modal drawn with the UI kit's `Modal`: the headline `window_tour`, a line of text, a close button, and a footer button `Done` that also closes it. Its close button and `Done` each log `modal closed` from the extension; escape and a click outside are the layer's, and log only the layer's lines. Use a fresh home: `YARD_HOME=/tmp/yard-window`.
 
 | Command and action | What to look for |
 |---|---|
@@ -95,8 +95,8 @@ A new case, `WINDOW_TOUR=modal-layer`. It places a card as the root with two but
 
 ## Under review
 
-- `riso_ui/modal_layer`, new
-- `riso_shell/shell`, in its dev version
+- `yard_ui/modal_layer`, new
+- `yard_shell/shell`, in its dev version
 
 ## Not in this feature
 

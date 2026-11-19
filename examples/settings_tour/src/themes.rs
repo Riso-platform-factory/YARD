@@ -1,8 +1,8 @@
 use gpui::{App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, div};
-use riso_ui::{Label, LabelSize, List, ListHeader, ListItem, TextColor};
-use riso_ui::{ThemeAppearance, choose_theme, theme_list};
+use yard_ui::{Label, LabelSize, List, ListHeader, ListItem, TextColor};
+use yard_ui::{ThemeAppearance, choose_theme, theme_list};
 
-pub fn init(cx: &mut App, ext: &riso_shell::Extension) {
+pub fn init(cx: &mut App, ext: &yard_shell::Extension) {
     let case = std::env::var("SETTINGS_TOUR").unwrap_or_default();
     if case != "themes" {
         crate::tour::init(cx, ext);
@@ -20,7 +20,7 @@ struct Themes;
 impl Render for Themes {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering themes card");
-        let active = riso_ui::active_theme(cx);
+        let active = yard_ui::active_theme(cx);
         let list =
             List::new()
                 .header(ListHeader::new("Themes"))
@@ -40,15 +40,15 @@ impl Render for Themes {
                         )
                         .on_click(move |_, cx| choose_theme(cx, &name))
                 }));
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         div()
             .size_full()
             .flex()
             .flex_col()
             .p_2()
             .gap_1()
-            .font(riso_ui::ui_font(cx))
-            .text_size(riso_ui::ui_font_size(cx))
+            .font(yard_ui::ui_font(cx))
+            .text_size(yard_ui::ui_font_size(cx))
             .text_color(palette.text)
             .bg(palette.background)
             .border_1()

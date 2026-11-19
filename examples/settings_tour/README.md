@@ -1,6 +1,6 @@
 # settings_tour
 
-A test extension for the settings engine, `riso_settings`. When `app/riso/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/riso/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings or theme feature is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
+A test extension for the settings engine, `yard_settings`. When `app/yard/src/dev/review.rs` lists it as `("settings_tour", settings_tour::init)` among the extensions it passes to the startup, and `app/yard/Cargo.toml` depends on it as an optional dependency turned on by `dev`, `cargo run dev` loads it into the running app. Every feature it covers is in production, so it is not loaded now; add both back to check the settings engine again, or when the next settings or theme feature is under review. Its second extension, `settings_guest`, is listed as `("settings_guest", settings_tour::guest_init)`.
 
 Without a case it does nothing, so a plain `cargo run dev` shows only what the app really does. With a case, it declares a section of its own through its handle and places one card that shows the section's values, read from the engine while the card draws.
 
@@ -12,7 +12,7 @@ Its section:
 | | `size` | `14` |
 | | `enabled` | `true` |
 
-Use a fresh home, so that the user's real files are never touched: `RISO_HOME=/tmp/riso-settings`.
+Use a fresh home, so that the user's real files are never touched: `YARD_HOME=/tmp/yard-settings`.
 
 ## Feature 1: sections
 
@@ -35,7 +35,7 @@ The tour writes no file: write `config/settings.json` under the fresh home yours
 | `not json` | The defaults. A `WARN` `the settings file cannot be read: …` inside `settings-load`. |
 | `{"other": 1, "settings_tour": {"enabled": false}}` | `enabled: false`, and nothing about `other`. |
 
-For example: `mkdir -p /tmp/riso-settings/config && echo '{"settings_tour": {"greeting": "hi", "size": 20}}' > /tmp/riso-settings/config/settings.json`.
+For example: `mkdir -p /tmp/yard-settings/config && echo '{"settings_tour": {"greeting": "hi", "size": 20}}' > /tmp/yard-settings/config/settings.json`.
 
 ## Feature 3: live-reload
 
@@ -53,7 +53,7 @@ The trace gets no line for the checks themselves; they are at `trace`.
 
 ## Removing it
 
-Remove it from the list of extensions in `app/riso/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/riso/Cargo.toml`, and the app runs as it should without it.
+Remove it from the list of extensions in `app/yard/src/dev/review.rs` and from the dependencies and the `dev` feature in `app/yard/Cargo.toml`, and the app runs as it should without it.
 
 ## Feature 4: extension-sections
 
@@ -82,7 +82,7 @@ The tour carries Zed's Ayu theme file in `fixtures/ayu.json`, with its license a
 
 | Command and action | What to look for |
 |---|---|
-| Copy `fixtures/ayu.json` to `$RISO_HOME/config/themes/`, write `{"theme": {"mode": "dark", "dark": "Ayu Dark"}}`, `SETTINGS_TOUR=card cargo run dev` | The window in Ayu Dark from the first frame. `themes-load` with `theme file loaded {file=ayu.json, themes=3}`, `user themes loaded {count=3}`. |
+| Copy `fixtures/ayu.json` to `$YARD_HOME/config/themes/`, write `{"theme": {"mode": "dark", "dark": "Ayu Dark"}}`, `SETTINGS_TOUR=card cargo run dev` | The window in Ayu Dark from the first frame. `themes-load` with `theme file loaded {file=ayu.json, themes=3}`, `user themes loaded {count=3}`. |
 | Change the setting to `{"theme": {"mode": "light", "light": "Ayu Light"}}` while it runs | The window switches. |
 | Put a broken copy beside it, `broken.json`, and start again | The `WARN` names `broken.json`; Ayu still loads. |
 | Remove the folder and start | `no themes folder`; One Dark, with the `WARN` that the named theme is not registered. |

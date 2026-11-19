@@ -44,10 +44,10 @@ The reference is how Zed's `dock.rs` toggles a panel: the panel's view stays ali
 
 | Part | What changes |
 |---|---|
-| `riso_layout/tree` | Dev version beside production: the hidden flag, `set_hidden`, and whether a node is shown |
-| `riso_shell/shell` | Dev version: `Extension::set_hidden`; slots give only shown views; shares and tab selection kept by node ID |
-| `riso_ui/axis` | Dev version: shares given per child by the caller. The axis no longer resets them when the number of children changes. |
-| `riso/startup` | Dev copy that uses the dev shell |
+| `yard_layout/tree` | Dev version beside production: the hidden flag, `set_hidden`, and whether a node is shown |
+| `yard_shell/shell` | Dev version: `Extension::set_hidden`; slots give only shown views; shares and tab selection kept by node ID |
+| `yard_ui/axis` | Dev version: shares given per child by the caller. The axis no longer resets them when the number of children changes. |
+| `yard/startup` | Dev copy that uses the dev shell |
 
 ## Test extension: `examples/layout_tour`
 
@@ -65,8 +65,8 @@ The reference is how Zed's `dock.rs` toggles a panel: the panel's view stays ali
 
 ## Under review
 
-- `riso_layout/tree`, `riso_shell/shell`, and `riso_ui/axis`, in their dev versions
-- `riso/startup`, as a dev copy
+- `yard_layout/tree`, `yard_shell/shell`, and `yard_ui/axis`, in their dev versions
+- `yard/startup`, as a dev copy
 
 ## Not in this feature
 

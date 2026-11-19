@@ -1,5 +1,5 @@
 use gpui::{AppContext, TestAppContext, WindowHandle, px};
-use riso_shell as shell;
+use yard_shell as shell;
 
 pub fn child(test: &str) -> bool {
     if std::env::var("LAYOUT_INSPECTOR_TEST_CHILD").as_deref() == Ok("1") {
@@ -22,13 +22,13 @@ pub fn child(test: &str) -> bool {
 
 pub fn setup(app: &mut TestAppContext) -> (shell::Extension, WindowHandle<shell::Shell>) {
     let host = app.update(|cx| {
-        riso_ui::init(cx);
+        yard_ui::init(cx);
         let host = shell::Extension::new(cx, "tour").unwrap();
         host.register(cx, "tour.card", &[], |_, _, _, cx| {
             cx.new(|_| gpui::Empty).into()
         });
-        host.place_root_with_props(cx, "tour_frame", "riso.row", serde_props());
-        host.place(cx, "root", "riso.column", "tour_frame", "children");
+        host.place_root_with_props(cx, "tour_frame", "yard.row", serde_props());
+        host.place(cx, "root", "yard.column", "tour_frame", "children");
         host.place(cx, "a", "tour.card", "root", "children");
         host.place(cx, "b", "tour.card", "root", "children");
         let inspector = shell::Extension::new(cx, "layout_inspector").unwrap();

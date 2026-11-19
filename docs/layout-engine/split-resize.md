@@ -22,7 +22,7 @@ Everything here follows the handles and resize rules of Zed's `pane_group.rs`.
 
 ## Logging
 
-Dragging is high-frequency work. All lines are written by `riso_ui`, and each carries the split's ID, which is its node ID.
+Dragging is high-frequency work. All lines are written by `yard_ui`, and each carries the split's ID, which is its node ID.
 
 | When | Level | Line |
 |---|---|---|
@@ -37,9 +37,9 @@ A drag is not a group. It spans many separate events, and a group must surround 
 
 | Part | What changes |
 |---|---|
-| `riso_ui/axis` | Takes an ID and the shares, which its caller keeps. Draws the handles, and handles dragging, the minimum sizes, and the reset. Adapted from `pane_group.rs`: `compute_resize`, the handle hitboxes, and the mouse events. |
-| `riso_shell/shell` | A split keeps its shares and gives its node ID to the axis. |
-| `riso/startup` | A dev copy that uses the dev shell, as before. |
+| `yard_ui/axis` | Takes an ID and the shares, which its caller keeps. Draws the handles, and handles dragging, the minimum sizes, and the reset. Adapted from `pane_group.rs`: `compute_resize`, the handle hitboxes, and the mouse events. |
+| `yard_shell/shell` | A split keeps its shares and gives its node ID to the axis. |
+| `yard/startup` | A dev copy that uses the dev shell, as before. |
 
 All three parts are in production. They change through dev versions beside the production ones, as in features 3 and 4. `cargo run` stays as approved until promotion.
 
@@ -57,11 +57,11 @@ It is loaded again. The cases of feature 4 are the playground: the shares are ch
 | `LAYOUT_TOUR=column cargo run dev`, drag a line down | The same in height, with a row-resize cursor and a 100px minimum. |
 | `LAYOUT_TOUR=nested-split cargo run dev`, drag the row's line, then the column's | Each split changes only its own children. |
 
-In the trace, with `riso_ui` under review at `debug`: `resize started`, then `resize ended` with the shares, and `shares reset` on a double click.
+In the trace, with `yard_ui` under review at `debug`: `resize started`, then `resize ended` with the shares, and `shares reset` on a double click.
 
 ## Under review
 
-`riso_ui/axis`, `riso_shell/shell`, `riso/startup`, all in their dev versions.
+`yard_ui/axis`, `yard_shell/shell`, `yard/startup`, all in their dev versions.
 
 ## Not in this feature
 

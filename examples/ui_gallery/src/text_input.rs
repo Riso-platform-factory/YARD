@@ -2,9 +2,9 @@ use gpui::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription,
     Window, div, rems,
 };
-use riso_ui::{Divider, Label, TextColor, TextInput, TextInputEvent, h_flex, v_flex};
+use yard_ui::{Divider, Label, TextColor, TextInput, TextInputEvent, h_flex, v_flex};
 
-pub(super) fn register(cx: &mut App, ext: &riso_shell::Extension) {
+pub(super) fn register(cx: &mut App, ext: &yard_shell::Extension) {
     ext.register(cx, "ui_gallery.text_input", &[], |_, _, window, cx| {
         cx.new(|cx| TextInputPage::new(window, cx)).into()
     });
@@ -55,7 +55,7 @@ impl Render for TextInputPage {
             .size_full()
             .p(rems(1.))
             .gap(rems(0.75))
-            .bg(riso_ui::palette(cx).background)
+            .bg(yard_ui::palette(cx).background)
             .children(self.inputs.iter().enumerate().map(|(index, input)| {
                 v_flex()
                     .w_full()

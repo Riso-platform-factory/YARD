@@ -2,8 +2,8 @@ use gpui::{
     App, AppContext, Context, InteractiveElement, IntoElement, ParentElement, Render, ScrollHandle,
     SharedString, Styled, Subscription, Window, div, px,
 };
-use riso_shell as shell;
-use riso_ui::{Label, LabelSize, List, ListHeader, ListItem, ScrollArea, TextColor};
+use yard_shell as shell;
+use yard_ui::{Label, LabelSize, List, ListHeader, ListItem, ScrollArea, TextColor};
 
 /// Contributes the inspector after the layout tour has placed its frame.
 pub fn init(cx: &mut App, ext: &shell::Extension) {
@@ -105,7 +105,7 @@ impl Render for Panel {
                         ListItem::new(node.id.clone())
                             .disabled(node.hidden)
                             .start_slot(
-                                riso_ui::h_flex()
+                                yard_ui::h_flex()
                                     .gap_1()
                                     .min_w_0()
                                     .flex_1()

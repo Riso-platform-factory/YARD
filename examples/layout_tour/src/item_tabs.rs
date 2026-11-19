@@ -55,7 +55,7 @@ pub(super) fn init(cx: &mut App, ext: &shell::Extension) {
         cx.new(|_| NamesView { slots }).into()
     });
     place_root(ext, cx, "root", "layout_tour.names");
-    ext.place(cx, "names_tabs", "riso.tabs", "root", "children");
+    ext.place(cx, "names_tabs", "yard.tabs", "root", "children");
     ext.item_tabs::<Names>(cx, "names_tabs");
     ext.place(cx, "name", "layout_tour.card", "names_tabs", "children");
 }
@@ -67,11 +67,11 @@ struct NamesView {
 impl Render for NamesView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!("rendering names");
-        riso_ui::v_flex()
+        yard_ui::v_flex()
             .size_full()
             .gap_2()
             .p_2()
-            .child(riso_ui::Label::new(format!(
+            .child(yard_ui::Label::new(format!(
                 "user layer: {}",
                 shell::user_layer_len(cx)
             )))

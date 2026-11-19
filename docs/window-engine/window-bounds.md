@@ -11,7 +11,7 @@ As Zed's workspace (`crates/workspace/src/workspace.rs`: `observe_window_bounds`
 - **What is saved.** The window's bounds as GPUI gives them (`Window::inner_window_bounds`): windowed or full screen, each with the bounds it has when windowed, and the UUID of the screen the window is on. On macOS GPUI reports a zoomed (maximized) window as windowed with its zoomed bounds, as Zed saves it; the file can still say `maximized`, and such a file opens the window maximized. Nothing is saved for a window whose screen has no UUID.
 - **When.** When the window's bounds change while the window is active, a save is queued and writes 100 ms later, as Zed's `bounds_save_task_queued`; a change while a save waits joins it. So a drag or a resize writes at most once every 100 ms, never on every frame, and its last state is always written. A change while the window is not active is not saved. When the window closes or the application quits with a save waiting, the save is written before the window or the application goes.
 - **Off the main thread.** The file is written on the background executor, as Zed writes it, inside the save's group.
-- **Where.** In `window.json` in the data directory, named by `riso_paths` (`Paths::window_file`), written with foundation 6's atomic write. The format is JSON: a `version` (1), the screen's `display` UUID, and the `bounds`: a `state` (`windowed`, `maximized`, or `fullscreen`) with `x`, `y`, `width`, and `height` in points.
+- **Where.** In `window.json` in the data directory, named by `yard_paths` (`Paths::window_file`), written with foundation 6's atomic write. The format is JSON: a `version` (1), the screen's `display` UUID, and the `bounds`: a `state` (`windowed`, `maximized`, or `fullscreen`) with `x`, `y`, `width`, and `height` in points.
 - **At the start.** The startup reads the file before it opens the window:
   - no file: the window opens at the default place and size, as today;
   - a file that cannot be read, is not valid JSON, or has another `version`: the default, with a `WARN`, and the file is left until the next save replaces it;
@@ -22,12 +22,12 @@ As Zed's workspace (`crates/workspace/src/workspace.rs`: `observe_window_bounds`
 ## What code can do
 
 ```rust
-// riso_paths (dev part `window_file`)
+// yard_paths (dev part `window_file`)
 impl Paths {
     pub fn window_file(&self) -> PathBuf;
 }
 
-// riso_shell (dev part `window_bounds`)
+// yard_shell (dev part `window_bounds`)
 /// The saved bounds and screen for the next window, or `None` for the default.
 pub fn saved_window_bounds(cx: &App, file: &Path) -> Option<(gpui::WindowBounds, gpui::DisplayId)>;
 /// Saves `window`'s bounds to `file` when they change, as described above.
@@ -48,9 +48,9 @@ The startup passes them into `WindowOptions` (`window_bounds`, `display_id`) and
 
 | Part | What changes |
 |---|---|
-| `riso_paths/window_file` (new, dev) | `Paths::window_file`: `window.json` in the data directory |
-| `riso_shell/window_bounds` (new, dev) | `saved_window_bounds`, `track_window_bounds`, the file format, the 100 ms wait |
-| `riso/startup` | Dev copy that reads the saved bounds before opening the window and tracks them after. While `window-bounds` is under review, `cargo run dev` uses it, with `review` and the command palette, as the production startup loads them |
+| `yard_paths/window_file` (new, dev) | `Paths::window_file`: `window.json` in the data directory |
+| `yard_shell/window_bounds` (new, dev) | `saved_window_bounds`, `track_window_bounds`, the file format, the 100 ms wait |
+| `yard/startup` | Dev copy that reads the saved bounds before opening the window and tracks them after. While `window-bounds` is under review, `cargo run dev` uses it, with `review` and the command palette, as the production startup loads them |
 
 ## Tests
 
@@ -68,14 +68,14 @@ None: any `cargo run dev` shows it.
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-bounds cargo run dev`, move and resize the window, wait, quit | A few `window-bounds-save{state=windowed}` per move or resize (at most one per 100 ms), not one per frame; `window.json` holds the last bounds. |
+| `YARD_HOME=/tmp/yard-bounds cargo run dev`, move and resize the window, wait, quit | A few `window-bounds-save{state=windowed}` per move or resize (at most one per 100 ms), not one per frame; `window.json` holds the last bounds. |
 | Start again | The window is where it was, with its size; `restored {state=windowed, display=…}`. |
 | Click the window's green button (full screen), quit, start | The window opens full screen; leaving full screen gives back the earlier size. |
 | Change `display` in `window.json` to another UUID, start | The window opens at the default place; the `INFO`. |
 
 ## Under review
 
-- `riso_paths/window_file`, `riso_shell/window_bounds`, and `riso/startup` in its dev version
+- `yard_paths/window_file`, `yard_shell/window_bounds`, and `yard/startup` in its dev version
 
 ## Not in this feature
 

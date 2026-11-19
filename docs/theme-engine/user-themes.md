@@ -8,24 +8,24 @@ Theme files in Zed's format, put by the user in the folder `themes` of the confi
 
 As Zed's `theme_settings::load_user_theme` and its folder of user themes:
 
-- **The folder.** `riso_paths` names it: `config/themes`, beside `settings.json`. It may not exist; then nothing is loaded and nothing is wrong.
+- **The folder.** `yard_paths` names it: `config/themes`, beside `settings.json`. It may not exist; then nothing is loaded and nothing is wrong.
 - **The files.** Every file whose name ends in `.json` in that folder, not in its subfolders, in the order of their names. Each is a theme family in Zed's format, as Zed's extensions ship them: a `name`, an `author`, and `themes`, each theme with a `name`, an `appearance` (`light` or `dark`), and a `style`. A family may hold several themes; each is registered under its own name.
-- **Read as the bundled themes are read,** by `riso_ui`'s reader of Zed's theme files, so the same colors come out as Zed's.
+- **Read as the bundled themes are read,** by `yard_ui`'s reader of Zed's theme files, so the same colors come out as Zed's.
 - **A file that cannot be read** is a `WARN` that names it and says why; the other files still load. A file that is not `.json` is skipped without a word.
 - **The same name twice.** A user theme with the name of a bundled theme, or of a theme from an earlier file, replaces it, as Zed's registry does.
-- **When.** Once, at startup, in `app-init`, before the theme setting is applied, so a user theme named in `settings.json` is active from the first frame. A file added while riso runs is read at the next start: watching the folder is not part of this feature.
+- **When.** Once, at startup, in `app-init`, before the theme setting is applied, so a user theme named in `settings.json` is active from the first frame. A file added while yard runs is read at the next start: watching the folder is not part of this feature.
 - **The setting.** Unchanged: the theme section names a dark and a light theme and a mode, as the earlier features decided: `{"theme": {"mode": "dark", "dark": "Ayu Dark"}}`. A name that is not registered keeps the active theme with a `WARN`, as today.
 
 ## What code can do
 
 ```rust
-// riso_paths
+// yard_paths
 impl Paths {
     /// The folder of the user's theme files.
     pub fn themes_dir(&self) -> PathBuf;
 }
 
-// riso_ui
+// yard_ui
 /// Registers every theme file of `dir`. Returns how many themes were registered.
 pub fn load_user_themes(cx: &mut App, dir: &Path) -> usize;
 ```
@@ -46,10 +46,10 @@ These are the only new public items.
 
 | Part | What changes |
 |---|---|
-| `riso_paths/themes_dir` (new, dev) | `Paths::themes_dir` |
-| `riso_ui/user_themes` (new, dev) | `load_user_themes`, using the reader of `riso_ui/theming` |
-| `riso/startup` | Dev version beside production: `riso_ui::load_user_themes(cx, &paths.themes_dir())` in `app-init`, after `riso_ui::init` and before `riso_ui::apply_theme_setting` |
-| `riso_ui/theming` (production, changed and stamped again) | Its reader of one theme file, `family`, becomes `pub(crate)`, so that `user_themes` reads with it. And the reader no longer stops the application when a theme's `style` lacks `players` or `syntax`, which Zed's format allows: a missing key gives the defaults, as in Zed. Every existing test passes unchanged |
+| `yard_paths/themes_dir` (new, dev) | `Paths::themes_dir` |
+| `yard_ui/user_themes` (new, dev) | `load_user_themes`, using the reader of `yard_ui/theming` |
+| `yard/startup` | Dev version beside production: `yard_ui::load_user_themes(cx, &paths.themes_dir())` in `app-init`, after `yard_ui::init` and before `yard_ui::apply_theme_setting` |
+| `yard_ui/theming` (production, changed and stamped again) | Its reader of one theme file, `family`, becomes `pub(crate)`, so that `user_themes` reads with it. And the reader no longer stops the application when a theme's `style` lacks `players` or `syntax`, which Zed's format allows: a missing key gives the defaults, as in Zed. Every existing test passes unchanged |
 
 `user_themes` parses each file as JSON itself first, so that its `WARN` can say why a file is not valid JSON; a file that is JSON but not a theme family is reported as `not a theme family in Zed's format`.
 
@@ -72,18 +72,18 @@ The theme engine's features are shown through the settings: `examples/settings_t
 
 | Command and action | What to look for |
 |---|---|
-| Copy `examples/settings_tour/fixtures/ayu.json` to `$RISO_HOME/config/themes/`, write `{"theme": {"mode": "dark", "dark": "Ayu Dark"}}`, `SETTINGS_TOUR=card cargo run dev` | The window in Ayu Dark from the first frame. `themes-load` with `theme file loaded {file=ayu.json, themes=3}`, `user themes loaded {count=3}`. |
+| Copy `examples/settings_tour/fixtures/ayu.json` to `$YARD_HOME/config/themes/`, write `{"theme": {"mode": "dark", "dark": "Ayu Dark"}}`, `SETTINGS_TOUR=card cargo run dev` | The window in Ayu Dark from the first frame. `themes-load` with `theme file loaded {file=ayu.json, themes=3}`, `user themes loaded {count=3}`. |
 | Change the setting to `{"theme": {"mode": "light", "light": "Ayu Light"}}` while it runs | The window switches, as the theme setting already does. |
 | Put a broken copy beside it, `broken.json`, and start again | The `WARN` names `broken.json`; Ayu still loads. |
 | Remove the folder and start | `no themes folder`; the window in One Dark, with the `WARN` that `Ayu Light` is not registered. |
 
 ## Under review
 
-- `riso_paths/themes_dir`, new
-- `riso_ui/user_themes`, new
-- `riso/startup`, in its dev version
+- `yard_paths/themes_dir`, new
+- `yard_ui/user_themes`, new
+- `yard/startup`, in its dev version
 
 ## Not in this feature
 
-- Watching the folder, so that a theme file added or changed while riso runs is read at once: with the `keymap-reload` pattern, by need.
+- Watching the folder, so that a theme file added or changed while yard runs is read at once: with the `keymap-reload` pattern, by need.
 - Icon themes, and themes installed by extensions.

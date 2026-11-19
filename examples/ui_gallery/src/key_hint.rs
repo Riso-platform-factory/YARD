@@ -1,15 +1,15 @@
 use gpui::{
     Action, App, AppContext, Context, IntoElement, ParentElement, Render, Styled, Window, rems,
 };
-use riso_ui::{KeyHint, KeyHintStyle, Label, ListItem, ListItemSpacing, h_flex, v_flex};
+use yard_ui::{KeyHint, KeyHintStyle, Label, ListItem, ListItemSpacing, h_flex, v_flex};
 
-pub(crate) fn register(cx: &mut App, ext: &riso_shell::Extension) {
+pub(crate) fn register(cx: &mut App, ext: &yard_shell::Extension) {
     ext.register(cx, "ui_gallery.key_hint", &[], |_, _, _, cx| {
         cx.new(|_| KeyHintPage).into()
     });
 }
 
-pub(crate) fn place(cx: &mut App, ext: &riso_shell::Extension) {
+pub(crate) fn place(cx: &mut App, ext: &yard_shell::Extension) {
     ext.place(cx, "key-hint", "ui_gallery.key_hint", "root", "children");
     tracing::debug!(page = "key-hint", "page placed");
 }
@@ -20,16 +20,16 @@ impl Render for KeyHintPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(page = "key-hint", "rendering page");
         let actions: [&dyn Action; 8] = [
-            &riso_shell::ToggleZoom,
-            &riso_shell::SelectNextTab,
-            &riso_shell::SelectPreviousTab,
-            &riso_shell::FocusLeft,
-            &riso_shell::FocusRight,
-            &riso_shell::FocusUp,
-            &riso_shell::FocusDown,
-            &riso_shell::Quit,
+            &yard_shell::ToggleZoom,
+            &yard_shell::SelectNextTab,
+            &yard_shell::SelectPreviousTab,
+            &yard_shell::FocusLeft,
+            &yard_shell::FocusRight,
+            &yard_shell::FocusUp,
+            &yard_shell::FocusDown,
+            &yard_shell::Quit,
         ];
-        let palette = riso_ui::palette(cx);
+        let palette = yard_ui::palette(cx);
         v_flex()
             .size_full()
             .p(rems(1.))
@@ -92,7 +92,7 @@ impl Render for KeyHintPage {
                                     .child(Label::new("Disabled"))
                                     .child(
                                         h_flex().flex_shrink_0().gap_2().child(
-                                            KeyHint::for_action(&riso_shell::Quit, cx)
+                                            KeyHint::for_action(&yard_shell::Quit, cx)
                                                 .style(KeyHintStyle::Label)
                                                 .disabled(true),
                                         ),

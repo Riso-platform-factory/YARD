@@ -3,9 +3,9 @@
 //! `LOG_TOUR=panic cargo run dev`: main-thread panic fails open groups and the phase, flushes both logs, and writes run-end before abort.
 //! `LOG_TOUR=panic-thread cargo run dev`: background-thread panic fails its group; the app keeps running.
 //! `LOG_TOUR=interrupt cargo run dev`: exit leaves open groups interrupted (⊘) and writes run-end.
-//! `LOG_TOUR=levels RISO_LIFECYCLE=trace cargo run dev`: shows the tour's debug and trace steps; the default only raises crates under review.
-//! `RISO_LIFECYCLE='info,[' cargo run dev`: invalid filter WARN and fallback to info.
-//! Rotation is covered by crates/riso_log/tests/rotation.rs.
+//! `LOG_TOUR=levels YARD_LIFECYCLE=trace cargo run dev`: shows the tour's debug and trace steps; the default only raises crates under review.
+//! `YARD_LIFECYCLE='info,[' cargo run dev`: invalid filter WARN and fallback to info.
+//! Rotation is covered by crates/yard_log/tests/rotation.rs.
 
 use gpui::AppContext;
 use tracing::Instrument;

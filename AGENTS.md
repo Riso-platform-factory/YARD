@@ -1,8 +1,8 @@
 # AGENTS.md
 
-## risoapp
+## YARD
 
-- risoapp is a platform, not an application. It holds strong engines on which other software is built. Applications and their features are built on it, and are not part of it.
+- YARD is a platform, not an application. It holds strong engines on which other software is built. Applications and their features are built on it, and are not part of it.
 - It is written in Rust, with [GPUI](https://gpui.rs/) for the user interface, and follows Zed's design. Read how Zed solves a problem before designing a solution.
 
 ## Workflow
@@ -66,27 +66,27 @@ A prompt has, in this order: the goal; the context, with the files to read and t
 - A part is the unit of review and of promotion: one top-level module of a crate, `src/<name>.rs` and the folder `src/<name>/` with everything in it. Its name is `<crate>/<name>`.
 - Dev parts are in `src/dev/`, declared in `src/dev.rs`. Production parts are in `src/`. New code goes into `src/dev/`.
 - The root file of a crate and `src/dev.rs` hold no code of their own: only module declarations, re-exports, attributes, and `fn main` in a binary. `feature = "dev"` is written only in these files.
-- Every crate has a feature `dev`, on by default. Workspace crates depend on each other with `default-features = false`, and a crate's `dev` turns on `<dep>/dev`. So `cargo check -p riso --no-default-features` builds riso without any dev code, and must succeed.
-- `production.json` holds a fingerprint of every file of every production part. `cargo test -p riso` fails when a part outside `dev/` is not listed, a listed file differs, or a listed part is gone. When a change needs a production part to change, show the user what changes and why, and stamp the part again only when the user approves.
-- To promote a part, after the user approves it: move its module out of `dev/`, then stamp it with `RISO_PROMOTE=<crate>/<part>[,<crate>/<part>…] cargo test -p riso --test stages what_is_outside_dev_is_in_production`.
+- Every crate has a feature `dev`, on by default. Workspace crates depend on each other with `default-features = false`, and a crate's `dev` turns on `<dep>/dev`. So `cargo check -p yard --no-default-features` builds yard without any dev code, and must succeed.
+- `production.json` holds a fingerprint of every file of every production part. `cargo test -p yard` fails when a part outside `dev/` is not listed, a listed file differs, or a listed part is gone. When a change needs a production part to change, show the user what changes and why, and stamp the part again only when the user approves.
+- To promote a part, after the user approves it: move its module out of `dev/`, then stamp it with `YARD_PROMOTE=<crate>/<part>[,<crate>/<part>…] cargo test -p yard --test stages what_is_outside_dev_is_in_production`.
 - Test files have no stage: `tests.rs`, `*_tests.rs`, `testing.rs`, and everything in `tests/`.
 
 ## Running
 
 - `cargo run` runs production code only.
-- `cargo run dev` runs production code and the one part under review, and nothing else. `UNDER_REVIEW` in `app/riso/src/dev/review.rs` names that part, and the same file adds only what it does. With nothing under review, it opens one empty window.
-- A test extension, in `examples/`, exercises the parts under review through the running app, with cases chosen by its own parameters. Only the list of extensions in `review.rs` names it; the app knows nothing else of it, so removing it from that list and from riso's dependencies leaves the app as it should be. A crate in `examples/` has no stage and is never in production.
-- The extensions that come with the platform, such as the command palette, are crates in `extensions/`. They have stages, parts, tests, and logging as the engines in `crates/` do, and `cargo test -p riso` checks them the same way. They reach the platform only through `riso_shell`'s extension handle and the UI kit, and never depend on a GPL crate of Zed. An application's composition root lists the ones it wants.
+- `cargo run dev` runs production code and the one part under review, and nothing else. `UNDER_REVIEW` in `app/yard/src/dev/review.rs` names that part, and the same file adds only what it does. With nothing under review, it opens one empty window.
+- A test extension, in `examples/`, exercises the parts under review through the running app, with cases chosen by its own parameters. Only the list of extensions in `review.rs` names it; the app knows nothing else of it, so removing it from that list and from yard's dependencies leaves the app as it should be. A crate in `examples/` has no stage and is never in production.
+- The extensions that come with the platform, such as the command palette, are crates in `extensions/`. They have stages, parts, tests, and logging as the engines in `crates/` do, and `cargo test -p yard` checks them the same way. They reach the platform only through `yard_shell`'s extension handle and the UI kit, and never depend on a GPL crate of Zed. An application's composition root lists the ones it wants.
 - An integration test in `tests/` of a part that is not in production starts with `#![cfg(feature = "dev")]`. When the part is promoted, its tests lose that line, and `cargo test --workspace --no-default-features` runs the production parts' tests alone and must pass.
 
 ## The product
 
 - An engine never hardcodes what belongs to the application built on it: its name, its version, the names of its files, the names of its environment variables. The application passes them to the engine at runtime, and an engine derives its own names from them (for example `<name>.log` and `<NAME>_LIFECYCLE`).
-- An application reads its product from a build config at build time: `app/riso/product.toml`, or the file named by `PRODUCT_CONFIG=<path>` when it is packaged. `build.rs` gives the values to the code as `PRODUCT_NAME` and `PRODUCT_VERSION`.
+- An application reads its product from a build config at build time: `app/yard/product.toml`, or the file named by `PRODUCT_CONFIG=<path>` when it is packaged. `build.rs` gives the values to the code as `PRODUCT_NAME` and `PRODUCT_VERSION`.
 
 ## Logging
 
-Every crate logs from the start, not as a later addition. No crate and no part is exempt, and an agent never proposes an exemption. There are two logs, both in `riso_log`:
+Every crate logs from the start, not as a later addition. No crate and no part is exempt, and an agent never proposes an exemption. There are two logs, both in `yard_log`:
 
 - **Diagnostic log (`log` macros)**: anything that helps diagnose a problem later, kept on disk in `<name>.log`. Use `log::error!` for bugs and failures, `log::warn!` for problems that were handled.
 - **Lifecycle trace (`tracing`)**: shows developers what the code is doing, to check it against the design. Never stored beyond the current run.
@@ -97,7 +97,7 @@ Rules:
 - Log the steps inside a group with `tracing::debug!`, and high-frequency work (per frame, per keystroke) only with `tracing::trace!`.
 - Log an `ERROR` only for real failures. A handled problem is a `WARN`, and an expected refusal (such as a user action that breaks a rule) is a `tracing::info!`, because every `ERROR` marks its group as failed.
 - Async work that belongs to a group is spawned with `.instrument(span)` so its lines stay in that group.
-- A group surrounds the work it names while that work runs. Never write a group afterwards to describe work that already ran. `riso_log::start` runs first of all, before the logs directory is known, and keeps what is logged until `riso_log::open_files` can write it, so even the earliest work logs as it runs.
+- A group surrounds the work it names while that work runs. Never write a group afterwards to describe work that already ran. `yard_log::start` runs first of all, before the logs directory is known, and keeps what is logged until `yard_log::open_files` can write it, so even the earliest work logs as it runs.
 - Quieter is not silent: high-frequency work still logs at `trace`, and a problem logged once in the diagnostic log still appears in the lifecycle trace every time it happens.
 
 Testing logs:

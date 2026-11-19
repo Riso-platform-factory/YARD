@@ -2,13 +2,13 @@
 
 ## What it adds
 
-A new crate, `riso_settings`. Code declares a section: a key and a Rust type whose `Default` gives every value. Any code that has the `App` then reads the section's value. There is no file yet, so every section has its defaults.
+A new crate, `yard_settings`. Code declares a section: a key and a Rust type whose `Default` gives every value. Any code that has the `App` then reads the section's value. There is no file yet, so every section has its defaults.
 
 ## The crate
 
-- `riso_settings` depends on `gpui`, `serde`, `tracing`, and `log`. It depends on no crate of riso and on no crate of Zed but `gpui`.
-- Its code is riso's own, ported from the earlier project's `crew_settings`, which is the user's code. Nothing is copied from Zed's `settings` crate.
-- Its first part is `riso_settings/sections`, in `src/dev/sections.rs`.
+- `yard_settings` depends on `gpui`, `serde`, `tracing`, and `log`. It depends on no crate of yard and on no crate of Zed but `gpui`.
+- Its code is YARD's own, ported from the earlier project's `crew_settings`, which is the user's code. Nothing is copied from Zed's `settings` crate.
+- Its first part is `yard_settings/sections`, in `src/dev/sections.rs`.
 
 ## What code can do
 
@@ -35,8 +35,8 @@ pub fn get<T: Settings>(cx: &App) -> &T;
 | `register` of a new key | The defaults are published | `settings-register{section}`, `debug`: `registered` |
 | `register` of a key that is already registered, by the same type or another one | Refused. The first section and its value stay | `ERROR` in `settings-register{section}`: `section <key> is already registered` |
 | `get` of a section that is not registered | Panic: `section <type> is read before it is registered`. It is a bug in the caller, found the first time the code runs | — |
-| `register` before `init` | Panic: `riso_settings::init runs before a section is registered` | — |
-| `init` a second time | Panic: `riso_settings::init runs once` | — |
+| `register` before `init` | Panic: `yard_settings::init runs before a section is registered` | — |
+| `init` a second time | Panic: `yard_settings::init runs once` | — |
 
 - `init` runs in a group, `settings-init`, and logs `store created` at `debug`.
 - A refused duplicate is an `ERROR`, not a panic, as a refused component registration is in the shell: the application keeps running with the first section.
@@ -45,19 +45,19 @@ pub fn get<T: Settings>(cx: &App) -> &T;
 
 | Part | What changes |
 |---|---|
-| `riso_settings/sections` (new, dev) | The trait, `init`, `register`, `get`, and their logging |
-| `riso/startup` | Dev copy, `app/riso/src/dev/startup.rs`. It calls `riso_settings::dev::init(cx)` in `app-init`, after `riso_ui::init` and before the extensions run |
+| `yard_settings/sections` (new, dev) | The trait, `init`, `register`, `get`, and their logging |
+| `yard/startup` | Dev copy, `app/yard/src/dev/startup.rs`. It calls `yard_settings::dev::init(cx)` in `app-init`, after `yard_ui::init` and before the extensions run |
 
-`app/riso` depends on `riso_settings` with `default-features = false`, and its `dev` feature turns on `riso_settings/dev`.
+`app/yard` depends on `yard_settings` with `default-features = false`, and its `dev` feature turns on `yard_settings/dev`.
 
 ## Tests
 
-- Unit tests in `crates/riso_settings/src/dev/sections/tests.rs`, with GPUI's test context:
+- Unit tests in `crates/yard_settings/src/dev/sections/tests.rs`, with GPUI's test context:
   - a registered section reads as its `Default`;
   - two sections with different keys are read independently;
   - a second `register` of the same key, by the same type or by another type with the same `KEY`, leaves the first value;
   - `get` before `register`, `register` before `init`, and a second `init` panic with the messages above.
-- A logging test alone in `crates/riso_settings/tests/sections_logging.rs`: `settings-init` and `settings-register{section}` are opened, `registered` is at `debug`, and a duplicate logs the `ERROR` inside its `settings-register` group.
+- A logging test alone in `crates/yard_settings/tests/sections_logging.rs`: `settings-init` and `settings-register{section}` are opened, `registered` is at `debug`, and a duplicate logs the `ERROR` inside its `settings-register` group.
 
 ## Test extension: `examples/settings_tour`
 
@@ -79,8 +79,8 @@ It registers a component, `settings_tour.card`, and places it as the root. The c
 
 ## Under review
 
-- `riso_settings/sections`
-- `riso/startup`, in its dev version
+- `yard_settings/sections`
+- `yard/startup`, in its dev version
 
 ## Not in this feature
 

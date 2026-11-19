@@ -22,7 +22,7 @@ As Zed's `crates/ui/src/components/list/`:
 ## What code can do
 
 ```rust
-// riso_ui
+// yard_ui
 pub enum ListItemSpacing { Dense, ExtraDense, Sparse }
 
 pub struct List;
@@ -57,7 +57,7 @@ impl ListHeader {
 pub struct ListSeparator;
 ```
 
-These are riso's own types; no type of Zed appears in their API. Each is a `RenderOnce` element.
+These are YARD's own types; no type of Zed appears in their API. Each is a `RenderOnce` element.
 
 ## Logging
 
@@ -71,7 +71,7 @@ These are riso's own types; no type of Zed appears in their API. Each is a `Rend
 
 | Part | What changes |
 |---|---|
-| `riso_ui/list` (new, dev) | `List`, `ListItem`, `ListItemSpacing`, `ListHeader`, `ListSeparator`, wrapping Zed's, with Zed's notice |
+| `yard_ui/list` (new, dev) | `List`, `ListItem`, `ListItemSpacing`, `ListHeader`, `ListSeparator`, wrapping Zed's, with Zed's notice |
 
 ## Tests
 
@@ -98,7 +98,7 @@ A new page, `list`, beside the others. It shows, top to bottom: a list with a he
 
 ## Under review
 
-- `riso_ui/list`, new
+- `yard_ui/list`, new
 
 ## Not in this feature
 

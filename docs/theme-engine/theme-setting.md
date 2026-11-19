@@ -6,7 +6,7 @@ The settings choose the theme. The section `theme` names a dark theme and a ligh
 
 ## The section
 
-`riso_ui` declares the section `theme`:
+`yard_ui` declares the section `theme`:
 
 | Value | JSON | Default |
 |---|---|---|
@@ -19,7 +19,7 @@ The settings choose the theme. The section `theme` names a dark theme and a ligh
 ```
 
 - The names are those of the registered themes. Today these are the bundled ones, `One Dark` and `One Light`.
-- The JSON names are Zed's. Zed also accepts a plain name, `"theme": "One Dark"`. riso does not: a section is an object.
+- The JSON names are Zed's. Zed also accepts a plain name, `"theme": "One Dark"`. YARD does not: a section is an object.
 - `system` as a mode comes with the feature `system-appearance`, and becomes the default then.
 
 ## What code can do
@@ -29,8 +29,8 @@ pub fn apply_theme_setting(cx: &mut App);
 pub fn active_theme(cx: &App) -> String;
 ```
 
-- The startup calls `apply_theme_setting` once, after `riso_ui::init`. It registers the section and applies it.
-- `active_theme` gives the name of the active theme, such as `One Dark`. It is riso's own function: no type of Zed leaves `riso_ui`.
+- The startup calls `apply_theme_setting` once, after `yard_ui::init`. It registers the section and applies it.
+- `active_theme` gives the name of the active theme, such as `One Dark`. It is YARD's own function: no type of Zed leaves `yard_ui`.
 
 ## Rules
 
@@ -50,19 +50,19 @@ Applying the section runs in a group, `theme-apply{mode, theme}`, inside `app-in
 
 The order of `app-init` changes, so that the file is read before the theme is chosen:
 
-1. `riso_log::init_app`
+1. `yard_log::init_app`
 2. the settings store and `settings.json`: `settings-init`, `settings-load`
-3. `riso_ui::init`: the fonts, the theme registry, the bundled themes, One Dark active, as today
+3. `yard_ui::init`: the fonts, the theme registry, the bundled themes, One Dark active, as today
 4. the theme setting: the section is registered, and the chosen theme applied
 
 ## Where the code changes
 
 | Part | What changes |
 |---|---|
-| `riso_ui/theme_setting` (new, dev) | The section type, `ThemeSettings`, `apply_theme_setting(cx)`, and `active_theme(cx)`. `riso_ui` depends on `riso_settings`, which holds no code of Zed, so the GPL boundary does not move |
-| `riso/startup` | Dev copy, with the new order. It calls `riso_ui::dev::apply_theme_setting(cx)` after `riso_ui::init` |
+| `yard_ui/theme_setting` (new, dev) | The section type, `ThemeSettings`, `apply_theme_setting(cx)`, and `active_theme(cx)`. `yard_ui` depends on `yard_settings`, which holds no code of Zed, so the GPL boundary does not move |
+| `yard/startup` | Dev copy, with the new order. It calls `yard_ui::dev::apply_theme_setting(cx)` after `yard_ui::init` |
 
-Production `riso_ui/theming` does not change.
+Production `yard_ui/theming` does not change.
 
 ## Tests
 
@@ -77,9 +77,9 @@ Production `riso_ui/theming` does not change.
 
 ## Test extension: `examples/theme_tour`
 
-A new test extension. With `THEME_TOUR=card`, it places one card as the root. The card's first line is the active theme's name, from `active_theme`. Then it shows, for each color of the palette, a swatch of that color with its name: `background`, `text`, `border`, `drop_target`. Under them is a line of text in the UI font, with its family and size: `IBM Plex Sans 16`. The colors and the font are read from `riso_ui` while the card draws.
+A new test extension. With `THEME_TOUR=card`, it places one card as the root. The card's first line is the active theme's name, from `active_theme`. Then it shows, for each color of the palette, a swatch of that color with its name: `background`, `text`, `border`, `drop_target`. Under them is a line of text in the UI font, with its family and size: `IBM Plex Sans 16`. The colors and the font are read from `yard_ui` while the card draws.
 
-Use a fresh home: `RISO_HOME=/tmp/riso-theme`.
+Use a fresh home: `YARD_HOME=/tmp/yard-theme`.
 
 | File `config/settings.json` | `THEME_TOUR=card cargo run dev` shows |
 |---|---|
@@ -90,8 +90,8 @@ Use a fresh home: `RISO_HOME=/tmp/riso-theme`.
 
 ## Under review
 
-- `riso_ui/theme_setting`
-- `riso/startup`, in its dev version
+- `yard_ui/theme_setting`
+- `yard/startup`, in its dev version
 
 ## Not in this feature
 

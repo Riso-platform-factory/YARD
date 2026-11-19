@@ -16,7 +16,7 @@ As Zed's `crates/ui/src/components/scrollbar.rs` and its pickers:
 ## What code can do
 
 ```rust
-// riso_ui
+// yard_ui
 pub struct ScrollArea;
 impl ScrollArea {
     pub fn new(id: impl Into<ElementId>, handle: &gpui::ScrollHandle) -> Self;
@@ -33,7 +33,7 @@ impl ScrollList {
 }   // Styled (the owner gives the height)
 ```
 
-These are riso's own types; they use GPUI's handles, and no type of Zed. Each is a `RenderOnce` element.
+These are YARD's own types; they use GPUI's handles, and no type of Zed. Each is a `RenderOnce` element.
 
 ## Logging
 
@@ -46,7 +46,7 @@ These are riso's own types; they use GPUI's handles, and no type of Zed. Each is
 
 | Part | What changes |
 |---|---|
-| `riso_ui/scroll` (new, dev) | `ScrollArea` and `ScrollList`, using Zed's `WithScrollbar` and `Scrollbars` inside, with Zed's notice |
+| `yard_ui/scroll` (new, dev) | `ScrollArea` and `ScrollList`, using Zed's `WithScrollbar` and `Scrollbars` inside, with Zed's notice |
 
 ## Tests
 
@@ -65,17 +65,17 @@ A new page, `scroll`. On the left, a `ScrollArea` 300 px tall with forty paragra
 | Command and action | What to look for |
 |---|---|
 | `UI_GALLERY=all cargo run dev`, open the `scroll` tab, scroll each side | Both scroll smoothly. The thumb appears while scrolling and fades after a moment. |
-| Scroll the list fast to the end | `Row 999` at the bottom. With `RISO_LIFECYCLE=info,riso_ui=trace`, `rows drawn` in the trace with small counts. |
+| Scroll the list fast to the end | `Row 999` at the bottom. With `YARD_LIFECYCLE=info,yard_ui=trace`, `rows drawn` in the trace with small counts. |
 | Click `go to 500` | `Row 500` is in view. |
 | Drag the list's thumb | The rows follow. |
 | `{"theme": {"mode": "light"}}` | The thumb follows the theme. |
 
 ## Under review
 
-- `riso_ui/scroll`, new
+- `yard_ui/scroll`, new
 
 ## Not in this feature
 
 - Horizontal scrolling, and scrollbars on both axes: when a feature first needs them.
 - Lists whose rows have different heights (GPUI's `list`): by need.
-- Zed's scrollbar setting (`always`, `system`, `never`) in riso's settings: when a feature first needs it.
+- Zed's scrollbar setting (`always`, `system`, `never`) in yard's settings: when a feature first needs it.

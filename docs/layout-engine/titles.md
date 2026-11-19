@@ -22,16 +22,16 @@ This is Zed's `Item::tab_content_text` and `Item::tab_icon`: the item, not the p
 ## What code can do
 
 ```rust
-// riso_shell::dev
+// yard_shell::dev
 pub trait Titled: gpui::Render {
     fn title(&self, cx: &App) -> SharedString;
-    fn icon(&self, cx: &App) -> Option<riso_ui::IconName> { None }
+    fn icon(&self, cx: &App) -> Option<yard_ui::IconName> { None }
 }
 impl Extension {
     pub fn register_title<V: Titled + 'static>(&self, cx: &mut App, component: &str);
 }
 
-// riso_ui (production, in place)
+// yard_ui (production, in place)
 impl Tab {
     pub fn icon(self, icon: IconName) -> Self;
 }
@@ -51,9 +51,9 @@ The dev shell has every other item of the production shell, unchanged.
 
 | Part | What changes |
 |---|---|
-| `riso_ui/tabs` (production, in place) | `Tab::icon`, and the tab's content drawn as Zed's: the icon and the title in a row, the title colored by selection. Stamped again. |
-| `riso_shell/shell` dev version | `Titled`, `register_title`, and tabs that read titles |
-| `riso/startup` | Dev copy that uses the dev shell. While `titles` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_ui/tabs` (production, in place) | `Tab::icon`, and the tab's content drawn as Zed's: the icon and the title in a row, the title colored by selection. Stamped again. |
+| `yard_shell/shell` dev version | `Titled`, `register_title`, and tabs that read titles |
+| `yard/startup` | Dev copy that uses the dev shell. While `titles` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -74,7 +74,7 @@ A new case, `titles`. It uses the card `layout_tour.tinted` of feature 13, which
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-titles LAYOUT_TOUR=titles cargo run dev` | Tabs `ⓘ Alpha`, `Beta`, and `gamma`. The selected tab's title in the default color, the others muted. `title-register{component=layout_tour.tinted}` with `gives titles`. |
+| `YARD_HOME=/tmp/yard-titles LAYOUT_TOUR=titles cargo run dev` | Tabs `ⓘ Alpha`, `Beta`, and `gamma`. The selected tab's title in the default color, the others muted. `title-register{component=layout_tour.tinted}` with `gives titles`. |
 | Click `rename beta` | The tab reads `Bravo`. |
 | Drag tab `Alpha` after `gamma` | It moves, with its title and icon. |
 | Beside Zed's tabs (open two files) | The icon, its gap, and the label match in size and color. |
@@ -82,8 +82,8 @@ A new case, `titles`. It uses the card `layout_tour.tinted` of feature 13, which
 
 ## Under review
 
-- `riso_ui/tabs`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_ui/tabs`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

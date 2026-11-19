@@ -16,7 +16,7 @@ As Zed's `crates/ui/src/components/tooltip.rs` and GPUI's tooltips:
 ## What code can do
 
 ```rust
-// riso_ui, new
+// yard_ui, new
 pub struct Tooltip;   // a view
 impl Tooltip {
     pub fn text(title: impl Into<SharedString>) -> impl Fn(&mut Window, &mut App) -> AnyView;
@@ -28,11 +28,11 @@ impl Tooltip {
         -> impl Fn(&mut Window, &mut App) -> AnyView;
 }
 
-// riso_ui, Button and IconButton, added
+// yard_ui, Button and IconButton, added
 pub fn tooltip(self, tooltip: impl Fn(&mut Window, &mut App) -> AnyView + 'static) -> Self;
 ```
 
-These are riso's own types and GPUI's; no type of Zed.
+These are YARD's own types and GPUI's; no type of Zed.
 
 ## Logging
 
@@ -47,12 +47,12 @@ A tooltip is built once each time it shows, not on every frame, so the group sho
 
 | Part | What changes |
 |---|---|
-| `riso_ui/tooltip` (new, dev) | `Tooltip` and its builders, wrapping Zed's, with Zed's notice |
-| `riso_ui/button` (production, changed and stamped again) | `Button::tooltip` and `IconButton::tooltip`, each passing the builder to Zed's button. Nothing else changes. They take GPUI's type, so production code does not use the dev part |
+| `yard_ui/tooltip` (new, dev) | `Tooltip` and its builders, wrapping Zed's, with Zed's notice |
+| `yard_ui/button` (production, changed and stamped again) | `Button::tooltip` and `IconButton::tooltip`, each passing the builder to Zed's button. Nothing else changes. They take GPUI's type, so production code does not use the dev part |
 
 ## Tests
 
-- GPUI tests, with test actions bound in the test (the shell depends on `riso_ui`, so its actions cannot be used):
+- GPUI tests, with test actions bound in the test (the shell depends on `yard_ui`, so its actions cannot be used):
   - a button with `Tooltip::text("Save")`: after the pointer moves onto it and the 500 ms pass, the window shows a tooltip whose text is `Save`; before the delay passes, none; after the pointer leaves, none;
   - a pointer press on the button hides its tooltip;
   - an icon button and a plain element with an ID take a tooltip the same way;
@@ -60,7 +60,7 @@ A tooltip is built once each time it shows, not on every frame, so the group sho
   - `Tooltip::for_action` for an action bound to a key: the tooltip is wider than the same title with `Tooltip::text`, as the keys take room at its right; for an action with no binding, the same width as `Tooltip::text`;
   - `Tooltip::with_meta`: the tooltip is taller than without the detail;
   - a long title wraps within 18 rems: its width is at most 18 rems plus the padding.
-- **Logging**, alone in its file: showing a tooltip opens one `tooltip-show` group with the title in its field and `tooltip built` inside it, with the keys of a bound action; moving the pointer over the element before the delay logs nothing at `DEBUG` or above from `riso_ui`.
+- **Logging**, alone in its file: showing a tooltip opens one `tooltip-show` group with the title in its field and `tooltip built` inside it, with the keys of a bound action; moving the pointer over the element before the delay logs nothing at `DEBUG` or above from `yard_ui`.
 
 ## Test extension: `examples/ui_gallery`
 
@@ -79,8 +79,8 @@ A new page, `tooltip`, with every kind of tooltip on buttons:
 
 ## Under review
 
-- `riso_ui/tooltip`, new
-- `riso_ui/button`, changed
+- `yard_ui/tooltip`, new
+- `yard_ui/button`, changed
 
 ## Not in this feature
 

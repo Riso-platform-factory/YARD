@@ -54,7 +54,7 @@ There are two times when the rules are checked.
 
 ## Changing parts that are in production
 
-This feature changes `riso_layout/tree` and `riso_shell/shell`, which are in production. The changes are not small: the factory function gains the slots handle, and the tree gains its nodes.
+This feature changes `yard_layout/tree` and `yard_shell/shell`, which are in production. The changes are not small: the factory function gains the slots handle, and the tree gains its nodes.
 
 The new versions are written in `src/dev/` of their crates. The root file of each crate compiles either the production module or the dev one, never both:
 - the production module only without `dev`;
@@ -67,7 +67,7 @@ So:
 
 This is how the startup was changed in the earlier features, applied to a crate.
 
-The palette gains the color `border`, so that a card inside a card can be seen. It is added to `riso_ui/theming` in place, as `text` was, and stamped again when you approve.
+The palette gains the color `border`, so that a card inside a card can be seen. It is added to `yard_ui/theming` in place, as `text` was, and stamped again when you approve.
 
 ## Test extension: `examples/layout_tour`
 
@@ -90,7 +90,7 @@ The cases of feature 1 keep working.
 
 ## Under review
 
-`riso_layout/tree` and `riso_shell/shell`, in their dev versions, and the color added to `riso_ui/theming`. They are reviewed and promoted together.
+`yard_layout/tree` and `yard_shell/shell`, in their dev versions, and the color added to `yard_ui/theming`. They are reviewed and promoted together.
 
 ## Not in this feature
 

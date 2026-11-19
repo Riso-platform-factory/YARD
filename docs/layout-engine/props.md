@@ -8,7 +8,7 @@ This is how Zed's items keep what they show apart from where they are: a pane ho
 
 ## The model
 
-In `riso_layout`, without GPUI:
+In `yard_layout`, without GPUI:
 
 - **`Props`** is a JSON object, `serde_json::Map<String, Value>`. The model does not know what the values mean; only the component does.
 - **A `Node` has `props`.** A node placed without props has an empty object.
@@ -37,13 +37,13 @@ In the shell:
 ## What code can do
 
 ```rust
-// riso_layout (production, in place)
+// yard_layout (production, in place)
 pub type Props = serde_json::Map<String, serde_json::Value>;
 pub struct Node { pub id: NodeId, pub component: ComponentId, pub extension: String, pub props: Props }
 pub enum Operation { /* … */ SetProps { node: NodeId, props: Props } }
 pub enum Applied { /* … */ PropsSet }
 
-// riso_shell::dev
+// yard_shell::dev
 pub trait PropsView<P>: gpui::Render {
     fn set_props(&mut self, props: P, cx: &mut gpui::Context<Self>);
 }
@@ -88,11 +88,11 @@ Decoding checks that `props` is a JSON object. A file whose `props` is not an ob
 
 | Part | What changes |
 |---|---|
-| `riso_layout/tree` (production, in place) | `Props`, `Node::props`, `Operation::SetProps` with its rule, and `Applied::PropsSet`. Stamped again. |
-| `riso_layout/saved` (production, in place) | The `props` of `add` and the kind `props`. Stamped again. |
-| `riso_shell/shell` (production, in place) | Only what the new field and variant make necessary for it to compile and to keep its behavior: a node it places has empty props, and it treats `set-props` as unknown to it. Stamped again. |
-| `riso_shell/shell` dev version | `register_with_props`, `PropsView`, the `*_with_props` placements, `set_props`, reading props, telling views, and the reset. |
-| `riso/startup` | Dev copy that uses the dev shell. While `props` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
+| `yard_layout/tree` (production, in place) | `Props`, `Node::props`, `Operation::SetProps` with its rule, and `Applied::PropsSet`. Stamped again. |
+| `yard_layout/saved` (production, in place) | The `props` of `add` and the kind `props`. Stamped again. |
+| `yard_shell/shell` (production, in place) | Only what the new field and variant make necessary for it to compile and to keep its behavior: a node it places has empty props, and it treats `set-props` as unknown to it. Stamped again. |
+| `yard_shell/shell` dev version | `register_with_props`, `PropsView`, the `*_with_props` placements, `set_props`, reading props, telling views, and the reset. |
+| `yard/startup` | Dev copy that uses the dev shell. While `props` is under review, `cargo run dev` loads `review` and `layout_tour` on it, and not the command palette, which is built on the production shell's extension handle |
 
 ## Tests
 
@@ -122,7 +122,7 @@ A new case, `props`. Its card `layout_tour.tinted` takes props `title` (text, de
 
 | Command and action | What to look for |
 |---|---|
-| `RISO_HOME=/tmp/riso-props LAYOUT_TOUR=props cargo run dev` | `Alpha` in the accent color, `Untitled` in the default color, and `Broken` in the default color. One `WARN`, `prop tint of node broken cannot be read`. |
+| `YARD_HOME=/tmp/yard-props LAYOUT_TOUR=props cargo run dev` | `Alpha` in the accent color, `Untitled` in the default color, and `Broken` in the default color. One `WARN`, `prop tint of node broken cannot be read`. |
 | Click `rename beta` | `beta` shows `Beta`. `layout-op{op=props, node=beta}` holds `props set {keys=title}`, `props-read`, and `view told {node=beta}`. |
 | Click `tint beta warning` | `Beta` in the warning color; its title is kept. |
 | Click `clear alpha's tint` | `Alpha` in the default color. |
@@ -132,8 +132,8 @@ A new case, `props`. Its card `layout_tour.tinted` takes props `title` (text, de
 
 ## Under review
 
-- `riso_layout/tree`, `riso_layout/saved`, and production `riso_shell/shell`, in place
-- `riso_shell/shell` and `riso/startup`, in their dev versions
+- `yard_layout/tree`, `yard_layout/saved`, and production `yard_shell/shell`, in place
+- `yard_shell/shell` and `yard/startup`, in their dev versions
 
 ## Not in this feature
 

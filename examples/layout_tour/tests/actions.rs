@@ -1,5 +1,5 @@
 use gpui::{AnyWindowHandle, TestAppContext, VisualTestContext, WindowHandle, px};
-use riso_shell as shell;
+use yard_shell as shell;
 
 #[gpui::test]
 fn action_buttons_keep_the_layout_focus(cx: &mut TestAppContext) {
@@ -24,7 +24,7 @@ fn action_buttons_keep_the_layout_focus(cx: &mut TestAppContext) {
         return;
     }
     cx.update(|cx| {
-        riso_ui::init(cx);
+        yard_ui::init(cx);
         let ext = shell::Extension::new(cx, "layout_tour").unwrap();
         layout_tour::init(cx, &ext);
     });

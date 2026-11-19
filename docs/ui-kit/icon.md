@@ -2,11 +2,11 @@
 
 ## What it adds
 
-An icon by name, in Zed's sizes and colors, drawn from SVG files that `riso_ui` bundles. The gallery gets a page `icon` with every bundled icon and its name.
+An icon by name, in Zed's sizes and colors, drawn from SVG files that `yard_ui` bundles. The gallery gets a page `icon` with every bundled icon and its name.
 
 ## What code can do
 
-All are riso's own types in `riso_ui`:
+All are YARD's own types in `yard_ui`:
 
 ```rust
 pub enum IconName { Check, ChevronDown, ChevronRight, Close, Info, Plus, Warning, XCircle }
@@ -28,11 +28,11 @@ impl IconName { pub const ALL: &[IconName]; pub fn path(self) -> &'static str; }
   | `XLarge` | 48px |
 
 - **The set is small and grows by need.** It holds the icons that the next features of the roadmaps use: the modal's and the toasts' `Close`, the toasts' `Info`, `Warning`, and `XCircle`, the lists' and the theme list's `Check`, the tree's and the menus' `ChevronDown` and `ChevronRight`, and the tabs' `Plus`. Each name maps to Zed's icon of the same meaning. Adding an icon is one name and one copied file.
-- **Each icon is a file of Zed's,** copied unchanged into `crates/riso_ui/assets/icons/`. Beside them are:
+- **Each icon is a file of Zed's,** copied unchanged into `crates/yard_ui/assets/icons/`. Beside them are:
   - `LICENSES`, copied from Zed: most of Zed's icons are Lucide's, under the ISC license;
   - a `NOTICE` that names Zed's revision.
 
-  Zed's file does not say which icons are Lucide's and which Zed drew itself, which are GPL-3.0-or-later like riso. Both may be copied.
+  Zed's file does not say which icons are Lucide's and which Zed drew itself, which are GPL-3.0-or-later like yard. Both may be copied.
 - **`Assets` gives GPUI the bundled files,** by path, such as `icons/close.svg`. GPUI takes one source of files when the application is made, so the startup gives it `Assets`. An icon whose file is missing draws nothing, as in GPUI.
 - Drawing an icon logs one line at `trace`, with its name, size, and color. Loading a file that is not bundled logs a `WARN` with its path.
 
@@ -40,8 +40,8 @@ impl IconName { pub const ALL: &[IconName]; pub fn path(self) -> &'static str; }
 
 | Part | What changes |
 |---|---|
-| `riso_ui/icon` (new, dev) | `Icon`, `IconName`, `IconSize`, and `Assets`, with the copied files and their licenses |
-| `riso/startup` | Dev copy. It gives GPUI `riso_ui::dev::Assets` when it makes the application |
+| `yard_ui/icon` (new, dev) | `Icon`, `IconName`, `IconSize`, and `Assets`, with the copied files and their licenses |
+| `yard/startup` | Dev copy. It gives GPUI `yard_ui::dev::Assets` when it makes the application |
 
 ## Tests
 
@@ -61,7 +61,7 @@ A second page, `icon`, after `text`:
 - a row of `Check` in each `TextColor`;
 - then a list of every icon with its name beside it.
 
-Use a fresh home: `RISO_HOME=/tmp/riso-gallery`.
+Use a fresh home: `YARD_HOME=/tmp/yard-gallery`.
 
 | Command | What to look for |
 |---|---|
@@ -70,8 +70,8 @@ Use a fresh home: `RISO_HOME=/tmp/riso-gallery`.
 
 ## Under review
 
-- `riso_ui/icon`
-- `riso/startup`, in its dev version
+- `yard_ui/icon`
+- `yard/startup`, in its dev version
 
 ## Not in this feature
 

@@ -2,7 +2,7 @@
 
 ## Goal
 
-The layout engine is how software built on risoapp puts its user interface together: which components are on screen, where each one is, who contributed it, and how the user rearranges them. An extension registers components and places them; the application does not know the extension.
+The layout engine is how software built on YARD puts its user interface together: which components are on screen, where each one is, who contributed it, and how the user rearranges them. An extension registers components and places them; the application does not know the extension.
 
 GPUI already draws and sizes elements. The layout engine does not replace that. It is the model above it.
 
@@ -15,15 +15,15 @@ GPUI already draws and sizes elements. The layout engine does not replace that. 
 
 ## Reusing Zed
 
-Zed is reused first, and only through the wrapper crate `riso_ui`, so that the license can change later.
+Zed is reused first, and only through the wrapper crate `yard_ui`, so that the license can change later.
 
 | From Zed | License | How it is reused |
 |---|---|---|
 | `gpui`, `gpui_platform` | Apache-2.0 | Used directly, anywhere: elements, flex layout, drag and drop, focus, actions |
-| `ui`, `theme` | GPL-3.0-or-later | As dependencies of `riso_ui` only, wrapped in riso's own types |
-| `workspace`: the split tree and its resize handles (`pane_group.rs`), tab dragging and drop targets (`pane.rs`), docks and zoom (`dock.rs`) | GPL-3.0-or-later | It cannot be a dependency: it needs 46 other crates of Zed, among them the project, the language servers, and the collaboration client. The pieces needed are copied into `riso_ui` and adapted, each file keeping Zed's copyright and naming the file it comes from |
+| `ui`, `theme` | GPL-3.0-or-later | As dependencies of `yard_ui` only, wrapped in YARD's own types |
+| `workspace`: the split tree and its resize handles (`pane_group.rs`), tab dragging and drop targets (`pane.rs`), docks and zoom (`dock.rs`) | GPL-3.0-or-later | It cannot be a dependency: it needs 46 other crates of Zed, among them the project, the language servers, and the collaboration client. The pieces needed are copied into `yard_ui` and adapted, each file keeping Zed's copyright and naming the file it comes from |
 
-The model of the layout (the tree, the slots, the operations, the rules) is riso's own code, in a crate without GPUI. Zed has no such model to take: its workspace is written for fixed docks around panes.
+The model of the layout (the tree, the slots, the operations, the rules) is YARD's own code, in a crate without GPUI. Zed has no such model to take: its workspace is written for fixed docks around panes.
 
 ## Features
 

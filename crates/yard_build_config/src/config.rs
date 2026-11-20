@@ -3,6 +3,9 @@
 
 use std::path::{Path, PathBuf};
 
+mod release;
+pub use release::*;
+
 /// The product config's values, checked.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuildConfig {
@@ -16,6 +19,10 @@ pub struct BuildConfig {
     /// The address of the newest release's file, `None` when the config
     /// names none.
     pub update_url: Option<String>,
+    /// How the macOS package is signed and wrapped: `[release.macos]`.
+    pub macos: MacosRelease,
+    /// How the Windows package is signed: `[release.windows]`.
+    pub windows: WindowsRelease,
 }
 
 /// The keys a product config may hold. Any other key is refused; with
@@ -28,6 +35,7 @@ const KEYS: &[&str] = &[
     "url_scheme",
     "icon",
     "update_url",
+    "release",
 ];
 
 /// Reads the product config at `path`, inside the group
@@ -143,6 +151,13 @@ fn check(path: &Path) -> Result<BuildConfig, String> {
         }
     };
     tracing::debug!(present = update_url.is_some(), "update url");
+    let (macos, windows) = release::read(path, config.get("release"))?;
+    tracing::debug!(
+        dmg = macos.dmg,
+        macos_signed = macos.signing.is_some(),
+        windows_signed = windows.signing.is_some(),
+        "release"
+    );
     Ok(BuildConfig {
         name,
         version,
@@ -150,12 +165,26 @@ fn check(path: &Path) -> Result<BuildConfig, String> {
         url_scheme,
         icon,
         update_url,
+        macos,
+        windows,
     })
 }
 
 /// Accepts an `https://` URL, or an `http://` one only to `127.0.0.1` or
 /// `localhost`, for checks on this machine.
 fn check_update_url(url: &str) -> Result<(), &'static str> {
+    let (scheme, host) = split_url(url)?;
+    match scheme {
+        "https" => Ok(()),
+        "http" if matches!(host, "127.0.0.1" | "localhost") => Ok(()),
+        "http" => Err("must use https://; http:// is allowed only to 127.0.0.1 or localhost"),
+        _ => Err("must be an https:// URL"),
+    }
+}
+
+/// The scheme and the host of a URL whose host is ASCII letters, digits,
+/// `.`, and `-`, with an optional port from 1 to 65535.
+fn split_url(url: &str) -> Result<(&str, &str), &'static str> {
     const UNREADABLE: &str = "is not a readable URL";
     if url.chars().any(|c| c.is_whitespace() || c.is_control()) {
         return Err(UNREADABLE);
@@ -177,12 +206,7 @@ fn check_update_url(url: &str) -> Result<(), &'static str> {
     {
         return Err(UNREADABLE);
     }
-    match scheme {
-        "https" => Ok(()),
-        "http" if matches!(host, "127.0.0.1" | "localhost") => Ok(()),
-        "http" => Err("must use https://; http:// is allowed only to 127.0.0.1 or localhost"),
-        _ => Err("must be an https:// URL"),
-    }
+    Ok((scheme, host))
 }
 
 /// The width and height of a PNG, or `None` when `bytes` are not one: the

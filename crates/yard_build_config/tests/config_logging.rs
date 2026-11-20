@@ -161,7 +161,8 @@ fn reading_runs_inside_the_build_config_read_group() {
             "identifier",
             "url scheme",
             "icon",
-            "update url"
+            "update url",
+            "release"
         ]
         .map(|message| (tracing::Level::DEBUG, message.to_owned())),
         "each accepted value is a debug line"

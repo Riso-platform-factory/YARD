@@ -423,6 +423,8 @@ fn the_configs_under_test_read_to_their_apps() {
                 url_scheme: url_scheme.to_owned(),
                 icon: path.with_file_name("icon.png").canonicalize().unwrap(),
                 update_url: None,
+                macos: Default::default(),
+                windows: Default::default(),
             },
             "{name}"
         );
@@ -448,6 +450,7 @@ fn each_bad_config_under_test_is_refused_naming_the_file_and_the_key() {
         ("bad-icon-small", "icon", "is 256 × 256"),
         ("bad-unknown-key", "colour", "unknown key"),
         ("bad-update-url", "update_url", "must use https://"),
+        ("bad-release-key", "release.macos.colour", "unknown key"),
     ] {
         let path = under_test(name);
         let error = yard_build_config::read(&path).unwrap_err();
@@ -458,4 +461,190 @@ fn each_bad_config_under_test_is_refused_naming_the_file_and_the_key() {
             "{name}: {error}"
         );
     }
+}
+
+#[test]
+fn the_signed_config_reads_its_release_tables() {
+    let path = under_test("signed");
+    let config = yard_build_config::read(&path).unwrap();
+    assert_eq!(
+        config.macos,
+        yard_build_config::MacosRelease {
+            dmg: true,
+            entitlements: Some(
+                path.with_file_name("entitlements.plist")
+                    .canonicalize()
+                    .unwrap()
+            ),
+            signing: Some(yard_build_config::MacosSigning {
+                identity: "Developer ID Application: YARD Test (YARDTEST01)".into(),
+                notarize: true,
+            }),
+        }
+    );
+    assert_eq!(
+        config.windows.signing,
+        Some(yard_build_config::WindowsSigning {
+            timestamp_url: "http://timestamp.digicert.com".into()
+        })
+    );
+}
+
+#[test]
+fn release_tables_are_optional_with_their_defaults() {
+    let icon = png(512, 512);
+    let (_folder, path) = config(ICON, Some(&icon));
+    let config = yard_build_config::read(&path).unwrap();
+    assert_eq!(config.macos, yard_build_config::MacosRelease::default());
+    assert_eq!(config.windows, yard_build_config::WindowsRelease::default());
+
+    let (_folder, path) = config_with_scheme(
+        ICON,
+        Some(&icon),
+        "url_scheme = \"sample\"\n[release.linux]\n[release.macos]\n\
+         [release.macos.signing]\nidentity = \"Developer ID Application: A (B)\"\n\
+         [release.windows.signing]\n",
+    );
+    let config = yard_build_config::read(&path).unwrap();
+    assert!(!config.macos.dmg);
+    assert_eq!(config.macos.entitlements, None);
+    assert_eq!(
+        config.macos.signing,
+        Some(yard_build_config::MacosSigning {
+            identity: "Developer ID Application: A (B)".into(),
+            notarize: true,
+        }),
+        "notarize defaults to true"
+    );
+    assert_eq!(
+        config.windows.signing.unwrap().timestamp_url,
+        yard_build_config::DEFAULT_TIMESTAMP_URL
+    );
+}
+
+#[test]
+fn a_timestamp_url_may_be_http_or_https() {
+    let icon = png(512, 512);
+    for url in [
+        "http://timestamp.digicert.com",
+        "https://ts.example.com:8443/tsa",
+    ] {
+        let (_folder, path) = config_with_scheme(
+            ICON,
+            Some(&icon),
+            &format!(
+                "url_scheme = \"sample\"\n[release.windows.signing]\ntimestamp_url = {url:?}\n"
+            ),
+        );
+        let config = yard_build_config::read(&path).unwrap();
+        assert_eq!(config.windows.signing.unwrap().timestamp_url, url);
+    }
+}
+
+/// The error for a config whose release tables are `release`, which names
+/// the file and `key`, and holds `reason`.
+fn release_refused(release: &str, key: &str, reason: &str) {
+    let made = config_with_scheme(
+        ICON,
+        Some(&png(512, 512)),
+        &format!("url_scheme = \"sample\"\n{release}"),
+    );
+    let error = refused(made, key);
+    assert!(error.contains(reason), "{release}: {error}");
+}
+
+#[test]
+fn a_bad_release_table_is_refused_naming_the_key() {
+    for (release, key, reason) in [
+        ("release = 3\n", "release", "must be a table"),
+        ("[release]\nios = 1\n", "release.ios", "unknown key"),
+        (
+            "[release.linux]\nformat = \"deb\"\n",
+            "release.linux.format",
+            "unknown key",
+        ),
+        (
+            "[release.macos]\ncolour = \"red\"\n",
+            "release.macos.colour",
+            "unknown key",
+        ),
+        (
+            "[release.macos]\ndmg = \"yes\"\n",
+            "release.macos.dmg",
+            "true or false",
+        ),
+        (
+            "[release.macos]\nentitlements = \"\"\n",
+            "release.macos.entitlements",
+            "non-empty",
+        ),
+        (
+            "[release.macos]\nentitlements = \"missing.plist\"\n",
+            "release.macos.entitlements",
+            "missing or not a file",
+        ),
+        (
+            "[release.macos]\nentitlements = \"/etc/hosts\"\n",
+            "release.macos.entitlements",
+            "relative",
+        ),
+        (
+            "[release.macos.signing]\n",
+            "release.macos.signing.identity",
+            "non-empty",
+        ),
+        (
+            "[release.macos.signing]\nidentity = \"A\\nB\"\n",
+            "release.macos.signing.identity",
+            "line breaks",
+        ),
+        (
+            "[release.macos.signing]\nidentity = \"A\"\nnotarize = 1\n",
+            "release.macos.signing.notarize",
+            "true or false",
+        ),
+        (
+            "[release.macos.signing]\nidentity = \"A\"\nteam = \"B\"\n",
+            "release.macos.signing.team",
+            "unknown key",
+        ),
+        (
+            "[release.windows]\nmsi = true\n",
+            "release.windows.msi",
+            "unknown key",
+        ),
+        (
+            "[release.windows.signing]\ntimestamp_url = \"ftp://ts.example.com\"\n",
+            "release.windows.signing.timestamp_url",
+            "http:// or https://",
+        ),
+        (
+            "[release.windows.signing]\ntimestamp_url = \"not a url\"\n",
+            "release.windows.signing.timestamp_url",
+            "readable URL",
+        ),
+    ] {
+        release_refused(release, key, reason);
+    }
+}
+
+#[test]
+fn an_entitlements_file_is_made_absolute_like_the_icon() {
+    let (folder, path) = config_with_scheme(
+        ICON,
+        Some(&png(512, 512)),
+        "url_scheme = \"sample\"\n[release.macos]\nentitlements = \"app.entitlements\"\n",
+    );
+    std::fs::write(folder.path().join("app.entitlements"), "<plist/>").unwrap();
+    let config = yard_build_config::read(&path).unwrap();
+    assert_eq!(
+        config.macos.entitlements,
+        Some(
+            folder
+                .path()
+                .join("app.entitlements")
+                .canonicalize()
+                .unwrap()
+        )
+    );
 }

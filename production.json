@@ -20,7 +20,8 @@
   },
   "yard_build_config/config": {
     "files": {
-      "crates/yard_build_config/src/config.rs": "48be0881935ce9f9"
+      "crates/yard_build_config/src/config.rs": "6927c65d6fd85f3b",
+      "crates/yard_build_config/src/config/release.rs": "0005422873355742"
     },
     "promoted": "2026-11-20"
   },

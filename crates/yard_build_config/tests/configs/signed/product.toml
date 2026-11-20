@@ -1,0 +1,19 @@
+# A test input: signed with a developer identity, notarized, with a disk
+# image, and signed on Windows. The identity is a self-signed certificate
+# that the end-to-end test of xtask makes; no real Developer ID belongs here.
+name = "Signed Lab"
+version = "0.3.0"
+identifier = "test.yard.signed"
+url_scheme = "yardsigned"
+icon = "icon.png"
+
+[release.macos]
+dmg = true
+entitlements = "entitlements.plist"
+
+[release.macos.signing]
+identity = "Developer ID Application: YARD Test (YARDTEST01)"
+notarize = true
+
+[release.windows.signing]
+timestamp_url = "http://timestamp.digicert.com"

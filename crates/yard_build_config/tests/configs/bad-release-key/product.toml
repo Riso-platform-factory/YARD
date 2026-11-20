@@ -1,0 +1,9 @@
+# A test input, refused: `colour` is not a key of `[release.macos]`.
+name = "Lab"
+version = "0.1.0"
+identifier = "test.yard.lab"
+url_scheme = "yardlab"
+icon = "icon.png"
+
+[release.macos]
+colour = "red"

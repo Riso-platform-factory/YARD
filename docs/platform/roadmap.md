@@ -14,7 +14,7 @@ Status is one of: planned, dev, production. Size: S (a day), M (a few days), L (
 
 | # | Slug | What it adds | Who has it | Size | Needs | Status |
 |---|---|---|---|---|---|---|
-| 1 | `packaging` | The release system's first slice (`release-system.md`): `cargo xtask bundle` (`macos`, `linux`, `windows`) makes an installable app from `product.toml` alone (macOS `.app`, `.zip`, and `.dmg`, Linux `.tar.gz`, Windows Inno Setup installer and `.zip`), signed with the developer's identity when configured (Developer ID with notarization, Authenticode); the app runs on the three with drawn window controls, its URL scheme, and one instance | Zed's `bundle-mac`, `bundle-linux`, `bundle-windows.ps1` | L | none | planned |
+| 1 | `packaging` | The release system's first slice (`release-system.md`): `cargo xtask bundle` (`macos`, `linux`, `windows`) makes an installable app from `product.toml` alone (macOS `.app`, `.zip`, and `.dmg`, Linux `.tar.gz`, Windows Inno Setup installer and `.zip`), signed with the developer's identity when configured (Developer ID with notarization, Authenticode); the app runs on the three with drawn window controls, its URL scheme, and one instance | Zed's `bundle-mac`, `bundle-linux`, `bundle-windows.ps1` | L | none | dev: `yard_build_config` in production; `cargo xtask bundle macos` with signing and the disk image in dev; Linux and Windows planned |
 | 2 | `ci` | `cargo xtask workflows` generates `ci.yml`, checked against the code, run on macOS, Linux, and Windows runners | Zed's `cargo xtask workflows` | M | packaging | planned |
 | 3 | `release-local` | `[release]` with its targets; `cargo xtask release plan` and `build`, `--dry-run`, `manifest.json` | cargo-dist, GoReleaser | M | ci | planned |
 | 4 | `release-workflow` | The generated `release.yml`: plan, CI, a build per system, a GitHub draft, announce | cargo-dist, Zed's `release.yml` | M | release-local | planned |
@@ -35,7 +35,7 @@ Status is one of: planned, dev, production. Size: S (a day), M (a few days), L (
 | 19 | `accessibility` | Roles and labels on `yard_ui`'s components through GPUI's AccessKit support, checked with VoiceOver | Electron, Flutter, AccessKit | M | none | planned |
 | 20 | `settings-ui` | A settings editor and a JSON schema of the declared sections for completion in an editor | Zed's settings UI | M | none | planned |
 | 21 | `i18n` | A string catalog, and the UI kit and menus taking keys instead of literal strings | Flutter, Dioxus, Project Fluent | M–L | none | planned |
-| 22 | `universal-binary` | `bundle-macos` builds arm64 and x86_64 and joins them with `lipo` | Tauri, Electron | S | none | planned |
+| 22 | `universal-binary` | `cargo xtask bundle macos` builds arm64 and x86_64 and joins them with `lipo` | Tauri, Electron | S | none | planned |
 | 23 | `mac-app-store` | A sandboxed build with entitlements and a `.pkg`, without the updater | Tauri, Electron | L | packaging | planned |
 
 ## Not planned

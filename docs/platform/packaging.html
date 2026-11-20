@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>YARD — lát 1: đóng gói cho 3 hệ điều hành</title>
+<style>
+  :root { --bg:#1e2025; --panel:#282c33; --line:#3a3f4a; --text:#dce0e5; --muted:#8b919c; --ok:#5ea86b; --accent:#74ade8; --warn:#dec184; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:28px 24px 70px; }
+  h1 { font-size:21px; margin:0 0 4px; } h2 { font-size:15.5px; color:var(--accent); margin:30px 0 10px; }
+  .sub, .muted, .src { color:var(--muted); } .src { font-size:11.5px; }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; font:12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; overflow:auto; margin:0; }
+  code { font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td, th { border-bottom:1px solid var(--line); padding:7px 8px; text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  .flow { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .box { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px 12px; font-size:13px; }
+  .arrow { color:var(--muted); font-size:20px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Lát 1: cấu hình vào, app ra, trên cả 3 hệ điều hành</h1>
+<p class="sub">Developer viết <code>product.toml</code>, YARD đóng gói thành app cài được trên macOS, Linux và Windows, chạy như trên macOS hôm nay. Chưa có phát hành. Mọi cấu hình ở đây chỉ để thử.</p>
+
+<h2>Luồng</h2>
+<div class="flow">
+  <div class="box"><b>product.toml</b><br><span class="muted">name, version, identifier,<br>url_scheme, icon.png (1 file)</span></div>
+  <div class="arrow">→</div>
+  <div class="box"><code>cargo xtask bundle macos|linux|windows</code></div>
+  <div class="arrow">→</div>
+  <div class="box">
+    <b>macOS</b> &nbsp;<code>Lab.app</code> + <code>.zip</code><br>
+    <b>Linux</b> &nbsp;&nbsp;<code>.tar.gz</code> có <code>install.sh</code><br>
+    <b>Windows</b> bộ cài <code>setup.exe</code> + <code>.zip</code>
+  </div>
+</div>
+<p class="src">Đóng gói theo Zed: <code>bundle-mac</code>, <code>bundle-linux</code>, <code>bundle-windows.ps1</code> với Inno Setup. Riêng icon: developer chỉ đưa một file PNG, YARD tự tạo <code>.icns</code>, <code>.ico</code> và các cỡ PNG. Zed thì commit sẵn từng định dạng.</p>
+
+<h2>App chạy trên Linux và Windows như trên macOS</h2>
+<table>
+<tr><th></th><th>Linux</th><th>Windows</th></tr>
+<tr><td>Nút cửa sổ</td><td>Tự vẽ thu nhỏ, phóng to, đóng theo bố cục nút của desktop; kéo mép để đổi cỡ</td><td>Ba nút caption như Zed (Segoe Fluent Icons)</td></tr>
+<tr><td>URL scheme</td><td>File <code>.desktop</code> khai báo <code>x-scheme-handler/&lt;scheme&gt;</code></td><td>Bộ cài ghi registry <code>HKCU\Software\Classes\&lt;scheme&gt;</code></td></tr>
+<tr><td>Chỉ một phiên bản</td><td>Socket trong thư mục dữ liệu</td><td>Mutex và named pipe, tên lấy từ identifier</td></tr>
+<tr><td>Mở URL khi app đang chạy</td><td colspan="2">Lần chạy thứ hai chuyển URL cho app đang chạy rồi thoát. URL tới đúng extension, như <code>on_open_url</code> trên macOS</td></tr>
+<tr><td>Thư mục</td><td>XDG: <code>~/.config</code>, <code>~/.local/share</code>…</td><td><code>%APPDATA%</code>, <code>%LOCALAPPDATA%</code></td></tr>
+<tr><td>Tự cập nhật</td><td colspan="2">Chưa có; để tới lát <code>release-updates</code></td></tr>
+</table>
+<p class="src">Khác Zed ở hai chỗ, đều có lý do. YARD không làm binary CLI riêng; app tự chuyển tham số cho phiên bản đang chạy. Tên mutex lấy từ một hàm dùng chung cho cả app lẫn bộ cài; bộ cài của Zed khai báo tên khác với tên app dùng.</p>
+
+<h2>Các cấu hình thử: mỗi cái là một app khác nhau</h2>
+<table>
+<tr><th>Cấu hình</th><th>Chứng minh điều gì</th></tr>
+<tr><td><code>plain</code></td><td>Trường hợp cơ bản: <code>Lab</code>, <code>test.yard.lab</code>, <code>yardlab://</code></td></tr>
+<tr><td><code>spaced</code></td><td>Tên có dấu cách (<code>Lab Notes Pro</code>) đi đúng qua bundle, file <code>.desktop</code>, bộ cài, shortcut và thư mục</td></tr>
+<tr><td><code>other</code></td><td>Cài hai app cạnh nhau không đụng nhau: thư mục, socket, mutex, URL scheme</td></tr>
+<tr><td><code>bad-*</code></td><td>Cấu hình sai bị từ chối, nói rõ file và key</td></tr>
+</table>
+
+<h2>Kiểm thế nào</h2>
+<ul>
+<li><b>Test trong repo:</b> đọc cấu hình, bố cục gói của từng cấu hình (không cần build), socket, pipe, cách chuyển URL, thư mục.</li>
+<li><b>Runner GitHub trong repo nháp,</b> với 3 cấu hình thử trên mỗi OS:
+  <ul>
+  <li>macOS: kiểm chữ ký, mở app, chụp màn hình, mở URL;</li>
+  <li>Linux: chạy <code>install.sh</code>, mở app trên Xvfb, chụp màn hình, <code>xdg-open</code> URL, mở lần thứ hai;</li>
+  <li>Windows: cài im lặng, đọc registry, mở app, chụp màn hình, <code>start</code> URL, gỡ cài rồi kiểm registry đã sạch.</li>
+  </ul></li>
+<li><b>Bằng mắt:</b> tôi đặt ảnh nút cửa sổ trên Linux và Windows cạnh ảnh của Zed để so.</li>
+</ul>
+
+<h2>Thứ tự trong lát, mỗi phần duyệt riêng</h2>
+<ol>
+<li><code>yard_build_config</code>; <code>build.rs</code> đọc cấu hình qua crate này.</li>
+<li><code>cargo xtask bundle macos</code> thay <code>script/bundle-macos</code>.</li>
+<li>App chạy trên Linux, rồi <code>bundle linux</code>.</li>
+<li>App chạy trên Windows, rồi <code>bundle windows</code>.</li>
+<li>Kiểm trên runner trong repo nháp.</li>
+</ol>
+<p class="muted">Các phần 1, 3, 4 sửa engine đang ở production (<code>build.rs</code>, <code>yard_ui</code>, <code>yard_shell</code>, <code>yard_paths</code>, <code>yard_update</code>). Tôi sẽ đưa anh xem từng thay đổi trước khi đóng dấu lại. Chưa làm trong lát này: phát hành, ký code, DMG, bản ARM cho Linux và Windows, Flatpak, .deb, MSI.</p>
+</main>
+</body>
+</html>

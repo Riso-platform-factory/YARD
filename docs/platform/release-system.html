@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>YARD — hệ thống phát hành</title>
+<style>
+  :root { --bg:#1e2025; --panel:#282c33; --line:#3a3f4a; --text:#dce0e5; --muted:#8b919c; --ok:#5ea86b; --accent:#74ade8; --warn:#dec184; --prev:#b98ce0; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:28px 24px 70px; }
+  h1 { font-size:21px; margin:0 0 4px; } h2 { font-size:15.5px; color:var(--accent); margin:32px 0 10px; }
+  .sub, .muted { color:var(--muted); }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; font:12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; overflow:auto; margin:0; }
+  code { font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td, th { border-bottom:1px solid var(--line); padding:7px 8px; text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  .graph { display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; overflow:auto; }
+  .col { display:flex; flex-direction:column; gap:8px; }
+  .node { border:1px solid var(--ok); border-radius:6px; padding:6px 10px; font-size:12.5px; white-space:nowrap; }
+  .node.skip { color:var(--muted); border:1px dashed var(--line); }
+  .file { font-size:11px; color:var(--muted); display:block; }
+  .arrow { color:var(--muted); font-size:18px; }
+  .src { font-size:11.5px; color:var(--muted); }
+  .prev { color:var(--prev); } .ok { color:var(--ok); }
+</style>
+</head>
+<body>
+<main>
+<h1>Hệ thống phát hành của YARD</h1>
+<p class="sub">Một bản thiết kế cho cả hệ thống: CI, build, đóng gói, ký, phát hành, tự cập nhật. Các tính năng của nhóm phát hành là từng lát cắt của thiết kế này. Mỗi lựa chọn ghi rõ lấy từ đâu: Zed, hoặc một công cụ phát hành đã giải quyết đúng bài toán đó.</p>
+
+<h2>Các phần, mỗi quy tắc ở đúng một chỗ</h2>
+<pre>product.toml ─► <b>yard_build_config</b> ─┬─► build.rs ─► app: tên, identifier, địa chỉ cập nhật, key
+               cấu hình có kiểu       └─► <b>cargo xtask release</b> ─┐
+                                                               │ viết latest.json
+<b>yard_feed</b> ───────────────────────────┬─► yard_update (trong app)  │
+latest.json, so version, giới hạn,  └─► cargo xtask release ◄────┘
+phần được ký
+
+<b>cargo xtask workflows</b>    ─► .github/workflows/*.yml   (sinh ra, CI kiểm không lệch)
+<b>cargo xtask bundle macos</b> ─► thay script/bundle-macos: cùng danh tính với binary, gọi thẳng
+                             codesign, notarytool, ditto; giữ đủ các option hiện có</pre>
+<p class="src">Theo Zed: <code>tooling/xtask</code> sinh workflow. Riêng phần đóng gói, Zed viết bằng bash vì metadata của Zed do <code>cargo-bundle</code> đọc. Metadata của YARD nằm trong <code>product.toml</code>, nên đóng gói chuyển sang Rust: bundle và binary bên trong không thể lệch nhau. Bên phát hành và app dùng chung một module định dạng feed, như Tauri và electron-builder.</p>
+
+<h2>Channel: suy ra từ version</h2>
+<table>
+<tr><th></th><th class="ok">Production: <code>1.3.0</code></th><th class="prev">Preview: <code>1.3.0-beta.1</code></th></tr>
+<tr><td>Tên app</td><td>Notes</td><td>Notes Preview</td></tr>
+<tr><td>Identifier</td><td><code>com.acme.notes</code></td><td><code>com.acme.notes.preview</code></td></tr>
+<tr><td>URL scheme</td><td><code>notes</code></td><td><code>notes-preview</code></td></tr>
+<tr><td>Thư mục ở mọi nơi phát hành</td><td><code>&lt;url&gt;</code></td><td><code>&lt;url&gt;preview/</code></td></tr>
+</table>
+<p><b>Tag nào phát hành gì:</b></p>
+<table>
+<tr><th>Tag</th><th>Commit phải nằm trên</th><th>Phát hành</th></tr>
+<tr><td><code>v1.3.0-beta.1</code></td><td><code>main</code></td><td class="prev">preview</td></tr>
+<tr><td><code>v1.3.0</code></td><td><code>main</code> hoặc một nhánh <code>release/*</code></td><td class="ok">production</td></tr>
+<tr><td>tag khác, hoặc commit ở nhánh khác</td><td>—</td><td>không gì; plan báo lỗi và nói lý do</td></tr>
+</table>
+<p>App production từ chối một feed có version pre-release, và ngược lại. macOS chỉ nhận version dạng số trong <code>Info.plist</code>, nên bundle ghi <code>1.3.0</code> vào đó và để version đầy đủ ở một key riêng. Chưa kiểm trên macOS; lát <code>channels</code> sẽ kiểm việc này đầu tiên.</p>
+<p>Chỉ một <code>product.toml</code>. Tag <code>v&lt;version&gt;</code> phải đúng version trong file ở commit được tag. Các tên đều suy ra từ một nguồn nên không thể trùng nhau.</p>
+<p class="src">Theo cargo-dist, GoReleaser, electron-builder (pre-release là beta). Zed cũng làm vậy: tag <code>-pre</code> là preview; "Zed Preview" có tên và bundle id riêng. Không lấy kênh nightly và dev của Zed, vì template chưa cần.</p>
+
+<h2>Trang Actions khi gắn tag</h2>
+<div class="graph">
+  <div class="col"><div class="node">plan<span class="file">plan.json</span></div></div><div class="arrow">→</div>
+  <div class="col"><div class="node">CI</div></div><div class="arrow">→</div>
+  <div class="col"><div class="node">build macOS<span class="file">manifest.json + gói</span></div><div class="node skip">build Windows</div><div class="node skip">build Linux</div></div><div class="arrow">→</div>
+  <div class="col"><div class="node">upload: GitHub (draft)</div><div class="node">upload: Pages</div><div class="node skip">upload: S3</div><div class="node skip">upload: SSH</div><div class="node skip">upload: command</div></div><div class="arrow">→</div>
+  <div class="col"><div class="node">announce<span class="file">GitHub public</span></div></div><div class="arrow">→</div>
+  <div class="col"><div class="node">updates<span class="file">latest.json</span></div></div><div class="arrow">→</div>
+  <div class="col"><div class="node">prune<span class="file">dọn bản cũ</span></div></div>
+</div>
+<ul>
+<li><b>Mỗi bước chỉ đọc file JSON do bước trước viết</b>, không đọc văn bản viết cho người, không qua biến shell. <span class="src">(cargo-dist, GoReleaser)</span></li>
+<li><b>plan chặn sớm, trước khi build:</b> tag sai bảng trên, target chưa hỗ trợ, version cũ hơn bản đang phục vụ. Credentials được kiểm ở chính job giữ chúng. <span class="src">(preflight của GoReleaser)</span></li>
+<li><b>Thứ tự:</b> gói lên mọi nơi (GitHub ở dạng draft) → công bố GitHub Release → <code>latest.json</code> sau cùng → dọn gói cũ. App đã cài chỉ được báo khi mọi thứ đã xong. <span class="src">(cargo-dist, Zed, Velopack)</span></li>
+<li><b>Chạy lại được:</b> chạy lại job hỏng là đi tiếp từ chỗ dừng. File đã có cùng digest thì bỏ qua. Cùng version mà gói khác thì dừng trước khi sửa bất cứ thứ gì.</li>
+<li><b>Giữ gói của bản mà feed trước còn trỏ tới.</b> App vừa được báo vẫn tải được. Dọn hỏng thì chỉ chạy lại bước dọn. <span class="src">(Sparkle, Velopack)</span></li>
+<li><b><code>--dry-run</code></b> chạy plan và build trên máy, không phát hành gì. <span class="src">(<code>--snapshot</code> của GoReleaser)</span></li>
+</ul>
+
+<h2>Tin tưởng bản cập nhật</h2>
+<ul>
+<li>Feed giữ như hiện nay: <code>version</code>, <code>url</code>, <code>sha256</code>, và <code>signature</code> nếu có. App không theo chuyển hướng và kiểm digest của gói.</li>
+<li>Chữ ký Ed25519 phủ cả identifier, version và digest của đúng file zip được phát ra (sau khi ký và staple). Nhờ vậy host không thể ghép một version mới với gói cũ. Định dạng có đánh version (<code>yard-update-v1</code>), kèm file mẫu mà cả bên ký lẫn app cùng test. <span class="src">(bài học "signed version" của Tauri)</span></li>
+<li>App giữ mọi kiểm tra đang có: không theo chuyển hướng, giới hạn kích thước, kiểm cấu trúc zip, identifier, version, chữ ký code, rồi đổi bundle nguyên tử.</li>
+<li>Zed không có chữ ký vì nó tin server của chính nó. App làm từ YARD được phục vụ bởi host không thuộc về nó, nên cần chữ ký.</li>
+<li>Cho phép nhiều public key, để đổi key mà không làm hỏng bản đã cài. <span class="src">(electron-builder thêm điều này sau khi đã ra bản chỉ hỗ trợ một key)</span></li>
+<li>Bản ký Developer ID chỉ nhận bản mới cùng Team ID, giống Squirrel.Mac. Đổi team Apple thì bản đã cài không tự cập nhật được nữa. Chuyển từ ký ad hoc sang Developer ID thì người dùng phải cài tay một lần. Hai giới hạn này được ghi rõ trong tài liệu.</li>
+<li>Không tải bản cập nhật khi app đang chạy từ DMG đang mount, từ vị trí bị macOS cách ly (translocation), hoặc từ thư mục không ghi được.</li>
+<li>Squirrel.Mac chờ app thoát hẳn mới thay bundle; YARD thì thay ngay trong lúc app chạy. Lát <code>release-updates</code> phải kiểm cách thay này trên một bản đã notarize thật trước khi dựa vào nó.</li>
+</ul>
+
+<h2>Workflow sinh từ Rust, kiểm trong CI</h2>
+<ul>
+<li>File workflow đã commit phải khớp đúng với file code sinh ra. <span class="src">(Zed: <code>git diff --exit-code</code>; cargo-dist: <code>generate --check</code>)</span></li>
+<li>Hai luật kiểm workflow lấy của Zed: quyền mặc định chỉ đọc, và không có <code>${{ }}</code> trong lệnh.</li>
+<li>YAML không chứa logic. Mọi bước gọi <code>cargo xtask</code>, nên mọi quy tắc nằm trong Rust và có test trong repo.</li>
+</ul>
+
+<h2>Các lát cắt, theo thứ tự; mỗi lát tự chạy được</h2>
+<table>
+<tr><th>#</th><th>Lát</th><th>Xong thì có gì</th></tr>
+<tr><td>1</td><td><code>ci</code></td><td><code>cargo xtask workflows</code>; <code>ci.yml</code> được sinh ra, có kiểm lệch và các luật kiểm workflow</td></tr>
+<tr><td>2</td><td><code>release-local</code></td><td><code>[release.macos]</code>; <code>cargo xtask bundle macos</code> thay script; plan và build trên máy; manifest; zip ký ad hoc; <code>--dry-run</code></td></tr>
+<tr><td>3</td><td><code>release-workflow</code></td><td>Gắn tag thì ra GitHub Release: draft rồi announce. Chỉ bản production</td></tr>
+<tr><td>4</td><td><code>release-updates</code></td><td>Pages, <code>latest.json</code> ghi sau cùng, chữ ký Ed25519 (tuỳ chọn), app tự cập nhật, dọn bản cũ, chạy lại được</td></tr>
+<tr><td>5</td><td><code>channels</code></td><td>Preview: danh tính suy ra, tag pre-release từ <code>main</code>, nhánh <code>release/*</code></td></tr>
+<tr><td>6</td><td><code>developer-id-signing</code></td><td>Ký bằng identity thật, notarize, kiểm Team ID</td></tr>
+<tr><td>7</td><td><code>dmg</code></td><td>File DMG bên cạnh file zip</td></tr>
+<tr><td>8</td><td><code>release-hosts</code></td><td>S3 và R2, SSH, command, cùng một trait chung cho mọi nơi phát hành</td></tr>
+</table>
+<p class="muted"><code>new-app</code> và <code>upstream-updates</code> không thuộc hệ thống phát hành. Chúng vẫn là các mục riêng trong roadmap, làm sau lát 1. Không làm lúc này: nightly, rollout theo giai đoạn, cập nhật delta, Homebrew/winget.</p>
+</main>
+</body>
+</html>

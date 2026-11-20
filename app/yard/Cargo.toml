@@ -29,12 +29,7 @@ yard_update = { workspace = true, default-features = false }
 reqwest_client = { workspace = true }
 
 [dev-dependencies]
-semver.workspace = true
 serde_json.workspace = true
-tempfile.workspace = true
-toml.workspace = true
 
 [build-dependencies]
-semver.workspace = true
-toml.workspace = true
 yard_build_config = { workspace = true, default-features = false }

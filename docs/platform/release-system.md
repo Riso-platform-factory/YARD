@@ -46,14 +46,13 @@ yard_feed ───────────────────────�
 
 | Part | What it owns | Where the idea comes from |
 |---|---|---|
-| `crates/yard_build_config` | Reading `product.toml` into Rust types with `serde` (`deny_unknown_fields`, enums for closed sets) and checking it. The resolved identity: name, identifier, URL scheme, version, icon path, channel. It reads the config and checks the icon, nothing else | Tauri's typed `tauri.conf.json`; the rules of today's `build_support.rs` |
+| `crates/yard_build_config` | Reading `product.toml` into Rust types with `serde` (`deny_unknown_fields`, enums for closed sets) and checking it. The resolved identity: name, identifier, URL scheme, version, icon path, channel. It reads the config and checks the icon, nothing else | Tauri's typed `tauri.conf.json` |
 | `crates/yard_feed` | The contract between a publisher and an installed copy: the `latest.json` type, version order (`semver`), size limits, update-address rules, the signed bytes and their fixtures. No I/O | Tauri and electron-builder: one feed definition shared by both sides |
 | `tooling/xtask` | Branch and tag eligibility, packaging, publication, and the generation of workflows. Never linked into the app | Zed's `tooling/xtask`; cargo-dist's `dist` |
 | `crates/yard_update` | In the app: check, download, verify, install. Reads the feed through `yard_feed` | Zed's `auto_update` |
 
 - **One rule, one place.** These rules exist twice or three times today, and each moves to one owner:
-  - the update-address rules (`build_support.rs:124`, `install.rs:153`);
-  - the identifier rules (`build_support.rs`, `yard_product/src/product.rs:65`);
+  - the update-address rules (`yard_build_config`, `install.rs:153`);
   - the packaging values (`script/bundle-macos` reads TOML itself while Cargo reads it through `PRODUCT_CONFIG`).
 - **Packaging moves into Rust.** Zed's `script/bundle-mac` is bash because `cargo-bundle` reads Zed's metadata. YARD's metadata is `product.toml`, so the code that resolves it also writes `Info.plist` and lays out the bundle, and calls `codesign`, `notarytool`, `stapler`, and `ditto` directly. A packaged bundle cannot then disagree with the binary inside it. This is YARD's own choice.
   - `script/bundle-macos` becomes `cargo xtask bundle macos`, beside `bundle linux` and `bundle windows`, keeping what it does today:

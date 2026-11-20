@@ -29,7 +29,7 @@ icon = "icon.png"                 # one square PNG, at least 512 × 512; every i
   - a square PNG of at least 512 pixels;
   - the update address.
 - **Errors.** Each refusal names the file and the key.
-- **One home for each rule.** `app/yard/build_support.rs` is deleted and `build.rs` reads through the crate. The identifier rule of `yard_product` (`product.rs:65`) moves here, so it lives in one place.
+- **One home for each rule.** `build.rs` reads only through the crate. The identifier rule lives in `yard_product` (`is_identifier`), and the crate calls it, so the build and the running app accept the same identifiers.
 - **Who reads it.** `build.rs` and `xtask` both read the config through this crate. The script that read TOML on its own is deleted.
 
 ### 2. `cargo xtask bundle <macos|linux|windows> [--config <file>] [--out <folder>]`

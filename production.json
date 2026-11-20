@@ -18,6 +18,12 @@
     },
     "promoted": "2026-11-19"
   },
+  "yard_build_config/config": {
+    "files": {
+      "crates/yard_build_config/src/config.rs": "48be0881935ce9f9"
+    },
+    "promoted": "2026-11-20"
+  },
   "yard_keymap/keymap_reload": {
     "files": {
       "crates/yard_keymap/src/keymap_reload.rs": "8730e21a3b67c0f7"
@@ -138,9 +144,9 @@
   },
   "yard_product/product": {
     "files": {
-      "crates/yard_product/src/product.rs": "c1d4473e3061f2ed"
+      "crates/yard_product/src/product.rs": "8db5c4ce247c449d"
     },
-    "promoted": "2026-11-19"
+    "promoted": "2026-11-20"
   },
   "yard_settings/sections": {
     "files": {

@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 //! `read` checks the product config: a missing or invalid identifier, icon,
 //! URL scheme, or update address, or an unknown key, fails with the file and
 //! the key. The configs under test in `tests/configs/` are each a different

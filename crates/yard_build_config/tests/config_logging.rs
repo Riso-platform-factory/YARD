@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 //! `read` runs inside the group `build-config-read{file}`: each accepted
 //! value at `debug`, and a refusal at `info`, never as an `ERROR`.
 //!

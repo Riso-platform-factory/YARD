@@ -18,11 +18,60 @@ icon = "icon.png"                 # one square PNG, at least 512 × 512; every i
 
 `PRODUCT_CONFIG=<path>` still names another file at build time.
 
+How each system's package is made, signed, and wrapped is set in the target tables of `[release]`, as the release system's design keeps all delivery in `[release]`. Every table is optional: without it, the package is made unsigned (ad hoc on macOS) and without a disk image.
+
+```toml
+[release.macos]
+dmg = true                         # a disk image beside the zip; default false
+entitlements = "entitlements.plist" # optional, relative to the config; default: none beyond the hardened runtime
+[release.macos.signing]            # absent: signed ad hoc
+identity = "Developer ID Application: Acme Co (AB12CD34EF)"
+notarize = true                    # default true
+
+[release.windows.signing]          # absent: the installer and the .exe are not signed
+timestamp_url = "http://timestamp.digicert.com"   # default
+```
+
+**Secrets never go in the config.** They come from the environment, one variable each, as Zed and Tauri read them:
+
+| Variable | What it holds | Needed when |
+|---|---|---|
+| `MACOS_CERTIFICATE`, `MACOS_CERTIFICATE_PASSWORD` | the `.p12` of the identity, base64 | signing on a machine that does not have the identity, such as CI |
+| `APPLE_NOTARIZATION_KEY`, `APPLE_NOTARIZATION_KEY_ID`, `APPLE_NOTARIZATION_ISSUER_ID` | an App Store Connect API key (`.p8`, base64) | `notarize = true` |
+| `WINDOWS_CERTIFICATE`, `WINDOWS_CERTIFICATE_PASSWORD` | the `.pfx` of the code-signing certificate, base64 | `[release.windows.signing]` |
+
+Without `MACOS_CERTIFICATE`, the identity is looked up in the keychains the developer already has, read only.
+
+## Signing and the disk image
+
+**macOS**, in the order of Zed's `script/bundle-mac`:
+1. With `MACOS_CERTIFICATE`: a temporary keychain is made in a private folder under `TMPDIR`, put first in the user's search list right after, and the certificate imported into it. The login keychain is never touched.
+   - Every `security` command runs in its own process group, so a terminal's Ctrl-C reaches only xtask.
+   - Passwords and paths reach `security -i` on standard input. A value holding a line break or a NUL is refused, and so is a command of 4096 bytes or more, since `security` would split or cut it. The refusal names the value, never its content.
+   - At the end, even after a failure, a signal, or a panic, `security delete-keychain` deletes the keychain, which also takes it out of the search list. Every other keychain stays, including ones added during the run. If the keychain cannot be deleted, the error gives the command that deletes it.
+   - If `security list-keychains` prints a line that is not one quoted path, as a path with a line break or a double quote does, the search list is not set, and the temporary keychain is deleted.
+2. The binary, then the `.app`, are signed with the identity: `--options runtime`, `--timestamp`, and the entitlements. Without an identity, the app is signed ad hoc, still with the entitlements when the config names them, as Zed's local bundle is. `codesign --verify --deep --strict` then checks the result.
+3. With `notarize`: the app is zipped into a temporary file, submitted with `notarytool submit --wait` and the API key, and the ticket stapled to the app. A rejection stops the run, and the notarization log is printed.
+4. With `--zip`: the `.zip` is made after stapling, from the stapled app in the staging folder, so its digest is of what users download. Without `--zip`, no zip is made.
+5. With `dmg = true`: an image holding the staged app and a link to `/Applications` (`hdiutil`, UDZO). With an identity it is signed itself, with the signature identifier `<identifier>.dmg`; with `notarize = true` too, it is notarized and stapled, not only the app inside it. Electron Forge notarizes only the app, and Gatekeeper then blocks the image. Without an identity, the image is not signed.
+
+The app, the zip, and the disk image are all made inside a staging folder in `--out`. Only after the last step are they moved into place together. If one move fails, the ones before it are taken back and the previous files restored, so `--out` is either fully the new release or exactly as it was.
+
+**Secrets stay with signing.** The seven secret variables, Windows' included, are removed from the environment of the `cargo` commands xtask runs (the stages check and the build), so no build script of the app sees them. `cargo xtask` itself first compiles xtask with the caller's environment, so a CI job builds xtask in an earlier step (`cargo build -p xtask`) and gives the secrets only to the step that bundles.
+
+**Stopping a run.** A SIGINT, SIGTERM, or SIGHUP does not kill xtask. The running command finishes, or dies with the terminal's Ctrl-C. xtask then stops before its next step, leaves `--out` as it was, cleans up as above, logs the stop at `info`, and exits with code 130. A run is an interrupt when the signal came at any time before the clean-up ended, or when a command it ran ended by one of those signals. A second Ctrl-C does not kill xtask either.
+
+**Logs.** xtask logs through `yard_log`, as the product `xtask`. The diagnostic log `xtask.log` (rotated to `xtask.log.old`) and the lifecycle trace `lifecycle.jsonl` are in `CARGO_TARGET_DIR`, or in `target/` of the repository; never in `--out`, which holds only what is published. `XTASK_LIFECYCLE` sets the trace's filter, `info` by default.
+
+**Windows:** with `[release.windows.signing]`, `signtool sign /fd sha256 /tr <timestamp_url> /td sha256` signs the app's `.exe` before it goes into the installer, then signs the installer. Inno Setup's `SignTool` directive does the latter, as in Zed's `zed.iss`. The `.pfx` is imported for the run only.
+
+**Linux** packages are not signed, as Zed's are not.
+
 ## The parts
 
 ### 1. `yard_build_config`: the config, typed
 
-- **Reading.** A new engine crate, without GPUI. It reads `product.toml` into a Rust type with `serde` and `deny_unknown_fields`. It then checks today's rules:
+- **Reading.** A new engine crate, without GPUI. It reads `product.toml` into a Rust type, checking each table against its list of keys and refusing any other key. It then checks today's rules:
   - non-empty single-line strings;
   - the reverse-domain identifier;
   - the lowercase URL scheme;
@@ -40,11 +89,11 @@ icon = "icon.png"                 # one square PNG, at least 512 × 512; every i
   - the review bundle (`--dev --env KEY=VALUE`), with its separate name, identifier, and scheme;
   - the stages check before building;
   - the executable path Cargo reports;
-  - restoring the previous package when a replacement fails.
+  - restoring every previous file when publishing fails.
 
 | System | What comes out (`<out>/`) | From Zed |
 |---|---|---|
-| macOS | `<Name>.app`, signed ad hoc, and `<Name>-<version>.zip` made with `ditto` | `script/bundle-mac` |
+| macOS | `<Name>.app`, signed ad hoc or with the identity; with `--zip`, `<Name>-<version>.zip` made with `ditto`; with `dmg = true`, `<Name>-<version>.dmg` | `script/bundle-mac` |
 | Linux | `<name>-<version>-linux-<arch>.tar.gz`, holding `<name>.app/` (see below) | `script/bundle-linux` |
 | Windows | `<Name>-<version>-<arch>-setup.exe` made by Inno Setup, and `<Name>-<version>-windows-<arch>.zip` | `script/bundle-windows.ps1`, `zed.iss` |
 
@@ -75,7 +124,7 @@ icon = "icon.png"                 # one square PNG, at least 512 × 512; every i
   - Uninstall removes all of the above.
 - **The executable.** The `.exe` carries the icon and its version through a resource file made by `build.rs` (Zed's `windows_resources`). In a production build it runs without a console (`windows_subsystem = "windows"`).
 - **Not copied from Zed:** file associations, context menus, PATH, a WSL wrapper.
-- Signing comes with the `code-signing` slice.
+- Signing is described in "Signing and the disk image" above, and comes with part 5 of this slice.
 
 ### 3. The app on Linux and Windows
 
@@ -108,7 +157,8 @@ The configs live in `crates/yard_build_config/tests/configs/`, where `xtask` rea
 | `plain` | Name `Lab`, identifier `test.yard.lab`, scheme `yardlab`: the basic case |
 | `spaced` | Name `Lab Notes Pro`, with spaces, in the bundle, the `.desktop` file, the installer, the shortcuts, and the directories |
 | `other` | Another identifier, scheme, and icon: two apps installed side by side do not meet (directories, socket, mutex, scheme) |
-| `bad-*` | A missing key, a bad identifier, an icon that is not square or too small, an unknown key: each refused, naming the file and the key |
+| `signed` | `[release.macos]` with `dmg` and `[release.macos.signing]`, and `[release.windows.signing]`. Its identity is a self-signed code-signing certificate made by the test (`Developer ID Application: YARD Test (YARDTEST01)`), since no real Developer ID belongs in YARD |
+| `bad-*` | A missing key, a bad identifier, an icon that is not square or too small, an unknown key, an unknown key in `[release.macos]`: each refused, naming the file and the key |
 
 ## How it is checked
 
@@ -127,6 +177,11 @@ The configs live in `crates/yard_build_config/tests/configs/`, where `xtask` rea
 
 The lead reads every log and screenshot, and runs the macOS bundles locally too.
 
+**Signing, checked with the `signed` config:**
+- On macOS, `codesign -dv` names the test identity, with the runtime flag and the entitlements. The DMG is signed with the same identity. The temporary keychain is deleted afterwards and is no longer in the search list, also after an interrupted run.
+- Notarization is checked as far as the command: `notarytool submit` with the key's id, issuer, and file. A real submission needs the publisher's Apple account, and is not verified.
+- On Windows, `signtool verify /pa` on the `.exe` and the installer shows the test certificate, made by the runner with `New-SelfSignedCertificate`.
+
 **Not checked by a machine:** how the window controls look next to Zed's on Linux and Windows. The lead compares the runners' screenshots with Zed's own on each system.
 
 ## Order inside the slice
@@ -135,11 +190,12 @@ Each part goes up for the user's review on its own:
 
 1. `yard_build_config`, and `build.rs` reading through it.
 2. `cargo xtask bundle macos`, replacing `script/bundle-macos`, with the configs under test.
-3. The app on Linux, then `bundle linux`.
-4. The app on Windows, then `bundle windows`.
-5. The runner checks above, on the throwaway repository.
+3. macOS signing, notarization, and the DMG: `[release.macos]`, the secrets, the temporary keychain.
+4. The app on Linux, then `bundle linux`.
+5. The app on Windows, then `bundle windows`, with its signing.
+6. The runner checks above, on the throwaway repository.
 
 ## Not in this slice
 
-- Releasing, CI in the template, channels, updates on Linux and Windows, code signing, the DMG, ARM builds for Linux and Windows: later slices.
+- Releasing, CI in the template, channels, updates on Linux and Windows, ARM builds for Linux and Windows: later slices.
 - Flatpak, `.deb`, AppImage, MSI. Zed ships a tarball and an Inno Setup installer; others can be added later.

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "app/*", "examples/*", "extensions/*"]
+members = ["crates/*", "app/*", "examples/*", "extensions/*", "tooling/*"]
 default-members = ["app/yard"]
 
 [workspace.package]
@@ -29,6 +29,8 @@ yard_keymap = { path = "crates/yard_keymap", default-features = false }
 yard_update = { path = "crates/yard_update", default-features = false }
 yard_build_config = { path = "crates/yard_build_config", default-features = false }
 command_palette = { path = "extensions/command_palette", default-features = false }
+clap = { version = "4.6.7", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
+ctrlc = { version = "3.5.3", features = ["termination"] }
 dirs = "6"
 futures = "0.3"
 log = "0.4.35"

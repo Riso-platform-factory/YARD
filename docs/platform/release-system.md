@@ -224,15 +224,13 @@ Each slice is built and checked on macOS, Windows, and Linux, ships alone, and l
 
 | # | Slice | What works when it ships |
 |---|---|---|
-| 1 | `packaging` | `yard_build_config`; `cargo xtask bundle <os> --config <file>` making the `.app` and `.zip`, the Linux `.tar.gz`, the Windows installer and `.zip`, from the config alone. The app runs on all three: window controls drawn as Zed draws them on Linux and Windows, its URL scheme registered and routed, one instance at a time. Proved with several configs under test, each a different app |
+| 1 | `packaging` | `yard_build_config`; `cargo xtask bundle <os> --config <file>` making the `.app`, `.zip`, and `.dmg`, the Linux `.tar.gz`, the Windows installer and `.zip`, from the config alone; signed with the developer's identity when the config names one (macOS Developer ID with notarization, Windows Authenticode), from secrets in the environment. The app runs on all three: window controls drawn as Zed draws them on Linux and Windows, its URL scheme registered and routed, one instance at a time. Proved with several configs under test, each a different app |
 | 2 | `ci` | `cargo xtask workflows`, the generated `ci.yml` on the three runners (fmt, clippy, tests with and without `dev`, the production build, stages, GPL boundary, packaging of the configs under test) with `--check` and the lints |
 | 3 | `release-local` | `[release]` with its targets, `cargo xtask release plan` and `build` with `--dry-run`, `manifest.json` |
 | 4 | `release-workflow` | The generated `release.yml`: plan, CI, a build per configured OS, upload to a GitHub draft, announce. Production versions only |
 | 5 | `release-updates` | `yard_feed`, `[release.pages]`, `[release.updates]`, the signature, `keygen`, the `updates` and `prune` stages, re-runs; installed copies update themselves on all three systems, as Zed's `auto_update` does on each |
 | 6 | `channels` | Preview: resolved identity, pre-release tags from `main`, `release/*` branches |
-| 7 | `code-signing` | macOS: `[release.macos.signing]`, a temporary keychain, notarization with an App Store Connect API key, the Developer ID and Team ID check. Windows: Authenticode signing of the installer and the binary, as Zed signs its own |
-| 8 | `dmg` | The disk image beside the zip: signed, notarized, and stapled itself |
-| 9 | `release-hosts` | `s3`, `ssh`, `command`, and the destination trait |
+| 7 | `release-hosts` | `s3`, `ssh`, `command`, and the destination trait |
 
 `new-app` (renaming the template's app) and `upstream-updates` (merging later YARD changes) are not part of the release system. They stay rows of the roadmap, after slice 1.
 

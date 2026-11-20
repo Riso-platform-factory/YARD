@@ -38,6 +38,22 @@
 </div>
 <p class="src">Đóng gói theo Zed: <code>bundle-mac</code>, <code>bundle-linux</code>, <code>bundle-windows.ps1</code> với Inno Setup. Riêng icon: developer chỉ đưa một file PNG, YARD tự tạo <code>.icns</code>, <code>.ico</code> và các cỡ PNG. Zed thì commit sẵn từng định dạng.</p>
 
+<h2>macOS: khi nào có gì</h2>
+<table>
+<tr><th>Ra cái gì</th><th>Khi nào</th></tr>
+<tr><td><code>.zip</code></td><td>Có cờ <code>--zip</code></td></tr>
+<tr><td><code>.dmg</code></td><td><code>dmg = true</code> trong <code>[release.macos]</code></td></tr>
+<tr><td>Ký bằng identity</td><td>Có <code>[release.macos.signing]</code>; không có thì ký ad hoc (vẫn kèm <code>entitlements</code> nếu có), DMG không ký</td></tr>
+<tr><td>Notarize và staple</td><td><code>notarize = true</code> (mặc định) cùng identity; áp cho app và cho DMG</td></tr>
+</table>
+<ul>
+<li>DMG ký với identifier riêng <code>&lt;identifier&gt;.dmg</code>.</li>
+<li>Bí mật (chứng chỉ, mật khẩu, khoá notarize) chỉ lấy từ biến môi trường, không bao giờ tới các lệnh <code>cargo</code>. Mật khẩu hoặc đường dẫn <code>TMPDIR</code> chứa xuống dòng hoặc NUL, hay lệnh <code>security</code> dài từ 4096 byte, bị từ chối. Search list có đường dẫn không đọc chắc được (chứa xuống dòng hoặc dấu ngoặc kép) thì không bị ghi lại.</li>
+<li>App, <code>.zip</code> và <code>.dmg</code> được làm hết trong thư mục tạm, rồi mới cùng đưa vào <code>--out</code>. Lỗi ở bất kỳ đâu thì <code>--out</code> giữ nguyên như trước khi chạy.</li>
+<li><b>Ctrl-C hoặc <code>kill</code> giữa chừng:</b> bước đang chạy làm xong, rồi dừng trước bước sau; <code>--out</code> giữ nguyên. Keychain tạm luôn bị xoá, kể cả khi lỗi hay panic; xoá keychain cũng gỡ nó khỏi search list, keychain khác vẫn giữ nguyên. Mã thoát 130. Nếu không xoá được, lỗi in ra đúng lệnh để tự xoá.</li>
+<li>Log của xtask (<code>xtask.log</code> và <code>lifecycle.jsonl</code>) nằm trong thư mục target (<code>CARGO_TARGET_DIR</code> hoặc <code>target/</code>), không bao giờ trong <code>--out</code>.</li>
+</ul>
+
 <h2>App chạy trên Linux và Windows như trên macOS</h2>
 <table>
 <tr><th></th><th>Linux</th><th>Windows</th></tr>
@@ -75,11 +91,12 @@
 <ol>
 <li><code>yard_build_config</code>; <code>build.rs</code> đọc cấu hình qua crate này.</li>
 <li><code>cargo xtask bundle macos</code> thay <code>script/bundle-macos</code>.</li>
+<li>Ký, notarize và DMG trên macOS.</li>
 <li>App chạy trên Linux, rồi <code>bundle linux</code>.</li>
-<li>App chạy trên Windows, rồi <code>bundle windows</code>.</li>
+<li>App chạy trên Windows, rồi <code>bundle windows</code>, kèm ký code Windows.</li>
 <li>Kiểm trên runner trong repo nháp.</li>
 </ol>
-<p class="muted">Các phần 1, 3, 4 sửa engine đang ở production (<code>build.rs</code>, <code>yard_ui</code>, <code>yard_shell</code>, <code>yard_paths</code>, <code>yard_update</code>). Tôi sẽ đưa anh xem từng thay đổi trước khi đóng dấu lại. Chưa làm trong lát này: phát hành, ký code, DMG, bản ARM cho Linux và Windows, Flatpak, .deb, MSI.</p>
+<p class="muted">Các phần 1, 4, 5 sửa engine đang ở production (<code>build.rs</code>, <code>yard_ui</code>, <code>yard_shell</code>, <code>yard_paths</code>, <code>yard_update</code>). Tôi sẽ đưa anh xem từng thay đổi trước khi đóng dấu lại. Chưa làm trong lát này: phát hành, bản ARM cho Linux và Windows, Flatpak, .deb, MSI.</p>
 </main>
 </body>
 </html>

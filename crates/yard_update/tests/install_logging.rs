@@ -231,7 +231,7 @@ fn run(command: &mut Command) {
 }
 
 // Builds `<dir>/<name>.app`: the `Info.plist`, an executable script in
-// `Contents/MacOS/` holding `marker`, signed ad hoc as `script/bundle-macos`.
+// `Contents/MacOS/` holding `marker`, signed ad hoc as `cargo xtask bundle macos`.
 fn make_bundle(dir: &Path, name: &str, identifier: &str, version: &str, marker: &str) -> PathBuf {
     let app = dir.join(format!("{name}.app"));
     let macos = app.join("Contents/MacOS");

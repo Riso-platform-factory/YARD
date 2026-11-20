@@ -1,0 +1,6 @@
+# A test input, refused: the icon is 512 × 256.
+name = "Lab"
+version = "0.1.0"
+identifier = "test.yard.lab"
+url_scheme = "yardlab"
+icon = "icon.png"

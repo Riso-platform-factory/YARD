@@ -1,0 +1,6 @@
+# A test input, refused: `identifier` has one label.
+name = "Lab"
+version = "0.1.0"
+identifier = "test"
+url_scheme = "yardlab"
+icon = "icon.png"

@@ -1,0 +1,6 @@
+# A test input: another app, with its own identifier, scheme, and icon.
+name = "Other Lab"
+version = "1.0.0"
+identifier = "test.yard.other"
+url_scheme = "yardother"
+icon = "icon.png"

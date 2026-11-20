@@ -1,0 +1,7 @@
+# A test input, refused: `colour` is not a key of the config.
+name = "Lab"
+version = "0.1.0"
+identifier = "test.yard.lab"
+url_scheme = "yardlab"
+icon = "icon.png"
+colour = "red"

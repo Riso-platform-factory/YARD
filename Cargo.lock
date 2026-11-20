@@ -7797,6 +7797,7 @@ dependencies = [
  "tempfile",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
+ "yard_build_config",
  "yard_keymap",
  "yard_layout",
  "yard_log",
@@ -7806,6 +7807,16 @@ dependencies = [
  "yard_shell",
  "yard_ui",
  "yard_update",
+]
+
+[[package]]
+name = "yard_build_config"
+version = "0.1.0"
+dependencies = [
+ "semver",
+ "toml 0.9.12+spec-1.1.0",
+ "tracing",
+ "yard_product",
 ]
 
 [[package]]

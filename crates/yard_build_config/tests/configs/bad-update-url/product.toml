@@ -1,0 +1,7 @@
+# A test input, refused: `update_url` uses http:// to another host.
+name = "Lab"
+version = "0.1.0"
+identifier = "test.yard.lab"
+url_scheme = "yardlab"
+icon = "icon.png"
+update_url = "http://example.com/latest.json"

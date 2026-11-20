@@ -62,7 +62,9 @@ impl Product {
 
 /// At least two labels separated by dots, each of ASCII letters, digits, and
 /// `-`, not starting or ending with `-`, as macOS asks of a bundle identifier.
-fn is_identifier(identifier: &str) -> bool {
+/// The build config is checked with this rule, so the build and the product
+/// accept the same identifiers.
+pub fn is_identifier(identifier: &str) -> bool {
     let mut labels = 0;
     identifier.split('.').all(|label| {
         labels += 1;

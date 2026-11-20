@@ -1,0 +1,6 @@
+# A test input: a name with spaces.
+name = "Lab Notes Pro"
+version = "0.2.0"
+identifier = "test.yard.labnotes"
+url_scheme = "yardlabnotes"
+icon = "icon.png"

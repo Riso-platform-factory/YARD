@@ -1,0 +1,6 @@
+# A test input, refused: `url_scheme` is not lowercase.
+name = "Lab"
+version = "0.1.0"
+identifier = "test.yard.lab"
+url_scheme = "Lab"
+icon = "icon.png"

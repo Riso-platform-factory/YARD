@@ -27,6 +27,7 @@ yard_ui = { path = "crates/yard_ui", default-features = false }
 yard_settings = { path = "crates/yard_settings", default-features = false }
 yard_keymap = { path = "crates/yard_keymap", default-features = false }
 yard_update = { path = "crates/yard_update", default-features = false }
+yard_build_config = { path = "crates/yard_build_config", default-features = false }
 command_palette = { path = "extensions/command_palette", default-features = false }
 dirs = "6"
 futures = "0.3"

@@ -118,14 +118,15 @@ fn one_instance(
 ) -> (Option<yard_shell::InstanceListener>, Vec<String>) {
     let (instance, urls) = yard_shell::start_instance(
         paths,
+        product.identifier,
         std::env::args_os().skip(1),
         env!("PRODUCT_URL_SCHEME"),
     );
     let listener = match instance {
-        yard_shell::Instance::Forwarded => std::process::exit(0),
+        yard_shell::Instance::Forwarded => yard_log::exit(0),
         yard_shell::Instance::Refused(reason) => {
             eprintln!("{} is already running: {reason}", product.name);
-            std::process::exit(1)
+            yard_log::exit(1)
         }
         yard_shell::Instance::Listening(listener) => Some(listener),
         yard_shell::Instance::Alone(_) => None,

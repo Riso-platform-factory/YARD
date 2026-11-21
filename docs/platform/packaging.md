@@ -101,15 +101,25 @@ The app, the zip, and the disk image are all made inside a staging folder in `--
 
 ```text
 <name>.app/
-  bin/<name>                                   the app
-  share/applications/<identifier>.desktop      Name, Exec=<name> %U, Icon, StartupNotify,
+  bin/<name>                                   the app; with --dev, a sh wrapper that sets the --env
+                                               values and runs libexec/<name> dev
+  libexec/<name>                               with --dev only: the app
+  share/applications/<identifier>.desktop      Name, Exec=<name> %U, TryExec, Icon, StartupNotify,
                                                MimeType=x-scheme-handler/<url_scheme>;
-  share/icons/hicolor/{256,512}x{256,512}/apps/<identifier>.png
+  share/icons/hicolor/512x512/apps/<identifier>.png
+  share/icons/hicolor/1024x1024/apps/<identifier>.png   only when the config's icon is at least 1024 × 1024
   install.sh                                   copies <name>.app to ~/.local, links ~/.local/bin/<name>,
-                                               puts the .desktop file in ~/.local/share/applications with
-                                               absolute paths, and runs update-desktop-database when present
+                                               puts the .desktop file in $XDG_DATA_HOME/applications
+                                               (else ~/.local/share/applications) with absolute paths, runs
+                                               update-desktop-database when present, and warns of libraries
+                                               that ldd does not find
 ```
 
+- `cargo xtask bundle linux` runs on Linux only, and refuses on any other system. It writes `<out>/<name>-<version>-linux-<arch>.tar.gz` and the same package unpacked as `<out>/<name>.app`, and prints `sha256 <hex>`, then the archive's path.
+- Icons are resized from the config's PNG with Lanczos3, at Zed's sizes, and never scaled up.
+- A `--dev` package must differ from production in its Linux `<name>` too.
+- **Reinstalling.** `install.sh` keeps the previous install until every step has succeeded. A failure or an interrupt puts it back.
+- **Install paths with a space or `%`.** On such a path, GIO and the generic `xdg-open` of xdg-utils 1.1.3 may fail to start the app from the menu entry or a URL. In that case `install.sh` warns. The command `~/.local/bin/<name>` still works.
 - It is built for the runner's `x86_64-unknown-linux-gnu` on Ubuntu 22.04, the oldest GitHub-hosted image. That image sets the oldest glibc the app runs on.
 - It is stripped of debug data, as Zed's is.
 - `install.sh` sits inside the archive. Zed's `install.sh` is downloaded from Zed's server, and a YARD app has no server, so the script ships with the package.
@@ -183,7 +193,7 @@ The configs live in `crates/yard_build_config/tests/configs/`, where `xtask` rea
 | | What runs |
 |---|---|
 | macOS | Bundle, then `codesign --verify`, then `plutil` against the config; open the app and take a screenshot; `open <scheme>://…` reaches the extension |
-| Linux | Bundle, then `desktop-file-validate`; run `install.sh`, then start the app under Xvfb and take a screenshot; `xdg-open <scheme>://…` reaches the running instance (read in its log); a second start exits and the first one logs the forwarded arguments |
+| Linux | Bundle, then `desktop-file-validate`; run `install.sh`, then `xdg-open <scheme>://…` with no instance running and again with one running: the first starts the app with the URL, the second reaches the running instance (read in its log). The app runs on Xorg's dummy driver with xfwm4's compositor; the runner has no GPU, so its window shows black, and screenshots come from GPUI's headless renderer (`examples/screenshot`) |
 | Windows | Bundle; install silently (`/VERYSILENT`), then read the registry keys; start the app and take a screenshot; `start <scheme>://…` reaches the running instance; uninstall silently and check that the keys are gone |
 
 The lead reads every log and screenshot, and runs the macOS bundles locally too.

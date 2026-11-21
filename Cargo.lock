@@ -8002,6 +8002,7 @@ dependencies = [
  "tracing",
  "ui",
  "unicode-segmentation",
+ "windows 0.62.2",
  "yard_settings",
 ]
 

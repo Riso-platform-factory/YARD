@@ -6,27 +6,27 @@ The eight steps of `docs/roadmap.md` are done: an application made from YARD is 
 
 ## How this roadmap is followed
 
-As every roadmap: features one at a time, in the order of the table, each with a short contract in this folder (`docs/platform/<slug>.md`) approved before any code, and the workflow of `AGENTS.md`. A feature that needs an outside account or a decision of the user (an Apple Developer account, a hosting choice, a licence question) stops at that decision.
+As every roadmap: features one at a time, in the order of the table and skipping the deferred ones, each with a short contract in this folder (`docs/platform/<slug>.md`) approved before any code, and the workflow of `AGENTS.md`. A feature that needs an outside account or a decision of the user (an Apple Developer account, a hosting choice, a licence question) stops at that decision.
 
 ## Features
 
-Status is one of: planned, dev, production, done (every part approved, with tooling that stays in `dev/`). Size: S (a day), M (a few days), L (weeks).
+Status is one of: planned, deferred (its turn is skipped until the user takes it up again), dev, production, done (every part approved, with tooling that stays in `dev/`). The release slices after `packaging` are deferred while the release direction is redone; the template and the application features come first. Size: S (a day), M (a few days), L (weeks).
 
 | # | Slug | What it adds | Who has it | Size | Needs | Status |
 |---|---|---|---|---|---|---|
 | 1 | `packaging` | The release system's first slice (`release-system.md`): `cargo xtask bundle` (`macos`, `linux`, `windows`) makes an installable app from `product.toml` alone (macOS `.app`, `.zip`, and `.dmg`, Linux `.tar.gz`, Windows Inno Setup installer and `.zip`), signed with the developer's identity when configured (Developer ID with notarization, Authenticode); the app runs on the three with drawn window controls, its URL scheme, and one instance | Zed's `bundle-mac`, `bundle-linux`, `bundle-windows.ps1` | L | none | done: every part approved. `yard_build_config` is in production; `cargo xtask bundle macos`, `linux`, and `windows`, with their signing, are dev tooling in `xtask`'s `dev/`; the app runs on Linux and Windows with drawn window controls, one instance, and URLs; `tooling/runner-checks/` checks all three systems on GitHub's runners |
-| 2 | `ci` | `cargo xtask workflows` generates `ci.yml`, checked against the code, run on macOS, Linux, and Windows runners | Zed's `cargo xtask workflows` | M | packaging | planned |
-| 3 | `release-local` | `[release]` with its targets; `cargo xtask release plan` and `build`, `--dry-run`, `manifest.json` | cargo-dist, GoReleaser | M | ci | planned |
-| 4 | `release-workflow` | The generated `release.yml`: plan, CI, a build per system, a GitHub draft, announce | cargo-dist, Zed's `release.yml` | M | release-local | planned |
-| 5 | `release-updates` | `[release.pages]`, `[release.updates]`, the signed `latest.json` written last, pruning, re-runs; installed copies update themselves on the three systems | Tauri, Velopack, Zed's `auto_update` | L | release-workflow | planned |
-| 6 | `channels` | Preview derived from a pre-release version: its own name, identifier, scheme, and folders | Zed's release channels, electron-builder | M | release-updates | planned |
-| 7 | `release-hosts` | `s3`, `ssh`, `command`, and the destination trait | GoReleaser, electron-builder | M | release-updates | planned |
-| 8 | `new-app` | `script/new-app <name> <identifier>`: renames the sample application (crate, binary, `product.toml`, icon, URL scheme) in one step, so that re-branding is not a hand edit | `create-tauri-app`, `dx new`, `flutter create` | S | none | planned |
-| 9 | `upstream-updates` | A documented and scripted way for an application made from the template to take later YARD fixes: an `upstream` remote and a merge procedure that re-stamps `production.json`, or engines published as versioned git crates | every framework ships itself as versioned packages | M–L | none | planned |
+| 2 | `ci` | `cargo xtask workflows` generates `ci.yml`, checked against the code, run on macOS, Linux, and Windows runners | Zed's `cargo xtask workflows` | M | packaging | deferred |
+| 3 | `release-local` | `[release]` with its targets; `cargo xtask release plan` and `build`, `--dry-run`, `manifest.json` | cargo-dist, GoReleaser | M | ci | deferred |
+| 4 | `release-workflow` | The generated `release.yml`: plan, CI, a build per system, a GitHub draft, announce | cargo-dist, Zed's `release.yml` | M | release-local | deferred |
+| 5 | `release-updates` | `[release.pages]`, `[release.updates]`, the signed `latest.json` written last, pruning, re-runs; installed copies update themselves on the three systems | Tauri, Velopack, Zed's `auto_update` | L | release-workflow | deferred |
+| 6 | `channels` | Preview derived from a pre-release version: its own name, identifier, scheme, and folders | Zed's release channels, electron-builder | M | release-updates | deferred |
+| 7 | `release-hosts` | `s3`, `ssh`, `command`, and the destination trait | GoReleaser, electron-builder | M | release-updates | deferred |
+| 8 | `new-app` | `cargo xtask new-app --name --identifier`: makes the developer's own application in `application/`, beside the sample, which stays YARD's fixture; first the startup and the build script leave the sample (`yard_app`, `yard_build_config`), and `cargo xtask bundle` packages the application it is given (`docs/platform/new-app.md`) | `create-tauri-app`, `dx new`, `flutter create` | M | none | planned |
+| 9 | `upstream-updates` | A documented and scripted way for an application made from the template to take later YARD fixes: an `upstream` remote and a merge on a review branch, with how the root `Cargo.toml` and `Cargo.lock` are merged | every framework ships itself as versioned packages | M | new-app | planned |
 | 10 | `file-dialogs` | Open and save dialogs through the extension handle, wrapping GPUI's `prompt_for_paths` and `prompt_for_new_path`, with logging | Tauri dialog plugin, Electron `dialog` | S | none | planned |
 | 11 | `os-notifications` | Notifications in the OS's notification centre when the window is not in front, through the handle | Tauri notification plugin, Electron notifications | S–M | none | planned |
 | 12 | `crash-reports` | Native crash dumps beside the panic log, and an opt-in "send report" at the next start | Electron `crashReporter`; Zed's `crashes` (reference only) | M | telemetry-consent | planned |
-| 13 | `api-docs` | `cargo doc` of the public engine APIs published to GitHub Pages by CI, linked from the wiki | Tauri, Electron, Dioxus API references | S | ci | planned |
+| 13 | `api-docs` | `cargo doc` of the public engine APIs published to GitHub Pages by CI, linked from the wiki | Tauri, Electron, Dioxus API references | S | ci | planned; waits for `ci` |
 | 14 | `extension-toggle` | A settings section that turns a compiled-in extension off without a rebuild | Zed's extension settings | S | none | planned |
 | 15 | `secrets` | An extension keeps a secret in the OS's store of credentials (the state roadmap's `secrets`, by need until now) | Tauri Stronghold, Electron `safeStorage` | S | none | planned |
 | 16 | `telemetry-consent` | An opt-in setting and a first-run question for usage and error reports, honoured by every engine that would send anything | Zed's opt-in telemetry | M | none | planned |

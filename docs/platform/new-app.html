@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>YARD — new-app: app riêng của developer</title>
+<style>
+  :root { --bg:#1e2025; --panel:#282c33; --line:#3a3f4a; --text:#dce0e5; --muted:#8b919c; --ok:#5ea86b; --accent:#74ade8; --warn:#dec184; --own:#a1c181; --gen:#6b717d; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; }
+  main { padding:28px 36px 70px; }
+  h1 { font-size:21px; margin:0 0 4px; } h2 { font-size:15.5px; color:var(--accent); margin:32px 0 10px; }
+  .sub, .muted { color:var(--muted); }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; font:12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; overflow:auto; margin:0; }
+  code { font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td, th { border-bottom:1px solid var(--line); padding:7px 8px; text-align:left; vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .yard { color:var(--accent); } .own { color:var(--own); } .gen { color:var(--gen); }
+  svg text { font-family:-apple-system, BlinkMacSystemFont, sans-serif; }
+</style>
+</head>
+<body>
+<main>
+<h1>new-app: một lệnh, ra app riêng của developer</h1>
+<p class="sub">Developer clone YARD, chạy một lệnh, có app của mình trong <code>application/</code>: tên, identifier, URL scheme, icon của mình, chạy trên cả 3 hệ. App mẫu và engine của YARD giữ nguyên chỗ, nên bản sửa sau này của YARD merge vào không đụng code của developer.</p>
+
+<h2>Luồng</h2>
+<svg viewBox="0 0 1500 200" width="100%" role="img">
+  <defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8b919c"/></marker></defs>
+  <g font-size="14" fill="#dce0e5">
+    <rect x="10" y="40" width="240" height="90" rx="8" fill="#282c33" stroke="#3a3f4a"/>
+    <text x="30" y="72" font-weight="600">Clone YARD</text>
+    <text x="30" y="96" fill="#8b919c" font-size="12.5">remote YARD đổi tên thành upstream</text>
+    <text x="30" y="116" fill="#8b919c" font-size="12.5">origin trỏ tới repo của developer</text>
+
+    <rect x="310" y="40" width="330" height="90" rx="8" fill="#282c33" stroke="#74ade8"/>
+    <text x="330" y="72" font-weight="600" font-family="ui-monospace, Menlo, monospace" font-size="13">cargo xtask new-app</text>
+    <text x="330" y="96" fill="#8b919c" font-size="12.5">--name "North Star" --identifier com.acme.ns</text>
+    <text x="330" y="116" fill="#8b919c" font-size="12.5">kiểm mọi giá trị trước khi ghi gì</text>
+
+    <rect x="700" y="40" width="300" height="90" rx="8" fill="#282c33" stroke="#a1c181"/>
+    <text x="720" y="72" font-weight="600">application/ được tạo</text>
+    <text x="720" y="96" fill="#8b919c" font-size="12.5">+ sửa Cargo.toml gốc</text>
+    <text x="720" y="116" fill="#8b919c" font-size="12.5">(members, default-members)</text>
+
+    <rect x="1060" y="40" width="190" height="90" rx="8" fill="#282c33" stroke="#3a3f4a"/>
+    <text x="1080" y="72" font-weight="600" font-family="ui-monospace, Menlo, monospace" font-size="13">cargo run</text>
+    <text x="1080" y="96" fill="#8b919c" font-size="12.5">cửa sổ, menu, thư mục</text>
+    <text x="1080" y="116" fill="#8b919c" font-size="12.5">đều là North Star</text>
+
+    <rect x="1310" y="40" width="180" height="90" rx="8" fill="#282c33" stroke="#3a3f4a"/>
+    <text x="1330" y="72" font-weight="600" font-family="ui-monospace, Menlo, monospace" font-size="13">cargo xtask bundle</text>
+    <text x="1330" y="96" fill="#8b919c" font-size="12.5">đóng gói đúng app</text>
+    <text x="1330" y="116" fill="#8b919c" font-size="12.5">của developer</text>
+  </g>
+  <g stroke="#8b919c" stroke-width="1.6" marker-end="url(#a)">
+    <line x1="252" y1="85" x2="306" y2="85"/><line x1="642" y1="85" x2="696" y2="85"/>
+    <line x1="1002" y1="85" x2="1056" y2="85"/><line x1="1252" y1="85" x2="1306" y2="85"/>
+  </g>
+  <text x="310" y="160" font-size="12.5" fill="#dec184">Từ chối trước khi ghi gì: mọi thứ mà build hoặc đóng gói sẽ từ chối (identifier, scheme, version quá 65535, tên có / hay tên thiết bị Windows, icon hỏng hoặc không vuông),</text>
+  <text x="310" y="180" font-size="12.5" fill="#dec184">trùng tên, identifier, scheme của app mẫu hay tên crate có sẵn, application/ đã có. Đứt giữa chừng: lần chạy sau dọn hoặc chỉ rõ cách sửa.</text>
+</svg>
+
+<h2>Thư mục: của ai</h2>
+<div class="cols">
+<pre><span class="yard">crates/        engine của YARD</span>
+<span class="yard">extensions/    extension đi kèm (command palette)</span>
+<span class="yard">app/yard/      app mẫu, giữ làm fixture</span>
+<span class="yard">examples/      tour, gallery, screenshot</span>
+<span class="yard">tooling/       cargo xtask, runner checks</span>
+<span class="yard">docs/  production.json  AGENTS.md  README.md</span>
+<span class="yard">Cargo.toml</span>     <span class="own">← trừ mục application, default-members</span>
+<span class="gen">Cargo.lock     chung; cách merge thuộc upstream-updates</span>
+<span class="own">application/   của developer, YARD không bao giờ ghi vào
+  Cargo.toml   package/binary: north-star
+  build.rs     1 dòng
+  product.toml name, version, identifier, url_scheme, icon
+  icon.png     icon đưa vào, hoặc ô xám trung tính
+  src/main.rs  chạy yard_app với product, extension, menu
+  src/menus.rs menu của app
+  README.md    chạy, test, đóng gói
+  extensions/  extension riêng của developer, về sau</span></pre>
+<div class="card">
+<p><b class="yard">Xanh dương</b>: của YARD, bản cập nhật YARD thay đổi chúng.<br><b class="own">Xanh lá</b>: của developer, YARD không bao giờ đụng.<br><b class="gen">Xám</b>: file sinh ra, hai bên cùng dùng.</p>
+<ul>
+<li><code>cargo run</code> chạy app của developer; <code>cargo run -p yard</code> chạy app mẫu.</li>
+<li>App của developer chỉ dùng code production của YARD. <code>cargo run dev</code>, <code>draft</code>, <code>example</code> vẫn là của app mẫu (<code>cargo run -p yard dev</code>).</li>
+<li>Luật stage và <code>production.json</code> chỉ áp cho YARD, bỏ qua <code>application/</code>. Luật GPL vẫn áp: app không dùng trực tiếp crate GPL của Zed.</li>
+<li>Không có <code>--icon</code>: app nhận một ô xám trung tính (không phải icon app mẫu), lệnh báo ở dòng cuối.</li>
+<li>Version lấy từ <code>product.toml</code>. Tên binary theo tên app: <code>North Star</code> → <code>north-star</code>. Tên gói khi đóng gói giữ như hiện nay (<code>North Star.app</code>, <code>North Star.exe</code>, <code>north-star</code> trên Linux).</li>
+</ul>
+</div>
+</div>
+
+<h2>Phải sửa YARD trước, vì hôm nay chưa làm được</h2>
+<svg viewBox="0 0 1500 230" width="100%" role="img">
+  <g font-size="13.5" fill="#dce0e5">
+    <text x="10" y="22" fill="#8b919c" font-size="12.5">HÔM NAY</text>
+    <rect x="10" y="34" width="680" height="180" rx="8" fill="#282c33" stroke="#3a3f4a"/>
+    <text x="30" y="62" font-weight="600">app/yard (app mẫu)</text>
+    <rect x="30" y="76" width="300" height="52" rx="6" fill="#1e2025" stroke="#dec184"/>
+    <text x="44" y="98">startup.rs: khởi động toàn bộ</text>
+    <text x="44" y="118" fill="#8b919c" font-size="12">đọc tên, scheme, icon của app mẫu lúc build</text>
+    <rect x="350" y="76" width="320" height="52" rx="6" fill="#1e2025" stroke="#dec184"/>
+    <text x="364" y="98">build.rs: product.toml → icon, resource</text>
+    <text x="364" y="118" fill="#8b919c" font-size="12">nằm trong app mẫu</text>
+    <rect x="30" y="144" width="640" height="52" rx="6" fill="#1e2025" stroke="#dec184"/>
+    <text x="44" y="166">cargo xtask bundle luôn build -p yard --bin yard</text>
+    <text x="44" y="186" fill="#8b919c" font-size="12">app khác sẽ bị đóng gói thành app mẫu mang tên khác</text>
+
+    <text x="760" y="22" fill="#8b919c" font-size="12.5">SAU KHI SỬA</text>
+    <rect x="760" y="34" width="730" height="180" rx="8" fill="#282c33" stroke="#3a3f4a"/>
+    <rect x="780" y="50" width="330" height="52" rx="6" fill="#1e2025" stroke="#74ade8"/>
+    <text x="794" y="72">yard_app: khởi động, engine mới của YARD</text>
+    <text x="794" y="92" fill="#8b919c" font-size="12">nhận product, scheme, icon từ app gọi nó</text>
+    <rect x="1130" y="50" width="340" height="52" rx="6" fill="#1e2025" stroke="#74ade8"/>
+    <text x="1144" y="72">yard_build_config: build script</text>
+    <text x="1144" y="92" fill="#8b919c" font-size="12">build.rs của mỗi app chỉ còn 1 dòng</text>
+    <rect x="780" y="116" width="690" height="36" rx="6" fill="#1e2025" stroke="#74ade8"/>
+    <text x="794" y="139">cargo xtask bundle --package &lt;app&gt;, mặc định là app chạy khi gõ cargo run</text>
+    <rect x="780" y="164" width="330" height="36" rx="6" fill="#1e2025" stroke="#a1c181"/>
+    <text x="794" y="187">app/yard: chỉ còn product, extension, menu</text>
+    <rect x="1130" y="164" width="340" height="36" rx="6" fill="#1e2025" stroke="#a1c181"/>
+    <text x="1144" y="187">examples/north_star: app thứ hai, tới khi có new-app</text>
+  </g>
+</svg>
+<p class="muted">Build script hôm nay là code production chưa thuộc part nào. Nó chạy trước app nên không thể thử bản mới qua <code>cargo run dev</code>: dời nguyên vào một part, anh duyệt stamp. Đây là ngoại lệ duy nhất của luật "code mới vào <code>dev/</code>". Khởi động là part production đã duyệt: bản mới làm trong <code>dev/</code> bên cạnh, thay bản cũ khi anh duyệt promote, như mọi lần sửa code production.</p>
+
+<h2>Các phần, duyệt lần lượt</h2>
+<table>
+<tr><th>#</th><th>Phần</th><th>Anh sẽ thấy khi duyệt</th></tr>
+<tr><td>1</td><td>Build script vào <code>yard_build_config</code></td><td>App mẫu build trước và sau cho cùng giá trị, cùng icon cửa sổ, cùng resource Windows (trên runner); <code>cargo run</code> trace như cũ.</td></tr>
+<tr><td>2</td><td><code>yard_app</code>: khởi động, kèm <code>examples/north_star</code></td><td><code>cargo run dev</code>: app mẫu khởi động qua <code>yard_app</code>, trace giống <code>cargo run</code>. <code>cargo run -p north_star</code>: tiêu đề, menu <i>About North Star</i>, thư mục, <code>NORTH_STAR_LIFECYCLE</code> đều của North Star.</td></tr>
+<tr><td>3</td><td><code>cargo xtask bundle --package</code></td><td><code>bundle macos --package north_star</code> ra <code>North Star.app</code> có menu <i>About North Star</i>, thứ chỉ binary đúng mới có. <code>--dev</code> chỉ cho app mẫu.</td></tr>
+<tr><td>4</td><td><code>cargo xtask new-app</code></td><td>Trong một bản clone mới: chạy lệnh, rồi <code>cargo run</code> ra North Star. Rồi từng trường hợp bị từ chối. <code>examples/north_star</code> bị xoá, app sinh ra thay nó.</td></tr>
+<tr><td>5</td><td>Chạy trên 3 hệ (runner)</td><td>Checkout riêng: tạo app, đóng gói, cài, mở, mở URL <code>northstar://…</code> trên macOS, Linux, Windows; app mẫu (<code>--package yard</code>) cài cạnh North Star, hai app không đụng nhau ở thư mục, socket, scheme, menu.</td></tr>
+</table>
+
+<h2>Không nằm trong phần này</h2>
+<ul>
+<li>Nhận bản sửa sau này của YARD vào repo của developer: phần kế tiếp, <code>upstream-updates</code>.</li>
+<li>Đổi tên app mẫu tại chỗ: app mẫu giữ làm fixture của YARD.</li>
+<li>Chế độ hỏi từng câu của <code>new-app</code>: chỉ có cờ.</li>
+</ul>
+</main>
+</body>
+</html>

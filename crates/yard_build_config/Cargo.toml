@@ -14,7 +14,13 @@ default = ["dev"]
 dev = ["yard_product/dev"]
 
 [dependencies]
+# `ico` for the `.exe`'s icon.
+image = { workspace = true, features = ["png", "ico"] }
 semver.workspace = true
 toml.workspace = true
 tracing.workspace = true
 yard_product = { workspace = true, default-features = false }
+
+# The Windows resource, with the icon and the version, compiled on Windows.
+[target.'cfg(windows)'.dependencies]
+embed-resource.workspace = true

@@ -18,6 +18,12 @@
     },
     "promoted": "2026-11-21"
   },
+  "yard_build_config/build_script": {
+    "files": {
+      "crates/yard_build_config/src/build_script.rs": "784173a74e5edf73"
+    },
+    "promoted": "2026-11-22"
+  },
   "yard_build_config/config": {
     "files": {
       "crates/yard_build_config/src/config.rs": "a6452f32ae2594c0",

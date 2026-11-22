@@ -7862,13 +7862,11 @@ name = "yard"
 version = "0.1.0"
 dependencies = [
  "command_palette",
- "embed-resource",
  "gpui",
  "gpui_platform",
  "image",
  "reqwest_client",
  "serde_json",
- "tempfile",
  "tracing",
  "yard_build_config",
  "yard_keymap",
@@ -7886,6 +7884,8 @@ dependencies = [
 name = "yard_build_config"
 version = "0.1.0"
 dependencies = [
+ "embed-resource",
+ "image",
  "semver",
  "toml 0.9.12+spec-1.1.0",
  "tracing",

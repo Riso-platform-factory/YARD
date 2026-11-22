@@ -13,7 +13,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use authenticode::{PfxFolder, SignTools, Signer, command, iscc_sign_tool};
-use yard_build_config::BuildConfig;
+use yard_build_config::{BuildConfig, build_script};
 
 use super::{
     Failure, Interrupt, Runner, Staging, build, interrupted_at_end, log_outcome, not_interrupted,
@@ -138,10 +138,6 @@ pub struct WindowsBundled {
     /// `<out>/<Name>-<version>-windows-<arch>.zip`, holding `<Name>/<Name>.exe`.
     pub zip: (PathBuf, String),
 }
-
-/// The sizes of the installer's icon: the `.exe`'s, as `app/yard/build.rs`
-/// makes them.
-const ICON_SIZES: [u32; 6] = [16, 24, 32, 48, 64, 256];
 
 /// Inno Setup's limit on `AppId`.
 const APP_ID_LIMIT: usize = 127;
@@ -381,7 +377,8 @@ fn in_temp(
     let name = &product.name;
     let temp = staging.path.clone();
     let icon = temp.join(format!("{name}.ico"));
-    write_icon(&product.icon, &icon).map_err(|reason| Failure::new("icon", reason))?;
+    build_script::write_windows_icon(&product.icon, &icon)
+        .map_err(|reason| Failure::new("icon", reason))?;
     tracing::debug!(icon = %icon.display(), "icon");
 
     step("bundle", interrupt)?;
@@ -523,37 +520,6 @@ fn sha256(certutil: &Path, file: &Path, runner: &mut dyn Runner) -> Result<Strin
         .map(|line| line.replace(' ', "").to_ascii_lowercase())
         .find(|line| line.len() == 64 && line.chars().all(|c| c.is_ascii_hexdigit()))
         .ok_or_else(|| "certutil printed no SHA-256".to_owned())
-}
-
-/// Writes the config's icon as an ICO to `out`, one PNG frame for each of
-/// [`ICON_SIZES`], resized with Lanczos3. The same as `write_windows_icon` of
-/// `app/yard/build.rs`, which a build script keeps to itself: sharing it
-/// would move it into a production crate.
-fn write_icon(icon: &Path, out: &Path) -> Result<(), String> {
-    let bytes = fs::read(icon)
-        .map_err(|error| format!("could not read the icon {}: {error}", icon.display()))?;
-    let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
-        .map_err(|error| format!("could not decode the icon {}: {error}", icon.display()))?;
-    let frames = ICON_SIZES
-        .iter()
-        .map(|&size| {
-            let resized = image
-                .resize_exact(size, size, image::imageops::FilterType::Lanczos3)
-                .into_rgba8();
-            image::codecs::ico::IcoFrame::as_png(
-                resized.as_raw(),
-                size,
-                size,
-                image::ExtendedColorType::Rgba8,
-            )
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("could not encode the icon {}: {error}", icon.display()))?;
-    let file = fs::File::create(out)
-        .map_err(|error| format!("could not write {}: {error}", out.display()))?;
-    image::codecs::ico::IcoEncoder::new(io::BufWriter::new(file))
-        .encode_images(&frames)
-        .map_err(|error| format!("could not write {}: {error}", out.display()))
 }
 
 /// A parameter of a section: in double quotes, each `"` inside doubled.

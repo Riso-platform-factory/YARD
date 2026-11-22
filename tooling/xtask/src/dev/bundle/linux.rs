@@ -106,6 +106,7 @@ fn bundle(
         &config,
         options.dev,
         &[("CARGO_PROFILE_RELEASE_STRIP", "debuginfo")],
+        &[],
         interrupt,
         runner,
     )?;

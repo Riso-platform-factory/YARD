@@ -9,8 +9,11 @@ mod linux;
 mod signing;
 mod windows;
 pub use linux::{LinuxArgs, LinuxBundled, bundle_linux};
-pub use signing::Secrets;
-pub use windows::{WindowsArgs, WindowsBundled, WindowsHost, bundle_windows, inno_script};
+pub use signing::{HELPER_VARIABLES, Secrets};
+pub use windows::{
+    WindowsArgs, WindowsBundled, WindowsHost, WindowsSecrets, bundle_windows, check_authenticode,
+    inno_script, sign_windows_file,
+};
 
 use std::fmt;
 use std::fs;
@@ -45,6 +48,10 @@ enum Task {
     /// Makes an installable package from a product config.
     #[command(subcommand)]
     Bundle(System),
+    /// What Inno Setup runs to sign the installer and the uninstaller of
+    /// `bundle windows`, from what that run gave it.
+    #[command(hide = true)]
+    SignWindowsFile { file: PathBuf },
 }
 
 #[derive(Subcommand)]
@@ -165,6 +172,20 @@ pub trait Runner {
     /// Runs `command` with `input` on its stdin and returns what it wrote on
     /// stdout. The input may hold a secret, and is never logged.
     fn input(&mut self, command: &mut Command, input: &[u8]) -> Result<Vec<u8>, String>;
+    /// Runs `command` to its end and returns what it wrote on stdout and
+    /// stderr, neither printed, so the caller can hide a secret in them
+    /// first. `Err` only when it could not run.
+    fn capture(&mut self, command: &mut Command) -> Result<Captured, String>;
+}
+
+/// What [`Runner::capture`] returns.
+#[derive(Debug, Clone, Default)]
+pub struct Captured {
+    pub success: bool,
+    /// How it ended, such as `exit code: 1`.
+    pub status: String,
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
 }
 
 /// Runs the commands for real. A command that a SIGINT, SIGTERM, or SIGHUP
@@ -224,6 +245,24 @@ impl Runner for SystemRunner {
         Ok((output.status.success(), output.stdout))
     }
 
+    fn capture(&mut self, command: &mut Command) -> Result<Captured, String> {
+        let output = command
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .map_err(|error| could_not_run(command, error))?;
+        // A failure is returned as data, but one ended by an interrupt
+        // still sets it.
+        let _ = self.succeeded(command, output.status);
+        Ok(Captured {
+            success: output.status.success(),
+            status: output.status.to_string(),
+            stdout: output.stdout,
+            stderr: output.stderr,
+        })
+    }
+
     fn input(&mut self, command: &mut Command, input: &[u8]) -> Result<Vec<u8>, String> {
         let mut child = command
             .stdin(Stdio::piped())
@@ -280,10 +319,28 @@ pub fn main() -> ExitCode {
         env!("CARGO_PKG_VERSION"),
         "dev.yard.xtask",
     ));
+    let args = Args::parse();
+    if let Task::SignWindowsFile { file } = &args.task {
+        // The bundle that runs this through Inno Setup writes xtask's log
+        // files meanwhile, so this logs to stderr only.
+        // It ends through `yard_log::exit`, so its trace reaches stderr.
+        match sign_windows_file(
+            file,
+            &|name| std::env::var_os(name),
+            &mut SystemRunner {
+                interrupt: Interrupt::default(),
+            },
+        ) {
+            Ok(()) => yard_log::exit(0),
+            Err(reason) => {
+                eprintln!("sign-windows-file: {reason}");
+                yard_log::exit(1)
+            }
+        }
+    }
     yard_log::open_files(&target_dir());
     // xtask has no startup of its own: each task is a group of its own.
     yard_log::startup_finished();
-    let args = Args::parse();
     let interrupt = Interrupt::default();
     let handler = interrupt.clone();
     if let Err(error) = ctrlc::set_handler(move || handler.set()) {
@@ -336,10 +393,12 @@ pub fn main() -> ExitCode {
                 }
             }
         }
+        Task::SignWindowsFile { .. } => unreachable!("signed above"),
         Task::Bundle(System::Windows(options)) => {
             match bundle_windows(
                 &options,
                 &WindowsHost::from_env(),
+                &WindowsSecrets::from_env(),
                 &interrupt,
                 &mut SystemRunner {
                     interrupt: interrupt.clone(),
@@ -433,14 +492,23 @@ fn arguments(
 
 /// The steps `stages` and `build`: the stages check, then yard built in
 /// release with `PRODUCT_CONFIG` and the variables `envs`, production code
-/// only unless `dev`. Returns the executable Cargo reports.
+/// only unless `dev`. Both cargo commands run without the variables
+/// `removed`. Returns the executable Cargo reports.
 fn build(
     config: &Path,
     dev: bool,
     envs: &[(&str, &str)],
+    removed: &[&str],
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<PathBuf, Failure> {
+    let cargo = || {
+        let mut command = cargo();
+        for name in removed {
+            command.env_remove(name);
+        }
+        command
+    };
     step("stages", interrupt)?;
     runner
         .run(
@@ -497,7 +565,7 @@ fn bundle(
     let signing =
         Signing::new(&product, secrets).map_err(|reason| Failure::new("secrets", reason))?;
 
-    let binary = build(&config, options.dev, &[], interrupt, runner)?;
+    let binary = build(&config, options.dev, &[], &[], interrupt, runner)?;
 
     let mut session = Session::default();
     let job = Job {

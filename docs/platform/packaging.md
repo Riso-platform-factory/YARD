@@ -63,7 +63,14 @@ The app, the zip, and the disk image are all made inside a staging folder in `--
 
 **Logs.** xtask logs through `yard_log`, as the product `xtask`. The diagnostic log `xtask.log` (rotated to `xtask.log.old`) and the lifecycle trace `lifecycle.jsonl` are in `CARGO_TARGET_DIR`, or in `target/` of the repository; never in `--out`, which holds only what is published. `XTASK_LIFECYCLE` sets the trace's filter, `info` by default.
 
-**Windows:** with `[release.windows.signing]`, `signtool sign /fd sha256 /tr <timestamp_url> /td sha256` signs the app's `.exe` before it goes into the installer, then signs the installer. Inno Setup's `SignTool` directive does the latter, as in Zed's `zed.iss`. The `.pfx` is imported for the run only.
+**Windows:** with `[release.windows.signing]`, the app's `.exe`, the installer, and its uninstaller are signed with Authenticode.
+- **Secrets.** `WINDOWS_CERTIFICATE` (the `.pfx`, base64) and `WINDOWS_CERTIFICATE_PASSWORD` are required and must not be empty; a missing one is refused before building, naming the variable, never its value.
+- **No certificate store is used.** After the build, and before `--out` is made, the `.pfx` is written to a new folder in the user's temporary folder, with a random name and an access list that lets only the user in. A temporary folder on a volume that keeps no access lists is refused. That folder is removed before anything is published; if it cannot be removed, nothing is published.
+- **The certificate.** Windows PowerShell loads the `.pfx` in memory to find its one certificate with a private key and the code-signing usage; zero or several fail. A wrong password fails with a fixed message that names no secret.
+- **Signing.** `signtool sign /fd sha256 /tr <timestamp_url> /td sha256 /f <pfx> /p <password>` signs the app's `.exe` before it goes into the installer and the zip. Inno Setup's `SignTool` directive, as in Zed's `zed.iss`, signs the installer and the uninstaller by running `cargo xtask sign-windows-file`, which takes the `.pfx` and the password from ISCC's environment, so ISCC's command line and the `.iss` hold no secret. What signtool and ISCC print is shown with the password replaced by `***`.
+- **Where the password is.** On signtool's command line, and in the environment of the PowerShell that reads the `.pfx`, of ISCC, and of that helper; xtask never writes it to a log or an error. Processes of the same account can read these, and Windows' process-creation auditing (event 4688), when it records command lines, keeps signtool's.
+- **Checking.** Each signature is read back with `Get-AuthenticodeSignature`: it must be the certificate's own Authenticode signature, with a timestamp, and `Valid`. A self-signed test certificate is therefore trusted on the machine that bundles, for the test only.
+- `signtool.exe` comes from `PATH`, else the newest Windows 10 SDK under `%ProgramFiles(x86)%\Windows Kits\10\bin`. A `--dev` bundle is signed too, as on macOS.
 
 **Linux** packages are not signed, as Zed's are not.
 
@@ -136,7 +143,6 @@ The app, the zip, and the disk image are all made inside a staging folder in `--
   - `AppId` is the identifier itself, so it stays the same across versions and is readable in the registry (`<identifier>_is1`). An identifier over 127 characters, Inno Setup's limit, is refused.
   - `AppMutex` names the same mutex the app creates. Both take it from one function, unlike Zed, whose installer names a different one. Installing while the app runs stops with "Setup has detected that <Name> is currently running"; a silent install exits 1.
   - Uninstall removes the app's folder, the shortcut, the uninstall entry, and the values it wrote under the scheme key. Other values under that key stay, and the key goes only when it is empty. The data in `%LOCALAPPDATA%\<Name>` and `%APPDATA%\<Name>` stays.
-- **Not signed yet.** With `[release.windows.signing]`, it warns "not signed: Windows signing comes with part 5e" and makes an unsigned installer.
 - **The executable.** `build.rs` makes a resource script from the config, written from Microsoft's VERSIONINFO reference, and compiles it into the `.exe` with `embed-resource`:
   - **Resource 1, the icon.** An ICO at 16, 24, 32, 48, 64, and 256 px, made from the config's PNG. GPUI loads it for the window and the taskbar.
   - **VERSIONINFO.** ProductName and FileDescription come from the name. FileVersion and ProductVersion come from the version. The numeric version is `major.minor.patch.0`, read before any `-` or `+`. A number over 65535 fails the build, naming the config. There is no CompanyName, since the config has none.

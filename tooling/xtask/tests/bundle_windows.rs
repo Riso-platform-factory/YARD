@@ -12,7 +12,9 @@ mod support;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use support::{DIGEST, FakeRunner, config_in, tempdir, under_test};
-use xtask::{Failure, Interrupt, WindowsArgs, WindowsBundled, WindowsHost, bundle_windows};
+use xtask::{
+    Failure, Interrupt, WindowsArgs, WindowsBundled, WindowsHost, WindowsSecrets, bundle_windows,
+};
 
 fn options(config: &Path, out: &Path) -> WindowsArgs {
     WindowsArgs {
@@ -39,6 +41,7 @@ fn host(temp: &Path) -> WindowsHost {
         path: Some(inno.into_os_string()),
         program_files_x86: None,
         system_root: Some(root.into_os_string()),
+        xtask: None,
     }
 }
 
@@ -55,7 +58,13 @@ fn bundle(
     temp: &Path,
     runner: &mut FakeRunner,
 ) -> Result<WindowsBundled, Failure> {
-    bundle_windows(options, &host(temp), &Interrupt::default(), runner)
+    bundle_windows(
+        options,
+        &host(temp),
+        &WindowsSecrets::default(),
+        &Interrupt::default(),
+        runner,
+    )
 }
 
 fn entries(folder: &Path) -> Vec<String> {
@@ -472,24 +481,6 @@ fn certutil_digests_in_spaced_pairs_are_read() {
 }
 
 #[test]
-fn the_signing_table_is_not_signed_yet_and_the_run_goes_on() {
-    let temp = tempdir();
-    let mut runner = FakeRunner::new(temp.path());
-    let bundled = bundle(
-        &options(&under_test("signed"), &temp.path().join("out")),
-        temp.path(),
-        &mut runner,
-    )
-    .unwrap();
-    assert!(bundled.installer.0.is_file());
-    assert!(
-        !runner.programs().contains(&"signtool"),
-        "{:?}",
-        runner.programs()
-    );
-}
-
-#[test]
 fn inno_setup_is_found_in_program_files_when_not_on_path() {
     let temp = tempdir();
     let program_files = temp.path().join("Program Files (x86)");
@@ -506,6 +497,7 @@ fn inno_setup_is_found_in_program_files_when_not_on_path() {
     bundle_windows(
         &options(&under_test("plain"), &temp.path().join("out")),
         &host,
+        &WindowsSecrets::default(),
         &Interrupt::default(),
         &mut runner,
     )
@@ -528,6 +520,7 @@ fn inno_setup_on_path_comes_first() {
     bundle_windows(
         &options(&under_test("plain"), &temp.path().join("out")),
         &host,
+        &WindowsSecrets::default(),
         &Interrupt::default(),
         &mut runner,
     )
@@ -601,6 +594,7 @@ fn windows_own_tools_are_required() {
         let failure = bundle_windows(
             &options(&under_test("plain"), &temp.path().join("out")),
             &host,
+            &WindowsSecrets::default(),
             &Interrupt::default(),
             &mut runner,
         )
@@ -629,12 +623,14 @@ fn no_inno_setup_is_refused_before_building() {
         path: Some(temp.path().join("empty").into_os_string()),
         program_files_x86: Some(temp.path().join("nowhere").into_os_string()),
         system_root: None,
+        xtask: None,
     };
     let mut runner = FakeRunner::new(temp.path());
     let out = temp.path().join("out");
     let failure = bundle_windows(
         &options(&under_test("plain"), &out),
         &host,
+        &WindowsSecrets::default(),
         &Interrupt::default(),
         &mut runner,
     )
@@ -658,6 +654,7 @@ fn another_system_is_refused_at_the_start() {
     let failure = bundle_windows(
         &options(&under_test("plain"), &out),
         &WindowsHost::from_env(),
+        &WindowsSecrets::default(),
         &Interrupt::default(),
         &mut runner,
     )

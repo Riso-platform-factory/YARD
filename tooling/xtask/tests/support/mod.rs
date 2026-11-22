@@ -91,6 +91,12 @@ pub type Hook = Box<dyn FnMut(&Path)>;
 /// What runs as a command starts.
 pub type CommandHook = Box<dyn FnMut(&Recorded)>;
 
+/// The thumbprint of the fake timestamp server's certificate.
+pub const TIMESTAMP: &str = "1234567890123456789012345678901234567890";
+
+/// The thumbprint of the fake Windows signing certificate.
+pub const THUMBPRINT: &str = "ABCDEF0123456789ABCDEF0123456789ABCDEF01";
+
 /// The search list the fake `security list-keychains` prints.
 pub const LOGIN_KEYCHAIN: &str = "/Users/test/Library/Keychains/login.keychain-db";
 
@@ -117,6 +123,26 @@ pub struct FakeRunner {
     /// What runs as each command starts.
     pub on_command: Option<CommandHook>,
     pub on_verify: Option<Hook>,
+    /// The thumbprint of the certificate the fake Windows PowerShell reads.
+    pub thumbprint: String,
+    /// What the fake PowerShell that reads the `.pfx` prints, else one
+    /// signing certificate of `thumbprint`.
+    pub leaf_report: Option<String>,
+    /// What each `Get-AuthenticodeSignature` reports, in turn; once empty,
+    /// a `Valid` signature of `signer`.
+    pub signature_reports: std::collections::VecDeque<String>,
+    /// The signer of the default signature report, else `thumbprint`.
+    pub signer: Option<String>,
+    /// What `signtool` prints, on stdout when it succeeds and on stderr when
+    /// it fails.
+    pub signtool_output: String,
+    /// The `.pfx` as Windows PowerShell read it.
+    pub pfx_seen: Option<Vec<u8>>,
+    /// Makes a command fail when one of its arguments holds this text, such
+    /// as one PowerShell script among others.
+    pub fail_containing: Option<&'static str>,
+    /// The programs run through `Runner::capture`, in order.
+    pub captured: Vec<String>,
     /// Whether `certutil` prints the digest in pairs separated by spaces,
     /// as older Windows does.
     pub certutil_spaced: bool,
@@ -147,6 +173,14 @@ impl FakeRunner {
             on_command: None,
             on_verify: None,
             certutil_spaced: false,
+            thumbprint: THUMBPRINT.to_owned(),
+            leaf_report: None,
+            captured: Vec::new(),
+            signature_reports: Default::default(),
+            signer: None,
+            signtool_output: "Done Adding Additional Store\r\nSuccessfully signed\r\n".into(),
+            pfx_seen: None,
+            fail_containing: None,
             notarization: "Accepted",
             key_seen: None,
             certificate_seen: None,
@@ -197,10 +231,14 @@ impl FakeRunner {
         }
         let first = recorded.args.first().cloned().unwrap_or_default();
         let with_first = format!("{} {first}", recorded.program);
-        if [self.fail, self.also_fail]
-            .into_iter()
-            .flatten()
-            .any(|fail| fail == recorded.program || fail == with_first)
+        let containing = self
+            .fail_containing
+            .is_some_and(|text| recorded.args.iter().any(|arg| arg.contains(text)));
+        if containing
+            || [self.fail, self.also_fail]
+                .into_iter()
+                .flatten()
+                .any(|fail| fail == recorded.program || fail == with_first)
         {
             if let Some(hook) = &mut self.on_fail {
                 hook();
@@ -209,6 +247,24 @@ impl FakeRunner {
         }
         Ok(recorded)
     }
+}
+
+/// What Inno Setup writes: `<OutputDir>/<OutputBaseFilename>.exe`, relative
+/// to the script.
+fn write_setup(script: &Path) {
+    let text = std::fs::read_to_string(script).unwrap();
+    let value = |key: &str| {
+        text.lines()
+            .find_map(|line| line.strip_prefix(&format!("{key}=")))
+            .unwrap()
+            .to_owned()
+    };
+    let setup = script
+        .parent()
+        .unwrap()
+        .join(value("OutputDir"))
+        .join(format!("{}.exe", value("OutputBaseFilename")));
+    std::fs::write(setup, b"setup").unwrap();
 }
 
 impl xtask::Runner for FakeRunner {
@@ -225,24 +281,7 @@ impl xtask::Runner for FakeRunner {
                 let file = recorded.args.iter().position(|arg| arg == "-f").unwrap();
                 std::fs::write(&recorded.args[file + 1], b"made").unwrap()
             }
-            // Inno Setup writes `<OutputDir>/<OutputBaseFilename>.exe`,
-            // relative to the script.
-            "ISCC" => {
-                let script = last.unwrap();
-                let text = std::fs::read_to_string(&script).unwrap();
-                let value = |key: &str| {
-                    text.lines()
-                        .find_map(|line| line.strip_prefix(&format!("{key}=")))
-                        .unwrap()
-                        .to_owned()
-                };
-                let setup = script
-                    .parent()
-                    .unwrap()
-                    .join(value("OutputDir"))
-                    .join(format!("{}.exe", value("OutputBaseFilename")));
-                std::fs::write(setup, b"setup").unwrap();
-            }
+            "ISCC" => write_setup(&last.unwrap()),
             "codesign" if recorded.args[0] == "--verify" => {
                 if let Some(hook) = &mut self.on_verify {
                     hook(&last.unwrap());
@@ -286,6 +325,67 @@ impl xtask::Runner for FakeRunner {
         Ok(Vec::new())
     }
 
+    fn capture(&mut self, command: &mut Command) -> Result<xtask::Captured, String> {
+        let failed = |stderr: String| xtask::Captured {
+            success: false,
+            status: "exit code: 1".into(),
+            stdout: Vec::new(),
+            stderr: stderr.into_bytes(),
+        };
+        let recorded = match self.record(command, None) {
+            Ok(recorded) => recorded,
+            Err(_) => {
+                let program = Path::new(command.get_program())
+                    .file_stem()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned();
+                self.captured.push(program.clone());
+                return Ok(if program == "signtool" || program == "ISCC" {
+                    failed(self.signtool_output.clone())
+                } else {
+                    // As the script prints a failed import, with PowerShell's
+                    // raw error block on stderr.
+                    xtask::Captured {
+                        stdout: b"error=System.Security.Cryptography.CryptographicException\r\n"
+                            .to_vec(),
+                        ..failed(
+                            "Exception calling \"Import\"\r\nCategoryInfo : NotSpecified\r\n"
+                                .into(),
+                        )
+                    }
+                });
+            }
+        };
+        self.captured.push(recorded.program.clone());
+        let stdout = match recorded.program.as_str() {
+            "ISCC" => {
+                write_setup(Path::new(recorded.args.last().unwrap()));
+                String::new()
+            }
+            "signtool" => self.signtool_output.clone(),
+            "powershell" => {
+                let file = recorded
+                    .envs
+                    .iter()
+                    .find(|(key, _)| key == "XTASK_SIGN_PFX")
+                    .and_then(|(_, value)| value.clone())
+                    .unwrap();
+                self.pfx_seen = Some(std::fs::read(file).unwrap());
+                self.leaf_report
+                    .clone()
+                    .unwrap_or_else(|| format!("count=1\r\nthumbprint={}\r\n", self.thumbprint))
+            }
+            other => panic!("{other} is not captured"),
+        };
+        Ok(xtask::Captured {
+            success: true,
+            status: "exit code: 0".into(),
+            stdout: stdout.into_bytes(),
+            stderr: Vec::new(),
+        })
+    }
+
     fn report(&mut self, command: &mut Command) -> Result<(bool, Vec<u8>), String> {
         let recorded = self.record(command, None)?;
         assert_eq!(recorded.args[..2], ["notarytool", "submit"]);
@@ -315,6 +415,17 @@ impl xtask::Runner for FakeRunner {
                 .collect::<String>()
                 .into_bytes(),
             "shasum" | "sha256sum" => format!("{DIGEST}  {}\n", recorded.args.last().unwrap()).into_bytes(),
+            "powershell" if recorded.args.last().unwrap().contains("Get-AuthenticodeSignature") => {
+                self.signature_reports
+                    .pop_front()
+                    .unwrap_or_else(|| {
+                        format!(
+                            "status=Valid\r\ntype=Authenticode\r\nsigner={}\r\ntimestamp={TIMESTAMP}\r\n",
+                            self.signer.as_deref().unwrap_or(&self.thumbprint)
+                        )
+                    })
+                    .into_bytes()
+            }
             "certutil" => {
                 let digest = if self.certutil_spaced {
                     DIGEST

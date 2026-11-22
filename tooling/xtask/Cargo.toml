@@ -15,7 +15,7 @@ path = "src/main.rs"
 [features]
 default = ["dev"]
 # Compiles the parts that are not in production.
-dev = ["yard_build_config/dev", "yard_log/dev", "yard_product/dev"]
+dev = ["yard_build_config/dev", "yard_log/dev", "yard_product/dev", "dep:windows"]
 
 [dependencies]
 clap.workspace = true
@@ -28,3 +28,13 @@ tracing.workspace = true
 yard_build_config = { workspace = true, default-features = false }
 yard_log = { workspace = true, default-features = false }
 yard_product = { workspace = true, default-features = false }
+
+# The private folder of the signing certificate, open to the user alone.
+[target.'cfg(windows)'.dependencies]
+windows = { workspace = true, optional = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Threading",
+] }

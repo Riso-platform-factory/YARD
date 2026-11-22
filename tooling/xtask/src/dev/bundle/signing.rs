@@ -30,6 +30,20 @@ pub const SECRET_VARIABLES: [&str; 7] = [
     "WINDOWS_CERTIFICATE_PASSWORD",
 ];
 
+/// The variables that give `cargo xtask sign-windows-file` what it signs
+/// with. `bundle windows` sets them on ISCC alone, and removes any that the
+/// caller set from every other command.
+pub const HELPER_VARIABLES: [&str; 8] = [
+    "XTASK_SIGN_SIGNTOOL",
+    "XTASK_SIGN_POWERSHELL",
+    "XTASK_SIGN_PFX",
+    "XTASK_SIGN_PASSWORD",
+    "XTASK_SIGN_TIMESTAMP_URL",
+    "XTASK_SIGN_THUMBPRINT",
+    "XTASK_SIGN_USAGE",
+    "XTASK_SIGN_FILE",
+];
+
 /// The secrets of signing and notarization, from the environment only.
 #[derive(Clone, Default)]
 pub struct Secrets {
@@ -559,7 +573,7 @@ fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
 }
 
 /// Decodes standard base64, ignoring whitespace; `None` when it is not.
-fn base64_decode(text: &str) -> Option<Vec<u8>> {
+pub(super) fn base64_decode(text: &str) -> Option<Vec<u8>> {
     let mut bytes = Vec::with_capacity(text.len() * 3 / 4);
     let mut buffer = 0u32;
     let mut bits = 0;

@@ -4,12 +4,15 @@
 //! YARD has; its script is YARD's own, written from the Inno Setup
 //! documentation (https://jrsoftware.org/ishelp/).
 
+mod authenticode;
+pub use authenticode::{WindowsSecrets, check_authenticode, sign_windows_file};
+
 use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
+use authenticode::{PfxFolder, SignTools, Signer, command, iscc_sign_tool};
 use yard_build_config::BuildConfig;
 
 use super::{
@@ -48,6 +51,8 @@ pub struct WindowsHost {
     pub program_files_x86: Option<OsString>,
     /// `%SystemRoot%`, whose `System32` holds `tar.exe` and `certutil.exe`.
     pub system_root: Option<OsString>,
+    /// xtask's own executable, which Inno Setup runs to sign.
+    pub xtask: Option<PathBuf>,
 }
 
 impl WindowsHost {
@@ -58,6 +63,7 @@ impl WindowsHost {
             path: std::env::var_os("PATH"),
             program_files_x86: std::env::var_os("ProgramFiles(x86)"),
             system_root: std::env::var_os("SystemRoot"),
+            xtask: std::env::current_exe().ok(),
         }
     }
 
@@ -75,14 +81,19 @@ impl WindowsHost {
         on_path.chain(installed).find(|path| path.is_file())
     }
 
-    /// `%SystemRoot%\System32\<program>`, never one that `PATH` finds first,
-    /// such as Git's `tar`, which cannot write a zip.
-    fn system_tool(&self, program: &str) -> Result<PathBuf, String> {
+    /// `%SystemRoot%\System32\<parts…>`, never one that `PATH` finds
+    /// first, such as Git's `tar`, which cannot write a zip.
+    fn system_tool(&self, parts: &[&str]) -> Result<PathBuf, String> {
+        let program = parts.last().copied().unwrap_or_default();
         let root = self
             .system_root
             .as_ref()
             .ok_or_else(|| format!("%SystemRoot% is not set, so {program} cannot be found"))?;
-        let tool = Path::new(root).join("System32").join(program);
+        let tool = parts
+            .iter()
+            .fold(Path::new(root).join("System32"), |path, part| {
+                path.join(part)
+            });
         if tool.is_file() {
             Ok(tool)
         } else {
@@ -114,8 +125,8 @@ fn tools(host: &WindowsHost) -> Result<Tools, Failure> {
     tracing::debug!(iscc = %iscc.display(), "inno setup");
     Ok(Tools {
         iscc,
-        tar: host.system_tool("tar.exe").map_err(refuse)?,
-        certutil: host.system_tool("certutil.exe").map_err(refuse)?,
+        tar: host.system_tool(&["tar.exe"]).map_err(refuse)?,
+        certutil: host.system_tool(&["certutil.exe"]).map_err(refuse)?,
     })
 }
 
@@ -142,6 +153,7 @@ const APP_ID_LIMIT: usize = 127;
 pub fn bundle_windows(
     options: &WindowsArgs,
     host: &WindowsHost,
+    secrets: &WindowsSecrets,
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<WindowsBundled, Failure> {
@@ -155,7 +167,7 @@ pub fn bundle_windows(
         dev = options.dev
     )
     .entered();
-    let result = bundle(&config, options, host, interrupt, runner);
+    let result = bundle(&config, options, host, secrets, interrupt, runner);
     log_outcome(&result, interrupt);
     result
 }
@@ -164,6 +176,7 @@ fn bundle(
     config: &Path,
     options: &WindowsArgs,
     host: &WindowsHost,
+    secrets: &WindowsSecrets,
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<WindowsBundled, Failure> {
@@ -185,28 +198,62 @@ fn bundle(
     tracing::debug!("config");
     let product = read_config(&config, options.dev)?;
 
+    tracing::debug!("secrets");
+    let certificate = authenticode::certificate(&product, secrets)
+        .map_err(|reason| Failure::new("secrets", reason))?;
+
     tracing::debug!("tools");
     let tools = tools(host)?;
+    // A review bundle is signed too, as on macOS, where `--dev` signs with
+    // the identity as a release does.
+    let sign_tools = certificate
+        .as_ref()
+        .map(|_| SignTools::new(host))
+        .transpose()
+        .map_err(|reason| Failure::new("tools", reason))?;
 
-    if product.windows.signing.is_some() {
-        // TODO(packaging-5e-windows-signing): sign the `.exe` and the
-        // installer with signtool. Part 5e of packaging unblocks it.
-        log::warn!("not signed: Windows signing comes with part 5e");
+    // No `XTASK_SIGN_*` that the caller set reaches the build.
+    let sign_variables = authenticode::sign_variables();
+    let binary = build(
+        &config,
+        options.dev,
+        &[],
+        &sign_variables
+            .iter()
+            .map(|name| name.to_str().unwrap_or_default())
+            .filter(|name| !name.is_empty())
+            .collect::<Vec<_>>(),
+        interrupt,
+        runner,
+    )?;
+
+    // The certificate is read before `--out` is made, so a wrong password
+    // leaves nothing there. Its folder is removed when this drops, on every
+    // path, and before publishing.
+    let mut signing = None;
+    if let (Some(sign_tools), Some(certificate)) = (&sign_tools, &certificate) {
+        step("certificate", interrupt)?;
+        let certificate_failure = |reason| Failure::new("certificate", reason);
+        let (folder, pfx) = PfxFolder::new(certificate).map_err(certificate_failure)?;
+        let signer =
+            Signer::new(sign_tools, certificate, &pfx, runner).map_err(certificate_failure)?;
+        signing = Some((sign_tools, signer, folder));
     }
 
-    let binary = build(&config, options.dev, &[], interrupt, runner)?;
-
     step("icon", interrupt)?;
-    let job = Job {
+    let mut job = Job {
         product: &product,
         dev: options.dev,
         binary: &binary,
         out: &out,
         tools: &tools,
+        signing: signing
+            .as_mut()
+            .map(|(sign_tools, signer, folder)| (*sign_tools, &*signer, folder)),
         interrupt,
     };
     let result = super::staged(&out, "icon", "windows", |staging| {
-        in_temp(staging, &job, runner)
+        in_temp(staging, &mut job, runner)
     });
     interrupted_at_end(result, interrupt)
 }
@@ -249,6 +296,15 @@ fn read_config(config: &Path, dev: bool) -> Result<BuildConfig, Failure> {
                 "{file}: `name` and `version` make the file name {made:?}, longer than Windows' {FILE_NAME_LIMIT} characters"
             )));
         }
+    }
+    if let Some(signing) = &product.windows.signing
+        && signing.timestamp_url.contains('"')
+    {
+        // Inno Setup passes the sign command on with `$q` for a quote, which
+        // signtool's command line would read as quoting, not as the URL.
+        return Err(refuse(format!(
+            "{file}: `release.windows.signing.timestamp_url` must not hold a double quote on Windows, where signtool's command line would read it as quoting"
+        )));
     }
     if product.identifier.len() > APP_ID_LIMIT {
         return Err(refuse(format!(
@@ -299,25 +355,29 @@ struct Job<'a> {
     binary: &'a Path,
     out: &'a Path,
     tools: &'a Tools,
+    /// With `[release.windows.signing]`: the tools, the signer, and the
+    /// `.pfx`'s folder, removed before publishing.
+    signing: Option<(&'a SignTools, &'a Signer, &'a mut PfxFolder)>,
     interrupt: &'a Interrupt,
 }
 
 /// The steps that work in the staging folder: the icon, the staged files,
-/// the installer, and the zip; then, unless the run was interrupted, the
-/// installer and the zip are published together.
+/// with signing the certificate and the app's signature, the installer, and
+/// the zip; then, unless the run was interrupted, the installer and the zip
+/// are published together.
 fn in_temp(
     staging: &mut Staging,
-    job: &Job,
+    job: &mut Job,
     runner: &mut dyn Runner,
 ) -> Result<WindowsBundled, Failure> {
-    let Job {
-        product,
-        dev,
-        binary,
-        out,
-        tools,
-        interrupt,
-    } = *job;
+    let (product, dev, binary, out, tools, interrupt) = (
+        job.product,
+        job.dev,
+        job.binary,
+        job.out,
+        job.tools,
+        job.interrupt,
+    );
     let name = &product.name;
     let temp = staging.path.clone();
     let icon = temp.join(format!("{name}.ico"));
@@ -325,17 +385,33 @@ fn in_temp(
     tracing::debug!(icon = %icon.display(), "icon");
 
     step("bundle", interrupt)?;
-    let script = lay_out(product, dev, binary, &temp).map_err(|error| {
+    let script = lay_out(product, dev, job.signing.is_some(), binary, &temp).map_err(|error| {
         Failure::new("bundle", format!("could not lay out the bundle: {error}"))
     })?;
+
+    let mut iscc = command(&tools.iscc);
+    iscc.arg("/Q");
+    if let Some((sign_tools, signer, _)) = &job.signing {
+        step("sign-app", interrupt)?;
+        let app = temp.join(PAYLOAD).join(name).join(format!("{name}.exe"));
+        signer
+            .sign(&app, runner)
+            .map_err(|reason| Failure::new("sign-app", reason))?;
+        signer.give_to(&mut iscc);
+        iscc.arg(iscc_sign_tool(sign_tools));
+    }
 
     step("installer", interrupt)?;
     let installer = |reason| Failure::new("installer", reason);
     // `/Q` prints only errors, on stderr, where the user reads them, such as
     // the script's refusal of an Inno Setup older than 6.3.
-    runner
-        .run(Command::new(&tools.iscc).arg("/Q").arg(&script))
-        .map_err(|reason| installer(format!("{reason}; Inno Setup printed why above")))?;
+    iscc.arg(&script);
+    match &job.signing {
+        Some((_, signer, _)) => signer.run_iscc(&mut iscc, runner).map_err(installer)?,
+        None => runner
+            .run(&mut iscc)
+            .map_err(|reason| installer(format!("{reason}; Inno Setup printed why above")))?,
+    }
     let setup_name = format!("{}.exe", setup_base_name(product));
     let setup = temp.join(&setup_name);
     if !setup.is_file() {
@@ -344,6 +420,14 @@ fn in_temp(
             setup.display()
         )));
     }
+    if let Some((_, signer, _)) = &job.signing {
+        // Inno Setup signed the installer and the uninstaller inside it,
+        // through xtask's sign helper.
+        step("sign-installer", interrupt)?;
+        signer
+            .check(&setup, runner)
+            .map_err(|reason| Failure::new("sign-installer", reason))?;
+    }
     let setup_digest = sha256(&tools.certutil, &setup, runner).map_err(installer)?;
 
     step("zip", interrupt)?;
@@ -351,7 +435,7 @@ fn in_temp(
     let staged_zip = temp.join("release.zip");
     runner
         .run(
-            Command::new(&tools.tar)
+            command(&tools.tar)
                 .args(["-a", "-c", "-f"])
                 .arg(&staged_zip)
                 .arg("-C")
@@ -360,6 +444,13 @@ fn in_temp(
         )
         .map_err(zip)?;
     let zip_digest = sha256(&tools.certutil, &staged_zip, runner).map_err(zip)?;
+
+    // No release is published while the `.pfx` is still on disk.
+    if let Some((_, _, folder)) = &mut job.signing {
+        folder
+            .remove()
+            .map_err(|reason| Failure::new("certificate", reason))?;
+    }
 
     // Both are published together, or neither is.
     not_interrupted("publish", interrupt)?;
@@ -403,13 +494,22 @@ const PAYLOAD: &str = "payload";
 /// Lays out `<folder>/payload/<Name>/<Name>.exe` and `<folder>/<Name>.iss`,
 /// and returns the script's path. The icon is already at
 /// `<folder>/<Name>.ico`.
-fn lay_out(product: &BuildConfig, dev: bool, binary: &Path, folder: &Path) -> io::Result<PathBuf> {
+fn lay_out(
+    product: &BuildConfig,
+    dev: bool,
+    signed: bool,
+    binary: &Path,
+    folder: &Path,
+) -> io::Result<PathBuf> {
     let name = &product.name;
     let app = folder.join(PAYLOAD).join(name);
     fs::create_dir_all(&app)?;
     fs::copy(binary, app.join(format!("{name}.exe")))?;
     let script = folder.join(format!("{name}.iss"));
-    fs::write(&script, inno_script(product, dev, std::env::consts::ARCH))?;
+    fs::write(
+        &script,
+        inno_script(product, dev, signed, std::env::consts::ARCH),
+    )?;
     Ok(script)
 }
 
@@ -417,12 +517,7 @@ fn lay_out(product: &BuildConfig, dev: bool, binary: &Path, folder: &Path) -> io
 /// prints it on a line of its own, in pairs separated by spaces on older
 /// versions.
 fn sha256(certutil: &Path, file: &Path, runner: &mut dyn Runner) -> Result<String, String> {
-    let output = runner.output(
-        Command::new(certutil)
-            .arg("-hashfile")
-            .arg(file)
-            .arg("SHA256"),
-    )?;
+    let output = runner.output(command(certutil).arg("-hashfile").arg(file).arg("SHA256"))?;
     String::from_utf8_lossy(&output)
         .lines()
         .map(|line| line.replace(' ', "").to_ascii_lowercase())
@@ -470,7 +565,7 @@ fn quoted(value: &str) -> String {
 /// staged files are relative to the script, as Inno Setup's `SourceDir` is
 /// the script's folder. The name and the version hold no `{` or `}`, which
 /// Inno Setup's preprocessor and its constants would read.
-pub fn inno_script(product: &BuildConfig, dev: bool, arch: &str) -> String {
+pub fn inno_script(product: &BuildConfig, dev: bool, signed: bool, arch: &str) -> String {
     let name = &product.name;
     let version = &product.version;
     let identifier = &product.identifier;
@@ -520,7 +615,7 @@ pub fn inno_script(product: &BuildConfig, dev: bool, arch: &str) -> String {
          ; namespace, which is the one `Local\\` names.\n\
          AppMutex={mutex}\n\
          CloseApplications=yes\n\
-         Compression=lzma2\n\
+         {sign_tool}Compression=lzma2\n\
          SolidCompression=yes\n\
          WizardStyle=modern\n\
          \n\
@@ -547,6 +642,14 @@ pub fn inno_script(product: &BuildConfig, dev: bool, arch: &str) -> String {
          Filename: {target}; {run_parameters}Description: {launch}; Flags: nowait postinstall skipifsilent\n",
         setup = setup_base_name(product),
         mutex = yard_product::instance_name(identifier),
+        // The sign tool's command comes from ISCC's command line, so the
+        // script holds no path or thumbprint; Inno Setup also signs the
+        // uninstaller (`SignedUninstaller` is yes by default with it).
+        sign_tool = if signed {
+            format!("SignTool={}\n", authenticode::SIGN_TOOL)
+        } else {
+            String::new()
+        },
         source = quoted(&format!("{PAYLOAD}\\{name}\\{name}.exe")),
         shortcut = quoted(&format!("{{userprograms}}\\{name}")),
         target = quoted(&exe),

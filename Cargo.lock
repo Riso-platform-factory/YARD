@@ -7845,6 +7845,7 @@ dependencies = [
  "log",
  "serde_json",
  "tracing",
+ "windows 0.62.2",
  "yard_build_config",
  "yard_log",
  "yard_product",

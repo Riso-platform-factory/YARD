@@ -34,3 +34,23 @@ fn a_child_that_fails_by_itself_is_no_interrupt() {
         .unwrap_err();
     assert!(!interrupt.is_set());
 }
+
+#[test]
+fn capture_keeps_both_outputs_and_prints_neither() {
+    let interrupt = Interrupt::default();
+    let mut runner = SystemRunner {
+        interrupt: interrupt.clone(),
+    };
+    let captured = runner
+        .capture(Command::new("sh").args(["-c", "echo out; echo err >&2; exit 3"]))
+        .unwrap();
+    assert!(!captured.success);
+    assert_eq!(captured.status, "exit status: 3");
+    assert_eq!(captured.stdout, b"out\n");
+    assert_eq!(captured.stderr, b"err\n");
+    let ended = runner
+        .capture(Command::new("sh").args(["-c", "kill -TERM $$"]))
+        .unwrap();
+    assert!(!ended.success);
+    assert!(interrupt.is_set(), "an interrupt signal still sets it");
+}

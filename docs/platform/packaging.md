@@ -214,20 +214,23 @@ The configs live in `crates/yard_build_config/tests/configs/`, where `xtask` rea
 - `xtask`: the package laid out from each config, with no build, on any system. The `Info.plist` values, the `.desktop` fields, the `.iss` values, the Linux layout, and the icon sizes are each compared with the config.
 - The engines: the instance socket and pipe; the URL forwarded from a second start to the handler; the directories per system.
 
-**On GitHub Actions runners, in a throwaway repository** (`macos-latest`, `ubuntu-22.04`, `windows-latest`), for `plain`, `spaced`, and `other`:
+**On GitHub Actions runners, in a throwaway repository** (`macos-latest`, `ubuntu-22.04`, `windows-latest`), for `plain`, `spaced`, and `other`. The checks live in `tooling/runner-checks/`: `checks.yml`, the workflow, and one script per system. A throwaway checkout of YARD copies `checks.yml` to `.github/workflows/` and pushes. Each script writes a report, one `PASS` or `FAIL` line per config and case with what it saw. The run's summary shows them as one table, and fails on any `FAIL` or on a report that is missing or incomplete. Every certificate and password is made by the script during the run; none is stored.
 
 | | What runs |
 |---|---|
-| macOS | Bundle, then `codesign --verify`, then `plutil` against the config; open the app and take a screenshot; `open <scheme>://…` reaches the extension |
+| macOS | Bundle, then `codesign --verify`, then `plutil` against the config; install under `~/Applications` and register it with Launch Services (an app elsewhere is not given the scheme); open the app and take a screenshot; `open <scheme>://…` with no instance running and again with one running |
 | Linux | Bundle, then `desktop-file-validate`; run `install.sh`, then `xdg-open <scheme>://…` with no instance running and again with one running: the first starts the app with the URL, the second reaches the running instance (read in its log). The app runs on Xorg's dummy driver with xfwm4's compositor; the runner has no GPU, so its window shows black, and screenshots come from GPUI's headless renderer (`examples/screenshot`) |
-| Windows | Bundle; install silently (`/VERYSILENT`), then read the registry keys; start the app and take a screenshot; `start <scheme>://…` reaches the running instance; uninstall silently and check that the keys are gone |
+| Windows | Bundle; install silently (`/VERYSILENT`), then read the registry keys and the shortcut's AppUserModelID; start the app and take a screenshot; `start <scheme>://…` with no instance running and again with one running; a second install while the app runs stops; uninstall silently and check that the keys, folder, and shortcut are gone, the user's data stays, and another program's value under the scheme key stays |
+
+Each URL is unique to its check, and must reach the app's URL handler exactly once: in a new process when no instance runs, in the same process when one does. The configs hold no extension for the URL's host, so the handler refuses it as `no such extension` after receiving it. One more case runs `plain` and `other` together: each URL reaches its own app only.
 
 The lead reads every log and screenshot, and runs the macOS bundles locally too.
 
 **Signing, checked with the `signed` config:**
 - On macOS, `codesign -dv` names the test identity, with the runtime flag and the entitlements. The DMG is signed with the same identity. The temporary keychain is deleted afterwards and is no longer in the search list, also after an interrupted run.
-- Notarization is checked as far as the command: `notarytool submit` with the key's id, issuer, and file. A real submission needs the publisher's Apple account, and is not verified.
-- On Windows, `signtool verify /pa` on the `.exe` and the installer shows the test certificate, made by the runner with `New-SelfSignedCertificate`.
+- Notarization is checked as far as the command: `notarytool submit` with the key's id, issuer, and file, in `xtask`'s tests. On the runner, the app is bundled from a copy of `signed` with `notarize = false`, and the report says notarization did not run; a second run with `notarize = true` and no Apple variables is refused before building, naming the three. A real submission needs the publisher's Apple account, and is not verified.
+- On Windows, the test certificate is made by the runner with `New-SelfSignedCertificate` and trusted on that machine for the run only. `Get-AuthenticodeSignature` is `Valid`, signed by it, with a timestamp, on the zip's `.exe`, the installer, the installed `.exe`, and the uninstaller; a copy with one byte changed is `HashMismatch`. A wrong password fails with the fixed message and makes no `--out`. Nothing is left in the temporary folder or the certificate stores.
+- On every system, no bundle log holds the password or the certificate.
 
 **Not checked by a machine:** how the window controls look next to Zed's on Linux and Windows. The lead compares the runners' screenshots with Zed's own on each system.
 

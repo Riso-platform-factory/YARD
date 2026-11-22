@@ -2,6 +2,7 @@
 resolver = "3"
 members = ["crates/*", "app/*", "examples/*", "extensions/*", "tooling/*"]
 default-members = ["app/yard"]
+exclude = ["tooling/runner-checks"]
 
 [workspace.package]
 edition = "2024"

@@ -1,0 +1,192 @@
+name: Packaging runner checks
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: never
+  CARGO_TARGET_DIR: ${{ github.workspace }}/target
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    timeout-minutes: 280
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fetch
+        timeout-minutes: 25
+      - run: cargo build -p xtask
+        timeout-minutes: 25
+      - run: bash tooling/runner-checks/macos.sh
+        timeout-minutes: 175
+      - uses: actions/upload-artifact@v4
+        if: always()
+        timeout-minutes: 10
+        with:
+          name: checks-macos
+          path: checks/macos/
+
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 280
+    env:
+      DISPLAY: ':99'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        timeout-minutes: 10
+        run: |
+          mkdir -p checks/linux
+          df -h / | tee checks/linux/disk.log
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h / | tee -a checks/linux/disk.log
+      - name: Install system packages
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q gcc g++ clang lld cmake pkg-config libasound2-dev libfontconfig-dev \
+            libglib2.0-dev libssl-dev libvulkan1 mesa-vulkan-drivers libegl1 libegl-mesa0 libgl1-mesa-dri libwayland-dev libx11-xcb-dev \
+            libxkbcommon-x11-dev libzstd-dev libstdc++-12-dev xvfb imagemagick xdotool x11-utils openbox xcompmgr xfwm4 dbus-x11 xserver-xorg-video-dummy xserver-xorg-core desktop-file-utils xdg-utils binutils
+      - name: Start the display and compositor
+        timeout-minutes: 10
+        run: |
+          cat > /tmp/dummy.conf <<'CONF'
+          Section "Device"
+            Identifier "dummy"
+            Driver "dummy"
+            VideoRam 256000
+          EndSection
+          Section "Monitor"
+            Identifier "monitor"
+            HorizSync 5.0-1000.0
+            VertRefresh 5.0-200.0
+            Modeline "1920x1080" 173.00 1920 2048 2248 2576 1080 1083 1088 1120
+          EndSection
+          Section "Screen"
+            Identifier "screen"
+            Device "dummy"
+            Monitor "monitor"
+            DefaultDepth 24
+            SubSection "Display"
+              Depth 24
+              Modes "1920x1080"
+            EndSubSection
+          EndSection
+          CONF
+          (sudo Xorg :99 -noreset -nolisten tcp -config /tmp/dummy.conf \
+            -logfile "$PWD/checks/linux/xorg.log") </dev/null > checks/linux/xorg-console.log 2>&1 &
+          for _ in {1..15}; do
+            if xdpyinfo >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          xdpyinfo >/dev/null
+          dbus-launch xfwm4 --compositor=on --replace > checks/linux/xfwm4.log 2>&1 &
+          for _ in {1..15}; do
+            if xprop -root _NET_SUPPORTING_WM_CHECK | grep -q 'window id'; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: cargo fetch
+        timeout-minutes: 25
+      - run: cargo build -p xtask
+        timeout-minutes: 25
+      - run: bash tooling/runner-checks/linux.sh
+        timeout-minutes: 175
+      - uses: actions/upload-artifact@v4
+        if: always()
+        timeout-minutes: 10
+        with:
+          name: checks-linux
+          path: checks/linux/
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 280
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo fetch
+        timeout-minutes: 25
+      - run: cargo build -p xtask
+        timeout-minutes: 25
+      - run: ./tooling/runner-checks/windows.ps1
+        timeout-minutes: 175
+      - uses: actions/upload-artifact@v4
+        if: always()
+        timeout-minutes: 10
+        with:
+          name: checks-windows
+          path: checks/windows/
+
+  summary:
+    runs-on: ubuntu-22.04
+    needs: [macos, linux, windows]
+    if: always()
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: checks-*
+          path: reports
+      - name: Summarize reports
+        env:
+          MACOS_RESULT: ${{ needs.macos.result }}
+          LINUX_RESULT: ${{ needs.linux.result }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
+        run: |
+          failed=0
+          {
+            printf '| System | Config | Case | Result | Detail |\n| --- | --- | --- | --- | --- |\n'
+            for system in macos linux windows; do
+              report="reports/checks-$system/report.txt"
+              if [[ ! -s "$report" ]]; then
+                printf '| %s | | Report | FAIL | Missing or empty report |\n' "$system"
+                failed=1
+                continue
+              fi
+              if ! contents=$(cat "$report" && printf '\001'); then
+                printf '| %s | | Report | FAIL | Could not read report |\n' "$system"
+                failed=1
+                continue
+              fi
+              contents=${contents%$'\001'}
+              contents=${contents%$'\n'}
+              tail_line=${contents##*$'\n'}
+              if [[ ${tail_line%$'\r'} != "DONE $system" ]]; then
+                printf '| %s | | Report | FAIL | Missing final DONE marker |\n' "$system"
+                failed=1
+              fi
+              done_seen=0
+              results=0
+              while IFS= read -r line; do
+                line=${line%$'\r'}
+                if (( done_seen )); then
+                  printf '| %s | | Report | FAIL | Result after DONE marker |\n' "$system"
+                  failed=1
+                elif [[ "$line" == "DONE $system" ]]; then
+                  done_seen=1
+                elif [[ "$line" =~ ^(PASS|FAIL)\ ([a-z]+)\ ([a-z0-9-]+):\ (.+)$ ]]; then
+                  results=$((results + 1))
+                  status=${BASH_REMATCH[1]}
+                  detail=${BASH_REMATCH[4]//|/\\|}
+                  printf '| %s | %s | %s | %s | %s |\n' "$system" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "$status" "$detail"
+                  if [[ "$status" == FAIL ]]; then failed=1; fi
+                else
+                  printf '| %s | | Report | FAIL | Invalid report line |\n' "$system"
+                  failed=1
+                fi
+              done <<< "$contents"
+              if (( results == 0 )); then
+                printf '| %s | | Report | FAIL | No check results |\n' "$system"
+                failed=1
+              fi
+              job_result="$(printf '%s' "$system" | tr '[:lower:]' '[:upper:]')_RESULT"
+              if [[ "${!job_result}" != success ]]; then
+                printf '| %s | | Runner job | FAIL | Job did not succeed |\n' "$system"
+                failed=1
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"

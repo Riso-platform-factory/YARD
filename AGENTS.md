@@ -15,6 +15,27 @@ Every change follows this workflow. No step is skipped, and no step starts befor
 - **The lead agent** is the agent that talks with the user. It designs, writes the prompts for the coding agent and runs it, reviews, runs the application, writes the documents (`.md` files), and commits. It does not write code.
 - **The coding agent** writes all the code, which is every file that is not a `.md` file, from a prompt of the lead agent. It never commits, never pushes, and never edits a `.md` file.
 
+### Workers
+
+The lead agent is Claude. It hands work to these workers, and never does a worker's work itself.
+
+| Worker | How it runs | What it is given |
+|---|---|---|
+| **Claude (Opus)** | a subagent of the lead agent (`model: opus`), in the background | code, in its turn |
+| **Codex** | `codex exec -C <repo> -s workspace-write "$(cat <prompt>)" < /dev/null`; reviews with `-s read-only` | code, in its turn; mechanical work: promotions, small fixes from a review; reviews |
+| **Codex-yn** | the same, with `CODEX_HOME=~/.codex-yn` (a second account) | code, in its turn; reviews |
+| **Antigravity** | Gemini, through `~/riso-codex/acp/gemini.py <prompt> <log>`; `READONLY=1` for a review or research; delete the `skills/` folder it creates before committing | acceptance tests; reviews; research: reading and summing up documents, code, Zed |
+
+How work is given out:
+
+1. **Code goes round in turn:** Codex, then Claude (Opus), then Codex-yn, one part each. When a worker's account is at its usage limit, its turn goes to the next one, and the lead says so in its report.
+2. **Tests and code of one part come from two workers.** Antigravity writes the acceptance tests from the part's contract before the code. The worker whose turn it is writes the code and makes them pass. A worker never writes both.
+3. **The reviewer did not write the code:** the other Codex account, Antigravity, or Claude (Opus). A large change, such as a new design or anything that holds a secret, also gets a second review from a worker of another model, Antigravity or Claude (Opus).
+4. **Research that is long but not hard goes to Antigravity:** reading documentation, finding how Zed or a library does something, comparing options. Each answer comes with its source.
+5. **Fixes from a review go to the worker that wrote the code,** or to Codex when they are mechanical.
+6. **One worker writes a tree at a time.** Reviews and research are read-only and may run alongside.
+7. **Each worker gets a prompt file in `~/riso-codex/prompts/`** and answers with the handoff JSON (see "A prompt for the coding agent"). The lead agent's report and the review sheet name which worker wrote the tests, the code, and each review.
+
 ### Before any work
 
 1. Do what was asked, and only that. A request for the log engine is not a request for the paths engine it used elsewhere. When the work needs something that was not asked for, say so and wait.

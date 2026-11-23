@@ -3596,6 +3596,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0676bb32a98c1a483ce53e500a81ad9c3d5b3f7c920c28c24e9cb0980d0b5bc8"
 
 [[package]]
+name = "north_star"
+version = "0.1.0"
+dependencies = [
+ "command_palette",
+ "gpui",
+ "image",
+ "tracing",
+ "yard_app",
+ "yard_build_config",
+ "yard_product",
+ "yard_shell",
+ "yard_ui",
+]
+
+[[package]]
 name = "notify-rust"
 version = "4.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7868,9 +7883,30 @@ dependencies = [
  "reqwest_client",
  "serde_json",
  "tracing",
+ "yard_app",
  "yard_build_config",
  "yard_keymap",
  "yard_layout",
+ "yard_log",
+ "yard_paths",
+ "yard_product",
+ "yard_settings",
+ "yard_shell",
+ "yard_ui",
+ "yard_update",
+]
+
+[[package]]
+name = "yard_app"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "gpui_platform",
+ "image",
+ "log",
+ "reqwest_client",
+ "tracing",
+ "yard_keymap",
  "yard_log",
  "yard_paths",
  "yard_product",

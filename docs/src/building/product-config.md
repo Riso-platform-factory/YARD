@@ -87,12 +87,10 @@ Otherwise, platform defaults apply:
 
 ## Composition Root and Startup
 
-The composition root wires the product config, startup, menus, and compiled-in extensions together. In the sample application (`app/yard`), startup initializes engines in order:
+The composition root wires the product config, startup, menus, and compiled-in extensions together. The startup is `yard_app::run(application, extensions, menus)`: the application's `startup` module makes its `yard_app::Application` with `yard_app::application!()`, from the variables its build script sets, and lists its extensions; in the sample application (`app/yard`), `yard::startup::application()` and `yard::startup::EXTENSIONS`. `yard_app::run` initializes engines in order:
 
 1. Starts logging (`yard_log::start`), validates `Product::new`, resolves `Paths::from_env`, and checks single-instance forwarding on Linux and Windows.
 2. Opens log files (`yard_log::open_files`).
 3. Initializes GPUI with `yard_ui::Assets`, initializes settings (`load` + `watch`), initializes themes (`load_user_themes(cx, &paths.themes_dir())` + `apply_theme_setting`), configures shell paths (`set_layout_file`, `set_named_layout_files`, `set_state_file`, `set_store_dir`), window title (`set_window_title`), and URL scheme (`set_url_scheme`), binds default shell and text-input keys, and installs the quit handler.
-4. Loads every listed extension (`Extension::new(cx, name)`), hands over any early URLs (`extensions_loaded`), loads and watches `keymap.json`, sets menus (`set_menus`), and registers the window opener (`set_window_opener`).
+4. Opens the URLs that arrived before this point, loads every listed extension (`Extension::new(cx, name)`), opens the URLs that arrived while the extensions loaded, marks the extensions loaded (`extensions_loaded`, which delivers the URLs `open_urls` queued until then), loads and watches `keymap.json`, sets menus (`set_menus`), and registers the window opener (`set_window_opener`).
 5. Restores windows from `session.json` (or opens one window from `window.json` and `layout.json`), starts the update check if `update_url` is set, and calls `yard_log::startup_finished()`.
-
-A shared startup crate, `yard_app`, is currently in development under `crates/yard_app/src/dev/startup.rs` (see [New App](../development/new-app.md)).

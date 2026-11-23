@@ -6,8 +6,8 @@ fn main() {
     if yard::dev::run() {
         return;
     }
-    yard::startup::run(
-        yard::startup::PRODUCT,
+    yard_app::run(
+        yard::startup::application(),
         yard::startup::EXTENSIONS,
         yard::menus::menus,
     );

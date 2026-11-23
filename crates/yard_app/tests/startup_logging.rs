@@ -1,8 +1,5 @@
-#![cfg(feature = "dev")]
-
 //! `yard_app::init` opens `app-init`, `extensions-load{count=1}`, and
-//! `extension-init{extension=…}` at `INFO`, matching `app/yard/src/startup.rs`,
-//! and logs no `ERROR`.
+//! `extension-init{extension=…}` at `INFO`, and logs no `ERROR`.
 //!
 //! This test captures `tracing` output and installs a process-wide diagnostic
 //! logger, so it is alone in its file.

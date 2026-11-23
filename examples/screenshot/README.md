@@ -5,9 +5,9 @@ Renders YARD's production window into a PNG with GPUI's headless renderer, so no
     cargo run -p screenshot -- --out <file.png> [--width 1280 --height 800]
 
 - **What it draws.** The window is built by the same code as the app:
-  - `yard::startup::start_logs`;
-  - `yard::startup::init`, with the app's extensions and menus;
-  - `yard::startup::open_window`, at the given size and scale 1.
+  - `yard_app::start_logs`;
+  - `yard_app::init`, with the app's extensions and menus;
+  - `yard_app::open_window`, at the given size and scale 1.
 - **How it differs from a normal launch.** A launch with a saved session restores its windows and layers, while the tool starts from fresh settings and no session. GPUI's headless platform always reports a light appearance. Native window controls (macOS traffic lights) and the window manager's frame are not drawn.
 - **The gallery.** `--view gallery --gallery <case>` draws the same window with the UI kit's gallery as its content, from `ui_gallery::init` with `UI_GALLERY=<case>`; `--gallery window-controls` shows that page alone.
 - **Nothing real is touched.** `YARD_HOME` points at a fresh temporary folder, which is removed on exit.

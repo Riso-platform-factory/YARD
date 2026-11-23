@@ -15,7 +15,7 @@ fn run(out: &std::path::Path) -> Output {
             "200",
         ])
         .env(
-            yard::startup::PRODUCT.lifecycle_variable(),
+            yard::startup::application().product.lifecycle_variable(),
             "info,screenshot=debug",
         )
         .output()

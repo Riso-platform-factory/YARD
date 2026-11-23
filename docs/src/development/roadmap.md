@@ -11,7 +11,7 @@ Platform-level capabilities (new-app scaffolding, CI, multi-platform updates, fi
 | Product build config | `yard_build_config`, `yard_product` | Product identity (`name`, `version`, `identifier`, `url_scheme`, `icon`, `update_url`, `[release]`), build script, and derived names | production |
 | Log | `yard_log` | Diagnostic log (`<Name>.log`) and lifecycle trace (`lifecycle.jsonl`) | production |
 | Files | `yard_paths` | Platform directories, `<NAME>_HOME`, file names, and atomic writes | production |
-| Startup | `app/yard`, `yard_app` | Initialization sequence: logs, single instance, engines, extensions, session restore, updates | production in `app/yard`; shared `yard_app/startup` in `dev` |
+| Startup | `yard_app` | Initialization sequence: logs, single instance, engines, extensions, session restore, updates; the sample `app/yard` keeps only its composition (application value and extensions) | production |
 | Layout | `yard_layout`, `yard_shell` | Per-window component tree, splits, tabs, drag-and-drop, sizing, snap-hide, contexts, item slots, named layouts, user layers | production |
 | Settings | `yard_settings` | Typed JSON sections in `settings.json`, extension sections, live reload, atomic writes | production |
 | Theme | `yard_ui` | Colors, system appearance, user themes, UI font, UI density, theme list | production (code font waits by need) |

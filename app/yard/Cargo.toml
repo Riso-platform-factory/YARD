@@ -7,30 +7,17 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["yard_app/dev", "yard_log/dev", "yard_product/dev", "yard_paths/dev", "yard_ui/dev", "yard_layout/dev", "yard_shell/dev", "yard_settings/dev", "yard_keymap/dev", "command_palette/dev", "yard_update/dev", "yard_build_config/dev"]
+dev = ["yard_app/dev", "yard_product/dev", "yard_shell/dev", "command_palette/dev", "yard_build_config/dev"]
 
 [dependencies]
 gpui.workspace = true
-gpui_platform.workspace = true
 
 yard_app = { workspace = true, default-features = false }
-yard_layout = { workspace = true, default-features = false }
 yard_shell = { workspace = true, default-features = false }
-yard_log = { workspace = true, default-features = false }
 yard_product = { workspace = true, default-features = false }
-yard_paths = { workspace = true, default-features = false }
-yard_ui = { workspace = true, default-features = false }
-yard_settings = { workspace = true, default-features = false }
-yard_keymap = { workspace = true, default-features = false }
 tracing = { workspace = true }
 
 command_palette = { workspace = true, default-features = false }
-
-yard_update = { workspace = true, default-features = false }
-reqwest_client = { workspace = true }
-
-[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
-image.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

@@ -10,7 +10,8 @@ use gpui::{
     size,
 };
 use std::{cell::RefCell, path::PathBuf, process::ExitCode, sync::Arc, time::Duration};
-use yard::startup::{EXTENSIONS, Init, PRODUCT};
+use yard::startup::EXTENSIONS;
+use yard_app::Init;
 
 /// What the window shows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
@@ -44,16 +45,18 @@ struct Args {
 
 fn main() -> ExitCode {
     let args = Args::parse();
+    let app = yard::startup::application();
     let home = tempfile::tempdir().expect("a temporary folder can be created");
     // SAFETY: nothing has started a thread yet.
-    unsafe { std::env::set_var(PRODUCT.home_variable(), home.path()) };
+    unsafe { std::env::set_var(app.product.home_variable(), home.path()) };
     let mut extensions: Vec<(&'static str, Init)> = EXTENSIONS.to_vec();
     if args.view == View::Gallery {
         // SAFETY: nothing has started a thread yet.
         unsafe { std::env::set_var("UI_GALLERY", &args.gallery) };
         extensions.push(("ui_gallery", ui_gallery::init));
     }
-    let (product, paths) = yard::startup::start_logs(PRODUCT);
+    let (product, paths) = yard_app::start_logs(app.product);
+    let app = yard_app::Application { product, ..app };
     // The group covers the renderer and the capture; the app's own startup
     // between them shows in the trace as the app's startup does.
     let group = tracing::info_span!(
@@ -74,9 +77,9 @@ fn main() -> ExitCode {
         move || Ok(renderer.borrow_mut().take()),
     );
     cx.update(|cx| {
-        yard::startup::init(
+        yard_app::init(
             cx,
-            product,
+            app,
             &paths,
             &extensions,
             yard::menus::menus,
@@ -87,9 +90,8 @@ fn main() -> ExitCode {
         origin: point(px(0.), px(0.)),
         size: size(px(args.width as f32), px(args.height as f32)),
     };
-    let window = cx.update(|cx| {
-        yard::startup::open_window(cx, product, None, Some(WindowBounds::Windowed(bounds)))
-    });
+    let window =
+        cx.update(|cx| yard_app::open_window(cx, app, None, Some(WindowBounds::Windowed(bounds))));
     yard_log::startup_finished();
     match group.in_scope(|| capture(&mut cx, window, &args)) {
         Some(()) => ExitCode::SUCCESS,

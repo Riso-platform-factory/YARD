@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Acceptance tests for `yard_app`'s `window_options` and `init` with a
 //! non-sample `Application` (North Star).
 

@@ -6,7 +6,7 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-yard_app = { workspace = true, features = ["dev"] }
+yard_app = { workspace = true, default-features = false }
 yard_product.workspace = true
 yard_shell.workspace = true
 gpui.workspace = true

@@ -14,9 +14,15 @@
   },
   "yard/startup": {
     "files": {
-      "app/yard/src/startup.rs": "8cb11240a6c97f5d"
+      "app/yard/src/startup.rs": "c84a5d7520b62d3e"
     },
-    "promoted": "2026-11-21"
+    "promoted": "2026-11-23"
+  },
+  "yard_app/startup": {
+    "files": {
+      "crates/yard_app/src/startup.rs": "0a4f1038ccfaed97"
+    },
+    "promoted": "2026-11-23"
   },
   "yard_build_config/build_script": {
     "files": {

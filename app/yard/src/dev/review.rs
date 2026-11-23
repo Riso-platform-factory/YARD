@@ -1,11 +1,11 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &["yard_app/startup"];
+pub(crate) const UNDER_REVIEW: &[&str] = &[];
 
 pub fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
         return false;
     }
-    let app = yard_app::application!();
+    let app = crate::startup::application();
     let variable = app.product.lifecycle_variable();
     if std::env::var_os(&variable).is_none() {
         let crates: std::collections::BTreeSet<_> = UNDER_REVIEW
@@ -19,14 +19,9 @@ pub fn run() -> bool {
         // SAFETY: the logger and GPUI have not started any threads yet.
         unsafe { std::env::set_var(variable, filter) };
     }
-    yard_app::run(
-        app,
-        &[
-            ("review", announce),
-            ("command_palette", command_palette::init),
-        ],
-        crate::menus::menus,
-    );
+    let mut extensions: Vec<(&'static str, yard_app::Init)> = vec![("review", announce)];
+    extensions.extend_from_slice(crate::startup::EXTENSIONS);
+    yard_app::run(app, &extensions, crate::menus::menus);
     true
 }
 

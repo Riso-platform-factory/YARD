@@ -5328,6 +5328,7 @@ dependencies = [
  "tracing",
  "ui_gallery",
  "yard",
+ "yard_app",
  "yard_log",
  "yard_paths",
  "yard_product",
@@ -7878,22 +7879,12 @@ version = "0.1.0"
 dependencies = [
  "command_palette",
  "gpui",
- "gpui_platform",
- "image",
- "reqwest_client",
  "serde_json",
  "tracing",
  "yard_app",
  "yard_build_config",
- "yard_keymap",
- "yard_layout",
- "yard_log",
- "yard_paths",
  "yard_product",
- "yard_settings",
  "yard_shell",
- "yard_ui",
- "yard_update",
 ]
 
 [[package]]

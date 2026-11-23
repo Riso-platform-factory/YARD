@@ -16,6 +16,9 @@ expected_cases=('plain coexistence')
 for config in plain spaced other; do
     for case in "${unsigned_cases[@]}"; do expected_cases+=("$config $case"); done
 done
+northstar_cases=(new-app bundle sample-bundle install sample-install desktop-name desktop-exec desktop-icon
+    desktop-mime url screenshot coexistence)
+for case in "${northstar_cases[@]}"; do expected_cases+=("northstar $case"); done
 
 work=$(mktemp -d) || exit 1
 export YARD_HOME="$work/yard-home"
@@ -137,13 +140,22 @@ finish_cold_url() {
     fi
 }
 
+# The PNG holds more than one colour: a blank capture is all black.
+has_colours() {
+    local count
+    count=$(bounded 30 convert "$1" -format %k info: 2>> "${1%.png}-colours.log") &&
+        [[ $count =~ ^[0-9]+$ ]] && (( count > 1 ))
+}
+
 check_screenshot() {
-    if bounded 1500 env PRODUCT_CONFIG="$fixture" YARD_LIFECYCLE=info,screenshot=debug \
+    # The screenshot runs the sample's composition under the fixture's product,
+    # which reads its own lifecycle variable; it sets its own home.
+    if bounded 1500 env PRODUCT_CONFIG="$fixture" "${prefix}_LIFECYCLE=info,screenshot=debug" \
         cargo run -p screenshot -- --out "$logs/window.png" > "$logs/screenshot.log" 2>&1 &&
-        [[ -s "$logs/window.png" ]]; then
+        [[ -s "$logs/window.png" ]] && has_colours "$logs/window.png"; then
         record PASS screenshot 'GPUI headless window captured'
     else
-        record FAIL screenshot "see $config/screenshot.log"
+        record FAIL screenshot "missing or single-colour window.png (see $config/screenshot.log)"
     fi
 }
 
@@ -246,4 +258,280 @@ if (( SECONDS < deadline )); then
         config=plain
         record FAIL coexistence 'expected two running apps and isolated URL delivery'
     fi
+fi
+
+# A developer's application, made with `cargo xtask new-app` in a fresh
+# checkout, installed beside the sample bundled there with `--package yard`.
+# Each starts with its own home and lifecycle variables.
+fresh="$work/fresh"
+northstar_icon=crates/yard_build_config/tests/configs/other/icon.png
+fresh_lifecycle='info,yard_shell=debug,yard_paths=debug'
+# Seconds to wait before counts are read again, to catch a late delivery.
+settle=3
+
+trace_fact() {
+    python3 "$script_dir/trace-facts.py" "$1" "$2"
+}
+
+# Loads the fresh checkout's product from app/$1/, with its files under $2.
+load_fresh() {
+    fixture="$fresh/app/$1/product.toml"
+    read_product || return 1
+    slug=$(printf '%s' "$name" | LC_ALL=C tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-|-$//g')
+    prefix=$(printf '%s' "$name" | LC_ALL=C tr '[:lower:]' '[:upper:]' | sed 's/[^A-Z0-9]/_/g')
+    export XDG_DATA_HOME="$work/data" XDG_CONFIG_HOME="$work/config"
+    logs="$checks/northstar/$2"
+    home="$work/northstar/$2/home"
+    dist="$work/northstar/$2/dist"
+    mkdir -p "$logs" "$home" "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" || return 1
+    archive="$dist/$slug-$version-linux-$(uname -m).tar.gz"
+    install_dir="$HOME/.local/$slug.app"
+    app_binary="$install_dir/bin/$slug"
+    escaped_binary=$(printf '%s' "$app_binary" | sed 's/[][\\.^$*+?(){}|]/\\&/g')
+    app_pattern="$escaped_binary( .*)?"
+    trace="$home/logs/lifecycle.jsonl"
+}
+
+load_north_star() { load_fresh north-star north-star; }
+load_sample() { load_fresh yard sample; }
+
+bundle_fresh() {
+    local case=$1 label=$2 status=0 file
+    shift 2
+    rm -f "${CARGO_TARGET_DIR:?}"/{xtask.log,xtask.log.old,lifecycle.jsonl}
+    (cd "$fresh" && bounded 1500 cargo xtask bundle linux "$@" --out "$dist") > "$logs/bundle.log" 2>&1 || status=$?
+    for file in xtask.log xtask.log.old lifecycle.jsonl; do
+        if [[ -f "$CARGO_TARGET_DIR/$file" ]]; then cp "$CARGO_TARGET_DIR/$file" "$logs/xtask-$file"; fi
+    done
+    if (( status == 0 )) && [[ -f "$archive" ]]; then
+        record PASS "$case" "created $(basename "$archive")"
+        return 0
+    fi
+    record FAIL "$case" "exit $status or archive missing (see northstar/$label/bundle.log)"
+    return 1
+}
+
+install_fresh() {
+    local case=$1 label=$2
+    mkdir -p "$dist/unpack"
+    if bounded 60 tar -xzf "$archive" -C "$dist/unpack" > "$logs/install.log" 2>&1 &&
+        bounded 60 sh "$dist/unpack/$slug.app/install.sh" >> "$logs/install.log" 2>&1 &&
+        [[ -x "$app_binary" ]]; then
+        record PASS "$case" "$app_binary installed"
+        return 0
+    fi
+    record FAIL "$case" "see northstar/$label/install.log"
+    return 1
+}
+
+desktop_value() {
+    sed -n "s/^$1=//p" "$XDG_DATA_HOME/applications/$identifier.desktop" 2>/dev/null
+}
+
+check_desktop_key() {
+    local case=$1 key=$2 expected=$3 actual
+    actual=$(desktop_value "$key")
+    if [[ "$actual" == "$expected" ]]; then
+        record PASS "$case" "$key=$actual"
+    else
+        record FAIL "$case" "$key expected $expected, got ${actual:-<missing>}"
+    fi
+}
+
+check_desktop_icon() {
+    local icon="$install_dir/share/icons/hicolor/512x512/apps/$identifier.png" actual
+    actual=$(desktop_value Icon)
+    if [[ "$actual" == "$icon" ]] && cmp -s "$icon" "$fresh/$northstar_icon" &&
+        ! cmp -s "$icon" "$fresh/app/yard/icon.png"; then
+        record PASS desktop-icon "Icon=$actual, the icon given to new-app"
+    else
+        record FAIL desktop-icon "Icon expected $icon holding the icon given to new-app, got ${actual:-<missing>}"
+    fi
+}
+
+# Opens a URL of the loaded product with xdg-open, in that product's own
+# environment, so that a second start finds the instance by the same home.
+open_fresh_url() {
+    local limit=$1 phase=$2
+    bounded "$limit" env "${prefix}_HOME=$home" "${prefix}_LIFECYCLE=$fresh_lifecycle" \
+        xdg-open "$scheme://check/$phase-$RANDOM-$RANDOM" >> "$logs/url.log" 2>&1
+}
+
+# Starts the loaded product by opening its URL, and waits for one URL
+# dispatch in a single new process. Sets fresh_pid.
+start_fresh_url() {
+    local status=0
+    if pgrep -f -x "$app_pattern" >/dev/null; then return 1; fi
+    rm -f "$trace" || return 1
+    # Some xdg-open backends wait for the launched app to exit.
+    open_fresh_url 125 cold &
+    printf '%s\n' "$!" >> "$work/coexist-pids" || return 1
+    wait_for_counts "$trace" "$scheme" 1 0 0 || status=1
+    fresh_pid=$(pgrep -f -x "$app_pattern") && [[ $fresh_pid =~ ^[0-9]+$ ]] || return 1
+    printf '%s\n' "$fresh_pid" >> "$work/coexist-pids" || return 1
+    return "$status"
+}
+
+# Sends a URL of the loaded product to its running instance, and waits for
+# one more URL dispatch there, forwarded by the second start.
+send_fresh_url() {
+    local phase=$1 counts urls requests forwarded pid
+    pid=$(pgrep -f -x "$app_pattern") && [[ $pid =~ ^[0-9]+$ ]] || return 1
+    counts=$(trace_counts "$trace" "$scheme") || return 1
+    read -r urls requests forwarded <<< "$counts"
+    open_fresh_url 15 "$phase" &&
+        wait_for_counts "$trace" "$scheme" "$((urls + 1))" "$((requests + 1))" "$((forwarded + 1))" &&
+        [[ $(pgrep -f -x "$app_pattern") == "$pid" ]]
+}
+
+# The loaded product's trace names it, and holds exactly $1 URLs refused as
+# `no such extension`.
+in_own_trace() {
+    [[ $(trace_fact "$trace" name) == "$name" &&
+        $(trace_fact "$trace" identifier) == "$identifier" &&
+        $(trace_fact "$trace" no-such-extension) == "$1" ]]
+}
+
+check_fresh_coexistence() {
+    local north_home north_trace north_install north_pattern north_pid north_before
+    local sample_home sample_trace sample_install sample_pattern sample_pid sample_before
+    local north_value sample_value north_lock sample_lock
+    load_north_star || return 1
+    north_home=$home north_trace=$trace north_install=$install_dir north_pattern=$app_pattern
+    why='the sample did not start from yard://check with one URL refused as no such extension, or North Star saw it'
+    north_before=$(trace_counts "$north_trace" "*") &&
+        load_sample && default_handler && start_fresh_url && sleep "$settle" && in_own_trace 1 &&
+        [[ $(trace_counts "$north_trace" "*") == "$north_before" ]] || return 1
+    sample_home=$home sample_trace=$trace sample_install=$install_dir sample_pattern=$app_pattern sample_pid=$fresh_pid
+    why='expected one North Star and one sample process'
+    north_pid=$(pgrep -f -x "$north_pattern") && [[ $north_pid =~ ^[0-9]+$ && $north_pid != "$sample_pid" ]] ||
+        return 1
+
+    # Each delivery is sampled again after a pause: the destination still has
+    # exactly one more URL, and the peer none.
+    why="northstar://check did not reach North Star alone (re-read after ${settle}s)"
+    load_north_star && sample_before=$(trace_counts "$sample_trace" "*") && send_fresh_url coexist-north &&
+        sleep "$settle" && in_own_trace 2 &&
+        [[ $(trace_counts "$sample_trace" "*") == "$sample_before" ]] || return 1
+    why="yard://check did not reach the sample alone (re-read after ${settle}s)"
+    load_sample && north_before=$(trace_counts "$north_trace" "*") && send_fresh_url coexist-sample &&
+        sleep "$settle" && in_own_trace 2 &&
+        [[ $(trace_counts "$north_trace" "*") == "$north_before" ]] || return 1
+    why='a process was replaced while URLs were delivered'
+    [[ $(pgrep -f -x "$north_pattern") == "$north_pid" && $(pgrep -f -x "$sample_pattern") == "$sample_pid" ]] ||
+        return 1
+
+    why="install folders meet: $north_install and $sample_install"
+    [[ $north_install != "$sample_install" && $north_install != "$sample_install"/* &&
+        $sample_install != "$north_install"/* ]] || return 1
+    north_value=$(trace_fact "$north_trace" data) sample_value=$(trace_fact "$sample_trace" data)
+    why="data folders: North Star ${north_value:-<none>}, sample ${sample_value:-<none>}"
+    [[ $north_value == "$north_home/data" && $sample_value == "$sample_home/data" ]] || return 1
+    north_value=$(trace_fact "$north_trace" socket) sample_value=$(trace_fact "$sample_trace" socket)
+    why="instance sockets: North Star ${north_value:-<none>}, sample ${sample_value:-<none>}"
+    [[ -S $north_value && -S $sample_value && $north_value == "$north_home/"* &&
+        $sample_value == "$sample_home/"* ]] || return 1
+    # The lock is beside the socket, in the instance folder (yard_paths' instance_files).
+    north_lock="${north_value%/*}/instance.lock" sample_lock="${sample_value%/*}/instance.lock"
+    why="instance locks: North Star $north_lock, sample $sample_lock"
+    [[ -f $north_lock && -f $sample_lock && $north_lock != "$sample_lock" && $north_lock == "$north_home/"* &&
+        $sample_lock == "$sample_home/"* ]] || return 1
+    why='a scheme is shared or not handled by its own desktop file'
+    load_north_star && north_value=$scheme && default_handler &&
+        load_sample && sample_value=$scheme && default_handler &&
+        [[ $north_value != "$sample_value" ]] || return 1
+    north_value=$(trace_fact "$north_trace" menu) sample_value=$(trace_fact "$sample_trace" menu)
+    why="application menus: North Star ${north_value:-<none>}, sample ${sample_value:-<none>}"
+    [[ $north_value == 'North Star' && $sample_value == yard ]] || return 1
+    why="PIDs $north_pid and $sample_pid; own install folder, data folder, instance socket and lock file (each under its own home), scheme, and menu; each URL reached its own app only, re-read after ${settle}s"
+}
+
+# GPUI's headless window under North Star's config, as check_screenshot takes
+# the sample's: llvmpipe shows no frames in an X11 window on the runner.
+check_fresh_screenshot() {
+    local out="$checks/northstar/north-star/window.png"
+    load_north_star || return 1
+    if (cd "$fresh" && bounded 1500 env PRODUCT_CONFIG="$fixture" "${prefix}_LIFECYCLE=info,screenshot=debug" \
+        cargo run -p screenshot -- --out "$out") > "$logs/screenshot.log" 2>&1 &&
+        [[ -s "$out" ]] && has_colours "$out"; then
+        record PASS screenshot "GPUI headless window captured under North Star's config"
+    else
+        record FAIL screenshot 'missing or single-colour window.png (see northstar/north-star/screenshot.log)'
+    fi
+}
+
+stop_fresh() {
+    "$@" || return
+    pkill -TERM -f -x "$app_pattern" 2>/dev/null || true
+    sleep 1
+    pkill -KILL -f -x "$app_pattern" 2>/dev/null || true
+    if [[ -d "$home/logs" ]]; then cp -R "$home/logs" "$logs/app-logs"; fi
+}
+
+check_north_star() {
+    local north_ready=0 sample_ready=0 running=0
+    mkdir -p "$checks/northstar" || return 1
+    if bounded 300 git clone --quiet --no-local "$PWD" "$fresh" > "$checks/northstar/new-app.log" 2>&1 &&
+        (cd "$fresh" && bounded 900 cargo xtask new-app --name 'North Star' --identifier test.yard.northstar \
+            --icon "$fresh/$northstar_icon") >> "$checks/northstar/new-app.log" 2>&1 &&
+        grep -Eq '^default-members[[:space:]]*=[[:space:]]*\[[[:space:]]*"app/north-star"[[:space:]]*,?[[:space:]]*\]' \
+            "$fresh/Cargo.toml" &&
+        load_north_star && [[ $name == 'North Star' && $identifier == test.yard.northstar && $scheme == northstar ]]; then
+        record PASS new-app 'app/north-star/ made in a fresh checkout; default-members names it'
+    else
+        record FAIL new-app 'see northstar/new-app.log'
+        skip 'new-app failed' "${northstar_cases[@]:1}"
+        return
+    fi
+
+    # No --package: the default member is the developer's application.
+    bundle_fresh bundle north-star && north_ready=1
+    load_sample && bundle_fresh sample-bundle sample --package yard && sample_ready=1
+    load_north_star || return 1
+    if (( ! north_ready )); then
+        skip 'bundle failed' install desktop-name desktop-exec desktop-icon desktop-mime
+    elif install_fresh install north-star; then
+        check_desktop_key desktop-name Name "$name"
+        check_desktop_key desktop-exec Exec "$app_binary %U"
+        check_desktop_icon
+        check_desktop_key desktop-mime MimeType "x-scheme-handler/$scheme;"
+    else
+        north_ready=0
+        skip 'install failed' desktop-name desktop-exec desktop-icon desktop-mime
+    fi
+    if (( ! sample_ready )); then
+        skip 'sample bundle failed' sample-install
+    elif ! { load_sample && install_fresh sample-install sample; }; then
+        sample_ready=0
+    fi
+
+    load_north_star || return 1
+    if (( ! north_ready )); then
+        skip 'install failed' url
+    elif ! default_handler; then
+        skip 'the installed desktop file is not the default scheme handler' url
+    elif start_fresh_url && sleep "$settle" && in_own_trace 1; then
+        running=1
+        record PASS url "northstar://check reached North Star at PID $fresh_pid, refused once as no such extension"
+    else
+        record FAIL url 'no single North Star process with one URL refused as no such extension (see url.log)'
+    fi
+    check_fresh_screenshot
+
+    if (( ! running || ! sample_ready )); then
+        skip 'North Star did not run or the sample was not installed' coexistence
+    elif check_fresh_coexistence; then
+        record PASS coexistence "$why"
+    else
+        record FAIL coexistence "$why"
+    fi
+
+    stop_fresh load_north_star
+    stop_fresh load_sample
+    app_binary=
+}
+
+if (( SECONDS < deadline )); then
+    config=northstar
+    check_north_star
 fi

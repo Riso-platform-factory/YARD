@@ -15,10 +15,12 @@ cargo xtask bundle <macos|linux|windows> [OPTIONS]
 | `--package <NAME>` | Workspace's single default member | Application Cargo package to build and bundle |
 | `--config <FILE>` | `<package>/product.toml` | Product config file to use |
 | `--out <FOLDER>` | `dist/` at repository root | Destination directory for built artifacts |
-| `--dev` | off | Build a review bundle running `dev` code (allowed for the sample application only; refused if `name`, `identifier`, or `url_scheme` matches the production sample config case-insensitively) |
+| `--dev` | off | Build a review bundle running `dev` code (allowed for `yard` only; refused with any other package or if `name`, `identifier`, or `url_scheme` matches `app/yard/product.toml` case-insensitively) |
 | `--env KEY=VALUE` | none | Inject an environment variable into a `--dev` bundle (requires `--dev`; refused on Windows) |
 
-Before building, `xtask` runs `cargo test -p yard --test stages` to verify production stage integrity, strips all signing secret environment variables from `cargo` invocations, and builds the release binary without `dev` features (unless `--dev` is passed).
+Without `--package`, `bundle` selects the workspace's single `default-members` entry (your application after `new-app`, or `yard` in a plain YARD checkout); zero or multiple default members are refused and require `--package`. The selected package must be a workspace member with exactly one binary target (zero or multiple binaries are refused before building), and `bundle` packages the executable Cargo reports for that target.
+
+Before building, `xtask` runs `cargo test -p yard --test stages` to verify YARD's platform stages, strips all signing secret environment variables from `cargo` invocations, and builds the release binary with `--no-default-features` (unless `--dev` is passed).
 
 On `SIGINT`, `SIGTERM`, or `SIGHUP`, `xtask` stops before the next step, cleans up temporary staging folders and keychains without publishing partial artifacts, and exits with status `130`. `xtask` writes its own logs (`xtask.log` and `lifecycle.jsonl`, controlled by `XTASK_LIFECYCLE`) to `$CARGO_TARGET_DIR` when set and non-empty, or `target/` at the repository root otherwise.
 

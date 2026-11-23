@@ -4,6 +4,10 @@ Applications built on YARD are composed of extensions. An extension is a Rust cr
 
 Platform extensions that ship with YARD (such as `command_palette`) live in `extensions/`. They reach the platform only through `yard_shell::Extension` and `yard_ui`, and never depend on Zed's GPL crates.
 
+## Application Extensions
+
+An application's own extensions live in `app/<name>/extensions/<extension>/`, one crate per folder. Because the workspace's `app/*` glob in the root `Cargo.toml` does not match nested directories, add each extension path to `workspace.members` (or add `"app/<name>/extensions/*"` to cover all of them). Then add the crate as a dependency in `app/<name>/Cargo.toml` and register its `init` function in `app/<name>/src/main.rs`.
+
 ## Initialization and Namespaces
 
 Each extension exports an initialization function:

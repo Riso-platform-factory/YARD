@@ -31,6 +31,6 @@
 - [Developing YARD](./development.md)
   - [Roadmap](./development/roadmap.md)
   - [Platform Roadmap](./development/platform-roadmap.md)
-  - [New App](./development/new-app.md)
+  - [Upstream Updates](./development/upstream-updates.md)
   - [Packaging](./development/packaging.md)
   - [Release System](./development/release-system.md)

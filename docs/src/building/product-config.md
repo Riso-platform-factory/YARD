@@ -4,7 +4,7 @@ YARD engines never hardcode an application's name, version, file names, or envir
 
 ## `product.toml`
 
-Place `product.toml` in the application's crate directory (for the sample application, `app/yard/product.toml`). To build or package with a different config file, set `PRODUCT_CONFIG=<path>` in the environment.
+Place `product.toml` in the application's crate directory (for example `app/<name>/product.toml`, or `app/yard/product.toml` for the sample). `product.toml` is the single source of the product version; the crate's version in `Cargo.toml` is not read. Nothing sets `PRODUCT_CONFIG` by default; set `PRODUCT_CONFIG=<path>` in the environment to build with a different config file (as `cargo xtask bundle --config` does).
 
 ```toml
 name = "yard"
@@ -28,7 +28,15 @@ All top-level keys are validated strictly; unknown keys fail the build.
 
 ## Build Script (`yard_build_config`)
 
-An application's `build.rs` calls `yard_build_config::build_script::run()`. At build time it reads and validates `product.toml` (or `PRODUCT_CONFIG`), emits `cargo:rerun-if-changed` directives, and sets compile-time environment variables:
+An application's `build.rs` is a single call:
+
+```rust
+fn main() {
+    yard_build_config::build_script::run()
+}
+```
+
+At build time it reads and validates `product.toml` (or `PRODUCT_CONFIG`), emits `cargo:rerun-if-changed` directives for the config and icon, and sets compile-time environment variables:
 
 - `PRODUCT_NAME`
 - `PRODUCT_VERSION`
@@ -40,7 +48,7 @@ An application's `build.rs` calls `yard_build_config::build_script::run()`. At b
 It also prepares platform icon assets in `OUT_DIR`:
 
 - **Linux and FreeBSD:** writes a `256 × 256` `window_icon.png` for the runtime window icon.
-- **Windows:** writes a multi-size `app.ico` (`16`, `24`, `32`, `48`, `64`, `256` px) and `app.rc`, and embeds the icon and version resource into the executable when built on a Windows host.
+- **Windows:** writes a multi-size `app.ico` (`16`, `24`, `32`, `48`, `64`, `256` px) and `app.rc`, and compiles and embeds the icon and version resource into the executable on Windows hosts only (cross-compiling for Windows from another host emits a Cargo warning and omits the resource).
 
 ## Product Identity and Derived Names (`yard_product`)
 
@@ -87,7 +95,7 @@ Otherwise, platform defaults apply:
 
 ## Composition Root and Startup
 
-The composition root wires the product config, startup, menus, and compiled-in extensions together. The startup is `yard_app::run(application, extensions, menus)`: the application's `startup` module makes its `yard_app::Application` with `yard_app::application!()`, from the variables its build script sets, and lists its extensions; in the sample application (`app/yard`), `yard::startup::application()` and `yard::startup::EXTENSIONS`. `yard_app::run` initializes engines in order:
+The composition root wires the product config, startup, menus, and compiled-in extensions together. `yard_app` reads nothing at build time: the calling application constructs its `yard_app::Application` with `yard_app::application!()`, which expands in the application crate to read its `PRODUCT_*` variables and (on Linux and FreeBSD) embed `window_icon.png` from `OUT_DIR`, then passes it with the extension list and menu builder to `yard_app::run(application, extensions, menus)` (in the sample application `app/yard`, `yard::startup::application()` and `yard::startup::EXTENSIONS` provide this composition). `yard_app::run` initializes engines in order:
 
 1. Starts logging (`yard_log::start`), validates `Product::new`, resolves `Paths::from_env`, and checks single-instance forwarding on Linux and Windows.
 2. Opens log files (`yard_log::open_files`).

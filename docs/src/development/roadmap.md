@@ -1,8 +1,8 @@
 # Roadmap
 
-YARD is organized into focused engines. The initial eight steps of the engine roadmaps are in production, and the first slice of the release system (`packaging`) is implemented. This page summarizes the engines and lists every remaining planned, by-need, or later item.
+YARD is organized into focused engines. The initial eight steps of the engine roadmaps are in production, and the `packaging` and `new-app` slices of the platform roadmap are implemented. This page summarizes the engines and lists every remaining planned, by-need, or later item.
 
-Platform-level capabilities (new-app scaffolding, CI, multi-platform updates, file dialogs, OS notifications, crash reports) are tracked in [Platform Roadmap](./platform-roadmap.md).
+Platform-level capabilities (upstream updates, CI, multi-platform updates, file dialogs, OS notifications, crash reports) are tracked in [Platform Roadmap](./platform-roadmap.md).
 
 ## The Engines
 
@@ -19,7 +19,7 @@ Platform-level capabilities (new-app scaffolding, CI, multi-platform updates, fi
 | Keymap | `yard_keymap`, `yard_shell`, `extensions/command_palette` | Focus, directional focus, actions, default keys, extension actions, `keymap.json` with live reload, command palette | production |
 | Window | `yard_shell`, `yard_ui` | Frame (title bar, body, status bar), drawn controls on Linux and Windows, modals, toasts, prompts, menus, multiple windows, bounds and session restore | production |
 | State | `yard_state`, `yard_shell` | Per-node state (`state.json`), debounced saves, tab/zoom view state, per-extension key-value store | production (`secrets` and `item-state` wait by need) |
-| Packaging and updates | `tooling/xtask`, `yard_update`, `yard_shell` | `cargo xtask bundle` (macOS, Linux, Windows, signing), custom URL schemes, single instance, macOS update check and install | `yard_update` and URL handling in production; `xtask` bundling in `dev` |
+| Packaging, scaffolding, and updates | `tooling/xtask`, `yard_update`, `yard_shell` | `cargo xtask new-app`, `cargo xtask bundle` (macOS, Linux, Windows, signing), custom URL schemes, single instance, macOS update check and install | `yard_update` and URL handling in production; `xtask` scaffolding and bundling in `dev` |
 
 Not engines of the platform: projects, file trees, editors, terminals, git, and search belong to applications built on YARD as extensions.
 
@@ -63,4 +63,4 @@ Items noted across engine roadmaps that are not yet scheduled:
 - **Keymap:** base keymaps for other editors and Vim modes; keymap editor UI; key-chord continuation popup; non-US keyboard layouts; keyboard commands to resize splits and move nodes.
 - **Window:** prompting components before closing a window with unsaved work; a shell toggle-fullscreen action and menu item (title bar chrome already adapts to fullscreen and saved bounds restore fullscreen state); macOS window tabs; dragging nodes between windows; background progress indicators in the status bar.
 - **State:** migrating older state file versions; a permissively licensed queryable database when an application needs one.
-- **Packaging and platform:** command-line launcher opening files or folders in the running instance; interface localization/translations; see [Platform Roadmap](./platform-roadmap.md) for CI, multi-platform updates, release channels, `new-app`, file dialogs, OS notifications, crash reports, and toggling compiled-in extensions.
+- **Packaging and platform:** command-line launcher opening files or folders in the running instance; interface localization/translations; see [Platform Roadmap](./platform-roadmap.md) for upstream updates, CI, multi-platform updates, release channels, file dialogs, OS notifications, crash reports, and toggling compiled-in extensions.

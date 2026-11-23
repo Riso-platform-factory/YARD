@@ -1,0 +1,5 @@
+name = {{name}}
+version = {{version}}
+identifier = {{identifier}}
+url_scheme = {{scheme}}
+icon = "icon.png"

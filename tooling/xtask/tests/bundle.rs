@@ -403,36 +403,28 @@ fn names_are_single_path_components() {
     let temp = tempdir();
     let out = temp.path().join("out");
     let slashed_version = config_in(temp.path(), "Lab", "0.1/0", "test.yard.slash", "yardslash");
-    let zipped = MacosArgs {
-        zip: true,
-        ..options(&slashed_version, &out)
-    };
-    let mut runner = FakeRunner::new(temp.path());
-    let failure = bundle_macos(
-        &zipped,
-        &xtask::Secrets::default(),
-        &xtask::Interrupt::default(),
-        &mut runner,
-    )
-    .unwrap_err();
-    assert_eq!(failure.step, "config");
-    assert_eq!(
-        failure.reason,
-        format!(
-            "{}: version must be a single path component with --zip",
-            slashed_version.display()
+    for zip in [true, false] {
+        let mut runner = FakeRunner::new(temp.path());
+        let failure = bundle_macos(
+            &MacosArgs {
+                zip,
+                ..options(&slashed_version, &out)
+            },
+            &xtask::Secrets::default(),
+            &xtask::Interrupt::default(),
+            &mut runner,
         )
-    );
-    support::assert_only_metadata(&runner);
-
-    // Without --zip, the version names no file.
-    bundle_macos(
-        &options(&slashed_version, &out),
-        &xtask::Secrets::default(),
-        &xtask::Interrupt::default(),
-        &mut FakeRunner::new(temp.path()),
-    )
-    .unwrap();
+        .unwrap_err();
+        assert_eq!(failure.step, "config");
+        assert_eq!(
+            failure.reason,
+            format!(
+                "{}: version must be a single path component",
+                slashed_version.display()
+            )
+        );
+        support::assert_only_metadata(&runner);
+    }
 }
 
 #[test]

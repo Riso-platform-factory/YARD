@@ -57,8 +57,15 @@ fn staged_crates() -> Vec<(String, PathBuf)> {
                     .to_path_buf(),
             )
         })
-        .filter(|(_, folder)| !folder.starts_with(repository().join("examples")))
+        .filter(|(_, folder)| has_stage(folder))
         .collect()
+}
+
+fn has_stage(folder: &Path) -> bool {
+    let root = repository();
+    !["examples", "application"]
+        .iter()
+        .any(|name| folder.starts_with(root.join(name)))
 }
 
 fn root_files(name: &str, folder: &Path) -> Vec<PathBuf> {
@@ -425,8 +432,7 @@ fn every_crate_passes_the_dev_feature_on() {
                 .as_array()
                 .unwrap()
                 .contains(&package["id"])
-                && !Path::new(package["manifest_path"].as_str().unwrap())
-                    .starts_with(repository().join("examples"))
+                && has_stage(Path::new(package["manifest_path"].as_str().unwrap()))
         })
         .collect();
     for package in &packages {

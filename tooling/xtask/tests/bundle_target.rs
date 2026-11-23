@@ -246,7 +246,7 @@ fn dev_is_accepted_for_yard_and_refused_for_other_packages() {
 }
 
 #[test]
-fn real_workspace_resolves_yard_by_default_and_north_star_by_name() {
+fn real_workspace_resolves_default_member_and_yard() {
     let repo = xtask::repository();
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let output = Command::new(cargo)
@@ -260,24 +260,59 @@ fn real_workspace_resolves_yard_by_default_and_north_star_by_name() {
         String::from_utf8_lossy(&output.stderr)
     );
 
+    let metadata: Value =
+        serde_json::from_slice(&output.stdout).expect("parse cargo metadata JSON");
+    let default_members = metadata["workspace_default_members"]
+        .as_array()
+        .expect("workspace_default_members array");
+    assert_eq!(
+        default_members.len(),
+        1,
+        "real workspace should have one default member: {default_members:?}"
+    );
+    let default_id = &default_members[0];
+    let default_pkg = metadata["packages"]
+        .as_array()
+        .expect("packages array")
+        .iter()
+        .find(|pkg| &pkg["id"] == default_id)
+        .unwrap_or_else(|| panic!("default member {default_id} not found in packages"));
+    let expected_package = default_pkg["name"].as_str().expect("package name");
+    let expected_binary = default_pkg["targets"]
+        .as_array()
+        .expect("targets array")
+        .iter()
+        .find(|target| {
+            target["kind"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|kind| kind == "bin"))
+        })
+        .and_then(|target| target["name"].as_str())
+        .expect("single binary target on default member");
+    let expected_folder = std::path::Path::new(
+        default_pkg["manifest_path"]
+            .as_str()
+            .expect("manifest_path"),
+    )
+    .parent()
+    .expect("manifest directory");
+
     let default = bundle_target(&output.stdout, None, false).unwrap();
-    assert_eq!(default.package, "yard");
-    assert_eq!(default.binary, "yard");
+    assert_eq!(default.package, expected_package);
+    assert_eq!(default.binary, expected_binary);
     assert_eq!(
         default.folder.canonicalize().unwrap(),
+        expected_folder.canonicalize().unwrap()
+    );
+
+    let yard = bundle_target(&output.stdout, Some("yard"), false).unwrap();
+    assert_eq!(yard.package, "yard");
+    assert_eq!(yard.binary, "yard");
+    assert_eq!(
+        yard.folder.canonicalize().unwrap(),
         repo.join("app/yard").canonicalize().unwrap()
     );
 
-    let default_dev = bundle_target(&output.stdout, None, true).unwrap();
-    assert_eq!(default_dev, default);
-
-    let north_star = bundle_target(&output.stdout, Some("north_star"), false).unwrap();
-    assert_eq!(north_star.package, "north_star");
-    assert_eq!(north_star.binary, "north_star");
-    assert_eq!(
-        north_star.folder.canonicalize().unwrap(),
-        repo.join("examples/north_star").canonicalize().unwrap()
-    );
-
-    assert!(bundle_target(&output.stdout, Some("north_star"), true).is_err());
+    let yard_dev = bundle_target(&output.stdout, Some("yard"), true).unwrap();
+    assert_eq!(yard_dev, yard);
 }

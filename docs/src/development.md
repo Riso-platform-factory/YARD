@@ -7,8 +7,8 @@ This section is for contributors working on YARD itself. See `AGENTS.md` at the 
 - `crates/`: core platform engines (`yard_product`, `yard_build_config`, `yard_paths`, `yard_log`, `yard_settings`, `yard_layout`, `yard_state`, `yard_keymap`, `yard_ui`, `yard_shell`, `yard_update`, and `yard_app`).
 - `extensions/`: platform extensions shipped with YARD (`command_palette`).
 - `app/yard/`: the sample application and composition root, plus `app/yard/src/dev/review.rs` for staging parts under review.
-- `examples/`: test extensions that exercise engines through the running application (`layout_tour`, `layout_guest`, `layout_inspector`, `keys_tour`, `settings_tour`, `theme_tour`, `window_tour`, `ui_gallery`, `log_tour`, `north_star`, `screenshot`). Example crates have no stage and are never included in production.
-- `tooling/xtask/`: workspace automation (`cargo xtask bundle`).
+- `examples/`: test extensions that exercise engines through the running application (`layout_tour`, `layout_guest`, `layout_inspector`, `keys_tour`, `settings_tour`, `theme_tour`, `window_tour`, `ui_gallery`, `log_tour`, `screenshot`). Example crates have no stage and are never included in production.
+- `tooling/xtask/`: workspace automation (`cargo xtask new-app` and `cargo xtask bundle`).
 
 ## Stages and Promotion
 

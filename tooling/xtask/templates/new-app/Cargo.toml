@@ -1,0 +1,20 @@
+[package]
+name = "{{package}}"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "{{package}}"
+path = "src/main.rs"
+
+[dependencies]
+gpui.workspace = true
+yard_app = { workspace = true, default-features = false }
+yard_product = { workspace = true, default-features = false }
+yard_shell = { workspace = true, default-features = false }
+command_palette = { workspace = true, default-features = false }
+
+[build-dependencies]
+yard_build_config = { workspace = true, default-features = false }

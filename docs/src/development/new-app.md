@@ -80,9 +80,8 @@ The build script is production code with no stage today (`build.rs` is not a par
 - **A new platform crate, `yard_app`,** whose part `startup` is built in `src/dev/`. It holds the startup of `app/yard/src/startup.rs`, unchanged in behavior and logging: the logs, one instance, URLs, settings, theme, keymap, the update check, windows, and the session. Its public functions stay public, since `examples/screenshot` drives them one by one into a headless renderer: `start_logs`, `init`, `open_window`, `window_options`, and `run`.
 - **It reads nothing at build time.** Everything comes from its caller in one value: the product, the URL scheme, the update address, and the window icon. A macro of `yard_app`, defined in the part's module, makes that value from the variables of the caller's build script, so `env!` runs in the application's crate, never in `yard_app`. The window icon is included only when the target is Linux or FreeBSD, by a `cfg` on the item, since the file exists only there.
 - **While it is in `dev/`:** `cargo run dev`, with `yard_app/startup` under review, starts the sample through `yard_app`; `cargo run` still starts it through `app/yard/src/startup.rs`.
-- **A second composition root under test,** `examples/north_star`: name `North Star`, identifier `test.yard.northstar`, scheme `northstar`, its own icon, its own build script of one line, and one menu item the sample does not have (`North Star → About North Star`). It shows that a second application built from YARD shares nothing with the sample.
 - **At promotion:** `yard_app/startup` moves out of `dev/`. The sample's `yard/startup` keeps only the sample's composition: its application value, made with the macro, and its extensions; `main`, the review mode, and `examples/screenshot` take them from there, so the screenshot keeps the sample's build script and identity. Both parts are stamped.
-- **What the review shows:** `cargo run dev`: the sample, started by `yard_app`, with the same startup groups and events as `cargo run` under the same lifecycle filter, the review's own announcement aside; `cargo run -p north_star`: title, menu with `About North Star`, folders, and `NORTH_STAR_LIFECYCLE`.
+- **What the review shows:** `cargo run dev`: the sample, started by `yard_app`, with the same startup groups and events as `cargo run` under the same lifecycle filter, the review's own announcement aside.
 
 ### 3. `cargo xtask bundle` packages the application it is given
 
@@ -92,13 +91,12 @@ The build script is production code with no stage today (`build.rs` is not a par
 - `--dev` packages the review mode, which only the sample has: with another package it is refused.
 - The stages check before building stays the platform's: `cargo test -p yard --test stages`.
 - The runner scripts name `--package yard` wherever they bundle the sample with a test config, so that a default member that is not the sample never pairs a sample config with another binary.
-- **What the review shows:** `cargo xtask bundle macos --package north_star` makes `North Star.app`, whose menu has `About North Star`, which only the right binary has.
+- **What the review shows:** `cargo xtask bundle macos --package north-star` packages the generated North Star application.
 
 ### 4. `cargo xtask new-app`
 
 - As described above, in `tooling/xtask`, with the files it writes kept as templates in `tooling/xtask/templates/new-app/`.
 - The stage scans skip `application/`.
-- `examples/north_star` is deleted: from this part on, the generated application is the second composition root under test.
 - **Logging:** a group `new-app` with the name and identifier as fields; a debug line per step (checked, written, renamed into place, workspace changed); a refusal is an `info` with what was refused.
 - **What the review shows:** in a fresh clone of YARD, `cargo xtask new-app --name "North Star" …`, then `cargo run`: North Star's window, menu, and folders. Then each refusal: a bad identifier, a scheme that cannot be derived, a version over 65535, a name with `/`, an icon that is not square, the sample's identifier, an existing `application/`.
 
@@ -120,13 +118,13 @@ On each system the sample is bundled as well, with `--package yard`, and install
 - `yard_app`: the tests that cover the startup today move with it and pass unchanged; one builds a value from a config that is not the sample's and checks the startup uses it.
 - `xtask bundle`: the package chosen from `--package` and from the default member; the refusals for no binary, two binaries, several default members, and `--dev` with another package.
 - `xtask new-app`: the files written for each set of flags; the root `Cargo.toml` with only `members` and `default-members` changed; each refusal leaves the repository as it was; each of the three interrupted states and what the next run does; the generated application builds (`cargo check`) in a temporary copy of the workspace.
-- The lead runs the sample, `examples/north_star` (parts 2–3), and a generated application (part 4 on), and reads their traces.
-- Bundle selection is proven by `About North Star` (part 3); after that, the runners check identity, and the tests of `bundle` keep the selection.
+- The lead runs the sample and a generated application and reads their traces.
+- The bundle tests cover package selection, and the runners check the installed application’s identity.
 
 ## Order
 
 1. `yard_build_config/build_script`.
-2. `yard_app/startup`, with `examples/north_star`.
+2. `yard_app/startup`.
 3. `cargo xtask bundle --package`.
 4. `cargo xtask new-app`.
 5. The runner checks on the three systems.

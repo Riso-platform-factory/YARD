@@ -2,3 +2,6 @@
 
 mod bundle;
 pub use bundle::*;
+
+mod new_app;
+pub use new_app::*;

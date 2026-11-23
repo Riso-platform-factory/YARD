@@ -12,9 +12,9 @@ use yard_build_config::BuildConfig;
 
 use super::signing::shell_quote;
 use super::{
-    Failure, Interrupt, Runner, Staging, arguments, build, env_pairs, interrupted_at_end,
-    is_path_component, log_outcome, make_executable, not_interrupted, read_product,
-    resolve_package, set_mode, sha256, step,
+    Arch, Failure, Interrupt, PackageSystem, Runner, Staging, arguments, build, env_pairs,
+    interrupted_at_end, linux_archive_name, log_outcome, make_executable, not_interrupted,
+    package_checks, read_product, resolve_package, set_mode, sha256, step,
 };
 
 /// The options of `cargo xtask bundle linux`.
@@ -82,6 +82,7 @@ fn bundle(
     runner: &mut dyn Runner,
 ) -> Result<LinuxBundled, Failure> {
     tracing::debug!("arguments");
+    let arch = Arch::host()?;
     if system != "linux" {
         return Err(Failure::new(
             "arguments",
@@ -105,15 +106,8 @@ fn bundle(
 
     tracing::debug!("config");
     let product = read_product(&config, options.dev, true)?;
-    if !is_path_component(&product.version) {
-        return Err(Failure::new(
-            "config",
-            format!(
-                "{}: version must be a single path component",
-                config.display()
-            ),
-        ));
-    }
+    package_checks(&config, &product, PackageSystem::Linux, arch)
+        .map_err(|reason| Failure::new("config", reason))?;
 
     // Without debug data, as Zed's is.
     let binary = build(
@@ -178,10 +172,10 @@ fn in_temp(
     staging
         .publish(&app, &destination)
         .map_err(|reason| Failure::new("bundle", reason))?;
-    let published = out.join(format!(
-        "{name}-{}-linux-{}.tar.gz",
-        product.version,
-        std::env::consts::ARCH
+    let published = out.join(linux_archive_name(
+        &name,
+        &product.version,
+        std::env::consts::ARCH,
     ));
     staging.publish(&staged, &published).map_err(archive)?;
     tracing::debug!(archive = %published.display(), sha256 = digest, "archived");

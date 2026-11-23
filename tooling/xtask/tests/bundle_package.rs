@@ -168,7 +168,8 @@ fn without_package_bundles_default_member_yard_and_its_config() {
 
 #[test]
 fn package_north_star_without_config_uses_north_star_config_and_yard_stages() {
-    let expected_config = xtask::repository().join("examples/north_star/product.toml");
+    let expected_config =
+        xtask::repository().join("tooling/xtask/tests/configs/north_star/product.toml");
 
     // macOS
     let temp = tempdir();

@@ -449,7 +449,8 @@ impl xtask::Runner for FakeRunner {
             {
                 let repo = xtask::repository();
                 let yard_id = "path+file:///workspace/app/yard#0.1.0";
-                let north_star_id = "path+file:///workspace/examples/north_star#0.1.0";
+                let north_star_id =
+                    "path+file:///workspace/tooling/xtask/tests/configs/north_star#0.1.0";
                 serde_json::json!({
                     "packages": [
                         {
@@ -465,7 +466,10 @@ impl xtask::Runner for FakeRunner {
                             "name": "north_star",
                             "id": north_star_id,
                             "manifest_path": repo
-                                .join("examples")
+                                .join("tooling")
+                                .join("xtask")
+                                .join("tests")
+                                .join("configs")
                                 .join("north_star")
                                 .join("Cargo.toml"),
                             "targets": [

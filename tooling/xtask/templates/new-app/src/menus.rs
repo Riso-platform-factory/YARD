@@ -1,13 +1,11 @@
-use crate::extension::AboutNorthStar;
 use gpui::{Menu, MenuItem};
 
 pub fn menus(product: &yard_product::Product) -> Vec<Menu> {
     vec![
-        Menu::new(product.name).items(vec![
-            MenuItem::action("About North Star", AboutNorthStar),
-            MenuItem::separator(),
-            MenuItem::action(format!("Quit {}", product.name), yard_shell::Quit),
-        ]),
+        Menu::new(product.name).items(vec![MenuItem::action(
+            format!("Quit {}", product.name),
+            yard_shell::Quit,
+        )]),
         Menu::new("File").items(vec![MenuItem::action("New Window", yard_shell::NewWindow)]),
         Menu::new("View").items(vec![
             MenuItem::action("Zoom", yard_shell::ToggleZoom),

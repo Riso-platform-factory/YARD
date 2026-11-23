@@ -192,7 +192,10 @@ fn package_resolution_logs_package_event_refusals_failures_and_interrupts() {
     let temp = tempdir();
     let expected_config = std::path::absolute(
         xtask::repository()
-            .join("examples")
+            .join("tooling")
+            .join("xtask")
+            .join("tests")
+            .join("configs")
             .join("north_star")
             .join("product.toml"),
     )

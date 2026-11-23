@@ -16,8 +16,9 @@ use authenticode::{PfxFolder, SignTools, Signer, command, iscc_sign_tool};
 use yard_build_config::{BuildConfig, build_script};
 
 use super::{
-    Failure, Interrupt, Runner, Staging, arguments, build, interrupted_at_end, log_outcome,
-    not_interrupted, read_product, resolve_package, step,
+    Arch, Failure, Interrupt, PackageSystem, Runner, Staging, arguments, build, interrupted_at_end,
+    log_outcome, not_interrupted, package_checks, read_product, resolve_package, setup_base_name,
+    setup_file_name, step, windows_zip_name,
 };
 
 /// The options of `cargo xtask bundle windows`.
@@ -142,9 +143,6 @@ pub struct WindowsBundled {
     pub zip: (PathBuf, String),
 }
 
-/// Inno Setup's limit on `AppId`.
-const APP_ID_LIMIT: usize = 127;
-
 /// Packages the selected application as an installer and a zip, inside the group
 /// `bundle-windows`, with the same config fields and step logging as
 /// [`super::bundle_macos`]. Anything but Windows is refused at the
@@ -178,6 +176,7 @@ fn bundle(
     runner: &mut dyn Runner,
 ) -> Result<WindowsBundled, Failure> {
     tracing::debug!("arguments");
+    let arch = Arch::host()?;
     let refuse = |reason: String| Failure::new("arguments", reason);
     if host.system != "windows" {
         return Err(refuse(format!(
@@ -207,7 +206,7 @@ fn bundle(
     )?;
 
     tracing::debug!("config");
-    let product = read_config(&config, options.dev)?;
+    let product = read_config(&config, options.dev, arch)?;
 
     tracing::debug!("secrets");
     let certificate = authenticode::certificate(&product, secrets)
@@ -264,94 +263,24 @@ fn bundle(
     interrupted_at_end(result, interrupt)
 }
 
-/// Reads the config as every system does, and checks what Windows adds: the
-/// name and the version are Windows file names that Inno Setup and `tar`
-/// read as written, the files named after them fit Windows' limit, and the
-/// identifier fits `AppId`.
-fn read_config(config: &Path, dev: bool) -> Result<BuildConfig, Failure> {
+fn read_config(config: &Path, dev: bool, arch: Arch) -> Result<BuildConfig, Failure> {
     let product = read_product(config, dev, false)?;
+    package_checks(config, &product, PackageSystem::Windows, arch)
+        .map_err(|reason| Failure::new("config", reason))?;
     let file = config.display();
-    let refuse = |reason: String| Failure::new("config", reason);
-    for (key, value) in [("name", &product.name), ("version", &product.version)] {
-        if value.contains(['{', '}']) {
-            return Err(refuse(format!(
-                "{file}: `{key}` must not hold `{{` or `}}` on Windows: Inno Setup's preprocessor and constants would read them"
-            )));
-        }
-        if !is_windows_file_name(value) {
-            return Err(refuse(format!(
-                "{file}: `{key}` must be a Windows file name: none of < > : \" / \\ | ? * or a control character, no space at either end, no dot at the end, and not a device name such as CON or COM1"
-            )));
-        }
-    }
-    if product.name.starts_with(['@', '-']) {
-        return Err(refuse(format!(
-            "{file}: `name` must not start with `@` or `-` on Windows: tar would read it as an option or an archive to include"
-        )));
-    }
-    let arch = std::env::consts::ARCH;
-    let name = &product.name;
-    for made in [
-        format!("{name}.exe"),
-        format!("{name}.lnk"),
-        format!("{}.exe", setup_base_name(&product)),
-        format!("{name}-{}-windows-{arch}.zip", product.version),
-    ] {
-        if made.encode_utf16().count() > FILE_NAME_LIMIT {
-            return Err(refuse(format!(
-                "{file}: `name` and `version` make the file name {made:?}, longer than Windows' {FILE_NAME_LIMIT} characters"
-            )));
-        }
-    }
     if let Some(signing) = &product.windows.signing
         && signing.timestamp_url.contains('"')
     {
         // Inno Setup passes the sign command on with `$q` for a quote, which
         // signtool's command line would read as quoting, not as the URL.
-        return Err(refuse(format!(
-            "{file}: `release.windows.signing.timestamp_url` must not hold a double quote on Windows, where signtool's command line would read it as quoting"
-        )));
-    }
-    if product.identifier.len() > APP_ID_LIMIT {
-        return Err(refuse(format!(
-            "{file}: `identifier` is the installer's AppId, which Inno Setup limits to {APP_ID_LIMIT} characters"
-        )));
+        return Err(Failure::new(
+            "config",
+            format!(
+                "{file}: `release.windows.signing.timestamp_url` must not hold a double quote on Windows, where signtool's command line would read it as quoting"
+            ),
+        ));
     }
     Ok(product)
-}
-
-/// Windows' limit on one file name, in UTF-16 units.
-const FILE_NAME_LIMIT: usize = 255;
-
-/// Whether Windows accepts `value` as a file name, and keeps it as written.
-/// The device names are reserved with any extension, and `COM` and `LPT`
-/// with a superscript digit too.
-fn is_windows_file_name(value: &str) -> bool {
-    const DEVICES: [&str; 4] = ["CON", "PRN", "AUX", "NUL"];
-    // Windows drops the spaces at the end of the stem, so `CON .txt` is CON.
-    let stem = value
-        .split('.')
-        .next()
-        .unwrap_or("")
-        .trim_end_matches([' ', '.'])
-        .to_uppercase();
-    let numbered = ["COM", "LPT"].iter().any(|prefix| {
-        stem.strip_prefix(prefix).is_some_and(|rest| {
-            let mut digits = rest.chars();
-            digits
-                .next()
-                .is_some_and(|c| c.is_ascii_digit() || "¹²³".contains(c))
-                && digits.next().is_none()
-        })
-    });
-    let device = DEVICES.contains(&stem.as_str()) || numbered;
-    !value.is_empty()
-        && !device
-        && !value.starts_with(' ')
-        && !value.ends_with([' ', '.'])
-        && !value
-            .chars()
-            .any(|c| c.is_control() || "<>:\"/\\|?*".contains(c))
 }
 
 /// What one run bundles, and with which tools.
@@ -419,7 +348,7 @@ fn in_temp(
             .run(&mut iscc)
             .map_err(|reason| installer(format!("{reason}; Inno Setup printed why above")))?,
     }
-    let setup_name = format!("{}.exe", setup_base_name(product));
+    let setup_name = setup_file_name(product, std::env::consts::ARCH);
     let setup = temp.join(&setup_name);
     if !setup.is_file() {
         return Err(installer(format!(
@@ -462,11 +391,7 @@ fn in_temp(
     // Both are published together, or neither is.
     not_interrupted("publish", interrupt)?;
     let published_setup = out.join(&setup_name);
-    let published_zip = out.join(format!(
-        "{name}-{}-windows-{}.zip",
-        product.version,
-        std::env::consts::ARCH
-    ));
+    let published_zip = out.join(windows_zip_name(product, std::env::consts::ARCH));
     // Neither is published while the other could not be.
     super::replaceable_file(&published_setup).map_err(installer)?;
     super::replaceable_file(&published_zip).map_err(zip)?;
@@ -481,16 +406,6 @@ fn in_temp(
         installer: (published_setup, setup_digest),
         zip: (published_zip, zip_digest),
     })
-}
-
-/// `<Name>-<version>-<arch>-setup`, the installer's name without `.exe`.
-fn setup_base_name(product: &BuildConfig) -> String {
-    format!(
-        "{}-{}-{}-setup",
-        product.name,
-        product.version,
-        std::env::consts::ARCH
-    )
 }
 
 /// The folder of the staging folder that holds the app's tree, apart from
@@ -616,7 +531,7 @@ pub fn inno_script(product: &BuildConfig, dev: bool, signed: bool, arch: &str) -
          \n\
          [Run]\n\
          Filename: {target}; {run_parameters}Description: {launch}; Flags: nowait postinstall skipifsilent\n",
-        setup = setup_base_name(product),
+        setup = setup_base_name(product, arch),
         mutex = yard_product::instance_name(identifier),
         // The sign tool's command comes from ISCC's command line, so the
         // script holds no path or thumbprint; Inno Setup also signs the

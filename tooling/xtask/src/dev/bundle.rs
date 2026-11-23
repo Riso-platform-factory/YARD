@@ -26,6 +26,8 @@ use std::process::{Command, ExitCode, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use super::new_app::{NewAppArgs, new_app};
+
 use clap::{Parser, Subcommand};
 use serde_json::Value;
 use signing::{SECRET_VARIABLES, Session, Signing};
@@ -49,6 +51,8 @@ enum Task {
     /// Packages a workspace application for installation.
     #[command(subcommand)]
     Bundle(System),
+    /// Creates a workspace application in application/.
+    NewApp(NewAppArgs),
     /// What Inno Setup runs to sign the installer and the uninstaller of
     /// `bundle windows`, from what that run gave it.
     #[command(hide = true)]
@@ -317,8 +321,8 @@ pub fn target_dir() -> PathBuf {
 /// The command line: starts both logs of `yard_log` as the product `xtask`
 /// (`xtask.log` and `lifecycle.jsonl` in [`target_dir`]), parses the
 /// arguments, runs the task, prints the result, and exits 1 on a failure, or
-/// 130 when it was interrupted. A signal stops the run after the current
-/// step instead of killing xtask, so the keychain is always cleaned up.
+/// 130 when it was interrupted. A signal stops a bundle after the current
+/// step, so the keychain is always cleaned up.
 pub fn main() -> ExitCode {
     yard_log::start(Product::new(
         "xtask",
@@ -349,10 +353,32 @@ pub fn main() -> ExitCode {
     yard_log::startup_finished();
     let interrupt = Interrupt::default();
     let handler = interrupt.clone();
-    if let Err(error) = ctrlc::set_handler(move || handler.set()) {
+    if matches!(args.task, Task::Bundle(_))
+        && let Err(error) = ctrlc::set_handler(move || handler.set())
+    {
         log::warn!("could not handle interrupts: {error}");
     }
     match args.task {
+        Task::NewApp(options) => match new_app(&repository(), &options) {
+            Ok(made) => {
+                println!(
+                    "Created {} (package {})",
+                    made.folder.display(),
+                    made.package
+                );
+                println!("Run: cargo run");
+                println!("Test: cargo test");
+                println!("Bundle: cargo xtask bundle <macos|linux|windows>");
+                if made.placeholder_icon {
+                    println!("Using the placeholder icon in application/icon.png.");
+                }
+                yard_log::exit(0)
+            }
+            Err(failure) => {
+                eprintln!("new-app: {failure}");
+                yard_log::exit(1)
+            }
+        },
         Task::Bundle(System::Macos(options)) => {
             match bundle_macos(
                 &options,
@@ -460,7 +486,7 @@ pub fn bundle_macos(
 
 /// Logs how a run ended inside its group. Interrupts take precedence.
 /// Interrupts and refusals log at `info`, other failures at `error`.
-fn log_outcome<T>(result: &Result<T, Failure>, interrupt: &Interrupt) {
+pub(super) fn log_outcome<T>(result: &Result<T, Failure>, interrupt: &Interrupt) {
     if let Err(failure) = result {
         if interrupt.is_set() {
             tracing::info!(
@@ -667,6 +693,7 @@ fn bundle(
     runner: &mut dyn Runner,
 ) -> Result<Bundled, Failure> {
     tracing::debug!("arguments");
+    let arch = Arch::host()?;
     let (config, out) = arguments(
         options.config.as_deref(),
         options.out.as_deref(),
@@ -683,7 +710,7 @@ fn bundle(
     )?;
 
     tracing::debug!("config");
-    let product = read_config(&config, options)?;
+    let product = read_config(&config, options, arch)?;
 
     tracing::debug!("secrets");
     let signing =
@@ -817,31 +844,202 @@ fn cargo(removed: &[OsString]) -> Command {
     command
 }
 
-/// Reads the config through `yard_build_config`, and checks what bundling
-/// adds: a `--dev` product apart from the production one, and names that are
-/// single path components.
-fn read_config(config: &Path, options: &MacosArgs) -> Result<BuildConfig, Failure> {
-    let refuse = |reason: String| Failure::new("config", reason);
+fn read_config(config: &Path, options: &MacosArgs, arch: Arch) -> Result<BuildConfig, Failure> {
     let product = read_product(config, options.dev, false)?;
-    if !is_path_component(&product.name) {
-        return Err(refuse(format!(
-            "{}: name must be a single path component",
-            config.display()
-        )));
-    }
-    if options.zip && !is_path_component(&product.version) {
-        return Err(refuse(format!(
-            "{}: version must be a single path component with --zip",
-            config.display()
-        )));
-    }
-    if product.macos.dmg && !is_path_component(&product.version) {
-        return Err(refuse(format!(
-            "{}: version must be a single path component with `dmg`",
-            config.display()
-        )));
-    }
+    package_checks(config, &product, PackageSystem::Macos, arch)
+        .map_err(|reason| Failure::new("config", reason))?;
     Ok(product)
+}
+
+/// The system whose package names are checked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PackageSystem {
+    Macos,
+    Linux,
+    Windows,
+}
+
+/// An architecture YARD packages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Arch {
+    X86_64,
+    Aarch64,
+}
+
+impl Arch {
+    fn host() -> Result<Self, Failure> {
+        match std::env::consts::ARCH {
+            "x86_64" => Ok(Self::X86_64),
+            "aarch64" => Ok(Self::Aarch64),
+            arch => Err(Failure::new(
+                "arguments",
+                format!("unsupported packaging architecture: {arch}"),
+            )),
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::X86_64 => "x86_64",
+            Self::Aarch64 => "aarch64",
+        }
+    }
+}
+
+/// Checks the product for every output the system can make, before building
+/// and without depending on tools from the target system.
+pub fn package_checks(
+    file: &Path,
+    product: &BuildConfig,
+    system: PackageSystem,
+    arch: Arch,
+) -> Result<(), String> {
+    let file = file.display();
+    let arch = arch.name();
+    if system == PackageSystem::Windows {
+        return windows_package_checks(file, product, arch);
+    }
+
+    if !is_path_component(&product.name) {
+        return Err(format!("{file}: name must be a single path component"));
+    }
+    if !is_path_component(&product.version) {
+        return Err(format!("{file}: version must be a single path component"));
+    }
+    let name = &product.name;
+    let version = &product.version;
+    let names = match system {
+        PackageSystem::Macos => vec![
+            format!("{name}.app"),
+            format!("{name}-{version}.zip"),
+            format!("{name}-{version}.dmg"),
+        ],
+        PackageSystem::Linux => {
+            let name = yard_product::file_name(name);
+            if name.is_empty() {
+                return Err(format!("{file}: name gives no file name for Linux"));
+            }
+            for extension in ["desktop", "png"] {
+                let made = format!("{}.{extension}", product.identifier);
+                if made.len() > FILE_NAME_LIMIT {
+                    return Err(format!(
+                        "{file}: `identifier` makes the file name {made:?}, longer than {FILE_NAME_LIMIT} bytes on Linux"
+                    ));
+                }
+            }
+            vec![
+                format!("{name}.app"),
+                linux_archive_name(&name, version, arch),
+            ]
+        }
+        PackageSystem::Windows => unreachable!(),
+    };
+    for made in names {
+        let len = match system {
+            PackageSystem::Macos => made.encode_utf16().count(),
+            _ => made.len(),
+        };
+        if len > FILE_NAME_LIMIT {
+            return Err(format!(
+                "{file}: name and version make the file name {made:?}, longer than {FILE_NAME_LIMIT} on {system:?}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn linux_archive_name(name: &str, version: &str, arch: &str) -> String {
+    format!("{name}-{version}-linux-{arch}.tar.gz")
+}
+
+fn setup_base_name(product: &BuildConfig, arch: &str) -> String {
+    format!("{}-{}-{arch}-setup", product.name, product.version)
+}
+
+fn setup_file_name(product: &BuildConfig, arch: &str) -> String {
+    format!("{}.exe", setup_base_name(product, arch))
+}
+
+fn windows_zip_name(product: &BuildConfig, arch: &str) -> String {
+    format!("{}-{}-windows-{arch}.zip", product.name, product.version)
+}
+
+fn windows_package_checks(
+    file: impl fmt::Display,
+    product: &BuildConfig,
+    arch: &str,
+) -> Result<(), String> {
+    const APP_ID_LIMIT: usize = 127;
+    for (key, value) in [("name", &product.name), ("version", &product.version)] {
+        if value.contains(['{', '}']) {
+            return Err(format!(
+                "{file}: `{key}` must not hold `{{` or `}}` on Windows: Inno Setup's preprocessor and constants would read them"
+            ));
+        }
+        if !is_windows_file_name(value) {
+            return Err(format!(
+                "{file}: `{key}` must be a Windows file name: none of < > : \" / \\ | ? * or a control character, no space at either end, no dot at the end, and not a device name such as CON or COM1"
+            ));
+        }
+    }
+    if product.name.starts_with(['@', '-']) {
+        return Err(format!(
+            "{file}: `name` must not start with `@` or `-` on Windows: tar would read it as an option or an archive to include"
+        ));
+    }
+    let name = &product.name;
+    for made in [
+        format!("{name}.exe"),
+        format!("{name}.lnk"),
+        setup_file_name(product, arch),
+        windows_zip_name(product, arch),
+    ] {
+        if made.encode_utf16().count() > FILE_NAME_LIMIT {
+            return Err(format!(
+                "{file}: `name` and `version` make the file name {made:?}, longer than Windows' {FILE_NAME_LIMIT} characters"
+            ));
+        }
+    }
+    if product.identifier.len() > APP_ID_LIMIT {
+        return Err(format!(
+            "{file}: `identifier` is the installer's AppId, which Inno Setup limits to {APP_ID_LIMIT} characters"
+        ));
+    }
+    Ok(())
+}
+
+/// The maximum length of a package file name in the system's units.
+const FILE_NAME_LIMIT: usize = 255;
+
+/// Whether Windows accepts `value` as a file name, and keeps it as written.
+/// The device names are reserved with any extension, and `COM` and `LPT`
+/// with a superscript digit too.
+fn is_windows_file_name(value: &str) -> bool {
+    const DEVICES: [&str; 4] = ["CON", "PRN", "AUX", "NUL"];
+    // Windows drops the spaces at the end of the stem, so `CON .txt` is CON.
+    let stem = value
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim_end_matches([' ', '.'])
+        .to_uppercase();
+    let numbered = ["COM", "LPT"].iter().any(|prefix| {
+        stem.strip_prefix(prefix).is_some_and(|rest| {
+            let mut digits = rest.chars();
+            digits
+                .next()
+                .is_some_and(|c| c.is_ascii_digit() || "¹²³".contains(c))
+                && digits.next().is_none()
+        })
+    });
+    let device = DEVICES.contains(&stem.as_str()) || numbered;
+    !value.is_empty()
+        && !device
+        && !value.starts_with(' ')
+        && !value.ends_with([' ', '.'])
+        && !value
+            .chars()
+            .any(|c| c.is_control() || "<>:\"/\\|?*".contains(c))
 }
 
 /// Reads the config through `yard_build_config`; with `dev`, refuses a

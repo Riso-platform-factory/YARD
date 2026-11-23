@@ -53,7 +53,7 @@ trap 'failed=1; exit 1' INT TERM
 check_bundle() {
     local status=0
     rm -f "$CARGO_TARGET_DIR"/{xtask.log,xtask.log.old,lifecycle.jsonl}
-    bounded 1500 cargo xtask bundle linux --config "$fixture" --out "$dist" \
+    bounded 1500 cargo xtask bundle linux --package yard --config "$fixture" --out "$dist" \
         > "$logs/bundle.log" 2>&1 || status=$?
     for file in xtask.log xtask.log.old lifecycle.jsonl; do
         if [[ -f "$CARGO_TARGET_DIR/$file" ]]; then cp "$CARGO_TARGET_DIR/$file" "$logs/xtask-$file"; fi

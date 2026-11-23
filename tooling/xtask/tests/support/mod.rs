@@ -101,10 +101,11 @@ pub const THUMBPRINT: &str = "ABCDEF0123456789ABCDEF0123456789ABCDEF01";
 pub const LOGIN_KEYCHAIN: &str = "/Users/test/Library/Keychains/login.keychain-db";
 
 /// Records every command and does only what the next step needs: `cargo
-/// build` reports `binary`, `iconutil`, `ditto`, `hdiutil`, `tar -czf`,
-/// Windows' `tar -a -c -f`, and `ISCC` write their output file, `shasum`,
-/// `sha256sum`, and `certutil` print [`DIGEST`], `security list-keychains`
-/// prints and sets `search_list` (at first [`LOGIN_KEYCHAIN`]),
+/// metadata` reports `yard` (default member) and `north_star`, `cargo build`
+/// reports `binary` for the requested `--bin`, `iconutil`, `ditto`, `hdiutil`,
+/// `tar -czf`, Windows' `tar -a -c -f`, and `ISCC` write their output file,
+/// `shasum`, `sha256sum`, and `certutil` print [`DIGEST`], `security
+/// list-keychains` prints and sets `search_list` (at first [`LOGIN_KEYCHAIN`]),
 /// `create-keychain` writes the keychain's file as `<path>-db`,
 /// `delete-keychain` takes the keychain out of `search_list`, and
 /// `notarytool submit` reports `notarization` and fails unless it is
@@ -443,16 +444,88 @@ impl xtask::Runner for FakeRunner {
                 )
                 .into_bytes()
             }
-            "cargo" | "cargo.exe" => format!(
-                "{}\n{}\n{}\n",
-                serde_json::json!({"reason": "compiler-artifact", "target": {"name": "yard_log"}, "executable": null}),
-                serde_json::json!({"reason": "compiler-artifact", "target": {"name": "yard"}, "executable": self.binary}),
-                serde_json::json!({"reason": "build-finished", "success": true}),
-            )
-            .into_bytes(),
+            "cargo" | "cargo.exe"
+                if recorded.args.first().map(String::as_str) == Some("metadata") =>
+            {
+                let repo = xtask::repository();
+                let yard_id = "path+file:///workspace/app/yard#0.1.0";
+                let north_star_id = "path+file:///workspace/examples/north_star#0.1.0";
+                serde_json::json!({
+                    "packages": [
+                        {
+                            "name": "yard",
+                            "id": yard_id,
+                            "manifest_path": repo.join("app").join("yard").join("Cargo.toml"),
+                            "targets": [
+                                {"name": "yard", "kind": ["lib"]},
+                                {"name": "yard", "kind": ["bin"]},
+                            ],
+                        },
+                        {
+                            "name": "north_star",
+                            "id": north_star_id,
+                            "manifest_path": repo
+                                .join("examples")
+                                .join("north_star")
+                                .join("Cargo.toml"),
+                            "targets": [
+                                {"name": "north_star", "kind": ["lib"]},
+                                {"name": "north_star", "kind": ["bin"]},
+                            ],
+                        },
+                    ],
+                    "workspace_members": [yard_id, north_star_id],
+                    "workspace_default_members": [yard_id],
+                })
+                .to_string()
+                .into_bytes()
+            }
+            "cargo" | "cargo.exe" => {
+                let binary = recorded
+                    .args
+                    .windows(2)
+                    .find(|pair| pair[0] == "--bin")
+                    .map(|pair| pair[1].as_str())
+                    .unwrap_or("yard");
+                format!(
+                    "{}\n{}\n{}\n{}\n",
+                    serde_json::json!({
+                        "reason": "compiler-artifact",
+                        "target": {"name": "yard_log", "kind": ["lib"]},
+                        "executable": null
+                    }),
+                    serde_json::json!({
+                        "reason": "compiler-artifact",
+                        "target": {"name": binary, "kind": ["lib"]},
+                        "executable": null
+                    }),
+                    serde_json::json!({
+                        "reason": "compiler-artifact",
+                        "target": {"name": binary, "kind": ["bin"]},
+                        "executable": self.binary
+                    }),
+                    serde_json::json!({"reason": "build-finished", "success": true}),
+                )
+                .into_bytes()
+            }
             _ => Vec::new(),
         })
     }
+}
+
+/// Asserts that only `cargo metadata --no-deps --format-version 1` ran, and
+/// nothing was tested, built, or packaged.
+pub fn assert_only_metadata(runner: &FakeRunner) {
+    assert_eq!(
+        runner.programs(),
+        ["cargo"],
+        "only cargo metadata should have run: {:?}",
+        runner.commands
+    );
+    assert_eq!(
+        runner.commands[0].args,
+        ["metadata", "--no-deps", "--format-version", "1"]
+    );
 }
 
 /// A value of a property list.

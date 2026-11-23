@@ -16,14 +16,17 @@ use authenticode::{PfxFolder, SignTools, Signer, command, iscc_sign_tool};
 use yard_build_config::{BuildConfig, build_script};
 
 use super::{
-    Failure, Interrupt, Runner, Staging, build, interrupted_at_end, log_outcome, not_interrupted,
-    read_product, repository, step,
+    Failure, Interrupt, Runner, Staging, arguments, build, interrupted_at_end, log_outcome,
+    not_interrupted, read_product, resolve_package, step,
 };
 
 /// The options of `cargo xtask bundle windows`.
 #[derive(clap::Args, Debug, Clone, Default)]
 pub struct WindowsArgs {
-    /// The product config [default: app/yard/product.toml in the repository].
+    /// The application package [default: the workspace's one default member].
+    #[arg(long, value_name = "NAME")]
+    pub package: Option<String>,
+    /// The product config [default: product.toml in the application package].
     #[arg(long, value_name = "FILE")]
     pub config: Option<PathBuf>,
     /// The folder the package goes into [default: dist in the repository].
@@ -142,9 +145,9 @@ pub struct WindowsBundled {
 /// Inno Setup's limit on `AppId`.
 const APP_ID_LIMIT: usize = 127;
 
-/// Makes the installer and the zip from the config, inside the group
-/// `bundle-windows{config, dev}`, printing each step's name on stdout, as
-/// [`super::bundle_macos`] does. Anything but Windows is refused at the
+/// Packages the selected application as an installer and a zip, inside the group
+/// `bundle-windows`, with the same config fields and step logging as
+/// [`super::bundle_macos`]. Anything but Windows is refused at the
 /// start.
 pub fn bundle_windows(
     options: &WindowsArgs,
@@ -153,23 +156,21 @@ pub fn bundle_windows(
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<WindowsBundled, Failure> {
-    let config = options
-        .config
-        .clone()
-        .unwrap_or_else(|| repository().join(super::PRODUCTION_CONFIG));
     let _group = tracing::info_span!(
         "bundle-windows",
-        config = %config.display(),
+        config = options
+            .config
+            .as_deref()
+            .map(|path| tracing::field::display(path.display())),
         dev = options.dev
     )
     .entered();
-    let result = bundle(&config, options, host, secrets, interrupt, runner);
+    let result = bundle(options, host, secrets, interrupt, runner);
     log_outcome(&result, interrupt);
     result
 }
 
 fn bundle(
-    config: &Path,
     options: &WindowsArgs,
     host: &WindowsHost,
     secrets: &WindowsSecrets,
@@ -177,19 +178,33 @@ fn bundle(
     runner: &mut dyn Runner,
 ) -> Result<WindowsBundled, Failure> {
     tracing::debug!("arguments");
-    let arguments = |reason: String| Failure::new("arguments", reason);
+    let refuse = |reason: String| Failure::new("arguments", reason);
     if host.system != "windows" {
-        return Err(arguments(format!(
+        return Err(refuse(format!(
             "bundle windows runs only on Windows, and this system is {}",
             host.system
         )));
     }
     if !options.env.is_empty() {
-        return Err(arguments(
+        return Err(refuse(
             "--env: a Windows review bundle cannot carry environment values, since a shortcut and a URL command cannot set them".into(),
         ));
     }
-    let (config, out) = super::arguments(config, options.out.as_deref(), options.dev, &[])?;
+    let (config, out) = arguments(
+        options.config.as_deref(),
+        options.out.as_deref(),
+        options.dev,
+        &[],
+    )?;
+    let sign_variables = authenticode::sign_variables();
+    let (target, config) = resolve_package(
+        options.package.as_deref(),
+        options.dev,
+        config,
+        &sign_variables,
+        interrupt,
+        runner,
+    )?;
 
     tracing::debug!("config");
     let product = read_config(&config, options.dev)?;
@@ -208,17 +223,12 @@ fn bundle(
         .transpose()
         .map_err(|reason| Failure::new("tools", reason))?;
 
-    // No `XTASK_SIGN_*` that the caller set reaches the build.
-    let sign_variables = authenticode::sign_variables();
     let binary = build(
+        &target,
         &config,
         options.dev,
         &[],
-        &sign_variables
-            .iter()
-            .map(|name| name.to_str().unwrap_or_default())
-            .filter(|name| !name.is_empty())
-            .collect::<Vec<_>>(),
+        &sign_variables,
         interrupt,
         runner,
     )?;

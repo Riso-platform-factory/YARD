@@ -333,19 +333,26 @@ fn each_config_lays_out_its_installer_and_zip() {
 
         assert_eq!(
             runner.programs(),
-            ["cargo", "cargo", "ISCC", "certutil", "tar", "certutil"],
+            [
+                "cargo", "cargo", "cargo", "ISCC", "certutil", "tar", "certutil"
+            ],
             "{folder}: the commands in order"
         );
-        for (index, name) in [(2, "ISCC"), (3, "certutil"), (4, "tar"), (5, "certutil")] {
+        for (index, name) in [(3, "ISCC"), (4, "certutil"), (5, "tar"), (6, "certutil")] {
             assert_eq!(
                 runner.commands[index].path,
                 tool(temp.path(), name),
                 "{folder}: {name} by its full path"
             );
         }
-        let stages = &runner.commands[0];
+        let metadata = &runner.commands[0];
+        assert_eq!(
+            metadata.args,
+            ["metadata", "--no-deps", "--format-version", "1"]
+        );
+        let stages = &runner.commands[1];
         assert_eq!(stages.args, ["test", "-p", "yard", "--test", "stages"]);
-        let build = &runner.commands[1];
+        let build = &runner.commands[2];
         assert_eq!(
             build.args,
             [
@@ -373,7 +380,7 @@ fn each_config_lays_out_its_installer_and_zip() {
             "{folder}: no secret reaches cargo"
         );
 
-        let iscc = &runner.commands[2];
+        let iscc = &runner.commands[3];
         let staging = staged.script.parent().unwrap();
         assert_eq!(
             iscc.args,
@@ -386,14 +393,14 @@ fn each_config_lays_out_its_installer_and_zip() {
             "{folder}: staged inside out"
         );
         assert_eq!(
-            runner.commands[3].args,
+            runner.commands[4].args,
             [
                 "-hashfile".to_owned(),
                 staging.join(&setup).display().to_string(),
                 "SHA256".to_owned()
             ]
         );
-        let tar = &runner.commands[4];
+        let tar = &runner.commands[5];
         assert_eq!(
             tar.args,
             [
@@ -433,7 +440,7 @@ fn a_dev_bundle_runs_dev_from_its_shortcut_and_its_url_command() {
         "{iss}"
     );
     assert!(
-        !runner.commands[1]
+        !runner.commands[2]
             .args
             .iter()
             .any(|arg| arg == "--no-default-features"),
@@ -502,7 +509,7 @@ fn inno_setup_is_found_in_program_files_when_not_on_path() {
         &mut runner,
     )
     .unwrap();
-    assert_eq!(runner.commands[2].path, inno.join("ISCC.exe"));
+    assert_eq!(runner.commands[3].path, inno.join("ISCC.exe"));
 }
 
 #[test]
@@ -525,7 +532,7 @@ fn inno_setup_on_path_comes_first() {
         &mut runner,
     )
     .unwrap();
-    assert_eq!(runner.commands[2].path, tool(temp.path(), "ISCC"));
+    assert_eq!(runner.commands[3].path, tool(temp.path(), "ISCC"));
 }
 
 #[test]
@@ -611,7 +618,7 @@ fn windows_own_tools_are_required() {
                 )
             }
         );
-        assert!(runner.commands.is_empty(), "nothing was built");
+        support::assert_only_metadata(&runner);
     }
 }
 
@@ -641,7 +648,7 @@ fn no_inno_setup_is_refused_before_building() {
         "Inno Setup's compiler was not found: ISCC.exe is neither on PATH nor in %ProgramFiles(x86)%\\Inno Setup 6"
     );
     assert!(failure.is_refusal());
-    assert!(runner.commands.is_empty(), "nothing ran");
+    support::assert_only_metadata(&runner);
     assert!(!out.exists());
 }
 
@@ -720,7 +727,7 @@ fn a_dev_bundle_must_differ_from_the_production_product() {
                 config.display()
             )
         );
-        assert!(runner.commands.is_empty(), "nothing ran");
+        support::assert_only_metadata(&runner);
         assert!(!temp.path().join("out").exists());
     }
 }
@@ -754,7 +761,7 @@ fn a_bad_config_is_refused_with_the_config_readers_message() {
             failure.reason,
             yard_build_config::read(&config).unwrap_err()
         );
-        assert!(runner.commands.is_empty());
+        support::assert_only_metadata(&runner);
     }
     assert!(bad >= 1, "the bad configs are found");
 }
@@ -797,13 +804,13 @@ fn the_name_and_the_version_must_be_windows_file_names() {
                 config.display()
             )
         );
-        assert!(runner.commands.is_empty());
+        support::assert_only_metadata(&runner);
     }
 }
 
 /// Bundles a config with this name and version, and returns the refusal
-/// and how many commands ran.
-fn refused(name: &str, version: &str) -> (PathBuf, Failure, usize) {
+/// and the runner that recorded the commands.
+fn refused(name: &str, version: &str) -> (PathBuf, Failure, FakeRunner) {
     let temp = tempdir();
     let config = config_in(temp.path(), name, version, "test.yard.lab", "yardlab");
     let mut runner = FakeRunner::new(temp.path());
@@ -813,7 +820,7 @@ fn refused(name: &str, version: &str) -> (PathBuf, Failure, usize) {
         &mut runner,
     )
     .unwrap_err();
-    (config, failure, runner.commands.len())
+    (config, failure, runner)
 }
 
 #[test]
@@ -823,7 +830,7 @@ fn braces_are_refused_in_the_name_and_the_version() {
         ("Lab }", "0.1.0", "name"),
         ("Lab", "0.1.0-{#x}", "version"),
     ] {
-        let (config, failure, ran) = refused(name, version);
+        let (config, failure, runner) = refused(name, version);
         assert_eq!(failure.step, "config");
         assert_eq!(
             failure.reason,
@@ -832,14 +839,14 @@ fn braces_are_refused_in_the_name_and_the_version() {
                 config.display()
             )
         );
-        assert_eq!(ran, 0, "nothing ran");
+        support::assert_only_metadata(&runner);
     }
 }
 
 #[test]
 fn a_name_starting_with_at_or_dash_is_refused() {
     for name in ["@Lab", "-Lab", "--Lab"] {
-        let (config, failure, ran) = refused(name, "0.1.0");
+        let (config, failure, runner) = refused(name, "0.1.0");
         assert_eq!(failure.step, "config");
         assert_eq!(
             failure.reason,
@@ -848,7 +855,7 @@ fn a_name_starting_with_at_or_dash_is_refused() {
                 config.display()
             )
         );
-        assert_eq!(ran, 0, "nothing ran");
+        support::assert_only_metadata(&runner);
     }
 }
 
@@ -869,7 +876,7 @@ fn a_file_name_longer_than_windows_allows_is_refused() {
 
     // Counted in UTF-16 units: one `𝄞` is two.
     for name in [format!("{fits}a"), format!("{}𝄞", &fits[1..])] {
-        let (config, failure, ran) = refused(&name, "0.1.0");
+        let (config, failure, runner) = refused(&name, "0.1.0");
         assert_eq!(failure.step, "config");
         assert_eq!(
             failure.reason,
@@ -879,7 +886,7 @@ fn a_file_name_longer_than_windows_allows_is_refused() {
                 format!("{name}-0.1.0-windows-{arch}.zip")
             )
         );
-        assert_eq!(ran, 0, "nothing ran");
+        support::assert_only_metadata(&runner);
     }
 }
 
@@ -904,7 +911,7 @@ fn the_identifier_must_fit_app_id() {
             config.display()
         )
     );
-    assert!(runner.commands.is_empty());
+    support::assert_only_metadata(&runner);
 }
 
 /// `<out>` holding a previous installer and zip of `plain`, each `old`.

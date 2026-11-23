@@ -95,7 +95,7 @@ function RunBundle($label, $destination) {
 
     $status = 1
     try {
-        $status = RunProcess 'cargo.exe' ('xtask bundle windows --config "{0}" --out "{1}"' -f $fixture, $destination) 1500 $stdout $stderr
+        $status = RunProcess 'cargo.exe' ('xtask bundle windows --package yard --config "{0}" --out "{1}"' -f $fixture, $destination) 1500 $stdout $stderr
     } catch {
         Write-Host "Could not start or wait for $label."
     }

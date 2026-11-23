@@ -13,14 +13,17 @@ use yard_build_config::BuildConfig;
 use super::signing::shell_quote;
 use super::{
     Failure, Interrupt, Runner, Staging, arguments, build, env_pairs, interrupted_at_end,
-    is_path_component, log_outcome, make_executable, not_interrupted, read_product, repository,
-    set_mode, sha256, step,
+    is_path_component, log_outcome, make_executable, not_interrupted, read_product,
+    resolve_package, set_mode, sha256, step,
 };
 
 /// The options of `cargo xtask bundle linux`.
 #[derive(clap::Args, Debug, Clone, Default)]
 pub struct LinuxArgs {
-    /// The product config [default: app/yard/product.toml in the repository].
+    /// The application package [default: the workspace's one default member].
+    #[arg(long, value_name = "NAME")]
+    pub package: Option<String>,
+    /// The product config [default: product.toml in the application package].
     #[arg(long, value_name = "FILE")]
     pub config: Option<PathBuf>,
     /// The folder the package goes into [default: dist in the repository].
@@ -48,9 +51,9 @@ pub struct LinuxBundled {
 /// The icon sizes, each made only from a source at least as large.
 const ICON_SIZES: [u32; 2] = [512, 1024];
 
-/// Makes `<out>/<name>.app` and its archive from the config, inside the
-/// group `bundle-linux{config, dev}`, printing each step's name on stdout, as
-/// [`super::bundle_macos`] does. `system` is the host's
+/// Packages the selected application as `<out>/<name>.app` and its archive, inside the
+/// group `bundle-linux`, with the same config fields and step logging as
+/// [`super::bundle_macos`]. `system` is the host's
 /// (`std::env::consts::OS`): anything but `linux` is refused at the start.
 pub fn bundle_linux(
     options: &LinuxArgs,
@@ -58,23 +61,21 @@ pub fn bundle_linux(
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<LinuxBundled, Failure> {
-    let config = options
-        .config
-        .clone()
-        .unwrap_or_else(|| repository().join(super::PRODUCTION_CONFIG));
     let _group = tracing::info_span!(
         "bundle-linux",
-        config = %config.display(),
+        config = options
+            .config
+            .as_deref()
+            .map(|path| tracing::field::display(path.display())),
         dev = options.dev
     )
     .entered();
-    let result = bundle(&config, options, system, interrupt, runner);
+    let result = bundle(options, system, interrupt, runner);
     log_outcome(&result, interrupt);
     result
 }
 
 fn bundle(
-    config: &Path,
     options: &LinuxArgs,
     system: &str,
     interrupt: &Interrupt,
@@ -87,7 +88,20 @@ fn bundle(
             format!("bundle linux runs only on Linux, and this system is {system}"),
         ));
     }
-    let (config, out) = arguments(config, options.out.as_deref(), options.dev, &options.env)?;
+    let (config, out) = arguments(
+        options.config.as_deref(),
+        options.out.as_deref(),
+        options.dev,
+        &options.env,
+    )?;
+    let (target, config) = resolve_package(
+        options.package.as_deref(),
+        options.dev,
+        config,
+        &[],
+        interrupt,
+        runner,
+    )?;
 
     tracing::debug!("config");
     let product = read_product(&config, options.dev, true)?;
@@ -103,6 +117,7 @@ fn bundle(
 
     // Without debug data, as Zed's is.
     let binary = build(
+        &target,
         &config,
         options.dev,
         &[("CARGO_PROFILE_RELEASE_STRIP", "debuginfo")],

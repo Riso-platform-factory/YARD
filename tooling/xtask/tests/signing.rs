@@ -110,13 +110,13 @@ fn an_ad_hoc_app_gets_an_unsigned_disk_image() {
     assert!(image.is_file());
     let programs = runner.programs();
     assert_eq!(
-        programs[12..],
+        programs[13..],
         [
             "iconutil", "plutil", "codesign", "codesign", "ditto", "hdiutil", "shasum"
         ],
         "ad hoc as without a disk image, then the image, signed by nothing"
     );
-    assert_eq!(programs[..2], ["cargo", "cargo"]);
+    assert_eq!(programs[..3], ["cargo", "cargo", "cargo"]);
     let codesigns = find(&runner, "codesign", "--force");
     assert_eq!(codesigns.len(), 1);
     assert_eq!(codesigns[0].args[..4], ["--force", "--deep", "--sign", "-"]);
@@ -182,14 +182,14 @@ fn an_identity_from_the_existing_keychains_signs_the_binary_then_the_app() {
         .to_vec()
     };
     let lines = lines(&runner);
-    let staged = PathBuf::from(&lines[13][2])
+    let staged = PathBuf::from(&lines[14][2])
         .parent()
         .unwrap()
         .parent()
         .unwrap()
         .to_owned();
     assert_eq!(
-        lines[14..],
+        lines[15..],
         [
             signed(&staged.join("Contents/MacOS/Signed Lab")),
             signed(&staged),
@@ -245,6 +245,7 @@ fn a_certificate_notarization_and_a_disk_image_run_in_zeds_order() {
     assert_eq!(
         summary,
         [
+            "cargo",
             "cargo",
             "cargo",
             "security -i",
@@ -305,9 +306,9 @@ fn a_certificate_notarization_and_a_disk_image_run_in_zeds_order() {
     );
     let keychain = keychain.display().to_string();
     // The search list is read and set right after the keychain is made.
-    assert_eq!(lines[3], ["security", "list-keychains", "-d", "user"]);
+    assert_eq!(lines[4], ["security", "list-keychains", "-d", "user"]);
     assert_eq!(
-        lines[4],
+        lines[5],
         [
             "security",
             "list-keychains",
@@ -341,16 +342,16 @@ fn a_certificate_notarization_and_a_disk_image_run_in_zeds_order() {
     );
     assert_eq!(runner.key_seen.as_deref(), Some(KEY.as_bytes()));
     let staples = find(&runner, "xcrun", "stapler");
-    let staged_app = &lines[14][4];
+    let staged_app = &lines[15][4];
     assert_eq!(staples[0].args, ["stapler", "staple", staged_app.as_str()]);
-    assert_eq!(lines[14][..4], ["ditto", "-c", "-k", "--keepParent"]);
+    assert_eq!(lines[15][..4], ["ditto", "-c", "-k", "--keepParent"]);
     // The zip is made after stapling, from the staged app.
-    assert_eq!(&lines[17][4], staged_app);
+    assert_eq!(&lines[18][4], staged_app);
     assert!(app.is_dir());
 
     // The disk image is signed without entitlements, under an identifier of
     // its own, notarized, stapled.
-    let image_signature = &lines[21];
+    let image_signature = &lines[22];
     assert_eq!(
         image_signature[1..10],
         [
@@ -362,11 +363,11 @@ fn a_certificate_notarization_and_a_disk_image_run_in_zeds_order() {
             "test.yard.signed.dmg",
             "--sign",
             IDENTITY,
-            &lines[20][9]
+            &lines[21][9]
         ]
     );
-    assert_eq!(submits[1].args[2], lines[20][9]);
-    assert_eq!(staples[1].args[2], lines[20][9]);
+    assert_eq!(submits[1].args[2], lines[21][9]);
+    assert_eq!(staples[1].args[2], lines[21][9]);
     assert!(image.is_file());
 
     // Undone: the keychain deleted, which takes it out of the search list,
@@ -416,7 +417,7 @@ fn notarizing_without_the_api_key_is_refused_before_building() {
             format!("notarize = true needs {missing} in the environment")
         );
         assert!(failure.is_refusal());
-        assert!(runner.commands.is_empty(), "nothing ran");
+        support::assert_only_metadata(&runner);
     }
 }
 
@@ -449,7 +450,7 @@ fn a_certificate_needs_its_password_and_valid_base64() {
         )
         .unwrap_err();
         assert_eq!((failure.step, failure.reason.as_str()), ("secrets", reason));
-        assert!(runner.commands.is_empty());
+        support::assert_only_metadata(&runner);
     }
 }
 
@@ -543,7 +544,7 @@ fn an_empty_search_list_is_never_set() {
     );
     let keychain = keychain_of(&runner);
     assert_eq!(
-        lines(&runner)[3..],
+        lines(&runner)[4..],
         [
             vec!["security", "list-keychains", "-d", "user"],
             vec!["security", "delete-keychain", keychain.as_str()],
@@ -601,7 +602,7 @@ fn an_interrupt_flag_set_before_the_stages_runs_nothing() {
         bundle_macos(&options(&config, &out), &secrets(), &interrupt, &mut runner).unwrap_err();
     assert_eq!(
         (failure.step, failure.reason.as_str()),
-        ("stages", "interrupted")
+        ("package", "interrupted")
     );
     assert!(runner.commands.is_empty(), "{:?}", runner.programs());
     assert!(!out.exists());
@@ -737,7 +738,7 @@ fn a_password_that_security_would_split_is_refused() {
                 "MACOS_CERTIFICATE_PASSWORD holds a line break or a NUL, which `security -i` cannot take"
             )
         );
-        assert!(runner.commands.is_empty());
+        support::assert_only_metadata(&runner);
     }
 }
 
@@ -958,7 +959,7 @@ fn a_search_list_with_a_broken_line_is_never_set() {
     );
     let keychain = keychain_of(&runner);
     assert_eq!(
-        lines(&runner)[3..],
+        lines(&runner)[4..],
         [
             vec!["security", "list-keychains", "-d", "user"],
             vec!["security", "delete-keychain", keychain.as_str()],

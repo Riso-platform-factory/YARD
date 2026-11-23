@@ -181,13 +181,19 @@ fn each_config_lays_out_its_package() {
 
         assert_eq!(
             runner.programs(),
-            ["cargo", "cargo", "tar", "sha256sum"],
+            ["cargo", "cargo", "cargo", "tar", "sha256sum"],
             "{folder}: the commands in order"
         );
-        let stages = &runner.commands[0];
+        let metadata = &runner.commands[0];
+        assert_eq!(
+            metadata.args,
+            ["metadata", "--no-deps", "--format-version", "1"]
+        );
+        assert_eq!(metadata.dir.as_deref(), Some(xtask::repository().as_path()));
+        let stages = &runner.commands[1];
         assert_eq!(stages.args, ["test", "-p", "yard", "--test", "stages"]);
         assert_eq!(stages.dir.as_deref(), Some(xtask::repository().as_path()));
-        let build = &runner.commands[1];
+        let build = &runner.commands[2];
         assert_eq!(
             build.args,
             [
@@ -221,7 +227,7 @@ fn each_config_lays_out_its_package() {
                 .any(|(key, value)| key == "MACOS_CERTIFICATE" && value.is_none()),
             "{folder}: no secret reaches cargo"
         );
-        let tar = &runner.commands[2];
+        let tar = &runner.commands[3];
         let staged = Path::new(&tar.args[1]);
         assert_eq!(tar.args[0], "-czf");
         assert_eq!(tar.args[2], "-C");
@@ -232,7 +238,7 @@ fn each_config_lays_out_its_package() {
             Some(out.as_path()),
             "{folder}: archived in the staging folder, inside out"
         );
-        assert_eq!(runner.commands[3].args, [tar.args[1].as_str()]);
+        assert_eq!(runner.commands[4].args, [tar.args[1].as_str()]);
     }
 }
 
@@ -359,7 +365,7 @@ fn a_dev_bundle_runs_libexec_with_dev_and_its_environment() {
         install.lines().any(|line| line == "binary='libexec/lab'"),
         "ldd checks the real binary: {install}"
     );
-    let build = &runner.commands[1];
+    let build = &runner.commands[2];
     assert!(
         !build.args.iter().any(|arg| arg == "--no-default-features"),
         "a review bundle builds with dev: {:?}",
@@ -448,7 +454,7 @@ fn a_dev_bundle_must_differ_from_the_production_product() {
                 config.display()
             )
         );
-        assert!(runner.commands.is_empty(), "nothing ran");
+        support::assert_only_metadata(&runner);
         assert!(!temp.path().join("out").exists());
     }
 }
@@ -477,7 +483,7 @@ fn a_bad_config_is_refused_with_the_config_readers_message() {
             failure.reason,
             yard_build_config::read(&config).unwrap_err()
         );
-        assert!(runner.commands.is_empty());
+        support::assert_only_metadata(&runner);
     }
     assert!(bad >= 1, "the bad configs are found");
 }
@@ -496,7 +502,7 @@ fn the_version_is_a_single_path_component() {
             config.display()
         )
     );
-    assert!(runner.commands.is_empty());
+    support::assert_only_metadata(&runner);
 }
 
 /// `<out>` holding a previous `lab.app` and archive, each with the text

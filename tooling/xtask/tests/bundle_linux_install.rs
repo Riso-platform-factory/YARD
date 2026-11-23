@@ -65,6 +65,7 @@ impl Setup {
             out: Some(temp.path().join("out")),
             dev,
             env: env.iter().map(|pair| pair.to_string()).collect(),
+            ..LinuxArgs::default()
         };
         let bundled = bundle_linux(&options, "linux", &Interrupt::default(), &mut runner).unwrap();
         Self {

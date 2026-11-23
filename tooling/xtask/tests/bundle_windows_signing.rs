@@ -110,8 +110,9 @@ fn env<'a>(command: &'a Recorded, key: &str) -> Option<Option<&'a str>> {
 }
 
 /// The order of a signed run that succeeds.
-const SIGNED: [&str; 10] = [
-    "cargo", "cargo", "read", "signtool", "check", "ISCC", "check", "certutil", "tar", "certutil",
+const SIGNED: [&str; 11] = [
+    "cargo", "cargo", "cargo", "read", "signtool", "check", "ISCC", "check", "certutil", "tar",
+    "certutil",
 ];
 
 /// Keeps the path of the `.pfx` that PowerShell is given.
@@ -184,7 +185,7 @@ fn the_app_then_the_installer_are_signed_with_the_pfx() {
     assert!(!folder.exists(), "the .pfx's folder is gone");
     assert!(!pfx.starts_with(&out), "never under --out");
 
-    let signtool = &runner.commands[3];
+    let signtool = &runner.commands[4];
     let app = Path::new(signtool.args.last().unwrap());
     assert!(
         app.ends_with("payload/Signed Lab/Signed Lab.exe"),
@@ -209,7 +210,7 @@ fn the_app_then_the_installer_are_signed_with_the_pfx() {
         ]
     );
     assert_eq!(
-        env(&runner.commands[4], "XTASK_SIGN_FILE"),
+        env(&runner.commands[5], "XTASK_SIGN_FILE"),
         Some(Some(app.to_str().unwrap())),
         "the app's signature is read back"
     );
@@ -219,12 +220,12 @@ fn the_app_then_the_installer_are_signed_with_the_pfx() {
         std::env::consts::ARCH
     ));
     assert_eq!(
-        env(&runner.commands[6], "XTASK_SIGN_FILE"),
+        env(&runner.commands[7], "XTASK_SIGN_FILE"),
         Some(Some(setup.to_str().unwrap())),
         "the installer's signature is read back"
     );
 
-    let iscc = &runner.commands[5];
+    let iscc = &runner.commands[6];
     let xtask = temp.path().join("xtask.exe");
     assert_eq!(iscc.args[0], "/Q");
     assert_eq!(
@@ -334,7 +335,7 @@ fn the_xtask_path_is_escaped_for_inno_setup() {
     )
     .unwrap();
     assert_eq!(
-        runner.commands[5].args[1],
+        runner.commands[6].args[1],
         format!(
             "/Sxtask=$q{}$q sign-windows-file $f",
             xtask.display().to_string().replace('$', "$$")
@@ -361,7 +362,7 @@ fn a_timestamp_url_with_a_double_quote_is_refused() {
             config.display()
         )
     );
-    assert!(runner.commands.is_empty());
+    support::assert_only_metadata(&runner);
 }
 
 /// A copy of `signed` in `folder` with this timestamp server.
@@ -399,10 +400,12 @@ fn without_signing_nothing_changes() {
     .unwrap();
     assert_eq!(
         kinds(&runner),
-        ["cargo", "cargo", "ISCC", "certutil", "tar", "certutil"]
+        [
+            "cargo", "cargo", "cargo", "ISCC", "certutil", "tar", "certutil"
+        ]
     );
-    assert_eq!(runner.commands[2].args.len(), 2, "no /S");
-    assert_eq!(env(&runner.commands[2], "XTASK_SIGN_PASSWORD"), Some(None));
+    assert_eq!(runner.commands[3].args.len(), 2, "no /S");
+    assert_eq!(env(&runner.commands[3], "XTASK_SIGN_PASSWORD"), Some(None));
     assert!(!staged.lock().unwrap().contains("SignTool"));
     assert!(runner.pfx_seen.is_none());
 }
@@ -496,7 +499,7 @@ fn an_interrupt_stops_the_run_and_the_pfx_folder_is_gone() {
     );
     assert_eq!(
         kinds(&runner),
-        ["cargo", "cargo", "read", "signtool", "check"]
+        ["cargo", "cargo", "cargo", "read", "signtool", "check"]
     );
     let pfx = pfx.lock().unwrap().clone().unwrap();
     assert!(!pfx.parent().unwrap().exists());
@@ -616,7 +619,7 @@ fn the_pfx_must_hold_exactly_one_code_signing_key() {
                 "could not read WINDOWS_CERTIFICATE with WINDOWS_CERTIFICATE_PASSWORD: {reason}"
             )
         );
-        assert_eq!(kinds(&runner), ["cargo", "cargo", "read"]);
+        assert_eq!(kinds(&runner), ["cargo", "cargo", "cargo", "read"]);
     }
 }
 
@@ -633,7 +636,7 @@ fn a_failed_signtool_gives_a_fixed_message() {
     )
     .unwrap_err();
     assert_eq!(failure.step, "sign-app");
-    let app = runner.commands[3].args.last().unwrap().clone();
+    let app = runner.commands[4].args.last().unwrap().clone();
     assert_eq!(
         failure.reason,
         format!("signtool exited with exit code: 1 signing {app}; its output is above")
@@ -869,7 +872,7 @@ fn missing_or_unreadable_secrets_are_refused_before_building() {
         .unwrap_err();
         assert_eq!((failure.step, failure.reason.as_str()), ("secrets", reason));
         assert!(failure.is_refusal());
-        assert!(runner.commands.is_empty(), "nothing ran");
+        support::assert_only_metadata(&runner);
         assert!(!out.exists());
     }
 }
@@ -918,11 +921,11 @@ fn signtool_on_a_relative_path_entry_is_made_absolute() {
         &Interrupt::default(),
         &mut runner,
     );
-    let signtool = runner.commands[3].path.clone();
+    let signtool = runner.commands[4].path.clone();
     let same =
         std::fs::canonicalize(&signtool).ok() == tools.join("signtool.exe").canonicalize().ok();
     let helper =
-        env(&runner.commands[5], "XTASK_SIGN_SIGNTOOL").map(|value| value.map(str::to_owned));
+        env(&runner.commands[6], "XTASK_SIGN_SIGNTOOL").map(|value| value.map(str::to_owned));
     let _ = std::fs::remove_dir_all(&temp);
     result.unwrap();
     assert!(signtool.is_absolute(), "{}", signtool.display());
@@ -961,7 +964,7 @@ fn signtool_is_found_in_the_highest_windows_kit() {
     )
     .unwrap();
     assert_eq!(
-        runner.commands[3].path,
+        runner.commands[4].path,
         kits.join("10.0.22621.0/x64/signtool.exe")
     );
 }
@@ -996,7 +999,7 @@ fn no_signtool_or_no_xtask_is_refused_before_building() {
         .unwrap_err();
         assert_eq!((failure.step, failure.reason.as_str()), ("tools", reason));
         assert!(failure.is_refusal());
-        assert!(runner.commands.is_empty());
+        support::assert_only_metadata(&runner);
     }
 }
 

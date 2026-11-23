@@ -15,6 +15,7 @@ pub use windows::{
     inno_script, sign_windows_file,
 };
 
+use std::ffi::OsString;
 use std::fmt;
 use std::fs;
 use std::io::{self, Write as _};
@@ -26,12 +27,12 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use clap::{Parser, Subcommand};
+use serde_json::Value;
 use signing::{SECRET_VARIABLES, Session, Signing};
 use yard_build_config::BuildConfig;
 use yard_product::Product;
 
-/// The production product's config, relative to the repository: the default
-/// `--config`, and the one a `--dev` bundle must differ from.
+/// The sample application's production config, which its review bundle must differ from.
 const PRODUCTION_CONFIG: &str = "app/yard/product.toml";
 /// The default `--out`, relative to the repository.
 const DEFAULT_OUT: &str = "dist";
@@ -45,7 +46,7 @@ struct Args {
 
 #[derive(Subcommand)]
 enum Task {
-    /// Makes an installable package from a product config.
+    /// Packages a workspace application for installation.
     #[command(subcommand)]
     Bundle(System),
     /// What Inno Setup runs to sign the installer and the uninstaller of
@@ -70,7 +71,10 @@ enum System {
 /// The options of `cargo xtask bundle macos`.
 #[derive(clap::Args, Debug, Clone, Default)]
 pub struct MacosArgs {
-    /// The product config [default: app/yard/product.toml in the repository].
+    /// The application package [default: the workspace's one default member].
+    #[arg(long, value_name = "NAME")]
+    pub package: Option<String>,
+    /// The product config [default: product.toml in the application package].
     #[arg(long, value_name = "FILE")]
     pub config: Option<PathBuf>,
     /// The folder the bundle goes into [default: dist in the repository].
@@ -118,10 +122,12 @@ impl Failure {
         }
     }
 
-    /// Whether the input broke a rule, which is expected, rather than a step
-    /// that failed.
+    /// Whether this step can refuse input. Check for an interrupt first.
     pub fn is_refusal(&self) -> bool {
-        matches!(self.step, "arguments" | "config" | "secrets" | "tools")
+        matches!(
+            self.step,
+            "arguments" | "package" | "config" | "secrets" | "tools"
+        )
     }
 }
 
@@ -420,9 +426,11 @@ pub fn main() -> ExitCode {
     }
 }
 
-/// Makes `<out>/<name>.app` from the config, inside the group
-/// `bundle-macos{config, dev, zip}`, printing each step's name on stdout. A
-/// refusal is logged at `info`, a failure at `error` in the diagnostic log.
+/// Packages the selected application as `<out>/<name>.app`, inside the group
+/// `bundle-macos`. The group includes `config` when supplied, and the
+/// `package` debug event reports the resolved target and config. Build and
+/// packaging steps are printed on stdout. A refusal is logged at `info`,
+/// a failure at `error` in the diagnostic log.
 /// The secrets come from the environment through [`Secrets::from_env`].
 /// Once `interrupt` is set, the run stops before its next step, and before
 /// it publishes anything, with the reason `interrupted`. A run is an
@@ -435,34 +443,33 @@ pub fn bundle_macos(
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<Bundled, Failure> {
-    let config = options
-        .config
-        .clone()
-        .unwrap_or_else(|| repository().join(PRODUCTION_CONFIG));
     let _group = tracing::info_span!(
         "bundle-macos",
-        config = %config.display(),
+        config = options
+            .config
+            .as_deref()
+            .map(|path| tracing::field::display(path.display())),
         dev = options.dev,
         zip = options.zip
     )
     .entered();
-    let result = bundle(&config, options, secrets, interrupt, runner);
+    let result = bundle(options, secrets, interrupt, runner);
     log_outcome(&result, interrupt);
     result
 }
 
-/// Logs how a run ended, inside its group: a refusal at `info`, an
-/// interrupt at `info`, a failure at `error` in the diagnostic log.
+/// Logs how a run ended inside its group. Interrupts take precedence.
+/// Interrupts and refusals log at `info`, other failures at `error`.
 fn log_outcome<T>(result: &Result<T, Failure>, interrupt: &Interrupt) {
     if let Err(failure) = result {
-        if failure.is_refusal() {
-            tracing::info!(step = failure.step, "refused: {}", failure.reason);
-        } else if interrupt.is_set() {
+        if interrupt.is_set() {
             tracing::info!(
                 step = failure.step,
                 reason = %failure.reason,
                 "stopped: interrupted"
             );
+        } else if failure.is_refusal() {
+            tracing::info!(step = failure.step, "refused: {}", failure.reason);
         } else {
             log::error!("failed at {}: {}", failure.step, failure.reason);
         }
@@ -472,17 +479,20 @@ fn log_outcome<T>(result: &Result<T, Failure>, interrupt: &Interrupt) {
 /// Checks the arguments every system shares, and makes the config and the
 /// `--out` folder absolute.
 fn arguments(
-    config: &Path,
+    config: Option<&Path>,
     out: Option<&Path>,
     dev: bool,
     env: &[String],
-) -> Result<(PathBuf, PathBuf), Failure> {
+) -> Result<(Option<PathBuf>, PathBuf), Failure> {
     let arguments = |reason: String| Failure::new("arguments", reason);
     env_pairs(env).map_err(arguments)?;
     if !dev && !env.is_empty() {
         return Err(arguments("--env requires --dev".into()));
     }
-    let config = std::path::absolute(config).map_err(|error| arguments(error.to_string()))?;
+    let config = config
+        .map(std::path::absolute)
+        .transpose()
+        .map_err(|error| arguments(error.to_string()))?;
     let out = out
         .map(Path::to_owned)
         .unwrap_or_else(|| repository().join(DEFAULT_OUT));
@@ -490,38 +500,139 @@ fn arguments(
     Ok((config, out))
 }
 
-/// The steps `stages` and `build`: the stages check, then yard built in
-/// release with `PRODUCT_CONFIG` and the variables `envs`, production code
-/// only unless `dev`. Both cargo commands run without the variables
-/// `removed`. Returns the executable Cargo reports.
+/// The workspace package to bundle, its one binary, and its manifest directory.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Target {
+    pub package: String,
+    pub binary: String,
+    pub folder: PathBuf,
+}
+
+/// Selects an application from `cargo metadata --no-deps --format-version 1` JSON.
+pub fn bundle_target(metadata: &[u8], package: Option<&str>, dev: bool) -> Result<Target, String> {
+    let metadata: Value = serde_json::from_slice(metadata)
+        .map_err(|error| format!("invalid cargo metadata: {error}"))?;
+    select_target(&metadata, package, dev)
+}
+
+fn select_target(metadata: &Value, package: Option<&str>, dev: bool) -> Result<Target, String> {
+    let packages = metadata["packages"]
+        .as_array()
+        .ok_or("cargo metadata has no packages list")?;
+    let members = metadata["workspace_members"]
+        .as_array()
+        .ok_or("cargo metadata has no workspace members list")?;
+    let package = match package {
+        Some(name) => packages
+            .iter()
+            .find(|package| package["name"] == name && members.contains(&package["id"]))
+            .ok_or_else(|| format!("{name} is not a workspace package"))?,
+        None => {
+            let Some([id]) = metadata["workspace_default_members"]
+                .as_array()
+                .map(Vec::as_slice)
+            else {
+                return Err("expected one default workspace member; specify --package".into());
+            };
+            packages
+                .iter()
+                .find(|package| package["id"] == *id && members.contains(id))
+                .ok_or("default workspace member was not found; specify --package")?
+        }
+    };
+    let name = package["name"]
+        .as_str()
+        .ok_or("workspace package has no name")?;
+    if dev && name != "yard" {
+        return Err(format!("--dev is only supported by yard; selected {name}"));
+    }
+
+    let mut binaries = package["targets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|target| is_binary(target));
+    let binary = binaries
+        .next()
+        .and_then(|target| target["name"].as_str())
+        .filter(|_| binaries.next().is_none())
+        .ok_or_else(|| format!("{name} must have exactly one binary target"))?;
+    let folder = package["manifest_path"]
+        .as_str()
+        .and_then(|manifest| Path::new(manifest).parent())
+        .ok_or_else(|| format!("{name} has no manifest directory"))?;
+    Ok(Target {
+        package: name.to_owned(),
+        binary: binary.to_owned(),
+        folder: folder.to_owned(),
+    })
+}
+
+fn is_binary(target: &Value) -> bool {
+    target["kind"]
+        .as_array()
+        .is_some_and(|kinds| kinds.iter().any(|kind| kind == "bin"))
+}
+
+/// Resolves and logs the bundle target and the config it will use.
+fn resolve_package(
+    package: Option<&str>,
+    dev: bool,
+    config: Option<PathBuf>,
+    removed: &[OsString],
+    interrupt: &Interrupt,
+    runner: &mut dyn Runner,
+) -> Result<(Target, PathBuf), Failure> {
+    not_interrupted("package", interrupt)?;
+    let metadata = runner
+        .output(cargo(removed).args(["metadata", "--no-deps", "--format-version", "1"]))
+        .map_err(|reason| Failure::new("metadata", reason))?;
+    let metadata = serde_json::from_slice(&metadata)
+        .map_err(|error| Failure::new("metadata", format!("invalid cargo metadata: {error}")))?;
+    let target =
+        select_target(&metadata, package, dev).map_err(|reason| Failure::new("package", reason))?;
+    let config = config.unwrap_or_else(|| target.folder.join("product.toml"));
+    tracing::debug!(
+        package = %target.package,
+        binary = %target.binary,
+        config = %config.display(),
+        "package"
+    );
+    Ok((target, config))
+}
+
+/// Runs YARD's stages check, then builds the selected binary in release mode
+/// with `PRODUCT_CONFIG` and `envs`. Enables default features for `dev`
+/// bundles. Returns the executable Cargo reports.
 fn build(
+    target: &Target,
     config: &Path,
     dev: bool,
     envs: &[(&str, &str)],
-    removed: &[&str],
+    removed: &[OsString],
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<PathBuf, Failure> {
-    let cargo = || {
-        let mut command = cargo();
-        for name in removed {
-            command.env_remove(name);
-        }
-        command
-    };
     step("stages", interrupt)?;
     runner
         .run(
-            cargo()
+            cargo(removed)
                 .args(["test", "-p", "yard", "--test", "stages"])
                 .env_remove("YARD_PROMOTE"),
         )
         .map_err(|reason| Failure::new("stages", reason))?;
 
     step("build", interrupt)?;
-    let mut build = cargo();
+    let mut build = cargo(removed);
     build
-        .args(["build", "--release", "-p", "yard", "--bin", "yard"])
+        .args([
+            "build",
+            "--release",
+            "-p",
+            &target.package,
+            "--bin",
+            &target.binary,
+        ])
         .env("PRODUCT_CONFIG", config)
         .envs(envs.iter().copied());
     if !dev {
@@ -531,7 +642,8 @@ fn build(
     let report = runner
         .output(&mut build)
         .map_err(|reason| Failure::new("build", reason))?;
-    let binary = reported_executable(&report).map_err(|reason| Failure::new("build", reason))?;
+    let binary = reported_executable(&report, &target.binary)
+        .map_err(|reason| Failure::new("build", reason))?;
     tracing::debug!(binary = %binary.display(), "built");
     Ok(binary)
 }
@@ -549,14 +661,26 @@ fn interrupted_at_end<T>(result: Result<T, Failure>, interrupt: &Interrupt) -> R
 }
 
 fn bundle(
-    config: &Path,
     options: &MacosArgs,
     secrets: &Secrets,
     interrupt: &Interrupt,
     runner: &mut dyn Runner,
 ) -> Result<Bundled, Failure> {
     tracing::debug!("arguments");
-    let (config, out) = arguments(config, options.out.as_deref(), options.dev, &options.env)?;
+    let (config, out) = arguments(
+        options.config.as_deref(),
+        options.out.as_deref(),
+        options.dev,
+        &options.env,
+    )?;
+    let (target, config) = resolve_package(
+        options.package.as_deref(),
+        options.dev,
+        config,
+        &[],
+        interrupt,
+        runner,
+    )?;
 
     tracing::debug!("config");
     let product = read_config(&config, options)?;
@@ -565,7 +689,7 @@ fn bundle(
     let signing =
         Signing::new(&product, secrets).map_err(|reason| Failure::new("secrets", reason))?;
 
-    let binary = build(&config, options.dev, &[], &[], interrupt, runner)?;
+    let binary = build(&target, &config, options.dev, &[], &[], interrupt, runner)?;
 
     let mut session = Session::default();
     let job = Job {
@@ -671,7 +795,6 @@ fn step(name: &'static str, interrupt: &Interrupt) -> Result<(), Failure> {
     Ok(())
 }
 
-/// `cargo` in the repository, without the secrets in its environment.
 /// Stops the run at `step` once it was interrupted.
 fn not_interrupted(step: &'static str, interrupt: &Interrupt) -> Result<(), Failure> {
     if interrupt.is_set() {
@@ -681,10 +804,14 @@ fn not_interrupted(step: &'static str, interrupt: &Interrupt) -> Result<(), Fail
     Ok(())
 }
 
-fn cargo() -> Command {
+/// Runs Cargo in the repository without signing secrets or helper variables.
+fn cargo(removed: &[OsString]) -> Command {
     let mut command = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()));
     command.current_dir(repository());
     for name in SECRET_VARIABLES {
+        command.env_remove(name);
+    }
+    for name in removed {
         command.env_remove(name);
     }
     command
@@ -778,18 +905,19 @@ fn is_shell_name(key: &str) -> bool {
         && characters.all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
-/// The `yard` executable that Cargo's JSON messages report, never a guessed
-/// path, so a stale binary of another target is never bundled.
-fn reported_executable(report: &[u8]) -> Result<PathBuf, String> {
+/// The selected binary's executable path from Cargo's JSON artifacts.
+fn reported_executable(report: &[u8], binary: &str) -> Result<PathBuf, String> {
     String::from_utf8_lossy(report)
         .lines()
-        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
         .filter(|message| {
-            message["reason"] == "compiler-artifact" && message["target"]["name"] == "yard"
+            message["reason"] == "compiler-artifact"
+                && message["target"]["name"] == binary
+                && is_binary(&message["target"])
         })
         .filter_map(|message| message["executable"].as_str().map(PathBuf::from))
         .next_back()
-        .ok_or_else(|| "cargo reported no yard executable".to_owned())
+        .ok_or_else(|| format!("cargo reported no {binary} executable"))
 }
 
 /// The staging folder `<out>/.bundle-<system>.<pid>-<n>`, inside `out` so what

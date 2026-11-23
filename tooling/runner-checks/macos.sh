@@ -143,7 +143,7 @@ run_bundle() {
     mkdir -p "$work/$config" || return 1
     # The interrupt monitor reads the child output while it is being written.
     # shellcheck disable=SC2094
-    BUNDLE_OUTPUT="$bundle_log" run_bounded "$mode" 1500 "${command[@]}" bundle macos "$@" \
+    BUNDLE_OUTPUT="$bundle_log" run_bounded "$mode" 1500 "${command[@]}" bundle macos --package yard "$@" \
         > "$bundle_log" 2>&1 || bundle_status=$?
 
     local files=("$bundle_log") file

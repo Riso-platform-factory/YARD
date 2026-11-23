@@ -1,0 +1,7 @@
+[book]
+title = "YARD"
+language = "en"
+multilingual = false
+src = "src"
+
+[output.html]

@@ -1,6 +1,6 @@
 # new-app: a developer's own application, made from YARD
 
-A developer clones YARD and runs one command. They get their own application in `application/`, with their name, identifier, URL scheme, and icon, that runs on macOS, Windows, and Linux. Nothing of the sample application is in it. YARD's engines, extensions, sample, and tools stay where they are, so that later YARD fixes merge into the developer's repository without touching what the developer wrote.
+A developer clones YARD and runs one command. They get their own application in `app/<name>/`, beside the sample's `app/yard/`, with their name, identifier, URL scheme, and icon, that runs on macOS, Windows, and Linux. Nothing of the sample application is in it. YARD's engines, extensions, sample, and tools stay where they are, so that later YARD fixes merge into the developer's repository without touching what the developer wrote.
 
 ## What the developer runs
 
@@ -17,13 +17,13 @@ cargo run
   - the checks `cargo xtask bundle macos`, `linux`, and `windows` make before building: the name and version as file names on each system (`/`, `\`, `:`, `{`, `}`, reserved Windows device names, an empty Linux name), the identifier's 127-character limit of Inno Setup, the length of every file name the packages would have.
   These checks need no build and no tool of the system they are for, so they move, where they are not already, into functions that `new-app` and `bundle` both call. They take the target system and architecture as inputs, and `new-app` runs them for every system and architecture YARD packages (x86_64 and aarch64), since a file name's length depends on it.
 - **It refuses what would meet the sample or another crate:** the sample's name, identifier, and scheme, compared without case; a name whose Linux form is `yard`, which would share the sample's folders and its `YARD_HOME` and `YARD_LIFECYCLE` variables; a package name that a workspace crate already has.
-- It refuses when `application/` exists, and changes nothing.
+- **One application per repository.** It refuses when `app/<name>/` exists, or when `default-members` already names an application other than the sample, and changes nothing.
 - It prints what it made, then the commands to run, test, and bundle the application.
 
 ## What it makes
 
 ```text
-application/                      the developer's; YARD never ships a file here
+app/north-star/                   the developer's, named by the Linux name; YARD ships nothing in app/ but app/yard/
   Cargo.toml                      package and binary named after the product (North Star → north-star)
   build.rs                        one call: yard_build_config's build script
   product.toml                    name, version, identifier, url_scheme, icon
@@ -31,9 +31,10 @@ application/                      the developer's; YARD never ships a file here
   src/main.rs                     fn main: runs yard_app with the product, the extensions, the menus
   src/menus.rs                    the application's menus: the sample's menus today, under the product's name
   README.md                       run, test, bundle; where to add the application's own extensions
+  extensions/                     the application's own extensions, one crate per folder (empty at first)
 ```
 
-It also changes the root `Cargo.toml`: `application` joins `members`, and `default-members` becomes `["application"]`. So `cargo run` runs the developer's application, and `cargo run -p yard` runs the sample.
+The workspace's `members` already holds `app/*`, so the application is a member without a change there; only when no entry of `members` covers `app/<name>` does the command add it. It changes `default-members` in the root `Cargo.toml` to `["app/<name>"]`. So `cargo run` runs the developer's application, and `cargo run -p yard` runs the sample.
 
 - The binary name is the product's Linux name: the name in lower case, each run of characters other than ASCII letters and digits turned into one `-`, the rule packaging already uses. The packaged names stay as packaging writes them (`North Star.app`, `North Star.exe`, `north-star` on Linux).
 - The application starts with the extensions the sample has today (the command palette), listed in `src/main.rs`, where the developer adds or removes them.
@@ -41,20 +42,20 @@ It also changes the root `Cargo.toml`: `application` joins `members`, and `defau
 - The application uses YARD's production code only: it depends on YARD's crates with `default-features = false`, and on `gpui` with `workspace = true`, so it always has YARD's GPUI. It has no `dev` feature and no review mode. YARD's review mode, in a developer's repository, is `cargo run -p yard dev`.
 - `PRODUCT_CONFIG` keeps its meaning: whoever sets it builds the application with another config, as `bundle --config` does. Nothing sets it by default. The application is apart from the sample when it is built from its own config; set to the sample's config, it becomes the sample, by request.
 
-**An interrupted run.** The application is written into a temporary folder, renamed to `application/`, and only then is the root `Cargo.toml` replaced, written whole to a temporary file and renamed over the old one. An interruption leaves one of three states: nothing; a temporary folder, which the next run deletes; or `application/` without the workspace change. In the last state the next run refuses, names it, and says to delete `application/` and run again.
+**An interrupted run.** The application is written into a temporary folder, renamed to `app/<name>/`, and only then is the root `Cargo.toml` replaced, written whole to a temporary file and renamed over the old one. An interruption leaves one of three states: nothing; a temporary folder, which the next run deletes; or `app/<name>/` without the change of `default-members`. In the last state the next run refuses, names it, and says to delete `app/<name>/` and run again. The temporary folder is at the root, outside `app/`, so that the `app/*` glob never makes it a member.
 
 ## Who owns what
 
 | Path | Owner | On a later YARD update |
 |---|---|---|
 | `crates/`, `extensions/`, `examples/`, `tooling/`, `docs/`, `app/yard/`, `production.json`, `AGENTS.md`, `README.md`, `.cargo/` | YARD | taken as they come |
-| `application/` | the developer | never touched by YARD |
-| `Cargo.toml` at the root | YARD; in `members`, the developer owns the `application` entries, and `default-members` is the developer's | merged entry by entry: the developer's entries kept, YARD's taken |
+| `app/<name>/`, with its `extensions/` | the developer | never touched by YARD: YARD ships nothing in `app/` but `app/yard/` |
+| `Cargo.toml` at the root | YARD; in `members`, the developer owns the entries of their application's extensions, and `default-members` is the developer's | merged entry by entry: the developer's entries kept, YARD's taken |
 | `Cargo.lock` | shared: it resolves YARD's and the application's crates together | its handling on an update is part of `upstream-updates` |
 
-The developer's own extensions go in `application/extensions/<name>/`, added to `members`.
+The developer's own extensions go in `app/<name>/extensions/<extension>/`, each added to `members` (the `app/*` glob does not reach them), or all at once with `app/<name>/extensions/*`.
 
-**YARD's checks cover YARD only.** The stage rules and `production.json` skip `application/`, as they skip `examples/`: both scans in `app/yard/tests/stages.rs`, the ledger and the `dev` feature check. The GPL check keeps covering every member, so the application's crates and its extensions never depend directly on Zed's GPL crates.
+**YARD's checks cover YARD only.** The stage rules and `production.json` skip every member under `app/` other than `app/yard/`, as they skip `examples/`: both scans in `app/yard/tests/stages.rs`, the ledger and the `dev` feature check. The GPL check keeps covering every member, so the application's crates and its extensions never depend directly on Zed's GPL crates.
 
 ## What has to change in YARD first
 
@@ -85,7 +86,7 @@ The build script is production code with no stage today (`build.rs` is not a par
 
 ### 3. `cargo xtask bundle` packages the application it is given
 
-- `--package <name>` names the Cargo package to build. Without it, `bundle` builds the workspace's one default member: `application` in a developer's repository, `yard` in YARD's. Several default members are refused, asking for `--package`.
+- `--package <name>` names the Cargo package to build. Without it, `bundle` builds the workspace's one default member: the developer's application in a developer's repository, `yard` in YARD's. Several default members are refused, asking for `--package`.
 - The config defaults to `product.toml` in that package's folder; `--config` still names another.
 - It builds that package's one binary and packages the executable Cargo reports for that package and target: the selector that matches `yard` today is generalized, not doubled. A package with no binary, or with more than one, is refused before building.
 - `--dev` packages the review mode, which only the sample has: with another package it is refused.
@@ -96,9 +97,9 @@ The build script is production code with no stage today (`build.rs` is not a par
 ### 4. `cargo xtask new-app`
 
 - As described above, in `tooling/xtask`, with the files it writes kept as templates in `tooling/xtask/templates/new-app/`.
-- The stage scans skip `application/`.
+- The stage scans skip every member under `app/` other than `app/yard/`.
 - **Logging:** a group `new-app` with the name and identifier as fields; a debug line per step (checked, written, renamed into place, workspace changed); a refusal is an `info` with what was refused.
-- **What the review shows:** in a fresh clone of YARD, `cargo xtask new-app --name "North Star" …`, then `cargo run`: North Star's window, menu, and folders. Then each refusal: a bad identifier, a scheme that cannot be derived, a version over 65535, a name with `/`, an icon that is not square, the sample's identifier, an existing `application/`.
+- **What the review shows:** in a fresh clone of YARD, `cargo xtask new-app --name "North Star" …`, then `cargo run`: North Star's window, menu, and folders. Then each refusal: a bad identifier, a scheme that cannot be derived, a version over 65535, a name with `/`, an icon that is not square, the sample's identifier, an existing `app/<name>/`, a second application.
 
 ### 5. On the three systems
 

@@ -63,9 +63,8 @@ fn staged_crates() -> Vec<(String, PathBuf)> {
 
 fn has_stage(folder: &Path) -> bool {
     let root = repository();
-    !["examples", "application"]
-        .iter()
-        .any(|name| folder.starts_with(root.join(name)))
+    !folder.starts_with(root.join("examples"))
+        && (!folder.starts_with(root.join("app")) || folder.starts_with(root.join("app/yard")))
 }
 
 fn root_files(name: &str, folder: &Path) -> Vec<PathBuf> {

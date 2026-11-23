@@ -51,7 +51,7 @@ enum Task {
     /// Packages a workspace application for installation.
     #[command(subcommand)]
     Bundle(System),
-    /// Creates a workspace application in application/.
+    /// Creates a workspace application in app/<name>/.
     NewApp(NewAppArgs),
     /// What Inno Setup runs to sign the installer and the uninstaller of
     /// `bundle windows`, from what that run gave it.
@@ -358,8 +358,9 @@ pub fn main() -> ExitCode {
     {
         log::warn!("could not handle interrupts: {error}");
     }
+    let root = repository();
     match args.task {
-        Task::NewApp(options) => match new_app(&repository(), &options) {
+        Task::NewApp(options) => match new_app(&root, &options) {
             Ok(made) => {
                 println!(
                     "Created {} (package {})",
@@ -370,7 +371,11 @@ pub fn main() -> ExitCode {
                 println!("Test: cargo test");
                 println!("Bundle: cargo xtask bundle <macos|linux|windows>");
                 if made.placeholder_icon {
-                    println!("Using the placeholder icon in application/icon.png.");
+                    let folder = made.folder.strip_prefix(&root).unwrap_or(&made.folder);
+                    println!(
+                        "Using the placeholder icon in {}.",
+                        folder.join("icon.png").display()
+                    );
                 }
                 yard_log::exit(0)
             }

@@ -60,7 +60,7 @@ fn generated_application_checks_in_a_copy_of_the_workspace() {
     assert_eq!(
         made,
         Made {
-            folder: copy.join("application"),
+            folder: copy.join("app/north-star"),
             package: "north-star".to_owned(),
             placeholder_icon: true,
         }
@@ -78,7 +78,10 @@ fn generated_application_checks_in_a_copy_of_the_workspace() {
     );
     let metadata: serde_json::Value =
         serde_json::from_slice(&metadata_output.stdout).expect("cargo metadata is JSON");
-    let expected_manifest = copy.join("application/Cargo.toml").canonicalize().unwrap();
+    let expected_manifest = copy
+        .join("app/north-star/Cargo.toml")
+        .canonicalize()
+        .unwrap();
     let app_package = metadata["packages"]
         .as_array()
         .unwrap()
@@ -98,9 +101,10 @@ fn generated_application_checks_in_a_copy_of_the_workspace() {
             )
         });
     let default_members = metadata["workspace_default_members"].as_array().unwrap();
-    assert!(
-        default_members.contains(&app_package["id"]),
-        "expected `application` ({}) among workspace_default_members: {default_members:?}",
+    assert_eq!(
+        default_members.as_slice(),
+        std::slice::from_ref(&app_package["id"]),
+        "expected `app/north-star` ({}) to be the sole entry of workspace_default_members: {default_members:?}",
         app_package["id"]
     );
 
@@ -113,5 +117,17 @@ fn generated_application_checks_in_a_copy_of_the_workspace() {
         "cargo check -p north-star failed:\nstdout:\n{}\nstderr:\n{}",
         String::from_utf8_lossy(&check_output.stdout),
         String::from_utf8_lossy(&check_output.stderr),
+    );
+
+    let stages_output = cargo(copy)
+        .env_remove("YARD_PROMOTE")
+        .args(["test", "-p", "yard", "--test", "stages"])
+        .output()
+        .expect("cargo test -p yard --test stages runs");
+    assert!(
+        stages_output.status.success(),
+        "cargo test -p yard --test stages failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&stages_output.stdout),
+        String::from_utf8_lossy(&stages_output.stderr),
     );
 }

@@ -43,6 +43,6 @@ cargo fmt --check
 
 - [Roadmap](./development/roadmap.md): overview of every engine and the features still to build or waiting by need.
 - [Platform Roadmap](./development/platform-roadmap.md): desktop-platform capabilities tracked across the release system, application templates, OS dialogs, and notifications.
-- [New App](./development/new-app.md): active contract for separating a developer's application (`application/`) from the sample fixture and adding `cargo xtask new-app`.
+- [New App](./development/new-app.md): active contract for separating a developer's application (`app/<name>/`) from the sample fixture and adding `cargo xtask new-app`.
 - [Packaging](./development/packaging.md): slice 1 contract for cross-platform `cargo xtask bundle` (`macos`, `linux`, `windows`) and signing.
 - [Release System](./development/release-system.md): end-to-end design for CI, packaging, signing, publishing, and multi-platform updates.

@@ -1,8 +1,9 @@
 #![cfg(feature = "dev")]
 //! `cargo xtask new-app` creates a developer's own application in
-//! `application/` and adds it to the workspace's `Cargo.toml`. Every refusal
-//! happens before writing anything, names the flag (or `application/`), and
-//! leaves the workspace byte-identical.
+//! `app/<name>/` (beside `app/yard/`), adds it to `members` only when not
+//! already covered, and sets it as the workspace's `default-members`. Every
+//! refusal happens before writing anything, names the flag (or the existing
+//! folder / application), and leaves the workspace byte-identical.
 
 #[allow(dead_code)]
 mod support;
@@ -213,41 +214,22 @@ fn extract_array_assignment(text: &str, key: &str, marker: &str) -> (Vec<String>
     (items, replaced)
 }
 
-/// Verifies that the root `Cargo.toml` changed ONLY in `members` (gaining
-/// `"application"`) and `default-members` (becoming `["application"]`), and
-/// stayed byte-for-byte identical everywhere else.
-fn assert_root_cargo_toml_updated(before: &str, after: &str) {
-    let (before_members, before_rest) = extract_array_assignment(before, "members", "<MEMBERS>");
-    let (_, before_rest) =
-        extract_array_assignment(&before_rest, "default-members", "<DEFAULT_MEMBERS>");
-
-    let (after_members, after_rest) = extract_array_assignment(after, "members", "<MEMBERS>");
+/// Verifies that the root `Cargo.toml` changed ONLY in `default-members`
+/// (becoming `[expected_member]`), leaving `members` and every other byte
+/// identical.
+fn assert_root_cargo_toml_defaults_updated(before: &str, after: &str, expected_member: &str) {
+    let (_, before_rest) = extract_array_assignment(before, "default-members", "<DEFAULT_MEMBERS>");
     let (after_defaults, after_rest) =
-        extract_array_assignment(&after_rest, "default-members", "<DEFAULT_MEMBERS>");
+        extract_array_assignment(after, "default-members", "<DEFAULT_MEMBERS>");
 
     assert_eq!(
         after_rest, before_rest,
-        "root Cargo.toml changed outside `members` and `default-members`:\nbefore:\n{before}\nafter:\n{after}"
-    );
-    assert_eq!(
-        after_members.len(),
-        before_members.len() + 1,
-        "`members` should gain exactly one entry (\"application\"): before={before_members:?}, after={after_members:?}"
-    );
-    for existing in &before_members {
-        assert!(
-            after_members.contains(existing),
-            "`members` lost existing entry {existing:?}: {after_members:?}"
-        );
-    }
-    assert!(
-        after_members.contains(&"application".to_owned()),
-        "`members` should include \"application\": {after_members:?}"
+        "root Cargo.toml changed outside `default-members`:\nbefore:\n{before}\nafter:\n{after}"
     );
     assert_eq!(
         after_defaults,
-        vec!["application".to_owned()],
-        "`default-members` should become [\"application\"]"
+        vec![expected_member.to_owned()],
+        "`default-members` should become [{expected_member:?}]"
     );
 }
 
@@ -345,7 +327,7 @@ fn makes_the_application_and_updates_the_workspace() {
     assert_eq!(
         made,
         Made {
-            folder: root.join("application"),
+            folder: root.join("app/north-star"),
             package: "north-star".to_owned(),
             placeholder_icon: true,
         }
@@ -359,10 +341,35 @@ fn makes_the_application_and_updates_the_workspace() {
         !root.join("Cargo.toml.new-app").exists(),
         "staging Cargo.toml must not remain"
     );
+    for entry in fs::read_dir(root).unwrap() {
+        let name = entry.unwrap().file_name().to_string_lossy().into_owned();
+        assert!(
+            !name.starts_with(".application.new-app"),
+            "staging directory `{name}` must not remain at workspace root"
+        );
+    }
+    let mut app_entries: Vec<String> = fs::read_dir(root.join("app"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    app_entries.sort();
+    assert_eq!(
+        app_entries,
+        ["north-star", "yard"],
+        "app/ must contain only the sample and the new application (no temporary folders)"
+    );
 
     let app = &made.folder;
+    assert!(
+        app.join("extensions").is_dir(),
+        "generated application must include an extensions/ folder"
+    );
+    let files: Vec<String> = relative_files(app)
+        .into_iter()
+        .filter(|path| !path.starts_with("extensions/"))
+        .collect();
     assert_eq!(
-        relative_files(app),
+        files,
         [
             "Cargo.toml",
             "README.md",
@@ -400,18 +407,18 @@ fn makes_the_application_and_updates_the_workspace() {
     assert_eq!(decoded.width(), decoded.height(), "icon must be square");
     assert!(decoded.width() >= 512, "icon must be at least 512 × 512");
 
-    // application/Cargo.toml
+    // app/north-star/Cargo.toml
     let app_cargo = fs::read_to_string(app.join("Cargo.toml")).unwrap();
     assert_application_cargo_toml(&app_cargo, "north-star");
 
-    // application/build.rs
+    // app/north-star/build.rs
     let build_rs = fs::read_to_string(app.join("build.rs")).unwrap();
     assert!(
         build_rs.contains("yard_build_config::build_script::run()"),
         "build.rs must call yard_build_config::build_script::run():\n{build_rs}"
     );
 
-    // application/src/main.rs
+    // app/north-star/src/main.rs
     let main_rs = fs::read_to_string(app.join("src/main.rs")).unwrap();
     assert!(
         main_rs.contains("yard_app::run"),
@@ -434,7 +441,7 @@ fn makes_the_application_and_updates_the_workspace() {
         "src/main.rs must have no dev/review mode:\n{main_rs}"
     );
 
-    // application/src/menus.rs
+    // app/north-star/src/menus.rs
     let menus_rs = fs::read_to_string(app.join("src/menus.rs")).unwrap();
     assert!(
         menus_rs.contains("pub fn menus"),
@@ -445,7 +452,7 @@ fn makes_the_application_and_updates_the_workspace() {
         "src/menus.rs must use product.name:\n{menus_rs}"
     );
 
-    // application/README.md
+    // app/north-star/README.md
     let readme = fs::read_to_string(app.join("README.md")).unwrap();
     assert!(!readme.trim().is_empty(), "README.md must not be empty");
     assert!(
@@ -453,9 +460,9 @@ fn makes_the_application_and_updates_the_workspace() {
         "README.md should document running and bundling:\n{readme}"
     );
 
-    // Root Cargo.toml differs ONLY in members and default-members.
+    // Root Cargo.toml differs ONLY in default-members (`app/*` already covers `app/north-star`).
     let updated_root = fs::read_to_string(root.join("Cargo.toml")).unwrap();
-    assert_root_cargo_toml_updated(WORKSPACE_TOML, &updated_root);
+    assert_root_cargo_toml_defaults_updated(WORKSPACE_TOML, &updated_root, "app/north-star");
 }
 
 #[test]
@@ -478,7 +485,7 @@ fn explicit_icon_scheme_and_version_are_used() {
     assert_eq!(
         made,
         Made {
-            folder: root.join("application"),
+            folder: root.join("app/north-star"),
             package: "north-star".to_owned(),
             placeholder_icon: false,
         }
@@ -541,7 +548,8 @@ struct RefusalCase {
     args: NewAppArgs,
     flag: &'static str,
     /// True when `yard_build_config::read` produces the refusal; its reason
-    /// must name `application/product.toml`, never a temporary path.
+    /// must name `app/<package>/product.toml` (or `product.toml` when the name
+    /// yields no package), never a temporary path.
     from_config_reader: bool,
 }
 
@@ -941,12 +949,25 @@ fn refusals_name_their_flag_and_change_nothing() {
         assert_flag(case.label, &failure.reason, case.flag);
         assert_no_temp_dir(case.label, &failure.reason);
         if case.from_config_reader {
-            assert!(
-                failure.reason.contains("application/product.toml"),
-                "{}: config-reader refusal must name `application/product.toml`, got: {}",
-                case.label,
-                failure.reason
-            );
+            let package = yard_product::file_name(&case.args.name);
+            if package.is_empty() {
+                assert!(
+                    failure.reason.contains("product.toml")
+                        && !failure.reason.contains("application/")
+                        && !failure.reason.contains("app//"),
+                    "{}: config-reader refusal must name `product.toml` without a temp or malformed path, got: {}",
+                    case.label,
+                    failure.reason
+                );
+            } else {
+                let expected = format!("app/{package}/product.toml");
+                assert!(
+                    failure.reason.contains(&expected),
+                    "{}: config-reader refusal must name `{expected}`, got: {}",
+                    case.label,
+                    failure.reason
+                );
+            }
         }
         assert_eq!(
             snapshot(root),
@@ -1007,7 +1028,7 @@ fn bad_icons_are_refused_and_change_nothing() {
             assert_eq!(
                 failure.reason,
                 format!(
-                    "--icon: product config application/product.toml: `icon` {} is {dimensions}; it must be square and at least 512 × 512",
+                    "--icon: product config app/north-star/product.toml: `icon` {} is {dimensions}; it must be square and at least 512 × 512",
                     icon.display()
                 ),
                 "{label}: unexpected refusal reason"
@@ -1042,8 +1063,61 @@ fn existing_application_is_refused_and_changes_nothing() {
     assert_eq!(failure.step, "arguments");
     assert!(failure.is_refusal());
     assert!(
-        failure.reason.contains("application/"),
-        "expected reason to name `application/`, got: {}",
+        failure.reason.contains("app/north-star"),
+        "expected reason to name `app/north-star`, got: {}",
+        failure.reason
+    );
+    assert_eq!(
+        snapshot(root),
+        before,
+        "refusal must leave workspace byte-identical"
+    );
+}
+
+#[test]
+fn second_application_is_refused_and_changes_nothing() {
+    // After creating a first application, a second `new-app` for another name is refused.
+    let temp = workspace();
+    let root = temp.path();
+    new_app(root, &north_star()).unwrap();
+    let before = snapshot(root);
+
+    let second = NewAppArgs {
+        name: "South Wind".into(),
+        identifier: "com.acme.southwind".into(),
+        ..NewAppArgs::default()
+    };
+    let failure = new_app(root, &second).unwrap_err();
+    assert_eq!(failure.step, "arguments");
+    assert!(failure.is_refusal());
+    assert!(
+        failure.reason.contains("app/north-star"),
+        "expected reason to name existing application `app/north-star`, got: {}",
+        failure.reason
+    );
+    assert_eq!(
+        snapshot(root),
+        before,
+        "refusal must leave workspace byte-identical"
+    );
+
+    // Even when `app/yard` is also listed, any other entry in `default-members` refuses.
+    let multi_default = "\
+[workspace]
+resolver = \"3\"
+members = [\"app/*\", \"crates/*\"]
+default-members = [\"app/yard\", \"app/other\"]
+";
+    let temp = workspace_with_manifest(multi_default);
+    let root = temp.path();
+    let before = snapshot(root);
+
+    let failure = new_app(root, &north_star()).unwrap_err();
+    assert_eq!(failure.step, "arguments");
+    assert!(failure.is_refusal());
+    assert!(
+        failure.reason.contains("app/other"),
+        "expected reason to name existing default member `app/other`, got: {}",
         failure.reason
     );
     assert_eq!(
@@ -1061,19 +1135,62 @@ fn leftover_temp_folder_is_removed_by_the_next_run() {
     fs::create_dir_all(&staging).unwrap();
     fs::write(staging.join("stale.txt"), b"leftover from interrupted run").unwrap();
 
+    let prefixed_staging = root.join(".application.new-app-interrupted");
+    fs::create_dir_all(&prefixed_staging).unwrap();
+    fs::write(
+        prefixed_staging.join("stale.txt"),
+        b"leftover from interrupted run",
+    )
+    .unwrap();
+    fs::write(
+        prefixed_staging.join("Cargo.toml"),
+        "[package]\nname = \"north-star\"\nversion = \"0.1.0\"\nedition.workspace = true\n",
+    )
+    .unwrap();
+
+    // A refused run must leave the workspace (including leftover temp folders) untouched.
+    let before_refusal = snapshot(root);
+    let bad = NewAppArgs {
+        identifier: "bad".into(),
+        ..north_star()
+    };
+    let failure = new_app(root, &bad).unwrap_err();
+    assert_eq!(failure.step, "arguments");
+    assert!(failure.is_refusal());
+    assert_eq!(
+        snapshot(root),
+        before_refusal,
+        "refused run must not delete leftover temp folders"
+    );
+
+    // A run that goes ahead deletes leftover `.application.new-app*` folders at the root.
     let made = new_app(root, &north_star()).unwrap();
-    assert_eq!(made.folder, root.join("application"));
+    assert_eq!(made.folder, root.join("app/north-star"));
     assert!(
         !staging.exists(),
         "leftover .application.new-app must be removed"
     );
     assert!(
+        !prefixed_staging.exists(),
+        "leftover .application.new-app-interrupted must be removed"
+    );
+    assert!(
         !made.folder.join("stale.txt").exists(),
-        "stale files must not appear in application/"
+        "stale files must not appear in app/north-star/"
+    );
+    let mut app_entries: Vec<String> = fs::read_dir(root.join("app"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    app_entries.sort();
+    assert_eq!(
+        app_entries,
+        ["north-star", "yard"],
+        "no temporary folder may appear inside app/"
     );
     assert!(made.folder.join("product.toml").is_file());
     let updated_root = fs::read_to_string(root.join("Cargo.toml")).unwrap();
-    assert_root_cargo_toml_updated(WORKSPACE_TOML, &updated_root);
+    assert_root_cargo_toml_defaults_updated(WORKSPACE_TOML, &updated_root, "app/north-star");
 }
 
 #[test]
@@ -1084,21 +1201,58 @@ fn leftover_temp_manifest_is_removed_by_the_next_run() {
     fs::write(&stale, b"stale manifest from interrupted run").unwrap();
 
     let made = new_app(root, &north_star()).unwrap();
-    assert_eq!(made.folder, root.join("application"));
+    assert_eq!(made.folder, root.join("app/north-star"));
     assert!(
         !stale.exists(),
         "leftover Cargo.toml.new-app must be removed"
     );
     assert!(made.folder.join("product.toml").is_file());
     let updated_root = fs::read_to_string(root.join("Cargo.toml")).unwrap();
-    assert_root_cargo_toml_updated(WORKSPACE_TOML, &updated_root);
+    assert_root_cargo_toml_defaults_updated(WORKSPACE_TOML, &updated_root, "app/north-star");
 }
 
 #[test]
-fn interrupted_application_without_workspace_entry_is_refused_with_recovery_instructions() {
+fn interrupted_application_without_default_member_is_refused_with_recovery_instructions() {
+    // Interrupted after rename into `app/north-star/` (complete with Cargo.toml)
+    // before `default-members` was updated from `["app/yard"]`.
     let temp = workspace();
     let root = temp.path();
-    let app = root.join("application");
+    let app = root.join("app/north-star");
+    fs::create_dir_all(&app).unwrap();
+    fs::write(app.join("partial.txt"), b"from interrupted run").unwrap();
+    fs::write(
+        app.join("Cargo.toml"),
+        "[package]\nname = \"north-star\"\nversion = \"0.1.0\"\nedition.workspace = true\n",
+    )
+    .unwrap();
+    let before = snapshot(root);
+
+    let failure = new_app(root, &north_star()).unwrap_err();
+    assert_eq!(failure.step, "arguments");
+    assert!(failure.is_refusal());
+    let lower = failure.reason.to_ascii_lowercase();
+    assert!(
+        failure.reason.contains("app/north-star/")
+            && lower.contains("delete")
+            && lower.contains("again"),
+        "expected reason to name `app/north-star/` and tell the developer to delete it and run again, got: {}",
+        failure.reason
+    );
+    assert_eq!(
+        snapshot(root),
+        before,
+        "refusal must leave workspace byte-identical"
+    );
+
+    // Same interrupted state when `default-members` is absent from root Cargo.toml.
+    let no_default_members = "\
+[workspace]
+resolver = \"3\"
+members = [\"app/*\", \"crates/*\"]
+";
+    let temp = workspace_with_manifest(no_default_members);
+    let root = temp.path();
+    let app = root.join("app/north-star");
     fs::create_dir_all(&app).unwrap();
     fs::write(app.join("partial.txt"), b"from interrupted run").unwrap();
     let before = snapshot(root);
@@ -1108,10 +1262,10 @@ fn interrupted_application_without_workspace_entry_is_refused_with_recovery_inst
     assert!(failure.is_refusal());
     let lower = failure.reason.to_ascii_lowercase();
     assert!(
-        failure.reason.contains("application/")
+        failure.reason.contains("app/north-star/")
             && lower.contains("delete")
             && lower.contains("again"),
-        "expected reason to name `application/` and tell the developer to delete it and run again, got: {}",
+        "expected reason to name `app/north-star/` and tell the developer to delete it and run again, got: {}",
         failure.reason
     );
     assert_eq!(
@@ -1122,13 +1276,38 @@ fn interrupted_application_without_workspace_entry_is_refused_with_recovery_inst
 }
 
 #[test]
+fn members_without_app_glob_appends_application() {
+    let before = "\
+# Root comment preserved.
+[workspace]
+resolver = \"3\"
+members = [\"app/yard\", \"crates/*\"]
+default-members = [\"app/yard\"]
+exclude = [\"tooling/runner-checks\"]
+";
+    let expected = "\
+# Root comment preserved.
+[workspace]
+resolver = \"3\"
+members = [\"app/yard\", \"crates/*\", \"app/north-star\"]
+default-members = [\"app/north-star\"]
+exclude = [\"tooling/runner-checks\"]
+";
+    let temp = workspace_with_manifest(before);
+    let made = new_app(temp.path(), &north_star()).unwrap();
+    assert_eq!(made.folder, temp.path().join("app/north-star"));
+    let after = fs::read_to_string(temp.path().join("Cargo.toml")).unwrap();
+    assert_eq!(after, expected);
+}
+
+#[test]
 fn multiline_members_keeps_layout_comments_and_trailing_comma() {
     let before = "\
 [workspace]
 resolver = \"3\"
 members = [
     # Applications.
-    \"app/*\", # sample app
+    \"app/yard\", # sample app
     # Core crates.
     \"crates/*\",
 ]
@@ -1139,12 +1318,12 @@ default-members = [\"app/yard\"]
 resolver = \"3\"
 members = [
     # Applications.
-    \"app/*\", # sample app
+    \"app/yard\", # sample app
     # Core crates.
     \"crates/*\",
-    \"application\",
+    \"app/north-star\",
 ]
-default-members = [\"application\"]
+default-members = [\"app/north-star\"]
 ";
     let temp = workspace_with_manifest(before);
     new_app(temp.path(), &north_star()).unwrap();
@@ -1166,8 +1345,8 @@ edition = \"2024\"
     let expected = "\
 [workspace]
 resolver = \"3\"
-members = [\"app/*\", \"crates/*\", \"application\"]
-default-members = [\"application\"]
+members = [\"app/*\", \"crates/*\"]
+default-members = [\"app/north-star\"]
 exclude = [\"tooling/runner-checks\"]
 
 [workspace.package]
@@ -1180,13 +1359,19 @@ edition = \"2024\"
 }
 
 #[test]
-fn existing_application_member_is_not_duplicated() {
-    for existing in ["./application", "application", "application/"] {
+fn covering_member_entry_leaves_members_unchanged() {
+    for members_list in [
+        "\"app/*\", \"crates/*\"",
+        "\"./app/*\", \"crates/*\"",
+        "\"app/yard\", \"crates/*\", \"app/north-star\"",
+        "\"app/yard\", \"crates/*\", \"./app/north-star\"",
+        "\"app/yard\", \"crates/*\", \"app/north-star/\"",
+    ] {
         let before = format!(
             "\
 [workspace]
 resolver = \"3\"
-members = [\"app/*\", \"crates/*\", \"{existing}\"]
+members = [{members_list}]
 default-members = [\"app/yard\"]
 "
         );
@@ -1194,8 +1379,8 @@ default-members = [\"app/yard\"]
             "\
 [workspace]
 resolver = \"3\"
-members = [\"app/*\", \"crates/*\", \"{existing}\"]
-default-members = [\"application\"]
+members = [{members_list}]
+default-members = [\"app/north-star\"]
 "
         );
         let temp = workspace_with_manifest(&before);
@@ -1203,7 +1388,7 @@ default-members = [\"application\"]
         let after = fs::read_to_string(temp.path().join("Cargo.toml")).unwrap();
         assert_eq!(
             after, expected,
-            "members holding {existing:?} must not gain a second application entry"
+            "members [{members_list}] already covers app/north-star and must not change"
         );
     }
 }
@@ -1225,8 +1410,8 @@ yard_ui = { path = \"crates/yard_ui\", default-features = false, features = [\"d
 # Top-level workspace comment.
 [workspace]
 resolver = \"3\"
-members = [\"app/*\", \"crates/*\", \"application\"]
-default-members = [\"application\"]
+members = [\"app/*\", \"crates/*\"]
+default-members = [\"app/north-star\"]
 
 # Dependency comment that must stay byte for byte.
 [workspace.dependencies]
@@ -1259,7 +1444,7 @@ exclude = [\"crates\"]
     assert_eq!(
         made,
         Made {
-            folder: root.join("application"),
+            folder: root.join("app/alpha"),
             package: "alpha".to_owned(),
             placeholder_icon: true,
         }
@@ -1296,13 +1481,22 @@ fn sample_linux_name_collision_comes_from_sample_config() {
     assert_no_temp_dir("sample Linux name collision", &failure.reason);
     assert_eq!(snapshot(root), before);
 
-    // Literal `yard` is not hardcoded when the sample has another name.
+    // Literal `yard` is not hardcoded as the sample's Linux name: it is
+    // refused because `app/yard/` already exists, not as a `--name` collision
+    // with the sample.
     let yard_args = NewAppArgs {
         name: "Yard!".into(),
         identifier: "com.acme.northstar".into(),
         scheme: Some("northstar".into()),
         ..NewAppArgs::default()
     };
-    let made = new_app(root, &yard_args).unwrap();
-    assert_eq!(made.package, "yard");
+    let failure = new_app(root, &yard_args).unwrap_err();
+    assert_eq!(failure.step, "arguments");
+    assert!(failure.is_refusal());
+    assert!(
+        failure.reason.contains("app/yard") && !failure.reason.contains("--name"),
+        "expected refusal naming `app/yard` (not `--name`), got: {}",
+        failure.reason
+    );
+    assert_eq!(snapshot(root), before);
 }

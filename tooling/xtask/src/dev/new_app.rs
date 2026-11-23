@@ -3,7 +3,7 @@
 use std::borrow::Cow;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use serde::Deserialize;
 use toml::Spanned;
@@ -54,7 +54,7 @@ struct Workspace {
     exclude: Vec<String>,
 }
 
-/// Creates `application/` and sets it as the workspace default.
+/// Creates `app/<package>/` and sets it as the workspace default.
 ///
 /// After validation, removes leftover staging folders in the workspace root.
 pub fn new_app(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
@@ -67,26 +67,39 @@ pub fn new_app(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
 
 fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
     let manifest_path = root.join("Cargo.toml");
-    let folder = root.join("application");
+    let package = yard_product::file_name(&args.name);
+    let member = format!("app/{package}");
+    let folder = root.join(&member);
     let manifest =
         fs::read_to_string(&manifest_path).map_err(|error| filesystem(&manifest_path, error))?;
     let workspace = toml::from_str::<Manifest>(&manifest)
         .map_err(|error| filesystem(&manifest_path, error))?
         .workspace;
-    if exists(&folder)? {
-        let reason = if workspace
-            .members
-            .get_ref()
+    let defaults = workspace
+        .default_members
+        .as_ref()
+        .map_or(&[][..], |defaults| defaults.get_ref().as_slice());
+    const SAMPLE_MEMBER: &str = "app/yard";
+    let folder_exists = !package.is_empty() && exists(&folder)?;
+    if folder_exists && member != SAMPLE_MEMBER {
+        let reason = if defaults
             .iter()
-            .any(|member| is_application(member.get_ref()))
+            .any(|default| normalized(Path::new(default)) == Path::new(&member))
         {
-            "application/ already exists"
+            format!("`{member}/` already exists")
         } else {
-            "application/ exists but is missing from workspace members. Delete application/ and run again."
+            format!("`{member}/` exists. Delete `{member}/` and run again.")
         };
         return Err(refusal(reason));
     }
-    let package = yard_product::file_name(&args.name);
+    if let Some(default) = defaults
+        .iter()
+        .find(|default| normalized(Path::new(default)) != Path::new(SAMPLE_MEMBER))
+    {
+        return Err(refusal(format!(
+            "workspace already defaults to `{default}`"
+        )));
+    }
     let scheme = args
         .scheme
         .clone()
@@ -108,6 +121,10 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
     };
 
     check_product(root, &product, &icon, args.icon.as_deref(), &package)?;
+    // Preserve product-name diagnostics when the target is the sample's folder.
+    if folder_exists {
+        return Err(refusal(format!("`{member}/` already exists")));
+    }
     let wanted = package.replace('-', "_");
     let excluded = expanded(root, workspace.exclude.iter().map(String::as_str))?;
     let members = workspace
@@ -115,7 +132,7 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
         .get_ref()
         .iter()
         .map(|member| member.get_ref().as_str());
-    for member in expanded(root, members)? {
+    for member in expanded(root, members.clone())? {
         if member.starts_with(STAGING_FOLDER)
             || member
                 .iter()
@@ -148,7 +165,6 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
             )));
         }
     }
-    let manifest = update_manifest(manifest, workspace);
     tracing::debug!("checked");
 
     let stale = root.join(STAGING_FOLDER);
@@ -182,10 +198,15 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
         .map_err(|error| filesystem(root, error))?;
     let source = staging.path().join("src");
     fs::create_dir(&source).map_err(|error| filesystem(&source, error))?;
+    let extensions = staging.path().join("extensions");
+    fs::create_dir(&extensions).map_err(|error| filesystem(&extensions, error))?;
     for (file, contents) in [
         ("Cargo.toml", render(MANIFEST, &[("package", &package)])),
         ("product.toml", product),
-        ("README.md", render(README, &[("name", &args.name)])),
+        (
+            "README.md",
+            render(README, &[("name", &args.name), ("package", &package)]),
+        ),
         (
             "build.rs",
             include_str!("../../templates/new-app/build.rs").into(),
@@ -206,6 +227,11 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
     fs::rename(staging.path(), &folder).map_err(|error| filesystem(&folder, error))?;
     tracing::debug!("renamed");
 
+    // Expand the globs now that the final folder exists.
+    let covered = expanded(root, members)?
+        .iter()
+        .any(|path| normalized(path) == Path::new(&member));
+    let manifest = update_manifest(manifest, workspace, &member, covered);
     let replacement = root.join("Cargo.toml.new-app");
     if exists(&replacement)? {
         fs::remove_file(&replacement).map_err(|error| filesystem(&replacement, error))?;
@@ -233,10 +259,17 @@ fn check_product(
     write(&file, text)?;
     let icon_file = temp.path().join("icon.png");
     write(&icon_file, icon)?;
+    let prefix = if package.is_empty() {
+        String::new()
+    } else {
+        format!("app/{package}/")
+    };
+    let product_path = format!("{prefix}product.toml");
+    let default_icon = format!("{prefix}icon.png");
     let product = yard_build_config::read(&file).map_err(|reason| {
-        let reason = use_display_path(reason, &file, Path::new("application/product.toml"));
+        let reason = use_display_path(reason, &file, Path::new(&product_path));
         let detail = reason
-            .strip_prefix("product config application/product.toml: `")
+            .strip_prefix(format!("product config {product_path}: `").as_str())
             .and_then(|detail| detail.split_once('`'));
         let flag = match detail.map(|(key, _)| key) {
             Some("name") => Some("--name"),
@@ -250,7 +283,7 @@ fn check_product(
             use_display_path(
                 reason,
                 &icon_file,
-                icon_source.unwrap_or(Path::new("application/icon.png")),
+                icon_source.unwrap_or(Path::new(&default_icon)),
             )
         } else {
             reason
@@ -272,13 +305,7 @@ fn check_product(
         PackageSystem::Windows,
     ] {
         for arch in [Arch::X86_64, Arch::Aarch64] {
-            package_checks(
-                Path::new("application/product.toml"),
-                &product,
-                system,
-                arch,
-            )
-            .map_err(|reason| {
+            package_checks(Path::new(&product_path), &product, system, arch).map_err(|reason| {
                 let issue = reason
                     .split_once(": ")
                     .map_or(reason.as_str(), |(_, issue)| issue);
@@ -455,35 +482,43 @@ fn render(template: &str, values: &[(&str, &str)]) -> String {
     output
 }
 
-fn is_application(member: &str) -> bool {
-    let path = Path::new(member);
-    path.strip_prefix(".").unwrap_or(path) == Path::new("application")
+fn normalized(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for part in path.components() {
+        match part {
+            Component::CurDir => {}
+            Component::ParentDir if normalized.file_name().is_some_and(|name| name != "..") => {
+                normalized.pop();
+            }
+            _ => normalized.push(part),
+        }
+    }
+    normalized
 }
 
-fn update_manifest(mut text: String, workspace: Workspace) -> String {
+fn update_manifest(mut text: String, workspace: Workspace, member: &str, covered: bool) -> String {
     let members = workspace.members.span();
     let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
-    const DEFAULT: &str = "[\"application\"]";
+    let member = toml_string(member);
+    let default_value = format!("[{member}]");
     let mut edits = Vec::new();
     if let Some(default) = workspace.default_members {
-        edits.push((default.span(), DEFAULT.to_owned()));
+        edits.push((default.span(), default_value));
     } else {
         let (position, line) = match text[members.end..].find('\n') {
             Some(offset) => (
                 members.end + offset + 1,
-                format!("default-members = {DEFAULT}{newline}"),
+                format!("default-members = {default_value}{newline}"),
             ),
-            None => (text.len(), format!("{newline}default-members = {DEFAULT}")),
+            None => (
+                text.len(),
+                format!("{newline}default-members = {default_value}"),
+            ),
         };
         edits.push((position..position, line));
     }
 
-    if !workspace
-        .members
-        .get_ref()
-        .iter()
-        .any(|member| is_application(member.get_ref()))
-    {
+    if !covered {
         let close = members.end - 1;
         let last = workspace.members.get_ref().last();
         let tail = last.map_or(members.start + 1, |entry| entry.span().end);
@@ -503,20 +538,17 @@ fn update_manifest(mut text: String, workspace: Workspace) -> String {
                 })
                 .unwrap_or("    ");
             let comma = if trailing_comma { "," } else { "" };
-            edits.push((
-                line..line,
-                format!("{indent}\"application\"{comma}{newline}"),
-            ));
+            edits.push((line..line, format!("{indent}{member}{comma}{newline}")));
             if last.is_some() && !trailing_comma {
                 edits.push((tail..tail, ",".into()));
             }
         } else {
             let (point, value) = match (last, trailing_comma) {
-                (Some(_), false) => (tail, ", \"application\""),
-                (_, true) => (close, " \"application\","),
-                (None, false) => (close, "\"application\""),
+                (Some(_), false) => (tail, format!(", {member}")),
+                (_, true) => (close, format!(" {member},")),
+                (None, false) => (close, member),
             };
-            edits.push((point..point, value.into()));
+            edits.push((point..point, value));
         }
     }
     edits.sort_by_key(|(span, _)| std::cmp::Reverse(span.start));

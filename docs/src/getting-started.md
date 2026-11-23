@@ -13,7 +13,7 @@ cargo xtask new-app --name "North Star" --identifier com.acme.northstar
 cargo run
 ```
 
-`cargo xtask new-app` validates the product for macOS, Linux, and Windows before changing the workspace. It creates `application/` and makes the application the workspace's default package. Use `--scheme`, `--version`, and `--icon` to customize the product. Without `--icon`, the application gets a grey placeholder.
+`cargo xtask new-app` validates the product for macOS, Linux, and Windows before changing the workspace. It creates `app/<name>/` and makes the application the workspace's default package. Use `--scheme`, `--version`, and `--icon` to customize the product. Without `--icon`, the application gets a grey placeholder.
 
 Use `cargo test` to test the generated application. To package it, run `cargo xtask bundle macos`, `cargo xtask bundle linux`, or `cargo xtask bundle windows` on the corresponding system.
 

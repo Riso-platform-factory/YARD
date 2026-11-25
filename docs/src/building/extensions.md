@@ -55,7 +55,7 @@ ext.bind_keys(
 - **Component-scoped actions:** Track the node's focus handle (`yard_shell::focus_handle(cx, node)`), attach `.key_context("my_ext")`, and handle the action with GPUI's `.on_action(...)` on the component's element. The action runs only while that component has focus.
 - **Window-wide actions:** Register a handler on the shell root with `ext.on_action::<Ping>(cx, |action, window, cx| { ... })`. The action must belong to the extension's own namespace. The handler runs inside an `extension-action` trace group regardless of which node has focus.
 
-## Overlays: Toasts, Modals, and Prompts
+## Overlays: Toasts, Modals, Prompts, and File Dialogs
 
 Extensions display transient UI above the window layout through their handle:
 
@@ -85,6 +85,17 @@ Extensions display transient UI above the window layout through their handle:
       // `answer` is Some(index) or None if dismissed
   });
   ```
+- **File dialogs:** Choose files or folders with the system's open dialog, or a path to save to with its save dialog. The options are GPUI's `PathPromptOptions`; Linux and Windows cannot mix files and folders, and show a folder chooser when both are asked. Each callback runs once, later, with the paths or `None` (cancelled, dismissed, neither files nor folders asked, or the system could not show the dialog, which is logged as an error). The save dialog only returns a path; the extension writes the file:
+  ```rust
+  let options = gpui::PathPromptOptions { files: true, directories: false, multiple: true, prompt: None };
+  ext.choose_paths(options, cx, |paths, cx| {
+      // `paths` is Some(Vec<PathBuf>) or None
+  });
+  ext.choose_new_path(&directory, Some("Untitled.txt"), cx, |path, cx| {
+      // `path` is Some(PathBuf) or None
+  });
+  ```
+  Both run in a `file-dialog{extension, kind}` trace group, and a chosen path never reaches the diagnostic log. File type filters and a starting folder for the open dialog wait for GPUI.
 
 ## Settings Sections
 

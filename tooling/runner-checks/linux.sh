@@ -19,6 +19,9 @@ done
 northstar_cases=(new-app bundle sample-bundle install sample-install desktop-name desktop-exec desktop-icon
     desktop-mime url screenshot coexistence)
 for case in "${northstar_cases[@]}"; do expected_cases+=("northstar $case"); done
+update_cases=(update-clone update-new-app update update-app-kept update-manifest bundle install
+    desktop-name desktop-exec desktop-icon desktop-mime url)
+for case in "${update_cases[@]}"; do expected_cases+=("update $case"); done
 
 work=$(mktemp -d) || exit 1
 export YARD_HOME="$work/yard-home"
@@ -280,9 +283,9 @@ load_fresh() {
     slug=$(printf '%s' "$name" | LC_ALL=C tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-|-$//g')
     prefix=$(printf '%s' "$name" | LC_ALL=C tr '[:lower:]' '[:upper:]' | sed 's/[^A-Z0-9]/_/g')
     export XDG_DATA_HOME="$work/data" XDG_CONFIG_HOME="$work/config"
-    logs="$checks/northstar/$2"
-    home="$work/northstar/$2/home"
-    dist="$work/northstar/$2/dist"
+    logs="$checks/$config/$2"
+    home="$work/$config/$2/home"
+    dist="$work/$config/$2/dist"
     mkdir -p "$logs" "$home" "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" || return 1
     archive="$dist/$slug-$version-linux-$(uname -m).tar.gz"
     install_dir="$HOME/.local/$slug.app"
@@ -294,6 +297,7 @@ load_fresh() {
 
 load_north_star() { load_fresh north-star north-star; }
 load_sample() { load_fresh yard sample; }
+load_upstream_star() { load_fresh upstream-star upstream-star; }
 
 bundle_fresh() {
     local case=$1 label=$2 status=0 file
@@ -307,7 +311,7 @@ bundle_fresh() {
         record PASS "$case" "created $(basename "$archive")"
         return 0
     fi
-    record FAIL "$case" "exit $status or archive missing (see northstar/$label/bundle.log)"
+    record FAIL "$case" "exit $status or archive missing (see $config/$label/bundle.log)"
     return 1
 }
 
@@ -320,7 +324,7 @@ install_fresh() {
         record PASS "$case" "$app_binary installed"
         return 0
     fi
-    record FAIL "$case" "see northstar/$label/install.log"
+    record FAIL "$case" "see $config/$label/install.log"
     return 1
 }
 
@@ -352,9 +356,9 @@ check_desktop_icon() {
 # Opens a URL of the loaded product with xdg-open, in that product's own
 # environment, so that a second start finds the instance by the same home.
 open_fresh_url() {
-    local limit=$1 phase=$2
+    local limit=$1 url=${3:-"$scheme://check/$2-$RANDOM-$RANDOM"}
     bounded "$limit" env "${prefix}_HOME=$home" "${prefix}_LIFECYCLE=$fresh_lifecycle" \
-        xdg-open "$scheme://check/$phase-$RANDOM-$RANDOM" >> "$logs/url.log" 2>&1
+        xdg-open "$url" >> "$logs/url.log" 2>&1
 }
 
 # Starts the loaded product by opening its URL, and waits for one URL
@@ -364,7 +368,7 @@ start_fresh_url() {
     if pgrep -f -x "$app_pattern" >/dev/null; then return 1; fi
     rm -f "$trace" || return 1
     # Some xdg-open backends wait for the launched app to exit.
-    open_fresh_url 125 cold &
+    open_fresh_url 125 cold "${1:-}" &
     printf '%s\n' "$!" >> "$work/coexist-pids" || return 1
     wait_for_counts "$trace" "$scheme" 1 0 0 || status=1
     fresh_pid=$(pgrep -f -x "$app_pattern") && [[ $fresh_pid =~ ^[0-9]+$ ]] || return 1
@@ -531,7 +535,38 @@ check_north_star() {
     app_binary=
 }
 
+check_upstream_star() {
+    local fresh="$work/update-clone"
+    if check_update_repository bounded; then
+        if ! bundle_fresh bundle upstream-star; then
+            skip 'bundle failed' "${update_cases[@]:6}"
+        elif ! install_fresh install upstream-star; then
+            skip 'install failed' "${update_cases[@]:7}"
+        else
+            check_desktop_key desktop-name Name "$name"
+            check_desktop_key desktop-exec Exec "$app_binary %U"
+            check_desktop_icon
+            check_desktop_key desktop-mime MimeType "x-scheme-handler/$scheme;"
+            if ! default_handler; then
+                skip 'the installed desktop file is not the default scheme handler' url
+            elif start_fresh_url "$scheme://check" && sleep "$settle" && in_own_trace 1 &&
+                [[ $(trace_counts "$trace" "$scheme") == '1 0 0' ]]; then
+                record PASS url "$scheme://check reached PID $fresh_pid, refused once as no such extension"
+            else
+                record FAIL url 'expected one dispatch in the installed app (see update/upstream-star/url.log)'
+            fi
+            stop_fresh load_upstream_star
+            app_binary=
+        fi
+    fi
+}
+
 if (( SECONDS < deadline )); then
     config=northstar
     check_north_star
+fi
+
+if (( SECONDS < deadline )); then
+    config=update
+    check_upstream_star
 fi

@@ -64,6 +64,12 @@ Each system runs a `northstar` case in a fresh clone of the repository:
    - **Windows:** installed `.exe` `ProductName` and icon, plus the registry URL scheme key.
 4. Opens `northstar://` to verify URL delivery to North Star's own process (logged once as `no such extension` in its trace), captures a screenshot, and verifies coexistence with the sample (separate install folders, data folders, instance sockets/pipes/mutexes, URL schemes, and application menus, with each URL reaching only its own app).
 
+Each system also runs an `update` case for `cargo xtask update` (see [Upstream Updates](./development/upstream-updates.md)); the jobs check out the full history (`fetch-depth: 0`) for it:
+
+1. Clones the checkout at the commit before the current one, runs `cargo xtask new-app --name "Upstream Star" --identifier test.yard.upstreamstar --scheme upstreamstar`, and commits it with `Cargo.lock`.
+2. Runs that clone's own `cargo xtask update` against the checkout through a temporary tag, and verifies the `yard-update/<sha>` branch, `app/upstream-star/` unchanged, and `default-members` read from `HEAD:Cargo.toml`. Windows keeps Git's default `core.autocrlf`.
+3. Bundles the updated clone without `--package`, installs it, and runs the North Star identity checks and a URL check (`upstreamstar://check` reaches its own process once).
+
 ## Planning and Design Documents
 
 - [Roadmap](./development/roadmap.md): overview of every engine and the features still to build or waiting by need.

@@ -7,7 +7,10 @@ $signedArtifactCases = @('installer-signature', 'zip-extract', 'zip-signature', 
     'install', 'installed-signature', 'uninstaller-signature', 'uninstall')
 $northStarCases = @('new-app', 'bundle', 'sample-bundle', 'install', 'sample-install', 'product-name', 'icon',
     'scheme', 'url', 'screenshot', 'coexistence')
+$updateCases = @('update-clone', 'update-new-app', 'update', 'update-app-kept', 'update-manifest',
+    'bundle', 'install', 'product-name', 'icon', 'scheme', 'url')
 $expected = @{
+    update = $updateCases
     northstar = $northStarCases
     plain = $unsignedCases + @('coexistence')
     spaced = $unsignedCases
@@ -18,6 +21,7 @@ $expected = @{
 $recordFailed = $false
 # The host of every URL sent: no extension has it, so the shell refuses each URL.
 $urlHost = 'nobody'
+$coldUrl = $null
 $results = @{}
 $clock = [Diagnostics.Stopwatch]::StartNew()
 $deadline = if ($env:YARD_CHECK_SECONDS) { [int]$env:YARD_CHECK_SECONDS } else { 10200 }
@@ -271,7 +275,8 @@ function OpenUrl($phase, $forwarded) {
     if ($effective -cne $expectedCommand -or ($userChoice -and $userChoice -ne $scheme)) {
         throw 'the installed app is not the effective protocol handler'
     }
-    $status = RunProcess $env:ComSpec ('/d /c start "" "{0}://{1}/{2}-{3}"' -f $scheme, $urlHost, $phase, $nonce) 15
+    $url = if ($phase -eq 'cold' -and $coldUrl) { $coldUrl } else { "${scheme}://$urlHost/$phase-$nonce" }
+    $status = RunProcess $env:ComSpec ('/d /c start "" "{0}"' -f $url) 15
     if ($status -ne 0) { throw "start returned $status" }
     for ($attempt = 0; $attempt -lt 30 -and $clock.Elapsed.TotalSeconds -lt $deadline; $attempt++) {
         if ((TraceCounts $trace $scheme) -ceq "$expectedUrls $expectedRequests $expectedForwarded") { return }
@@ -626,14 +631,14 @@ function TraceFact($path, $key) {
 $loadFresh = {
     param($package, $label)
     $fixture = Join-Path $fresh "app/$package/product.toml"
-    $logs = Join-Path $checks "northstar/$label"
+    $logs = Join-Path $checks "$config/$label"
     New-Item -ItemType Directory -Force $logs | Out-Null
     $name = FixtureValue 'name'
     $version = FixtureValue 'version'
     $scheme = FixtureValue 'url_scheme'
     $identifier = FixtureValue 'identifier'
-    $dist = Join-Path $work "northstar-$label"
-    $appHome = Join-Path $work "northstar-$label-home"
+    $dist = Join-Path $work "$config-$label"
+    $appHome = Join-Path $work "$config-$label-home"
     $appDir = Join-Path $env:LOCALAPPDATA "Programs\$name"
     $exe = Join-Path $appDir "$name.exe"
     $schemeKey = "HKCU:\Software\Classes\$scheme"
@@ -677,7 +682,7 @@ function FreshBundle($arguments) {
         $path = Join-Path $env:CARGO_TARGET_DIR $file
         if (Test-Path -LiteralPath $path) { Copy-Item -LiteralPath $path -Destination (Join-Path $logs "bundle-$file") }
     }
-    if ($status -ne 0) { throw "exit $status (see northstar bundle logs)" }
+    if ($status -ne 0) { throw "exit $status (see $config bundle logs)" }
     if (-not (Test-Path -LiteralPath $setup)) { throw 'expected installer is missing' }
     return "created $(Split-Path $setup -Leaf)"
 }
@@ -847,6 +852,113 @@ function CheckFreshCoexistence {
         "from the installers); each URL reached its own app only, re-read after ${settle}s")
 }
 
+function UpdateGit($directory, [string[]]$gitArguments) {
+    $output = & git -C $directory @gitArguments
+    if ($LASTEXITCODE -ne 0) { throw "git $($gitArguments[0]) exit $LASTEXITCODE" }
+    return $output
+}
+
+function CheckUpdate {
+    $fresh = Join-Path $work 'update-clone'
+    $checkout = $PWD.Path
+    $ref = "refs/tags/yard-runner-update-$(Split-Path $work -Leaf)"
+    $urlHost = 'check'
+    $coldUrl = 'upstreamstar://check'
+    $updateLogs = Join-Path $checks 'update'
+    New-Item -ItemType Directory -Force $updateLogs | Out-Null
+
+    for ($index = 0; $index -lt 5; $index++) {
+        $case = $updateCases[$index]
+        try {
+            switch ($case) {
+                'update-clone' {
+                    $target = UpdateGit $checkout @('rev-parse', 'HEAD')
+                    $arguments = 'clone --quiet --no-local "{0}" "{1}"' -f $checkout, $fresh
+                    $status = RunProcess 'git' $arguments 300 "$updateLogs/clone.log" "$updateLogs/clone-stderr.log"
+                    if ($status -ne 0) { throw "git clone exit $status (see update/clone logs)" }
+                    UpdateGit $fresh @('checkout', '-B', 'upstream-star-app', "$target~1") | Out-Null
+                    $detail = "cloned YARD and checked out $target~1"
+                }
+                'update-new-app' {
+                    # new-app resolves offline, and the job fetched the newer lockfile.
+                    $status = RunProcess 'cargo.exe' 'fetch --locked' 900 "$updateLogs/fetch.log" "$updateLogs/fetch-stderr.log" $fresh
+                    if ($status -ne 0) { throw "cargo fetch exit $status (see update/fetch logs)" }
+                    $arguments = 'xtask new-app --name "Upstream Star" --identifier test.yard.upstreamstar --scheme upstreamstar --icon "{0}"' -f (Join-Path $fresh $northStarIcon)
+                    $status = RunProcess 'cargo.exe' $arguments 900 "$updateLogs/new-app.log" "$updateLogs/new-app-stderr.log" $fresh
+                    if ($status -ne 0) { throw "new-app exit $status (see update/new-app logs)" }
+                    . $loadFresh 'upstream-star' 'upstream-star'
+                    if ($name -cne 'Upstream Star' -or $identifier -cne 'test.yard.upstreamstar' -or $scheme -cne 'upstreamstar') {
+                        throw 'app/upstream-star/product.toml does not hold the given name, identifier, and scheme'
+                    }
+                    UpdateGit $fresh @('config', 'user.name', 'YARD Runner')
+                    UpdateGit $fresh @('config', 'user.email', 'runner@example.invalid')
+                    UpdateGit $fresh @('add', '--', 'Cargo.toml', 'Cargo.lock', 'app/upstream-star')
+                    UpdateGit $fresh @('commit', '-m', 'Create Upstream Star') | Out-Null
+                    $start = UpdateGit $fresh @('rev-parse', 'HEAD')
+                    $detail = "committed Upstream Star and Cargo.lock in $start"
+                }
+                'update' {
+                    $branch = "yard-update/$($target.Substring(0, 12))"
+                    UpdateGit $checkout @('update-ref', $ref, $target, ('0' * $target.Length))
+                    try {
+                        $arguments = 'xtask update --remote "{0}" --ref {1}' -f $checkout, $ref
+                        $status = RunProcess 'cargo.exe' $arguments 1500 "$updateLogs/update.log" "$updateLogs/update-stderr.log" $fresh
+                        if ($status -ne 0) { throw "update exit $status (see update/update logs)" }
+                        $actualBranch = UpdateGit $fresh @('branch', '--show-current')
+                        if ($actualBranch -cne $branch) { throw "expected branch $branch, got $actualBranch" }
+                    } finally {
+                        UpdateGit $checkout @('update-ref', '-d', $ref, $target)
+                    }
+                    $detail = "updated to YARD $target on $branch"
+                }
+                'update-app-kept' {
+                    UpdateGit $fresh @('diff', '--exit-code', '--quiet', $start, 'HEAD', '--', 'app/upstream-star')
+                    $detail = 'app/upstream-star matches the pre-update commit'
+                }
+                'update-manifest' {
+                    $manifest = UpdateGit $fresh @('show', 'HEAD:Cargo.toml')
+                    if (-not ($manifest -cmatch '^default-members\s*=\s*\[\s*"app/upstream-star"\s*,?\s*\]')) {
+                        throw 'HEAD:Cargo.toml does not set app/upstream-star as the default member'
+                    }
+                    $detail = 'HEAD:Cargo.toml sets app/upstream-star as the default member'
+                }
+            }
+            Report PASS $case $detail
+        } catch {
+            Report FAIL $case $_.Exception.Message
+            Skip "$case failed" $updateCases[($index + 1)..($updateCases.Count - 1)]
+            return
+        }
+    }
+
+    if (-not (Check bundle { FreshBundle '' })) {
+        Skip 'bundle failed' $updateCases[6..($updateCases.Count - 1)]
+        return
+    }
+    SetProductEnvironment 'info,yard_shell=debug,yard_paths=debug'
+    try {
+        if (-not (Check install { CheckInstall })) {
+            Skip 'install failed' $updateCases[7..($updateCases.Count - 1)]
+            return
+        }
+        [void](Check product-name { CheckProductName })
+        [void](Check icon { CheckExeIcon })
+        [void](Check scheme { "$(CheckScheme); $(CheckCommand)" })
+        [void](Check url {
+            $detail = CheckFreshColdUrl
+            if ((TraceCounts $trace $scheme) -cne '1 0 0') { throw 'expected exactly one dispatch in the installed app' }
+            $detail
+        })
+    } finally {
+        StopApp
+        CopyAppLogs 'app-logs'
+        SetProductEnvironment $null
+        if (Test-Path -LiteralPath $uninstallKey) {
+            try { [void](CheckUninstall) } catch { Write-Host "Could not uninstall $name." }
+        }
+    }
+}
+
 function CheckNorthStar {
     $urlHost = 'check'
     New-Item -ItemType Directory -Force (Join-Path $checks 'northstar') | Out-Null
@@ -964,9 +1076,18 @@ try {
             if (-not $results["northstar $case"]) { Report FAIL $case "skipped: $reason" }
         }
     }
+    $config = 'update'
+    try {
+        CheckUpdate
+    } catch {
+        $reason = $_.Exception.Message
+        foreach ($case in $updateCases) {
+            if (-not $results["update $case"]) { Report FAIL $case "skipped: $reason" }
+        }
+    }
 } finally {
     Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
-    foreach ($config in @('plain', 'spaced', 'other', 'signed', 'northstar')) {
+    foreach ($config in @('plain', 'spaced', 'other', 'signed', 'northstar', 'update')) {
         foreach ($case in $expected[$config]) {
             $count = $results["$config $case"]
             if (-not $count) {

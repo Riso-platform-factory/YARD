@@ -20,6 +20,9 @@ done
 northstar_cases=(new-app bundle sample-bundle plist-name plist-identifier plist-scheme icon install sample-install
     url screenshot coexistence)
 for case in "${northstar_cases[@]}"; do expected_cases+=("northstar $case"); done
+update_cases=(update-clone update-new-app update update-app-kept update-manifest bundle install
+    plist-name plist-identifier plist-scheme icon url)
+for case in "${update_cases[@]}"; do expected_cases+=("update $case"); done
 
 signed_cases=(notarize certificate bundle bundle-secrets app-identity entitlements dmg-identity
     keychain interrupt interrupt-secrets interrupt-keychain notarize-missing notarize-missing-secrets trap-keychain)
@@ -330,7 +333,7 @@ send_url() {
 }
 
 check_cold_url() {
-    local pid
+    local pid url=${1:-"$scheme://$url_host/cold-$RANDOM-$RANDOM"}
     if pgrep -f -x "$app_pattern" >/dev/null; then
         return 1
     elif [[ $? != 1 ]]; then
@@ -339,7 +342,7 @@ check_cold_url() {
     handler_is_installed && rm -f "$trace" &&
         run_bounded normal 15 open --env "${prefix}_HOME=$home" \
             --env "${prefix}_LIFECYCLE=$lifecycle_filter" \
-            "$scheme://$url_host/cold-$RANDOM-$RANDOM" >> "$logs/url.log" 2>&1 &&
+            "$url" >> "$logs/url.log" 2>&1 &&
         wait_for_counts "$trace" "$scheme" 1 0 0 &&
         pid=$(pgrep -f -x "$app_pattern") && [[ $pid =~ ^[0-9]+$ ]] &&
         printf '%s\n' "$pid"
@@ -468,18 +471,19 @@ load_fresh() {
     fixture="$fresh/app/$1/product.toml"
     read_product || return 1
     prefix=$(printf '%s' "$name" | LC_ALL=C tr '[:lower:]' '[:upper:]' | sed 's/[^A-Z0-9]/_/g')
-    logs="$checks/northstar/$2"
-    home="$work/northstar/$2/home"
+    logs="$checks/$config/$2"
+    home="$work/$config/$2/home"
     trace="$home/logs/lifecycle.jsonl"
-    dist="$work/northstar/$2/dist"
+    dist="$work/$config/$2/dist"
     app="$dist/$name.app"
-    installed_path="$work/northstar/$2/installed-path"
+    installed_path="$work/$config/$2/installed-path"
     installed=$(cat "$installed_path" 2>/dev/null) || installed=
     mkdir -p "$logs" "$home"
 }
 
 load_north_star() { load_fresh north-star north-star; }
 load_sample() { load_fresh yard sample; }
+load_upstream_star() { load_fresh upstream-star upstream-star; }
 
 bundle_fresh() {
     local case=$1 label=$2 status=0 file
@@ -494,7 +498,7 @@ bundle_fresh() {
         record PASS "$case" "created $name.app"
         return 0
     fi
-    record FAIL "$case" "exit $status or app missing (see northstar/$label/bundle.log)"
+    record FAIL "$case" "exit $status or app missing (see $config/$label/bundle.log)"
     return 1
 }
 
@@ -675,6 +679,36 @@ check_north_star() {
     stop_fresh load_sample
 }
 
+check_upstream_star() {
+    local fresh="$work/update-clone"
+    local lifecycle_filter='info,yard_shell=debug,yard_paths=debug' url_host=check
+    local pid
+    if check_update_repository run_bounded normal; then
+        if ! bundle_fresh bundle upstream-star; then
+            skip 'bundle failed' "${update_cases[@]:6}"
+        elif ! check_install; then
+            skip 'install failed' "${update_cases[@]:7}"
+        else
+            app=$installed
+            check_plist CFBundleName "$name" plist-name
+            check_plist CFBundleIdentifier "$identifier" plist-identifier
+            check_url_schemes
+            check_fresh_icon
+            if ! register_handler; then
+                skip "Launch Services did not resolve the installed app ($registration; see url.log)" url
+            elif pattern_for_app "$installed" && pid=$(check_cold_url "$scheme://check") &&
+                sleep "$settle" && in_own_trace 1 &&
+                [[ $(trace_counts "$trace" "$scheme") == '1 0 0' ]]; then
+                record PASS url "$scheme://check reached PID $pid, refused once as no such extension"
+            else
+                record FAIL url 'expected one dispatch in the installed app (see update/upstream-star/url.log)'
+            fi
+            stop_app
+            if [[ -d "$home/logs" ]]; then cp -R "$home/logs" "$logs/app-logs" || failed=1; fi
+        fi
+    fi
+}
+
 if (( SECONDS < deadline )); then
     config=northstar
     lifecycle_filter='info,yard_shell=debug,yard_paths=debug'
@@ -822,4 +856,10 @@ else
     skip 'signing setup failed' bundle bundle-secrets app-identity entitlements dmg-identity keychain interrupt interrupt-secrets interrupt-keychain
 fi
 check_missing_notarization
+unset MACOS_CERTIFICATE MACOS_CERTIFICATE_PASSWORD
+
+if (( SECONDS < deadline )); then
+    config=update
+    check_upstream_star
+fi
 

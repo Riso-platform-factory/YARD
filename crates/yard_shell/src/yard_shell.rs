@@ -1,9 +1,6 @@
 //! The window shell and extension component registry.
 
-#[cfg(feature = "dev")]
-mod dev;
-#[cfg(feature = "dev")]
-pub use dev::*;
+mod file_dialog;
 
 mod instance;
 pub use instance::*;

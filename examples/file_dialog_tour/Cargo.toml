@@ -5,10 +5,6 @@ edition.workspace = true
 publish.workspace = true
 license.workspace = true
 
-[features]
-default = ["dev"]
-dev = ["yard_shell/dev"]
-
 [dependencies]
 dirs.workspace = true
 gpui.workspace = true

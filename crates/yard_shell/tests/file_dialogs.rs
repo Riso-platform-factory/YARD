@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, PathPromptOptions, TestAppContext};
 use std::{
     cell::RefCell,

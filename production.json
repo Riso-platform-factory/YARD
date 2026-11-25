@@ -179,6 +179,12 @@
     },
     "promoted": "2026-11-19"
   },
+  "yard_shell/file_dialog": {
+    "files": {
+      "crates/yard_shell/src/file_dialog.rs": "f01c54b233bde6e2"
+    },
+    "promoted": "2026-11-25"
+  },
   "yard_shell/instance": {
     "files": {
       "crates/yard_shell/src/instance.rs": "f5b59213c71f4fef"

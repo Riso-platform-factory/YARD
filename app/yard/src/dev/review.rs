@@ -1,5 +1,5 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &["yard_shell/file_dialog"];
+pub(crate) const UNDER_REVIEW: &[&str] = &[];
 
 pub fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -21,7 +21,6 @@ pub fn run() -> bool {
     }
     let mut extensions: Vec<(&'static str, yard_app::Init)> = vec![("review", announce)];
     extensions.extend_from_slice(crate::startup::EXTENSIONS);
-    extensions.push(("file_dialog_tour", file_dialog_tour::init));
     yard_app::run(app, &extensions, crate::menus::menus);
     true
 }

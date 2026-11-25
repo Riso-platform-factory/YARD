@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 // Alone in this binary: installs the process-wide diagnostic logger and
 // captures tracing output under one scoped subscriber, so no other test can
 // race on tracing's callsite interest cache.

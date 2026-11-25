@@ -45,15 +45,15 @@ cargo xtask update --continue
 
 YARD is a template repository on GitHub. "Use this template" makes a repository whose first commit holds YARD's files but shares no history with YARD, so git finds no merge base.
 
-- The first update finds the YARD commit the application started from: among the ancestors of the YARD commit to take, the newest whose tree is identical to the tree of the developer's first commit (its root). With `--base <commit>`, the developer names it instead; it must be an ancestor of the YARD commit to take. No match, more than one root commit, or matches that are not on one line of history, and the command refuses and names `--base`.
-- On the update branch it first makes a join commit: the developer's tree unchanged, with two parents, `HEAD` and that YARD commit. It changes no file; it records that the application descends from that YARD. The merge of the new YARD then follows as for any repository, with that YARD commit as the base, the same conflicts, and `--continue`.
+- The first update finds the YARD commit the application started from: among the ancestors of the YARD commit to take, the newest whose tree is identical to the tree of the developer's first commit (its root). With `--base <commit>`, the developer names it instead; it must be an ancestor of the YARD commit to take. No match, more than one root commit, or matches that are not on one line of history, and the command refuses and names `--base`; a valid `--base` is used in each of those cases. `--base` is refused on a repository that already shares history with YARD and together with `--continue`. When the base found is the YARD commit to take itself, the repository is already up to date. A YARD history rewritten after an earlier update is refused before any base is looked for, with or without `--base`.
+- On the update branch it first makes a join commit: the developer's tree unchanged, with two parents, `HEAD` and that YARD commit. It changes no file; it records that the application descends from that YARD. The merge of the new YARD then follows as for any repository, with that YARD commit as the base, the same conflicts, and `--continue`. A stop after the join with nothing to resolve returns the update branch to the developer's commit.
 - From then on the histories are joined and later updates are ordinary.
 - A repository made by cloning or forking YARD shares the history already.
-- Whether GitHub's copy keeps every tree entry identical (for example `.github/`) is checked on a real repository made from the template, part of this slice's review.
+- GitHub's copy keeps every tree entry identical: a private repository made from the template on 2026-11-25 had one root commit whose tree equals the tree of YARD's `main` (`.github/` included).
 
 ## Logging
 
-A group `yard-update{remote, ref}` around the run (the remote without credentials); a `debug` line per step: `checked`, `fetched`, `base` (how it was found: shared history, tree match, or `--base`), `joined`, `branched`, `merged`, `manifest`, `lock`, `verified`; a refusal is an `info` with what was refused; a conflict is a `warn` listing the paths and keys; a failed check is an `error` in the diagnostic log.
+A group `yard-update{remote, ref}` around the run (the remote without credentials); a `debug` line per step: `checked`, `fetched`, `base` (how it was found: shared history, tree match, or `--base`), `branched`, `joined`, `merged`, `manifest`, `lock`, `verified`; a refusal is an `info` with what was refused; a conflict is a `warn` listing the paths and keys; a failed check is an `error` in the diagnostic log.
 
 ## The parts
 
@@ -65,7 +65,7 @@ A group `yard-update{remote, ref}` around the run (the remote without credential
 
 ### 2. Repositories made from the template
 
-- The base found by tree, `--base`, the join commit. Until this part is built, `--base` is refused.
+- The base found by tree, `--base`, the join commit.
 - **How it is checked:** a "developer" repository made as GitHub's template does (YARD's files in a new root commit); the first update joins and merges; the second is ordinary; no match refuses naming `--base`; a wrong `--base` is refused.
 - **What the review shows:** the same flow on a repository made from the template on GitHub, with the tree of its first commit compared to YARD's.
 

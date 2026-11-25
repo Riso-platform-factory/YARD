@@ -714,11 +714,18 @@ fn refuses_unrelated_history() {
     git_commit_all(&unrelated, "independent workspace");
     let before = RepoState::capture(&unrelated);
 
-    let failure = update(&unrelated, &args_for(&fixture), &mut UpdateRunner::new()).unwrap_err();
+    let mut runner = UpdateRunner::new();
+    let failure = update(&unrelated, &args_for(&fixture), &mut runner).unwrap_err();
 
     assert_eq!(failure.step, "arguments");
     assert!(failure.is_refusal());
+    assert!(
+        failure.reason.contains("--base"),
+        "refusal must name --base: {}",
+        failure.reason
+    );
     assert_eq!(RepoState::capture(&unrelated), before);
+    assert!(!runner.ran_git("merge"));
 }
 
 #[test]
@@ -1122,18 +1129,121 @@ fn unprepared_merge_reports_working_recovery_commands() {
 }
 
 #[test]
-fn refuses_base_before_changing_the_repository() {
-    let fixture = UpdateFixture::standard();
-    let before = RepoState::capture(&fixture.dev);
+fn with_base_uses_given_commit_even_when_no_tree_matches() {
+    let fixture = UpdateFixture::from_template_with_mismatched_root();
+    let north_star_before = snapshot_dir(&fixture.dev.join("app/north-star"), false);
+    let main_tree_before = tree_oid(&fixture.dev, "main");
+    let expected_branch = fixture.expected_branch();
+
     let mut args = args_for(&fixture);
-    args.base = Some(fixture.dev_commit.clone());
+    args.base = Some(fixture.base_commit.clone());
     let mut runner = UpdateRunner::new();
-    let failure = update(&fixture.dev, &args, &mut runner).unwrap_err();
-    assert_eq!(failure.step, "arguments", "{failure}");
-    assert!(failure.reason.contains("--base"));
-    assert!(failure.reason.contains("GitHub template"));
-    assert_eq!(RepoState::capture(&fixture.dev), before);
-    assert!(!runner.ran_git("fetch"));
+    let outcome = update(&fixture.dev, &args, &mut runner).unwrap();
+
+    match outcome {
+        Updated::Done {
+            branch,
+            yard_commit,
+            start,
+            carried,
+            ..
+        } => {
+            assert_eq!(branch, expected_branch);
+            assert_eq!(yard_commit, fixture.yard_commit);
+            assert_eq!(start, "main");
+            assert_eq!(carried, vec!["docs/x.md".to_owned()]);
+        }
+        other => panic!("expected Updated::Done, got {other:?}"),
+    }
+
+    let merge_parents = commit_parents(&fixture.dev, "HEAD");
+    assert_eq!(merge_parents.len(), 2);
+    assert_eq!(merge_parents[1], fixture.yard_commit);
+    let join_commit = &merge_parents[0];
+    assert_eq!(
+        commit_parents(&fixture.dev, join_commit),
+        vec![fixture.dev_commit.clone(), fixture.base_commit.clone()]
+    );
+    assert_eq!(
+        tree_oid(&fixture.dev, join_commit),
+        tree_oid(&fixture.dev, &fixture.dev_commit)
+    );
+
+    assert_eq!(rev_oid(&fixture.dev, "main"), fixture.dev_commit);
+    assert_eq!(tree_oid(&fixture.dev, "main"), main_tree_before);
+    assert_eq!(
+        snapshot_dir(&fixture.dev.join("app/north-star"), false),
+        north_star_before
+    );
+    assert!(runner.ran_cargo_test_yard());
+    assert!(runner.ran_cargo_check_locked());
+}
+
+#[test]
+fn with_base_overrides_matching_tree_with_given_ancestor() {
+    let mut fixture = UpdateFixture::from_template_at_base();
+    git(
+        &fixture.yard,
+        &[
+            "commit",
+            "--allow-empty",
+            "-m",
+            "newer commit with same tree",
+        ],
+    );
+    let newer_base = rev_oid(&fixture.yard, "HEAD");
+    assert_ne!(newer_base, fixture.base_commit);
+    fixture.advance_yard_standard();
+
+    let mut args = args_for(&fixture);
+    args.base = Some(fixture.base_commit.clone());
+    let mut runner = UpdateRunner::new();
+    let outcome = update(&fixture.dev, &args, &mut runner).unwrap();
+    assert!(matches!(outcome, Updated::Done { .. }), "{outcome:?}");
+
+    let merge_parents = commit_parents(&fixture.dev, "HEAD");
+    assert_eq!(merge_parents.len(), 2);
+    let join_commit = &merge_parents[0];
+    assert_eq!(
+        commit_parents(&fixture.dev, join_commit),
+        vec![fixture.dev_commit.clone(), fixture.base_commit.clone()],
+        "explicit --base must override tree matching"
+    );
+}
+
+#[test]
+fn refuses_base_not_an_ancestor_of_yard_commit() {
+    let fixture = UpdateFixture::from_template();
+    git(
+        &fixture.yard,
+        &["checkout", "-b", "side", &fixture.base_commit],
+    );
+    write_file(&fixture.yard.join("docs/x.md"), "Side branch doc.\n");
+    let side_commit = git_commit_all(&fixture.yard, "side branch commit");
+    git(&fixture.yard, &["checkout", "main"]);
+    git(&fixture.dev, &["fetch", &fixture.yard_remote(), "side"]);
+
+    let unknown_commit = "0123456789abcdef0123456789abcdef01234567".to_owned();
+    for bad_base in [side_commit, fixture.dev_commit.clone(), unknown_commit] {
+        let before = RepoState::capture(&fixture.dev);
+        let mut args = args_for(&fixture);
+        args.base = Some(bad_base.clone());
+        let mut runner = UpdateRunner::new();
+        let failure = update(&fixture.dev, &args, &mut runner).unwrap_err();
+
+        assert_eq!(
+            failure.step, "arguments",
+            "for --base {bad_base}: {failure}"
+        );
+        assert!(failure.is_refusal(), "for --base {bad_base}: {failure}");
+        assert!(
+            failure.reason.contains("--base"),
+            "refusal for {bad_base} must name --base: {}",
+            failure.reason
+        );
+        assert_eq!(RepoState::capture(&fixture.dev), before);
+        assert!(!runner.ran_git("merge"));
+    }
 }
 
 #[test]

@@ -20,6 +20,7 @@ const BRANCH_PREFIX: &str = "yard-update/";
 const PREPARED: &str = "YARD-Update-Prepared: true";
 const MERGE_SUBJECT: &str = "Update YARD to ";
 const DEVELOPER_APP: &[&str] = &["app", ":(exclude)app/yard"];
+const SHARED: &str = "shared history";
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct UpdateArgs {
@@ -394,12 +395,6 @@ impl Repo<'_> {
         remote: &str,
         reference: &str,
     ) -> Result<(Updated, Report), Failure> {
-        // TODO(upstream-updates-template): Support --base for template repositories. Implement Part 2.
-        if args.base.is_some() {
-            return Err(refusal(
-                "--base is for repositories made from the GitHub template, which this version does not support yet",
-            ));
-        }
         let current = self.capture(
             "git",
             &["symbolic-ref", "--quiet", "--short", "HEAD"],
@@ -416,6 +411,11 @@ impl Repo<'_> {
         }
         let merge_head = self.git_path("MERGE_HEAD")?;
         if args.resume {
+            if args.base.is_some() {
+                return Err(refusal(
+                    "--base applies only to the first update of a repository made from the GitHub template, not to --continue",
+                ));
+            }
             if current.starts_with(BRANCH_PREFIX) && !merge_head.is_file() {
                 let head = self.git(&["log", "-1", "--format=%P%n%B"])?;
                 let mut lines = head.lines();
@@ -474,9 +474,9 @@ impl Repo<'_> {
             let mut lock = None;
             let result = (|| {
                 self.check_yard_app(&yard)?;
-                let base = self.base(&yard)?;
+                let (base, how) = self.base(&yard, None)?;
                 tracing::debug!("checked");
-                tracing::debug!("base: shared history");
+                tracing::debug!("base: {how}");
                 lock = Some(self.resume_lock()?);
                 self.finish(
                     Merge {
@@ -590,13 +590,18 @@ impl Repo<'_> {
         }
         tracing::debug!("fetched");
         let yard = self.git_trim(&["rev-parse", "--verify", "FETCH_HEAD^{commit}"])?;
-        let base = self.base(&yard)?;
-        tracing::debug!("base: shared history");
+        let merged = self.ancestor(&yard, "HEAD")?;
+        if !merged {
+            // Before base inference: a replaced YARD shares no history and would look like a template.
+            self.check_rewrite(&yard)?;
+        }
+        let (base, how) = self.base(&yard, args.base.as_deref())?;
+        tracing::debug!("base: {how}");
+        let join = how != SHARED;
         self.check_yard_app(&yard)?;
-        if self.ancestor(&yard, "HEAD")? {
+        if merged || base == yard {
             return Ok((Updated::UpToDate { yard_commit: yard }, Report::default()));
         }
-        self.check_rewrite(&yard)?;
         let branch = format!("{BRANCH_PREFIX}{}", &yard[..12]);
         if self.predicate(&[
             "show-ref",
@@ -638,10 +643,26 @@ impl Repo<'_> {
                 }
             }
         }
+        let start_commit = self.git_trim(&["rev-parse", "HEAD"])?;
         self.git(&["checkout", "--no-overwrite-ignore", "-b", &branch])?;
         tracing::debug!("branched");
         let message = format!("{MERGE_SUBJECT}{yard}\n\nYARD-Update-Start: {current}");
         let result = (|| {
+            if join {
+                // Records that the application descends from the YARD base; changes no file.
+                let joined = self.git_trim(&[
+                    "commit-tree",
+                    "HEAD^{tree}",
+                    "-p",
+                    "HEAD",
+                    "-p",
+                    &base,
+                    "-m",
+                    &format!("Join YARD {base}"),
+                ])?;
+                self.git(&["update-ref", "HEAD", &joined, &start_commit])?;
+                tracing::debug!("joined");
+            }
             let merge = self.capture(
                 "git",
                 &[
@@ -675,10 +696,11 @@ impl Repo<'_> {
         let mut updated = result.map_err(|mut failure| {
             if failure.step != "verify" {
                 let mut needs_reset = false;
-                if merge_head.is_file() {
+                if merge_head.is_file() || join {
                     // The update started from a clean checkout, so the
                     // in-progress changes belong to this run.
-                    match self.git_even_if_interrupted(&["reset", "--hard", "HEAD"]) {
+                    let target = if join { start_commit.as_str() } else { "HEAD" };
+                    match self.git_even_if_interrupted(&["reset", "--hard", target]) {
                         Ok(_) => tracing::debug!("rolled back incomplete merge"),
                         Err(error) => {
                             log::error!("could not roll back incomplete merge: {error}");
@@ -717,11 +739,72 @@ impl Repo<'_> {
         updated
     }
 
-    fn base(&mut self, yard: &str) -> Result<String, Failure> {
-        if !self.predicate(&["merge-base", "HEAD", yard])? {
-            return Err(refusal("this repository shares no history with YARD"));
+    /// The YARD commit the developer's history starts from, and how it was found.
+    fn base(
+        &mut self,
+        yard: &str,
+        explicit: Option<&str>,
+    ) -> Result<(String, &'static str), Failure> {
+        if self.predicate(&["merge-base", "HEAD", yard])? {
+            if explicit.is_some() {
+                return Err(refusal(
+                    "--base is only for a repository made from the GitHub template; this one shares history with YARD",
+                ));
+            }
+            return Ok((self.git_trim(&["merge-base", "HEAD", yard])?, SHARED));
         }
-        self.git_trim(&["merge-base", "HEAD", yard])
+        if let Some(explicit) = explicit {
+            let resolved = self.capture(
+                "git",
+                &[
+                    "rev-parse",
+                    "--verify",
+                    "--quiet",
+                    "--end-of-options",
+                    &format!("{explicit}^{{commit}}"),
+                ],
+                "git",
+            )?;
+            let base = String::from_utf8_lossy(&resolved.stdout).trim().to_owned();
+            if !resolved.success || base.is_empty() || !self.ancestor(&base, yard)? {
+                return Err(refusal(format!(
+                    "--base {} is not an ancestor of YARD {yard}",
+                    scrub_urls(explicit)
+                )));
+            }
+            return Ok((base, "--base"));
+        }
+        let unrelated = "this repository shares no history with YARD and";
+        let name_base = "name the YARD commit it was made from with --base <commit>";
+        let roots = self.git(&["rev-list", "--max-parents=0", "HEAD"])?;
+        let [root] = roots.lines().collect::<Vec<_>>()[..] else {
+            return Err(refusal(format!(
+                "{unrelated} has more than one root commit; {name_base}"
+            )));
+        };
+        let tree = self.git_trim(&["rev-parse", &format!("{root}^{{tree}}")])?;
+        // Topological order lists a descendant before its ancestors.
+        let history = self.git(&["log", "--topo-order", "--format=%H %T", yard])?;
+        let matches: Vec<_> = history
+            .lines()
+            .filter_map(|line| line.split_once(' '))
+            .filter(|(_, commit_tree)| *commit_tree == tree)
+            .map(|(commit, _)| commit.to_owned())
+            .collect();
+        let Some(newest) = matches.first() else {
+            return Err(refusal(format!(
+                "{unrelated} no YARD commit has the tree of its first commit; {name_base}"
+            )));
+        };
+        for pair in matches.windows(2) {
+            if !self.ancestor(&pair[1], &pair[0])? {
+                return Err(refusal(format!(
+                    "{unrelated} YARD commits on separate lines of history match its first commit ({} and {}); {name_base}",
+                    pair[0], pair[1]
+                )));
+            }
+        }
+        Ok((newest.clone(), "tree match"))
     }
 
     fn check_rewrite(&mut self, yard: &str) -> Result<(), Failure> {

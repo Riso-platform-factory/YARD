@@ -339,6 +339,18 @@ pub fn rev_oid(dir: &Path, rev: &str) -> String {
     git(dir, &["rev-parse", rev])
 }
 
+pub fn is_ancestor(dir: &Path, older: &str, newer: &str) -> bool {
+    git_status(dir, &["merge-base", "--is-ancestor", older, newer]).success()
+}
+
+pub fn root_commits(dir: &Path) -> Vec<String> {
+    git(dir, &["rev-list", "--max-parents=0", "HEAD"])
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
 pub fn tree_oid(dir: &Path, rev: &str) -> String {
     git(dir, &["rev-parse", &format!("{rev}^{{tree}}")])
 }
@@ -572,6 +584,61 @@ pub struct UpdateFixture {
     pub yard_commit: String,
 }
 
+pub fn write_yard_v1_files(yard: &Path) {
+    write_file(&yard.join("Cargo.toml"), YARD_V1_ROOT_MANIFEST);
+    write_file(
+        &yard.join("app/yard/Cargo.toml"),
+        "[package]\nname = \"yard\"\nversion = \"0.1.0\"\nedition.workspace = true\n\n\
+         [dependencies]\nengine.workspace = true\n",
+    );
+    write_file(
+        &yard.join("app/yard/src/main.rs"),
+        "fn main() {\n    let _ = engine::version();\n}\n",
+    );
+    write_file(
+        &yard.join("crates/engine/Cargo.toml"),
+        "[package]\nname = \"engine\"\nversion = \"0.1.0\"\nedition.workspace = true\n",
+    );
+    write_file(
+        &yard.join("crates/engine/src/lib.rs"),
+        "pub fn version() -> &'static str {\n    \"1\"\n}\n",
+    );
+    write_file(
+        &yard.join("docs/x.md"),
+        "# YARD Docs\n\nLine one.\nLine two.\nLine three.\n",
+    );
+    cargo_generate_lockfile(yard, true);
+}
+
+fn create_yard_v1(yard: &Path) -> String {
+    git_init(yard);
+    write_yard_v1_files(yard);
+    git_commit_all(yard, "initial yard")
+}
+
+pub fn add_north_star(dev: &Path) -> String {
+    write_file(&dev.join("Cargo.toml"), DEV_ROOT_MANIFEST);
+    write_file(
+        &dev.join("app/north-star/Cargo.toml"),
+        "[package]\nname = \"north-star\"\nversion = \"0.1.0\"\nedition.workspace = true\n\n\
+         [dependencies]\nengine.workspace = true\nnotes = { path = \"extensions/notes\" }\n",
+    );
+    write_file(
+        &dev.join("app/north-star/src/main.rs"),
+        "fn main() {\n    let _ = (engine::version(), notes::name());\n}\n",
+    );
+    write_file(
+        &dev.join("app/north-star/extensions/notes/Cargo.toml"),
+        "[package]\nname = \"notes\"\nversion = \"0.1.0\"\nedition.workspace = true\n",
+    );
+    write_file(
+        &dev.join("app/north-star/extensions/notes/src/lib.rs"),
+        "pub fn name() -> &'static str {\n    \"notes\"\n}\n",
+    );
+    cargo_generate_lockfile(dev, true);
+    git_commit_all(dev, "add north-star application")
+}
+
 impl UpdateFixture {
     /// Creates YARD at commit 1 (`base_commit`) and clones it to `dev`, adding
     /// `app/north-star/` and `app/north-star/extensions/notes/` (`dev_commit`).
@@ -582,31 +649,7 @@ impl UpdateFixture {
         let yard = temp.path().join("yard");
         let dev = temp.path().join("dev");
 
-        git_init(&yard);
-        write_file(&yard.join("Cargo.toml"), YARD_V1_ROOT_MANIFEST);
-        write_file(
-            &yard.join("app/yard/Cargo.toml"),
-            "[package]\nname = \"yard\"\nversion = \"0.1.0\"\nedition.workspace = true\n\n\
-             [dependencies]\nengine.workspace = true\n",
-        );
-        write_file(
-            &yard.join("app/yard/src/main.rs"),
-            "fn main() {\n    let _ = engine::version();\n}\n",
-        );
-        write_file(
-            &yard.join("crates/engine/Cargo.toml"),
-            "[package]\nname = \"engine\"\nversion = \"0.1.0\"\nedition.workspace = true\n",
-        );
-        write_file(
-            &yard.join("crates/engine/src/lib.rs"),
-            "pub fn version() -> &'static str {\n    \"1\"\n}\n",
-        );
-        write_file(
-            &yard.join("docs/x.md"),
-            "# YARD Docs\n\nLine one.\nLine two.\nLine three.\n",
-        );
-        cargo_generate_lockfile(&yard, true);
-        let base_commit = git_commit_all(&yard, "initial yard");
+        let base_commit = create_yard_v1(&yard);
 
         git(
             temp.path(),
@@ -614,26 +657,7 @@ impl UpdateFixture {
         );
         configure_git_repo(&dev);
 
-        write_file(&dev.join("Cargo.toml"), DEV_ROOT_MANIFEST);
-        write_file(
-            &dev.join("app/north-star/Cargo.toml"),
-            "[package]\nname = \"north-star\"\nversion = \"0.1.0\"\nedition.workspace = true\n\n\
-             [dependencies]\nengine.workspace = true\nnotes = { path = \"extensions/notes\" }\n",
-        );
-        write_file(
-            &dev.join("app/north-star/src/main.rs"),
-            "fn main() {\n    let _ = (engine::version(), notes::name());\n}\n",
-        );
-        write_file(
-            &dev.join("app/north-star/extensions/notes/Cargo.toml"),
-            "[package]\nname = \"notes\"\nversion = \"0.1.0\"\nedition.workspace = true\n",
-        );
-        write_file(
-            &dev.join("app/north-star/extensions/notes/src/lib.rs"),
-            "pub fn name() -> &'static str {\n    \"notes\"\n}\n",
-        );
-        cargo_generate_lockfile(&dev, true);
-        let dev_commit = git_commit_all(&dev, "add north-star application");
+        let dev_commit = add_north_star(&dev);
 
         Self {
             temp,
@@ -650,6 +674,78 @@ impl UpdateFixture {
     /// `Cargo.lock`.
     pub fn standard() -> Self {
         let mut fixture = Self::at_base();
+        fixture.advance_yard_standard();
+        fixture
+    }
+
+    /// Template fixture at base: `yard` is at `base_commit`, and `dev` is a
+    /// brand-new repository (sharing no git history with `yard`) whose single
+    /// root commit holds the exact tree of `base_commit`, followed by
+    /// `dev_commit` adding `app/north-star/`.
+    pub fn from_template_at_base() -> Self {
+        let temp = tempdir();
+        let yard = temp.path().join("yard");
+        let dev = temp.path().join("dev");
+
+        let base_commit = create_yard_v1(&yard);
+
+        git_init(&dev);
+        let prefix = format!("--prefix={}/", dev.to_string_lossy().replace('\\', "/"));
+        git(&yard, &["checkout-index", "--all", &prefix]);
+        let root_commit = git_commit_all(&dev, "initial commit from template");
+        assert_eq!(
+            tree_oid(&dev, &root_commit),
+            tree_oid(&yard, &base_commit),
+            "template root commit must match YARD base tree"
+        );
+        let dev_commit = add_north_star(&dev);
+
+        Self {
+            temp,
+            yard,
+            dev,
+            yard_commit: base_commit.clone(),
+            base_commit,
+            dev_commit,
+        }
+    }
+
+    /// Template fixture with YARD advanced to v2.
+    pub fn from_template() -> Self {
+        let mut fixture = Self::from_template_at_base();
+        fixture.advance_yard_standard();
+        fixture
+    }
+
+    /// Template fixture whose `dev` root commit was modified before committing,
+    /// so its root tree matches no YARD commit, and YARD has advanced to v2.
+    pub fn from_template_with_mismatched_root() -> Self {
+        let temp = tempdir();
+        let yard = temp.path().join("yard");
+        let dev = temp.path().join("dev");
+
+        let base_commit = create_yard_v1(&yard);
+
+        git_init(&dev);
+        let prefix = format!("--prefix={}/", dev.to_string_lossy().replace('\\', "/"));
+        git(&yard, &["checkout-index", "--all", &prefix]);
+        write_file(&dev.join("docs/x.md"), "# Modified template root\n");
+        let root_commit = git_commit_all(&dev, "initial commit with modified root");
+        assert_ne!(
+            tree_oid(&dev, &root_commit),
+            tree_oid(&yard, &base_commit),
+            "mismatched template root must differ from YARD base tree"
+        );
+        let dev_commit = add_north_star(&dev);
+
+        let mut fixture = Self {
+            temp,
+            yard,
+            dev,
+            yard_commit: base_commit.clone(),
+            base_commit,
+            dev_commit,
+        };
         fixture.advance_yard_standard();
         fixture
     }

@@ -11,7 +11,7 @@ mod support;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
-use support::{TempDir, tempdir};
+use support::{TempDir, new_app_manifest, new_app_workspace_targets, tempdir};
 use xtask::{Made, NewAppArgs, new_app};
 
 const WORKSPACE_TOML: &str = "\
@@ -43,7 +43,7 @@ fn workspace_with_manifest(manifest: &str) -> TempDir {
     let temp = tempdir();
     let root = temp.path();
 
-    fs::write(root.join("Cargo.toml"), manifest).unwrap();
+    fs::write(root.join("Cargo.toml"), new_app_manifest(manifest)).unwrap();
 
     let yard = root.join("app/yard");
     fs::create_dir_all(&yard).unwrap();
@@ -72,6 +72,7 @@ fn workspace_with_manifest(manifest: &str) -> TempDir {
     )
     .unwrap();
 
+    new_app_workspace_targets(root);
     temp
 }
 
@@ -462,7 +463,11 @@ fn makes_the_application_and_updates_the_workspace() {
 
     // Root Cargo.toml differs ONLY in default-members (`app/*` already covers `app/north-star`).
     let updated_root = fs::read_to_string(root.join("Cargo.toml")).unwrap();
-    assert_root_cargo_toml_defaults_updated(WORKSPACE_TOML, &updated_root, "app/north-star");
+    assert_root_cargo_toml_defaults_updated(
+        &new_app_manifest(WORKSPACE_TOML),
+        &updated_root,
+        "app/north-star",
+    );
 }
 
 #[test]
@@ -1190,7 +1195,11 @@ fn leftover_temp_folder_is_removed_by_the_next_run() {
     );
     assert!(made.folder.join("product.toml").is_file());
     let updated_root = fs::read_to_string(root.join("Cargo.toml")).unwrap();
-    assert_root_cargo_toml_defaults_updated(WORKSPACE_TOML, &updated_root, "app/north-star");
+    assert_root_cargo_toml_defaults_updated(
+        &new_app_manifest(WORKSPACE_TOML),
+        &updated_root,
+        "app/north-star",
+    );
 }
 
 #[test]
@@ -1208,7 +1217,11 @@ fn leftover_temp_manifest_is_removed_by_the_next_run() {
     );
     assert!(made.folder.join("product.toml").is_file());
     let updated_root = fs::read_to_string(root.join("Cargo.toml")).unwrap();
-    assert_root_cargo_toml_defaults_updated(WORKSPACE_TOML, &updated_root, "app/north-star");
+    assert_root_cargo_toml_defaults_updated(
+        &new_app_manifest(WORKSPACE_TOML),
+        &updated_root,
+        "app/north-star",
+    );
 }
 
 #[test]
@@ -1297,7 +1310,7 @@ exclude = [\"tooling/runner-checks\"]
     let made = new_app(temp.path(), &north_star()).unwrap();
     assert_eq!(made.folder, temp.path().join("app/north-star"));
     let after = fs::read_to_string(temp.path().join("Cargo.toml")).unwrap();
-    assert_eq!(after, expected);
+    assert_eq!(after, new_app_manifest(expected));
 }
 
 #[test]
@@ -1328,7 +1341,7 @@ default-members = [\"app/north-star\"]
     let temp = workspace_with_manifest(before);
     new_app(temp.path(), &north_star()).unwrap();
     let after = fs::read_to_string(temp.path().join("Cargo.toml")).unwrap();
-    assert_eq!(after, expected);
+    assert_eq!(after, new_app_manifest(expected));
 }
 
 #[test]
@@ -1355,7 +1368,7 @@ edition = \"2024\"
     let temp = workspace_with_manifest(before);
     new_app(temp.path(), &north_star()).unwrap();
     let after = fs::read_to_string(temp.path().join("Cargo.toml")).unwrap();
-    assert_eq!(after, expected);
+    assert_eq!(after, new_app_manifest(expected));
 }
 
 #[test]
@@ -1387,7 +1400,8 @@ default-members = [\"app/north-star\"]
         new_app(temp.path(), &north_star()).unwrap();
         let after = fs::read_to_string(temp.path().join("Cargo.toml")).unwrap();
         assert_eq!(
-            after, expected,
+            after,
+            new_app_manifest(&expected),
             "members [{members_list}] already covers app/north-star and must not change"
         );
     }
@@ -1420,7 +1434,7 @@ yard_ui = { path = \"crates/yard_ui\", default-features = false, features = [\"d
     let temp = workspace_with_manifest(before);
     new_app(temp.path(), &north_star()).unwrap();
     let after = fs::read_to_string(temp.path().join("Cargo.toml")).unwrap();
-    assert_eq!(after, expected);
+    assert_eq!(after, new_app_manifest(expected));
 }
 
 #[test]
@@ -1499,4 +1513,23 @@ fn sample_linux_name_collision_comes_from_sample_config() {
         failure.reason
     );
     assert_eq!(snapshot(root), before);
+}
+
+#[test]
+fn adds_application_to_lock_without_moving_existing_packages() {
+    use support::update::{cargo_generate_lockfile, lock_packages};
+
+    let temp = workspace();
+    let root = temp.path();
+    let lock = root.join("Cargo.lock");
+    cargo_generate_lockfile(root, true);
+    let mut expected = lock_packages(&lock);
+
+    new_app(root, &north_star()).unwrap();
+
+    expected.push(("north-star".into(), "0.1.0".into(), None));
+    expected.sort();
+    let mut actual = lock_packages(&lock);
+    actual.sort();
+    assert_eq!(actual, expected);
 }

@@ -4,11 +4,14 @@ use std::borrow::Cow;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
+use std::process::Command;
 
 use serde::Deserialize;
 use toml::Spanned;
 
-use super::bundle::{Arch, Failure, Interrupt, PackageSystem, log_outcome, package_checks};
+use super::bundle::{
+    Arch, Failure, Interrupt, PackageSystem, Runner, SystemRunner, log_outcome, package_checks,
+};
 
 const STAGING_FOLDER: &str = ".application.new-app";
 const STAGING_PREFIX: &str = ".application.new-app-";
@@ -41,17 +44,17 @@ pub struct Made {
 }
 
 #[derive(Deserialize)]
-struct Manifest {
-    workspace: Workspace,
+pub(super) struct Manifest {
+    pub(super) workspace: Workspace,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
-struct Workspace {
-    members: Spanned<Vec<Spanned<String>>>,
-    default_members: Option<Spanned<Vec<String>>>,
+pub(super) struct Workspace {
+    pub(super) members: Spanned<Vec<Spanned<String>>>,
+    pub(super) default_members: Option<Spanned<Vec<String>>>,
     #[serde(default)]
-    exclude: Vec<String>,
+    pub(super) exclude: Vec<String>,
 }
 
 /// Creates `app/<package>/` and sets it as the workspace default.
@@ -231,14 +234,38 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
     let covered = expanded(root, members)?
         .iter()
         .any(|path| normalized(path) == Path::new(&member));
-    let manifest = update_manifest(manifest, workspace, &member, covered);
+    let updated = update_manifest(manifest.clone(), workspace, &member, covered);
     let replacement = root.join("Cargo.toml.new-app");
     if exists(&replacement)? {
         fs::remove_file(&replacement).map_err(|error| filesystem(&replacement, error))?;
     }
-    write(&replacement, manifest)?;
+    write(&replacement, updated)?;
     fs::rename(&replacement, &manifest_path).map_err(|error| filesystem(&manifest_path, error))?;
     tracing::debug!("workspace");
+
+    let mut cargo = Command::new("cargo");
+    cargo
+        .current_dir(root)
+        .args(["update", "--workspace", "--offline"]);
+    let result = SystemRunner {
+        interrupt: Interrupt::default(),
+    }
+    .capture(&mut cargo)
+    .and_then(|output| {
+        if output.success {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).trim().to_owned())
+        }
+    });
+    if let Err(reason) = result {
+        write(&replacement, manifest)?;
+        fs::rename(&replacement, &manifest_path)
+            .map_err(|error| filesystem(&manifest_path, error))?;
+        fs::remove_dir_all(&folder).map_err(|error| filesystem(&folder, error))?;
+        return Err(Failure::new("update-lock", reason));
+    }
+    tracing::debug!("lock");
 
     Ok(Made {
         folder,
@@ -496,29 +523,65 @@ fn normalized(path: &Path) -> PathBuf {
     normalized
 }
 
-fn update_manifest(mut text: String, workspace: Workspace, member: &str, covered: bool) -> String {
+fn update_manifest(text: String, workspace: Workspace, member: &str, covered: bool) -> String {
+    let additions = [member];
+    edit_manifest(
+        text,
+        workspace,
+        Some(&[member]),
+        if covered { &[] } else { &additions },
+    )
+}
+
+pub(super) fn edit_manifest(
+    mut text: String,
+    workspace: Workspace,
+    defaults: Option<&[&str]>,
+    additions: &[&str],
+) -> String {
     let members = workspace.members.span();
     let newline = if text.contains("\r\n") { "\r\n" } else { "\n" };
-    let member = toml_string(member);
-    let default_value = format!("[{member}]");
     let mut edits = Vec::new();
-    if let Some(default) = workspace.default_members {
-        edits.push((default.span(), default_value));
-    } else {
-        let (position, line) = match text[members.end..].find('\n') {
-            Some(offset) => (
-                members.end + offset + 1,
-                format!("default-members = {default_value}{newline}"),
-            ),
-            None => (
-                text.len(),
-                format!("{newline}default-members = {default_value}"),
-            ),
-        };
-        edits.push((position..position, line));
+    if let Some(defaults) = defaults {
+        let default_value = format!(
+            "[{}]",
+            defaults
+                .iter()
+                .map(|entry| toml_string(entry))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        if let Some(default) = workspace.default_members {
+            edits.push((default.span(), default_value));
+        } else if text[members.end..].trim_start().starts_with([',', '}']) {
+            let line = format!(", default-members = {default_value}");
+            edits.push((members.end..members.end, line));
+        } else {
+            // A dotted members key may sit outside a [workspace] header.
+            let before = text[..members.start]
+                .rsplit('\n')
+                .next()
+                .unwrap_or_default();
+            let dotted = toml::from_str::<toml::Table>(&format!("{before}[]"))
+                .is_ok_and(|table| table.contains_key("workspace"));
+            let key = if dotted {
+                "workspace.default-members"
+            } else {
+                "default-members"
+            };
+            let (position, line) = match text[members.end..].find('\n') {
+                Some(offset) => (
+                    members.end + offset + 1,
+                    format!("{key} = {default_value}{newline}"),
+                ),
+                None => (text.len(), format!("{newline}{key} = {default_value}")),
+            };
+            edits.push((position..position, line));
+        }
     }
-
-    if !covered {
+    if !additions.is_empty() {
+        let additions: Vec<_> = additions.iter().map(|entry| toml_string(entry)).collect();
+        let member = additions.join(", ");
         let close = members.end - 1;
         let last = workspace.members.get_ref().last();
         let tail = last.map_or(members.start + 1, |entry| entry.span().end);
@@ -537,8 +600,9 @@ fn update_manifest(mut text: String, workspace: Workspace, member: &str, covered
                     prefix.trim().is_empty().then_some(prefix)
                 })
                 .unwrap_or("    ");
+            let entries = additions.join(&format!(",{newline}{indent}"));
             let comma = if trailing_comma { "," } else { "" };
-            edits.push((line..line, format!("{indent}{member}{comma}{newline}")));
+            edits.push((line..line, format!("{indent}{entries}{comma}{newline}")));
             if last.is_some() && !trailing_comma {
                 edits.push((tail..tail, ",".into()));
             }
@@ -558,7 +622,7 @@ fn update_manifest(mut text: String, workspace: Workspace, member: &str, covered
     text
 }
 
-fn expanded<'a>(
+pub(super) fn expanded<'a>(
     root: &Path,
     patterns: impl IntoIterator<Item = &'a str>,
 ) -> Result<Vec<PathBuf>, Failure> {

@@ -1,6 +1,6 @@
 #![cfg(feature = "dev")]
 //! `new_app` runs inside the group `new-app{name, identifier}`: a `debug` line
-//! per step (`checked`, `written`, `renamed`, `workspace`) in order on
+//! per step (`checked`, `written`, `renamed`, `workspace`, `lock`) in order on
 //! success, and `refused: <reason>` at `INFO` with no `ERROR` on a refusal.
 //!
 //! This test captures `tracing` output and starts `yard_log`, which installs a
@@ -117,7 +117,7 @@ fn workspace() -> TempDir {
     let root = temp.path();
     fs::write(
         root.join("Cargo.toml"),
-        "[workspace]\nresolver = \"3\"\nmembers = [\"app/*\", \"crates/*\"]\ndefault-members = [\"app/yard\"]\n",
+        support::new_app_manifest("[workspace]\nresolver = \"3\"\nmembers = [\"app/*\", \"crates/*\"]\ndefault-members = [\"app/yard\"]\n"),
     )
     .unwrap();
     let yard = root.join("app/yard");
@@ -137,6 +137,7 @@ fn workspace() -> TempDir {
         "[package]\nname = \"yard_ui\"\nversion = \"0.1.0\"\nedition.workspace = true\n",
     )
     .unwrap();
+    support::new_app_workspace_targets(root);
     temp
 }
 
@@ -216,14 +217,14 @@ fn new_app_runs_inside_the_new_app_group() {
             .collect()
     };
 
-    // Success run: four debug steps in order, no ERROR.
+    // Success run: five debug steps in order, no ERROR.
     let ok_lines = lines_in(&groups[0].0);
     let debug_messages: Vec<&str> = ok_lines
         .iter()
         .filter(|(level, _)| *level == Level::DEBUG)
         .map(|(_, message)| message.as_str())
         .collect();
-    let expected_steps = ["checked", "written", "renamed", "workspace"];
+    let expected_steps = ["checked", "written", "renamed", "workspace", "lock"];
     let mut cursor = 0;
     for step in expected_steps {
         let found = debug_messages[cursor..]

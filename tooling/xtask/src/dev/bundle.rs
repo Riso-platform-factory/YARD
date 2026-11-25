@@ -27,6 +27,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use super::new_app::{NewAppArgs, new_app};
+use super::update::{UpdateArgs, run_update};
 
 use clap::{Parser, Subcommand};
 use serde_json::Value;
@@ -53,6 +54,8 @@ enum Task {
     Bundle(System),
     /// Creates a workspace application in app/<name>/.
     NewApp(NewAppArgs),
+    /// Bring a later YARD into a branch for review.
+    Update(UpdateArgs),
     /// What Inno Setup runs to sign the installer and the uninstaller of
     /// `bundle windows`, from what that run gave it.
     #[command(hide = true)]
@@ -119,7 +122,7 @@ pub struct Failure {
 }
 
 impl Failure {
-    fn new(step: &'static str, reason: impl fmt::Display) -> Self {
+    pub(super) fn new(step: &'static str, reason: impl fmt::Display) -> Self {
         Self {
             step,
             reason: reason.to_string(),
@@ -130,7 +133,7 @@ impl Failure {
     pub fn is_refusal(&self) -> bool {
         matches!(
             self.step,
-            "arguments" | "package" | "config" | "secrets" | "tools"
+            "arguments" | "package" | "config" | "secrets" | "tools" | "lock"
         )
     }
 }
@@ -353,13 +356,14 @@ pub fn main() -> ExitCode {
     yard_log::startup_finished();
     let interrupt = Interrupt::default();
     let handler = interrupt.clone();
-    if matches!(args.task, Task::Bundle(_))
+    if matches!(args.task, Task::Bundle(_) | Task::Update(_))
         && let Err(error) = ctrlc::set_handler(move || handler.set())
     {
         log::warn!("could not handle interrupts: {error}");
     }
     let root = repository();
     match args.task {
+        Task::Update(options) => yard_log::exit(run_update(&root, &options, interrupt).into()),
         Task::NewApp(options) => match new_app(&root, &options) {
             Ok(made) => {
                 println!(
@@ -828,7 +832,7 @@ fn step(name: &'static str, interrupt: &Interrupt) -> Result<(), Failure> {
 }
 
 /// Stops the run at `step` once it was interrupted.
-fn not_interrupted(step: &'static str, interrupt: &Interrupt) -> Result<(), Failure> {
+pub(super) fn not_interrupted(step: &'static str, interrupt: &Interrupt) -> Result<(), Failure> {
     if interrupt.is_set() {
         tracing::info!("interrupted; stopping after the current step");
         return Err(Failure::new(step, INTERRUPTED));

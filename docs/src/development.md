@@ -8,13 +8,13 @@ This section is for contributors working on YARD itself. See `AGENTS.md` at the 
 - `extensions/`: platform extensions shipped with YARD (`command_palette`).
 - `app/yard/`: the sample application and composition root, plus `app/yard/src/dev/review.rs` for staging parts under review.
 - `examples/`: test extensions that exercise engines through the running application (`layout_tour`, `layout_guest`, `layout_inspector`, `keys_tour`, `settings_tour`, `theme_tour`, `window_tour`, `ui_gallery`, `log_tour`, `screenshot`). Example crates have no stage and are never included in production.
-- `tooling/xtask/`: workspace automation (`cargo xtask new-app` and `cargo xtask bundle`).
+- `tooling/xtask/`: workspace automation (`cargo xtask new-app`, `cargo xtask bundle`, and `cargo xtask update`).
 
 ## Workspace Ownership
 
 | Path | Owner | On a later YARD update |
 |---|---|---|
-| `crates/`, `extensions/`, `examples/`, `tooling/`, `docs/`, `app/yard/`, `production.json`, `AGENTS.md`, `README.md`, `.cargo/` | YARD | Taken from YARD |
+| `crates/`, `extensions/`, `examples/`, `tooling/`, `docs/`, `app/yard/`, `production.json`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `LICENSE`, `.cargo/`, `.github/`, `.gitignore`, `.gitattributes` | YARD | Taken from YARD by `cargo xtask update` ([Upstream Updates](./development/upstream-updates.md)) |
 | `app/<name>/` (including `app/<name>/extensions/`) | Developer | Never touched by YARD; YARD ships nothing in `app/` except `app/yard/` |
 | Root `Cargo.toml` | Shared | YARD owns workspace configuration and dependencies; the developer owns `default-members` and any `members` entries for `app/<name>/extensions/` |
 | `Cargo.lock` | Shared | Resolves YARD's and the application's crates together |

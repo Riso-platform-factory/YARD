@@ -2,6 +2,9 @@
 //! under test, a runner that records commands instead of running them, and a
 //! reader of the `Info.plist` text.
 
+#[allow(dead_code)]
+pub mod update;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -665,4 +668,60 @@ pub fn signed_config(folder: &Path, notarize: bool, dmg: bool) -> PathBuf {
     let path = folder.join("product.toml");
     std::fs::write(&path, text).unwrap();
     path
+}
+
+pub fn new_app_manifest(manifest: &str) -> String {
+    let mut manifest = manifest.to_owned();
+    if !manifest.contains("[workspace.dependencies]") {
+        manifest.push_str("\n[workspace.dependencies]\n");
+    }
+    for dependency in NEW_APP_DEPENDENCIES {
+        manifest.push_str(&format!(
+            "{dependency} = {{ path = \"platform/{dependency}\", default-features = false }}\n"
+        ));
+    }
+    let package = "[workspace.package]";
+    let fields = "publish = false\nlicense = \"GPL-3.0-or-later\"";
+    if !manifest.contains(package) {
+        manifest.push_str(&format!("\n{package}\nedition = \"2024\"\n{fields}\n"));
+    } else if !manifest.contains("publish = false") {
+        manifest = manifest.replace(package, &format!("{package}\n{fields}"));
+    }
+    manifest
+}
+
+const NEW_APP_DEPENDENCIES: &[&str] = &[
+    "gpui",
+    "yard_app",
+    "yard_product",
+    "yard_shell",
+    "command_palette",
+    "yard_build_config",
+];
+
+pub fn new_app_workspace_targets(root: &Path) {
+    for folder in ["app/yard", "crates/yard_ui", "crates/alpha"] {
+        let folder = root.join(folder);
+        if folder.is_dir() {
+            std::fs::create_dir(folder.join("src")).unwrap();
+            std::fs::write(folder.join("src/lib.rs"), "").unwrap();
+        }
+    }
+    use std::io::Write as _;
+    let mut yard = std::fs::OpenOptions::new()
+        .append(true)
+        .open(root.join("app/yard/Cargo.toml"))
+        .unwrap();
+    writeln!(yard, "\n[dependencies]").unwrap();
+    for dependency in NEW_APP_DEPENDENCIES {
+        writeln!(yard, "{dependency}.workspace = true").unwrap();
+        let folder = root.join("platform").join(dependency);
+        std::fs::create_dir_all(folder.join("src")).unwrap();
+        std::fs::write(folder.join("src/lib.rs"), "").unwrap();
+        std::fs::write(
+            folder.join("Cargo.toml"),
+            format!("[package]\nname = {dependency:?}\nversion = \"0.1.0\"\nedition = \"2024\"\n"),
+        )
+        .unwrap();
+    }
 }

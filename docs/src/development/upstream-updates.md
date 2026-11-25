@@ -9,7 +9,7 @@ cargo xtask update [--ref main] [--remote <url>] [--base <commit>]
 cargo xtask update --continue
 ```
 
-- `--ref` is the YARD branch or tag to take (default `main`). `--remote` is YARD's repository (default YARD's GitHub repository); the command keeps it as the git remote `yard-upstream`, adding it when missing and refusing when it exists with another URL unless `--remote` names that URL. Git's own credentials are used (SSH agent, HTTPS credential helper); a URL is never printed or logged with credentials in it.
+- `--ref` is the YARD branch or tag to take (default `main`). `--remote` is YARD's repository (default YARD's GitHub repository); the command keeps it as the git remote `yard-upstream`, adding it when missing and refusing when it exists with another URL unless `--remote` names that URL. Git's own credentials are used (SSH agent, HTTPS credential helper); a URL is never printed or logged with credentials in it. Everything up to the last `@` after `scheme://` is hidden, so a URL with `@` in its path shows a shortened host: hiding too much is preferred to leaking. Cargo itself echoes the command line of `cargo xtask`, so put no token in `--remote`; use a credential helper or SSH.
 - **It refuses, changing nothing:** a working tree with changes (staged, unstaged, or untracked files that are not ignored); a merge, rebase, cherry-pick, or revert in progress; a detached `HEAD`; a shallow repository (it says to run `git fetch --unshallow`); a current branch that is itself an update branch; an update branch for that YARD commit that already exists (it names it); a YARD history that no longer contains the YARD commit last merged (rewritten upstream), naming both commits.
 - **Already up to date:** when the YARD commit is already an ancestor of `HEAD`, it says so and does nothing.
 - It fetches only `--ref`, with the history needed to find the base, and shows the fetch and each check as they run, since both can take minutes.
@@ -22,7 +22,7 @@ cargo xtask update --continue
 
 | Path | Owner | In the merge |
 |---|---|---|
-| `crates/`, `extensions/`, `examples/`, `tooling/`, `docs/`, `app/yard/`, `production.json`, `AGENTS.md`, `README.md`, `.cargo/`, `.github/`, `.gitignore`, `.gitattributes` | YARD | git's three-way merge. A developer's change YARD did not touch is kept and listed in the report; where both changed the same lines, or YARD deleted or renamed a file the developer changed, it is a conflict |
+| `crates/`, `extensions/`, `examples/`, `tooling/`, `docs/`, `app/yard/`, `production.json`, `AGENTS.md`, `CLAUDE.md`, `README.md`, `LICENSE`, `.cargo/`, `.github/`, `.gitignore`, `.gitattributes` | YARD | git's three-way merge. A developer's change YARD did not touch is kept and listed in the report; where both changed the same lines, or YARD deleted or renamed a file the developer changed, it is a conflict |
 | `app/<name>/`, with its `extensions/` | the developer | always the developer's: after the merge, every path under `app/` other than `app/yard/` must be exactly as on the developer's side (paths, modes, content). A YARD commit with anything under `app/` but `app/yard/` is refused before merging |
 | other top-level files the developer added | the developer | kept; YARD adding a file of the same name is a conflict |
 | Root `Cargo.toml` | shared | see below |
@@ -32,7 +32,14 @@ cargo xtask update --continue
 
 **The `Cargo.lock`.** The result starts from YARD's new lock, and Cargo adds the application's crates and their dependencies to it (`cargo metadata` on the merged workspace). A package YARD's lock pins must keep its version and source: when the application's requirements move one, the update stops and names the package, the pin, and the requirement that moved it. The report lists every lock change against YARD's lock and against the developer's previous lock. The checks run with `--locked`, so they cannot change the result reviewed.
 
-**A conflict.** The command stops with the merge in progress on the update branch and lists every conflict, git's and the manifest's. The developer resolves them and runs `cargo xtask update --continue`, which checks the result against the ownership rules again, makes the merge commit, applies the lock rule, and runs the checks. An interruption or a failed check leaves the update branch checked out with what was done; the developer's branch is never touched, so going back is `git checkout <your branch>`.
+**A conflict.** The command stops with the merge in progress on the update branch and lists every conflict, git's and the manifest's. For a manifest conflict the working-tree `Cargo.toml` holds the developer's own version, and the output names `git show <yard commit>:Cargo.toml` for YARD's. The developer resolves them and runs `cargo xtask update --continue` (never `git commit`), which checks the result against the ownership rules again, makes the merge commit, applies the lock rule, and runs the checks. The staged root manifest must keep the developer's `default-members` and `app/<name>/` members, and YARD's value of every key YARD changed that the developer had not (except an `exclude` that would cover the developer's application, which stays theirs); otherwise those keys are conflicts again.
+
+**Stopping and going back.** The developer's branch is never touched, and every stop prints the exact commands back to it:
+
+- A stop before the merge commit with nothing to resolve (a moved lock pin, a failed `cargo metadata`, an interruption) undoes the merge itself: the update branch stays at the developer's commit with a clean tree, and the commands are `git checkout <your branch>` and `git branch -D yard-update/…` before running the update again.
+- A stop during `--continue` keeps the merge and the staged resolutions. When running `--continue` again can finish (an interruption, a transient failure), it says so. After a moved lock pin, which can be fixed only on the developer's branch, the commands are `git restore --worktree -- Cargo.lock`, `git merge --abort`, `git checkout <your branch>`, and `git branch -D yard-update/…`, and the resolutions are redone on the next update.
+- A merge ended with `git commit` instead of `--continue` skipped the lock rule and the checks; `--continue` names the commands that discard it.
+- A failed check leaves the update branch checked out at the merge commit for inspection.
 
 ## A repository made from the GitHub template
 
@@ -58,7 +65,7 @@ A group `yard-update{remote, ref}` around the run (the remote without credential
 
 ### 2. Repositories made from the template
 
-- The base found by tree, `--base`, the join commit.
+- The base found by tree, `--base`, the join commit. Until this part is built, `--base` is refused.
 - **How it is checked:** a "developer" repository made as GitHub's template does (YARD's files in a new root commit); the first update joins and merges; the second is ordinary; no match refuses naming `--base`; a wrong `--base` is refused.
 - **What the review shows:** the same flow on a repository made from the template on GitHub, with the tree of its first commit compared to YARD's.
 

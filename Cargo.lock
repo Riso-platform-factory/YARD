@@ -1660,6 +1660,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "file_dialog_tour"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "gpui",
+ "log",
+ "tracing",
+ "yard_shell",
+ "yard_ui",
+]
+
+[[package]]
 name = "filedescriptor"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7866,6 +7878,7 @@ name = "yard"
 version = "0.1.0"
 dependencies = [
  "command_palette",
+ "file_dialog_tour",
  "gpui",
  "serde_json",
  "tracing",

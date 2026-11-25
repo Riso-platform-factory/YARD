@@ -199,7 +199,7 @@
   },
   "yard_shell/shell": {
     "files": {
-      "crates/yard_shell/src/shell.rs": "50a501d90a1de97d"
+      "crates/yard_shell/src/shell.rs": "a4dad859c5f3f9a6"
     },
     "promoted": "2026-11-21"
   },

@@ -29,14 +29,14 @@ ext.choose_new_path(&directory, Some("Untitled.txt"), cx, |path: Option<PathBuf>
 - `debug`: `shown`, then `chosen` with the number of paths and the paths themselves (the lifecycle trace is never stored).
 - `info`: `cancelled` (the user's own choice), and the refusal of `files` and `directories` both `false`.
 - `warn`: files and folders asked together on a system that cannot mix them.
-- `error`, also in the diagnostic log: the system could not show the dialog (for example no file chooser portal on Linux), with GPUI's message. The diagnostic log never holds a chosen path.
+- `error`, also in the diagnostic log: the system could not show the dialog (for example no file chooser portal on Linux), with GPUI's message. The diagnostic log never holds a chosen path. On Windows, GPUI also answers with an error when the window that owns the dialog closes before or while it is shown; that is logged as `error` too, since telling it apart would mean matching GPUI's message.
 
 ## Parts
 
 One part, `yard_shell/file_dialog`, in `crates/yard_shell/src/dev/file_dialog.rs` (the crate gains `src/dev.rs`). It adds the two methods to `Extension` without changing the production part `yard_shell/shell`.
 
 - **Acceptance tests** (in `crates/yard_shell/tests/`, `#![cfg(feature = "dev")]`), with GPUI's test platform (`simulate_path_prompt_response`, `simulate_new_path_selection`): the paths reach the callback; cancel gives `None`; the callback runs once; the refusal shows no dialog; the options reach GPUI unchanged; and, in their own files, the group, its fields, and the levels above.
-- **Test extension** `examples/file_dialog_tour`, named in `review.rs` while the part is under review. Without `FILE_DIALOG_TOUR` it does nothing. With `FILE_DIALOG_TOUR=open`, `open-many`, `folders`, `mixed`, or `save`, a root card has a button that opens that dialog and shows what came back: the paths, `cancelled`, or the error.
+- **Test extension** `examples/file_dialog_tour`, named in `review.rs` while the part is under review. Without `FILE_DIALOG_TOUR` it does nothing. With `FILE_DIALOG_TOUR=open`, `open-many`, `folders`, `mixed`, or `save`, a root card has a button that opens that dialog and shows what came back: the paths, `(no paths)` for an empty selection, or `cancelled` for `None`. A dialog the system could not show also gives `None`, so the card says `cancelled` and the error is in the trace and the diagnostic log.
 - **Run by the lead on macOS** with every case. Linux and Windows build in the runner checks; their dialogs need a person, so they are run by hand on those systems when the user has one, and the report says which were run.
 
 ## Not in this slice

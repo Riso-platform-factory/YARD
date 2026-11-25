@@ -5207,7 +5207,7 @@ fn name_byte(byte: u8) -> bool {
 /// The application-assigned namespace for an extension's contributions.
 #[derive(Clone)]
 pub struct Extension {
-    name: String,
+    pub(crate) name: String,
 }
 
 impl Extension {

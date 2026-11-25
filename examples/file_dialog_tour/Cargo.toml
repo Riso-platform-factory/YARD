@@ -1,0 +1,18 @@
+[package]
+name = "file_dialog_tour"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[features]
+default = ["dev"]
+dev = ["yard_shell/dev"]
+
+[dependencies]
+dirs.workspace = true
+gpui.workspace = true
+log.workspace = true
+tracing.workspace = true
+yard_shell.workspace = true
+yard_ui.workspace = true

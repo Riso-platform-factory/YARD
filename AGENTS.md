@@ -17,24 +17,24 @@ Every change follows this workflow. No step is skipped, and no step starts befor
 
 ### Workers
 
-The lead agent is Claude. It hands work to these workers, and never does a worker's work itself.
+The lead agent is Claude. It coordinates all workers through **Orca orchestration** (`orca orchestration`), not by spawning CLI processes or subagents manually (`codex exec`, `gemini.py`, or ad-hoc background shells), and never does a worker's work itself. Load the bundled guide (`orca skills get orchestration`) before the first dispatch in a session.
 
-| Worker | How it runs | What it is given |
+| Worker | How it runs in Orca | What it is given |
 |---|---|---|
-| **Claude (Opus)** | a subagent of the lead agent (`model: opus`), in the background | code, in its turn |
-| **Codex** | `codex exec -C <repo> -s workspace-write "$(cat <prompt>)" < /dev/null`; reviews with `-s read-only` | code, in its turn; mechanical work: promotions, small fixes from a review; reviews |
-| **Codex-yn** | the same, with `CODEX_HOME=~/.codex-yn` (a second account) | code, in its turn; reviews |
-| **Antigravity** | Gemini, through `~/riso-codex/acp/gemini.py <prompt> <log>`; `READONLY=1` for a review or research; delete the `skills/` folder it creates before committing | acceptance tests; reviews; research: reading and summing up documents, code, Zed |
+| **Claude (Opus)** | `orca orchestration worker-start --environment local --worktree current --agent claude --spec-file <prompt>` (select the Opus model with `--model` if not the default) | code, in its turn; reviews |
+| **Codex** | `orca orchestration worker-start --environment local --worktree current --agent codex --spec-file <prompt>`; 2 accounts logged in inside Orca, switched with `orca account select --agent codex --account <id\|email>` from `orca account list` (applies to launches after it) | code, in its turn; mechanical work: promotions, small fixes from a review; reviews |
+| **Antigravity** | `orca orchestration worker-start --environment local --worktree current --agent antigravity --spec-file <prompt>`; 2 accounts: one signed in via Orca chat and one via terminal (`worker-start` follows Orca's Chat \| CLI setting, or target a surface via `orca agent launch --agent antigravity --surface chat\|terminal` then `worker-start --task <task_id> --terminal <handle>`) | acceptance tests; reviews; research: reading and summing up documents, code, Zed |
 
 How work is given out:
 
-1. **Code goes round in turn:** Codex, then Claude (Opus), then Codex-yn, one part each. When a worker's account is at its usage limit, its turn goes to the next one, and the lead says so in its report.
+1. **Code goes round in turn:** Codex (first account), then Claude (Opus), then Codex (second account), one part each. When an account is at its usage limit, switch to the other account or pass the turn to the next worker, and the lead says so in its report.
 2. **Tests and code of one part come from two workers.** Antigravity writes the acceptance tests from the part's contract before the code. The worker whose turn it is writes the code and makes them pass. A worker never writes both.
 3. **The reviewer did not write the code:** the other Codex account, Antigravity, or Claude (Opus). A large change, such as a new design or anything that holds a secret, also gets a second review from a worker of another model, Antigravity or Claude (Opus).
 4. **Research that is long but not hard goes to Antigravity:** reading documentation, finding how Zed or a library does something, comparing options. Each answer comes with its source.
-5. **Fixes from a review go to the worker that wrote the code,** or to Codex when they are mechanical.
-6. **One worker writes a tree at a time.** Reviews and research are read-only and may run alongside.
-7. **Each worker gets a prompt file in `~/riso-codex/prompts/`** and answers with the handoff JSON (see "A prompt for the coding agent"). The lead agent's report and the review sheet name which worker wrote the tests, the code, and each review.
+5. **Fixes from a review go to the worker that wrote the code,** or to Codex when they are mechanical. Continue a settled worker with `orca orchestration send --to dispatch:<dispatch_id>`, or start a fresh worker when switching workers.
+6. **One worker writes a tree at a time.** Reviews and research are read-only (state the read-only rule in their spec) and may run in parallel in `--worktree current`. Use `--worktree new-child` when parallel workers need isolated edits.
+7. **Each worker gets a spec file in `~/riso-codex/prompts/`** passed via `--spec-file` (never heredocs) and answers with the handoff JSON (see "A prompt for the coding agent") when reporting `worker_done`. The lead agent's report and the review sheet name which worker wrote the tests, the code, and each review.
+8. **Never poll.** After starting worker(s), end the turn and let Orca wake the lead agent. Answer worker questions with `orca orchestration reply`, inspect worker output with `orca orchestration worker-read --dispatch <dispatch_id>` (never read or steer through raw terminal commands), and follow the receipt's `next` step on any failure.
 
 ### Before any work
 
@@ -57,6 +57,14 @@ How work is given out:
    - It sends every finding to the coding agent in a new prompt, and reviews the result again.
 5. **The user's review.** The lead agent reports what changed, how to run each case, what it saw when it ran them, what differs from what was asked, what it did not verify, and what is deferred. Then it waits.
 6. **Commit**, only after the user approves. A commit holds one concern; a concern the user names for a commit of its own gets one. Never push unless the user asks.
+   - **Hand tests on the other systems.** The lead runs the application on one system. Right after the commit, the lead records what it could not run in [YARD-testing](https://github.com/Riso-platform-factory/YARD-testing) (macOS when it ran elsewhere).
+     - Each other system gets one issue, from the repository's template, titled `<System>: <slug> (#<n>)`. The issue names the commit where the test extension is under review and lists every case of the extension's README with what that system should show.
+     - Each issue gets a row in that repository's README.
+     - A feature with a test extension also gets its cases in YARD-testing's `features/<slug>/`, and the workflow **YARD desktop tours** runs them on GitHub's Linux and Windows runners, then posts the results on the issues. A person confirms on a real desktop only what the runner cannot show. The repository's README says how.
+     - The report and the feature's roadmap row link the issues.
+     - A change with nothing a person must see on those systems, already covered by the runner checks, needs none; the report says so.
+     - A failure recorded there is a finding: it becomes an issue in YARD and goes to the workers like a review finding.
+     - The roadmap says a system was run only when its issue is closed. Promotion does not wait for these tests.
 7. **Promotion**, only when the user says to promote that part, in this order:
    - move the part out of `dev/`, and drop the `dev` line from its tests;
    - leave nothing under review, and take the test extension out of `review.rs`;

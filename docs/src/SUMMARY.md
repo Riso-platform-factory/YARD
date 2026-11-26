@@ -33,5 +33,6 @@
   - [Platform Roadmap](./development/platform-roadmap.md)
   - [Upstream Updates](./development/upstream-updates.md)
   - [File Dialogs](./development/file-dialogs.md)
+  - [OS Notifications](./development/os-notifications.md)
   - [Packaging](./development/packaging.md)
   - [Release System](./development/release-system.md)

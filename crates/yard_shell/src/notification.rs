@@ -17,6 +17,7 @@ impl Global for Notifications {}
 
 impl crate::Extension {
     /// Posts a notification, or replaces this extension's one with the same tag.
+    // TODO(gpui-windows-toast-reentrancy): On Windows, GPUI shows and hides toasts on the UI thread, whose COM modal loop re-enters the window while the App is borrowed: RefCell errors, dropped frames, and a blocked UI (YARD#1, zed#65799). Remove when GPUI moves the toast calls off the UI thread, as zed#66934 did for macOS.
     pub fn show_notification(&self, notification: SystemNotification, cx: &mut App) {
         let _group = tracing::info_span!(
             "notification",

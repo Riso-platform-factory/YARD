@@ -193,7 +193,7 @@
   },
   "yard_shell/notification": {
     "files": {
-      "crates/yard_shell/src/notification.rs": "bf056eea5e1ea097"
+      "crates/yard_shell/src/notification.rs": "ae4e752ae52b33c5"
     },
     "promoted": "2026-11-26"
   },

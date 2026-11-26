@@ -20,9 +20,9 @@
   },
   "yard_app/startup": {
     "files": {
-      "crates/yard_app/src/startup.rs": "0a4f1038ccfaed97"
+      "crates/yard_app/src/startup.rs": "72116492079bb179"
     },
-    "promoted": "2026-11-23"
+    "promoted": "2026-11-26"
   },
   "yard_build_config/build_script": {
     "files": {

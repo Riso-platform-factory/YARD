@@ -71,9 +71,10 @@ pub fn run(
         move |urls| deliver_urls(&open_urls, urls)
     });
     platform.run(move |cx: &mut App| {
-        // Windows groups the windows and the taskbar button under the
-        // identifier, the AppUserModelID that the Start-menu shortcut has too.
-        #[cfg(target_os = "windows")]
+        // Windows uses the same AppUserModelID as the Start-menu shortcut
+        // to group windows and the taskbar button and to post toasts under
+        // the product name. Linux shows the name on notifications. macOS
+        // takes the identifier and name from the bundle.
         {
             let product = app.product;
             cx.set_app_identity(product.identifier, product.name);

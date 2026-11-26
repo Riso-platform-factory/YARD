@@ -1032,3 +1032,443 @@ fn an_ad_hoc_signature_carries_the_entitlements() {
         ]
     );
 }
+
+fn staged_bundle(runner: &FakeRunner) -> PathBuf {
+    let plutil = runner
+        .commands
+        .iter()
+        .find(|command| command.program == "plutil")
+        .expect("plutil -lint ran on Contents/Info.plist");
+    Path::new(&plutil.args[1])
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_owned()
+}
+
+fn codesign_commands(runner: &FakeRunner) -> Vec<&Recorded> {
+    runner
+        .commands
+        .iter()
+        .filter(|command| command.program == "codesign")
+        .collect()
+}
+
+fn flag_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
+    args.windows(2)
+        .find(|pair| pair[0] == flag)
+        .map(|pair| pair[1].as_str())
+}
+
+fn has_identifier(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| arg == "--identifier" || arg.starts_with("--identifier="))
+}
+
+#[test]
+fn a_dev_bundle_signed_with_an_identity_gives_its_binary_the_products_identifier() {
+    let temp = tempdir();
+    let out = temp.path().join("out");
+    let config = signed_config(temp.path(), false, false);
+    let mut runner = FakeRunner::new(temp.path());
+    let options = MacosArgs {
+        dev: true,
+        ..options(&config, &out)
+    };
+    bundle_macos(
+        &options,
+        &Secrets::default(),
+        &xtask::Interrupt::default(),
+        &mut runner,
+    )
+    .unwrap();
+
+    let staged = staged_bundle(&runner);
+    let binary = staged
+        .join("Contents/MacOS/Signed Lab-bin")
+        .display()
+        .to_string();
+    let bundle = staged.display().to_string();
+    let entitlements = temp
+        .path()
+        .join("entitlements.plist")
+        .canonicalize()
+        .unwrap()
+        .display()
+        .to_string();
+    let codesigns = codesign_commands(&runner);
+
+    let (binary_index, binary_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(binary.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {binary}, saw {codesigns:?}"));
+    assert!(
+        binary_sign.args.iter().any(|arg| arg == "--force"),
+        "binary codesign needs --force: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--options"),
+        Some("runtime"),
+        "binary codesign needs hardened runtime: {:?}",
+        binary_sign.args
+    );
+    assert!(
+        binary_sign.args.iter().any(|arg| arg == "--timestamp"),
+        "binary codesign needs --timestamp: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--entitlements"),
+        Some(entitlements.as_str()),
+        "binary codesign keeps entitlements: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--identifier"),
+        Some("test.yard.signed"),
+        "dev binary codesign must carry --identifier test.yard.signed: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--sign"),
+        Some(IDENTITY),
+        "binary codesign uses the identity: {:?}",
+        binary_sign.args
+    );
+
+    let (bundle_index, bundle_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(bundle.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {bundle}, saw {codesigns:?}"));
+    assert!(
+        binary_index < bundle_index,
+        "binary must be signed before the bundle: {codesigns:?}"
+    );
+    assert!(
+        bundle_sign.args.iter().any(|arg| arg == "--force"),
+        "bundle codesign needs --force: {:?}",
+        bundle_sign.args
+    );
+    assert_eq!(
+        flag_value(&bundle_sign.args, "--options"),
+        Some("runtime"),
+        "bundle codesign needs hardened runtime: {:?}",
+        bundle_sign.args
+    );
+    assert!(
+        bundle_sign.args.iter().any(|arg| arg == "--timestamp"),
+        "bundle codesign needs --timestamp: {:?}",
+        bundle_sign.args
+    );
+    assert_eq!(
+        flag_value(&bundle_sign.args, "--entitlements"),
+        Some(entitlements.as_str()),
+        "bundle codesign keeps entitlements: {:?}",
+        bundle_sign.args
+    );
+    assert!(
+        !has_identifier(&bundle_sign.args),
+        "bundle codesign passes no --identifier: {:?}",
+        bundle_sign.args
+    );
+    assert_eq!(
+        flag_value(&bundle_sign.args, "--sign"),
+        Some(IDENTITY),
+        "bundle codesign uses the identity: {:?}",
+        bundle_sign.args
+    );
+
+    let verify_index = codesigns.len() - 1;
+    assert!(
+        bundle_index < verify_index,
+        "verify must run after signing the bundle: {codesigns:?}"
+    );
+    assert_eq!(
+        codesigns[verify_index].args,
+        ["--verify", "--deep", "--strict", bundle.as_str()]
+    );
+}
+
+#[test]
+fn a_production_bundle_signed_with_an_identity_has_no_identifier_on_its_binary() {
+    let temp = tempdir();
+    let out = temp.path().join("out");
+    let config = signed_config(temp.path(), false, false);
+    let mut runner = FakeRunner::new(temp.path());
+    bundle_macos(
+        &options(&config, &out),
+        &Secrets::default(),
+        &xtask::Interrupt::default(),
+        &mut runner,
+    )
+    .unwrap();
+
+    let staged = staged_bundle(&runner);
+    let binary = staged
+        .join("Contents/MacOS/Signed Lab")
+        .display()
+        .to_string();
+    let bundle = staged.display().to_string();
+    let entitlements = temp
+        .path()
+        .join("entitlements.plist")
+        .canonicalize()
+        .unwrap()
+        .display()
+        .to_string();
+    let codesigns = codesign_commands(&runner);
+
+    let (binary_index, binary_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(binary.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {binary}, saw {codesigns:?}"));
+    assert!(
+        !has_identifier(&binary_sign.args),
+        "production binary codesign passes no --identifier: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--entitlements"),
+        Some(entitlements.as_str())
+    );
+    assert_eq!(flag_value(&binary_sign.args, "--sign"), Some(IDENTITY));
+
+    let (bundle_index, bundle_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(bundle.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {bundle}, saw {codesigns:?}"));
+    assert!(
+        binary_index < bundle_index,
+        "binary must be signed before the bundle: {codesigns:?}"
+    );
+    assert!(
+        !has_identifier(&bundle_sign.args),
+        "production bundle codesign passes no --identifier: {:?}",
+        bundle_sign.args
+    );
+    assert_eq!(
+        flag_value(&bundle_sign.args, "--entitlements"),
+        Some(entitlements.as_str())
+    );
+    assert_eq!(flag_value(&bundle_sign.args, "--sign"), Some(IDENTITY));
+
+    let verify_index = codesigns.len() - 1;
+    assert!(bundle_index < verify_index);
+    assert_eq!(
+        codesigns[verify_index].args,
+        ["--verify", "--deep", "--strict", bundle.as_str()]
+    );
+}
+
+fn has_entitlements(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| arg == "--entitlements" || arg.starts_with("--entitlements="))
+}
+
+#[test]
+fn an_ad_hoc_dev_bundle_carries_entitlements_on_its_binary_and_bundle() {
+    let temp = tempdir();
+    let out = temp.path().join("out");
+    let config = config_in(
+        temp.path(),
+        "Lab",
+        "0.1.0",
+        "test.yard.adhocdev",
+        "yardadhocdev",
+    );
+    std::fs::copy(
+        support::under_test("signed").with_file_name("entitlements.plist"),
+        temp.path().join("entitlements.plist"),
+    )
+    .unwrap();
+    let text = std::fs::read_to_string(&config).unwrap()
+        + "[release.macos]\nentitlements = \"entitlements.plist\"\n";
+    std::fs::write(&config, text).unwrap();
+    let mut runner = FakeRunner::new(temp.path());
+    let options = MacosArgs {
+        dev: true,
+        ..options(&config, &out)
+    };
+    bundle_macos(
+        &options,
+        &Secrets::default(),
+        &xtask::Interrupt::default(),
+        &mut runner,
+    )
+    .unwrap();
+
+    let staged = staged_bundle(&runner);
+    let binary = staged.join("Contents/MacOS/Lab-bin").display().to_string();
+    let bundle = staged.display().to_string();
+    let entitlements = temp
+        .path()
+        .join("entitlements.plist")
+        .canonicalize()
+        .unwrap()
+        .display()
+        .to_string();
+    let codesigns = codesign_commands(&runner);
+
+    let (binary_index, binary_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(binary.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {binary}, saw {codesigns:?}"));
+    assert!(
+        binary_sign.args.iter().any(|arg| arg == "--force"),
+        "binary codesign needs --force: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--identifier"),
+        Some("test.yard.adhocdev"),
+        "ad hoc dev binary codesign must carry --identifier: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--entitlements"),
+        Some(entitlements.as_str()),
+        "ad hoc dev binary codesign must carry --entitlements: {:?}",
+        binary_sign.args
+    );
+    assert_eq!(
+        flag_value(&binary_sign.args, "--sign"),
+        Some("-"),
+        "ad hoc dev binary codesign must use --sign -: {:?}",
+        binary_sign.args
+    );
+
+    let (bundle_index, bundle_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(bundle.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {bundle}, saw {codesigns:?}"));
+    assert!(
+        binary_index < bundle_index,
+        "binary must be signed before the bundle: {codesigns:?}"
+    );
+    assert!(
+        bundle_sign.args.iter().any(|arg| arg == "--force"),
+        "bundle codesign needs --force: {:?}",
+        bundle_sign.args
+    );
+    assert!(
+        !bundle_sign.args.iter().any(|arg| arg == "--deep"),
+        "bundle codesign must not pass --deep: {:?}",
+        bundle_sign.args
+    );
+    assert_eq!(
+        flag_value(&bundle_sign.args, "--entitlements"),
+        Some(entitlements.as_str()),
+        "ad hoc dev bundle codesign must keep --entitlements: {:?}",
+        bundle_sign.args
+    );
+    assert_eq!(
+        flag_value(&bundle_sign.args, "--sign"),
+        Some("-"),
+        "ad hoc dev bundle codesign must use --sign -: {:?}",
+        bundle_sign.args
+    );
+
+    let verify_index = codesigns.len() - 1;
+    assert!(
+        bundle_index < verify_index,
+        "verify must run after signing the bundle: {codesigns:?}"
+    );
+    assert_eq!(
+        codesigns[verify_index].args,
+        ["--verify", "--deep", "--strict", bundle.as_str()]
+    );
+}
+
+#[test]
+fn an_ad_hoc_dev_bundle_without_entitlements_omits_the_entitlements_flag() {
+    let temp = tempdir();
+    let out = temp.path().join("out");
+    let config = config_in(
+        temp.path(),
+        "Lab",
+        "0.1.0",
+        "test.yard.adhocdev",
+        "yardadhocdev",
+    );
+    let mut runner = FakeRunner::new(temp.path());
+    let options = MacosArgs {
+        dev: true,
+        ..options(&config, &out)
+    };
+    bundle_macos(
+        &options,
+        &Secrets::default(),
+        &xtask::Interrupt::default(),
+        &mut runner,
+    )
+    .unwrap();
+
+    let staged = staged_bundle(&runner);
+    let binary = staged.join("Contents/MacOS/Lab-bin").display().to_string();
+    let bundle = staged.display().to_string();
+    let codesigns = codesign_commands(&runner);
+
+    let (binary_index, binary_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(binary.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {binary}, saw {codesigns:?}"));
+    assert_eq!(
+        flag_value(&binary_sign.args, "--identifier"),
+        Some("test.yard.adhocdev"),
+        "ad hoc dev binary codesign must carry --identifier: {:?}",
+        binary_sign.args
+    );
+    assert!(
+        !has_entitlements(&binary_sign.args),
+        "ad hoc dev binary codesign must omit --entitlements when none are configured: {:?}",
+        binary_sign.args
+    );
+
+    let (bundle_index, bundle_sign) = codesigns
+        .iter()
+        .enumerate()
+        .find(|(_, command)| {
+            !command.args.iter().any(|arg| arg == "--verify")
+                && command.args.last().map(String::as_str) == Some(bundle.as_str())
+        })
+        .unwrap_or_else(|| panic!("expected codesign on {bundle}, saw {codesigns:?}"));
+    assert!(
+        binary_index < bundle_index,
+        "binary must be signed before the bundle: {codesigns:?}"
+    );
+    assert!(
+        !has_entitlements(&bundle_sign.args),
+        "ad hoc dev bundle codesign must omit --entitlements when none are configured: {:?}",
+        bundle_sign.args
+    );
+}

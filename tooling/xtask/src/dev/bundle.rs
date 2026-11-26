@@ -1279,11 +1279,30 @@ fn in_temp(
 
     step("sign", interrupt)?;
     let sign = |reason| Failure::new("sign", reason);
+    let suffix = if options.dev { "-bin" } else { "" };
+    let binary = bundle
+        .join("Contents/MacOS")
+        .join(format!("{}{suffix}", product.name));
+    // macOS notifications identify the running process by its signing identifier.
+    let identifier = options.dev.then_some(product.identifier.as_str());
     match signing.identity() {
         // The entitlements apply ad hoc too, as in Zed's local bundles.
         None => {
+            if let Some(identifier) = identifier {
+                let mut codesign = Command::new("codesign");
+                codesign.args(["--force", "--identifier", identifier]);
+                if let Some(file) = &product.macos.entitlements {
+                    codesign.arg("--entitlements").arg(file);
+                }
+                runner
+                    .run(codesign.args(["--sign", "-"]).arg(&binary))
+                    .map_err(sign)?;
+            }
             let mut codesign = Command::new("codesign");
-            codesign.args(["--force", "--deep"]);
+            codesign.arg("--force");
+            if !options.dev {
+                codesign.arg("--deep");
+            }
             if let Some(file) = &product.macos.entitlements {
                 codesign.arg("--entitlements").arg(file);
             }
@@ -1293,12 +1312,8 @@ fn in_temp(
         }
         Some(identity) => {
             // The binary, then the app, as Zed's `script/bundle-mac` does.
-            let suffix = if options.dev { "-bin" } else { "" };
-            let binary = bundle
-                .join("Contents/MacOS")
-                .join(format!("{}{suffix}", product.name));
             runner
-                .run(&mut identity.codesign(&binary, true, None))
+                .run(&mut identity.codesign(&binary, true, identifier))
                 .map_err(sign)?;
             runner
                 .run(&mut identity.codesign(&bundle, true, None))

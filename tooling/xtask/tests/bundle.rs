@@ -533,3 +533,175 @@ fn a_failed_step_leaves_the_previous_bundle_alone() {
     assert_eq!(std::fs::read(previous.join("old")).unwrap(), b"old");
     assert_eq!(entries(&out), ["Lab.app"]);
 }
+
+fn staged_bundle(runner: &FakeRunner) -> std::path::PathBuf {
+    let plutil = runner
+        .commands
+        .iter()
+        .find(|command| command.program == "plutil")
+        .expect("plutil -lint ran on Contents/Info.plist");
+    Path::new(&plutil.args[1])
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .to_owned()
+}
+
+fn codesign_commands(runner: &FakeRunner) -> Vec<&support::Recorded> {
+    runner
+        .commands
+        .iter()
+        .filter(|command| command.program == "codesign")
+        .collect()
+}
+
+fn flag_value<'a>(args: &'a [String], flag: &str) -> Option<&'a str> {
+    args.windows(2)
+        .find(|pair| pair[0] == flag)
+        .map(|pair| pair[1].as_str())
+}
+
+fn has_identifier(args: &[String]) -> bool {
+    args.iter()
+        .any(|arg| arg == "--identifier" || arg.starts_with("--identifier="))
+}
+
+#[test]
+fn a_dev_bundle_signs_its_binary_under_the_products_identifier() {
+    for (folder, name, identifier) in [
+        ("plain", "Lab", "test.yard.lab"),
+        ("spaced", "Lab Notes Pro", "test.yard.labnotes"),
+    ] {
+        let temp = tempdir();
+        let out = temp.path().join("out");
+        let mut runner = FakeRunner::new(temp.path());
+        let options = MacosArgs {
+            dev: true,
+            ..options(&under_test(folder), &out)
+        };
+        bundle_macos(
+            &options,
+            &xtask::Secrets::default(),
+            &xtask::Interrupt::default(),
+            &mut runner,
+        )
+        .unwrap();
+
+        let staged = staged_bundle(&runner);
+        let binary = staged
+            .join("Contents/MacOS")
+            .join(format!("{name}-bin"))
+            .display()
+            .to_string();
+        let bundle = staged.display().to_string();
+        let codesigns = codesign_commands(&runner);
+
+        let (binary_index, binary_sign) = codesigns
+            .iter()
+            .enumerate()
+            .find(|(_, command)| {
+                !command.args.iter().any(|arg| arg == "--verify")
+                    && command.args.last().map(String::as_str) == Some(binary.as_str())
+            })
+            .unwrap_or_else(|| {
+                panic!("{folder}: expected codesign on {binary}, saw {codesigns:?}")
+            });
+        assert!(
+            binary_sign.args.iter().any(|arg| arg == "--force"),
+            "{folder}: binary codesign needs --force: {:?}",
+            binary_sign.args
+        );
+        assert_eq!(
+            flag_value(&binary_sign.args, "--identifier"),
+            Some(identifier),
+            "{folder}: binary codesign must carry --identifier {identifier}: {:?}",
+            binary_sign.args
+        );
+        assert_eq!(
+            flag_value(&binary_sign.args, "--sign"),
+            Some("-"),
+            "{folder}: binary codesign must be ad hoc (--sign -): {:?}",
+            binary_sign.args
+        );
+
+        let (bundle_index, bundle_sign) = codesigns
+            .iter()
+            .enumerate()
+            .find(|(_, command)| {
+                !command.args.iter().any(|arg| arg == "--verify")
+                    && command.args.last().map(String::as_str) == Some(bundle.as_str())
+            })
+            .unwrap_or_else(|| {
+                panic!("{folder}: expected codesign on {bundle}, saw {codesigns:?}")
+            });
+        assert!(
+            bundle_sign.args.iter().any(|arg| arg == "--force"),
+            "{folder}: bundle codesign needs --force: {:?}",
+            bundle_sign.args
+        );
+        assert!(
+            !bundle_sign.args.iter().any(|arg| arg == "--deep"),
+            "{folder}: bundle codesign must not pass --deep, which replaces the binary's identifier: {:?}",
+            bundle_sign.args
+        );
+        assert_eq!(
+            flag_value(&bundle_sign.args, "--sign"),
+            Some("-"),
+            "{folder}: bundle codesign must be ad hoc (--sign -): {:?}",
+            bundle_sign.args
+        );
+        assert!(
+            binary_index < bundle_index,
+            "{folder}: binary must be signed before the bundle: {codesigns:?}"
+        );
+
+        let verify_index = codesigns.len() - 1;
+        assert!(
+            bundle_index < verify_index,
+            "{folder}: verify must run after signing the bundle: {codesigns:?}"
+        );
+        assert_eq!(
+            codesigns[verify_index].args,
+            ["--verify", "--deep", "--strict", bundle.as_str()],
+            "{folder}: codesign verify must run last"
+        );
+    }
+}
+
+#[test]
+fn an_ad_hoc_production_bundle_signs_without_an_identifier() {
+    let temp = tempdir();
+    let out = temp.path().join("out");
+    let mut runner = FakeRunner::new(temp.path());
+    bundle_macos(
+        &options(&under_test("plain"), &out),
+        &xtask::Secrets::default(),
+        &xtask::Interrupt::default(),
+        &mut runner,
+    )
+    .unwrap();
+
+    let staged = staged_bundle(&runner);
+    let bundle = staged.display().to_string();
+    let codesigns = codesign_commands(&runner);
+    assert!(
+        codesigns
+            .iter()
+            .all(|command| !has_identifier(&command.args)),
+        "a production ad hoc bundle passes no --identifier: {codesigns:?}"
+    );
+    assert_eq!(
+        codesigns.len(),
+        2,
+        "one bundle codesign, then verify: {codesigns:?}"
+    );
+    assert_eq!(
+        codesigns[0].args,
+        ["--force", "--deep", "--sign", "-", bundle.as_str()]
+    );
+    assert_eq!(
+        codesigns[1].args,
+        ["--verify", "--deep", "--strict", bundle.as_str()]
+    );
+}

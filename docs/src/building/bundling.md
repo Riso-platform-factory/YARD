@@ -32,10 +32,11 @@ cargo xtask bundle macos [--zip]
 
 Produces `<out>/<Name>.app`:
 
-- `Contents/MacOS/<Name>`: release executable (or a wrapper script launching `dev` for `--dev` bundles).
+- `Contents/MacOS/<Name>`: release executable (or, for `--dev` bundles, a wrapper script that runs `Contents/MacOS/<Name>-bin dev`).
 - `Contents/Resources/<Name>.icns`: generated from `icon` at macOS icon sizes (`16` to `512`, `1x` and `2x`).
 - `Contents/Info.plist`: populated from `product.toml` (`CFBundleName`, `CFBundleDisplayName`, `CFBundleIdentifier`, `CFBundleShortVersionString`, `CFBundleVersion`, `CFBundleExecutable`, `CFBundleIconFile`, `CFBundlePackageType` set to `APPL`, `CFBundleURLTypes` registering `identifier` as `CFBundleURLName` and `url_scheme` in `CFBundleURLSchemes`, `LSMinimumSystemVersion` `12.0`, `NSHighResolutionCapable`, and `LSEnvironment` for `--dev --env`), validated with `plutil -lint`.
 - Signed ad hoc (`codesign --force --deep --sign -`) unless `[release.macos.signing]` is configured.
+- In a `--dev` bundle, `<Name>-bin` is the process that runs, so it is signed first under the product's `identifier` (with the entitlements, if any), and the bundle is then signed ad hoc without `--deep` so that identifier stays; with a signing identity, `<Name>-bin` is signed under the product's `identifier` too. macOS notifications identify the app by the running process's signing identifier, and refuse it otherwise. A bundle opened from `/tmp` or another temporary folder is refused notifications too: keep it in `dist/` or the home folder.
 
 Additional outputs:
 

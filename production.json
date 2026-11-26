@@ -191,6 +191,12 @@
     },
     "promoted": "2026-11-21"
   },
+  "yard_shell/notification": {
+    "files": {
+      "crates/yard_shell/src/notification.rs": "bf056eea5e1ea097"
+    },
+    "promoted": "2026-11-26"
+  },
   "yard_shell/prompt": {
     "files": {
       "crates/yard_shell/src/prompt.rs": "14d4cba5ee0573e7"

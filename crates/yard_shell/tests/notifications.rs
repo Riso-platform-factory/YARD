@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     App, SystemNotification, SystemNotificationAction, SystemNotificationResponse, TestAppContext,
 };

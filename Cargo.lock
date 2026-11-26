@@ -7890,7 +7890,6 @@ version = "0.1.0"
 dependencies = [
  "command_palette",
  "gpui",
- "notification_tour",
  "serde_json",
  "tracing",
  "yard_app",

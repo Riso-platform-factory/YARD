@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 // Every test in this binary takes `LOCK` and runs under one scoped tracing
 // subscriber (with the process-wide diagnostic logger bridging `log` records
 // into it, as `yard_log` does in production), so no test can race on tracing's

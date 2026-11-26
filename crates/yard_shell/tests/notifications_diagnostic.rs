@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 // Every test in this binary takes `LOCK`, runs under a scoped `tracing`
 // subscriber (matching the application, where `yard_log` always installs one
 // so `tracing`'s `log` feature never forwards `tracing` spans/events into

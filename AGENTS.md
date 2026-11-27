@@ -113,6 +113,7 @@ A prompt has, in this order: the goal; the context, with the files to read and t
 - Cargo builds into `CARGO_TARGET_DIR` (`~/crew/target`), shared by every checkout.
 - After each piece of work, and before starting workers, the lead checks `du -sh "$CARGO_TARGET_DIR"` and `df -h /`.
 - When the target folder is over 30 GB, or the disk has less than 15 GB free, the lead first runs `cargo sweep --time 3`, which removes what has not been used for three days. If the limits are still passed, it runs `cargo clean` once. It does either only while no worker is building, and says so in its report.
+- A reviewer that builds a scratch copy of the repository gives it its own `CARGO_TARGET_DIR`, for example `/tmp/<review>-target`. The shared folder ignores the checkout's path, so the copy's test binaries would replace the repository's. The reviewer deletes that folder when done.
 - `~/.zprofile` keeps builds small for every checkout: `CARGO_PROFILE_DEV_DEBUG=line-tables-only` and `CARGO_INCREMENTAL=0`.
 
 ## Running

@@ -12,6 +12,10 @@ Every change follows this workflow. No step is skipped, and no step starts befor
 ### Who does what
 
 - **The user** decides, reviews, and approves. Only the user's word commits a change or promotes a part.
+  - **Standing approval (2026-11-27), for the platform roadmap's features, taken one at a time in the roadmap's order:** the user does not need to be asked.
+    - The lead still writes `.temp/<slug>-proposal.html` and `.temp/<slug>-acceptance.html` with their evidence.
+    - The lead approves them itself, by the rules of this file. It also commits, pushes, promotes, and stamps a production part changed as its approved contract says.
+    - It stops for the user only for what the work cannot decide: an outside account, money, a licence, or a change of direction.
 - **The lead agent** is the agent that talks with the user. It designs, writes the prompts for the coding agent and runs it, reviews, runs the application, writes the documents (`.md` files), and commits. It does not write code.
 - **The coding agent** writes all the code, which is every file that is not a `.md` file, from a prompt of the lead agent. It never commits, never pushes, and never edits a `.md` file.
 

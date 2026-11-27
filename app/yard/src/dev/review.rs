@@ -1,5 +1,9 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &["yard_app/startup", "yard_shell/shell"];
+pub(crate) const UNDER_REVIEW: &[&str] = &[
+    "yard_app/startup",
+    "yard_shell/external_open",
+    "yard_shell/shell",
+];
 
 pub fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -23,10 +27,15 @@ pub fn run() -> bool {
         ("review", announce),
         ("toggle_host", toggle_tour::host),
         ("toggle_tour", toggle_tour::init),
+        ("external_open_tour", init_external_open_tour),
     ];
     extensions.extend_from_slice(crate::startup::EXTENSIONS);
     yard_app::run(app, &extensions, crate::menus::menus);
     true
+}
+
+fn init_external_open_tour(cx: &mut gpui::App, ext: &yard_shell::Extension) {
+    external_open_tour::init(cx, ext, crate::startup::application().url_scheme);
 }
 
 fn announce(_: &mut gpui::App, _: &yard_shell::Extension) {

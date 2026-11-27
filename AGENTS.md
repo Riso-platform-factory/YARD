@@ -150,6 +150,7 @@ Testing logs:
 - Tests that capture `tracing` output use `tracing::subscriber::with_default`. Do not install a process-wide subscriber in a test that shares its binary with other tests: tests run in parallel in one process, and a global subscriber makes them flaky. Only a test of work that runs on other threads may install one, and it is alone in its own integration test file.
 - A test that captures `tracing` output must not run in parallel with another test that reaches the same log lines, even one that captures nothing. `tracing` caches, per log line, whether anyone listens, and a thread without a subscriber that reaches the line first caches "nobody". Either put the test alone in its own integration test file, `tests/<name>.rs`, or make every test of the binary take one shared lock.
 - A test that installs a process-wide `log` logger (`log::set_logger`) goes in its own integration test file, `tests/<name>.rs`, which Cargo builds as a separate binary.
+- `yard_test`'s `capture_trace` and `capture_logs` keep these rules for you: they install one inert router and logger per binary, and take one shared lock, so tests that use them may share a binary. Such a binary installs no global subscriber or logger of its own.
 - Run new logging tests repeatedly (for example 20 times) before calling them done, to catch flakiness.
 
 ---

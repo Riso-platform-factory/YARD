@@ -6209,6 +6209,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
+name = "toggle_tour"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "tracing",
+ "yard_shell",
+ "yard_ui",
+]
+
+[[package]]
 name = "tokio"
 version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7891,6 +7901,7 @@ dependencies = [
  "command_palette",
  "gpui",
  "serde_json",
+ "toggle_tour",
  "tracing",
  "yard_app",
  "yard_build_config",
@@ -7907,6 +7918,8 @@ dependencies = [
  "image",
  "log",
  "reqwest_client",
+ "serde",
+ "serde_json",
  "tracing",
  "yard_keymap",
  "yard_log",

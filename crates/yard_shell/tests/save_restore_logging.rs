@@ -370,7 +370,7 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
                     "restoring must not save"
                 );
                 assert!(captured.lines[lines_before..].contains(
-                    &"layout-restore file=layout.json: DEBUG message=restored applied=6 skipped=0"
+                    &"layout-restore file=layout.json: DEBUG message=restored applied=6 skipped=0 kept=0"
                         .to_string()
                 ));
             }
@@ -400,18 +400,30 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
                     })
             );
 
-            let stacks_before_empty_reset = trace.0.lock().unwrap().span_stacks.len();
+            let (stacks_before_empty_reset, lines_before_empty_reset) = {
+                let captured = trace.0.lock().unwrap();
+                (captured.span_stacks.len(), captured.lines.len())
+            };
             gpui::AnyWindowHandle::from(window)
                 .update(&mut app, |_, window, cx| {
                     host.reset_layout(window, cx);
                 })
                 .unwrap();
+            let captured = trace.0.lock().unwrap();
             assert!(
-                !trace.0.lock().unwrap().span_stacks[stacks_before_empty_reset..]
+                !captured.span_stacks[stacks_before_empty_reset..]
                     .iter()
                     .flatten()
                     .any(|span| span.starts_with("layout-save")),
                 "empty reset must not save"
+            );
+            assert!(
+                captured.lines[lines_before_empty_reset..]
+                    .iter()
+                    .any(|line| {
+                        line == r#"layout-reset extension="tour": DEBUG message=nothing to reset"#
+                    }),
+                "empty reset must log nothing to reset"
             );
         }
 
@@ -507,7 +519,7 @@ fn save_and_restore_cover_every_contract_row(cx: &mut TestAppContext) {
             }
             assert!(
                 restore_lines.contains(
-                    &"layout-restore file=layout.json: DEBUG message=restored applied=2 skipped=14"
+                    &"layout-restore file=layout.json: DEBUG message=restored applied=2 skipped=14 kept=0"
                         .to_string()
                 )
             );

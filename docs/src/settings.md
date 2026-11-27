@@ -27,6 +27,24 @@ Application and extension settings live in a single JSON file, `settings.json`, 
 - If `settings.json` is unreadable, invalid JSON, or not a JSON object, YARD logs a `WARN` and uses defaults at startup (or keeps the previous valid values during a reload).
 - If one section has an invalid field type or value, YARD logs a `WARN` naming the section and falls back to defaults at startup (or keeps that section's previous value during a reload). All other valid sections still apply.
 
+## Turning Extensions Off
+
+The `extensions` section turns off an extension that the application was built with, without a rebuild:
+
+```json
+{
+  "extensions": {
+    "command_palette": false
+  }
+}
+```
+
+- `false` turns an extension off; `true` or no entry leaves it on. The name is the extension's name in the application's list.
+- The change applies at the next start: the extension's code does not run, so none of its views, actions, key bindings, or URL handling exist. Changing the section while the application runs logs `applies at the next start` in the lifecycle trace and changes nothing until then.
+- The user's layout around a turned-off extension is kept: changes that cannot apply without it are written back as they were, and come back when it is turned on again (see [Layout](./layout.md)). Its own settings section, stored values, and key bindings in `keymap.json` are left untouched.
+- A name that is not one of the application's extensions, or a value that is not `true` or `false`, logs a `WARN` and is ignored; the other entries still apply. A section that is not an object logs a `WARN` and leaves every extension on.
+- An extension cannot be named `extensions`.
+
 ## Live Reload and Programmatic Writes
 
 YARD checks `settings.json` once every second while the application runs. When the file changes, YARD re-reads it and notifies observers only for sections whose parsed JSON value actually changed. Removing `settings.json` resets sections back to their defaults.

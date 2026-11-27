@@ -14,7 +14,7 @@ An application lists its extensions in its composition root (`EXTENSIONS` in `ap
 
 - The section is `extensions`: one entry per extension name, `false` turns it off, `true` or no entry leaves it on. It has the shape of Zed's `auto_install_extensions`.
 - **At the next start.** The startup reads the section before it loads the extensions, and skips the `init` of each one turned off. Changing the section while the application runs changes nothing until it starts again, and the trace says so. Turning an extension off while it runs would mean taking back everything it registered, which GPUI and the shell do not do, and Zed does not do for compiled-in features either.
-- A name that is not one of the application's extensions is ignored with a `WARN` in the diagnostic log, so a misspelled name is found.
+- A name that is not one of the application's extensions is ignored with a `WARN` in the diagnostic log, so a misspelled name is found. The section is read entry by entry: a value that is not `true` or `false` is ignored with a `WARN` naming it, and the other entries still apply; a section that is not an object gives one `WARN` and leaves every extension on.
 - Only the extensions of the application's list can be turned off. The shell's own namespace `yard`, and the handle the startup makes for update toasts (`update`), are not extensions of the list; the update check follows the product's update address, not this section.
 - The section's key is `extensions`, so an extension cannot be named `extensions`: `Extension::new` refuses it, as it refuses `yard`.
 
@@ -25,7 +25,8 @@ What the shell knows of an extension that did not load, and what it does today w
 - **The layout.** The user's changes are a list of operations (`layout.json`, `layouts/<name>.json`, and each window's layers in `session.json`). When they are restored, an operation that names a node of the turned-off extension, or puts a node in its slot, cannot apply and is skipped with an `info`; today the next save then writes the list without it, within a moment of the start.
   - **Change in this slice:** while any extension is turned off, every operation skipped on restore is kept, in its place in the list, and written back with the user's layer. Operations the user makes in this run come after them. Turning the extension on again replays the whole list, and the layout is as the user left it. Node IDs do not say which extension placed them, so the shell keeps every skipped operation while an extension is off, not only that extension's; one that no longer applies with every extension on is dropped then, as today.
   - Resetting the layout (`reset_layout`) drops the kept operations with the rest of the user's layer, as the user asked.
-  - **Change in this slice:** a window whose saved named layout belongs to the turned-off extension shows the default layout and keeps the named layout's name in `session.json`, until the user shows another layout. Today the name is replaced by `yard.default` on the first save.
+  - A node ID the shell makes for the user (a split or a tabs container made by a drop) is never one that a kept operation adds, so a kept node and a new one never take the same ID when the extension comes back.
+  - **Change in this slice:** a window whose saved named layout belongs to the turned-off extension shows the default layout and keeps the named layout's name in `session.json`, until the user shows another layout; choosing the default layout explicitly counts as that choice. Today the name is replaced by `yard.default` on the first save.
 - **Not changed** (already kept today, or cleared as today):
   - Each node's saved view state (`state.json`) stays waiting and comes back with the node.
   - A tab selection or a zoom that pointed at a node of the turned-off extension is cleared, as today: the window shows another tab, unzoomed.
@@ -47,7 +48,7 @@ Such an application states in its own documentation which extensions cannot be t
 - The group `extensions-load` gains the field `off`, the number of extensions turned off. For each one, its `extension-init{extension}` group logs `info` `turned off` and runs nothing; an extension turned off is the user's choice, not a failure.
 - `WARN`, in the diagnostic log: a name in the section that is not one of the application's extensions, once per start.
 - When the `extensions` section changes while the application runs, a group `extensions-setting-changed` logs `info` `applies at the next start`, with the names that would change.
-- The shell's restore line `restored{applied, skipped}` gains `kept`, the number of skipped operations kept for a turned-off extension.
+- The shell's restore line `restored{applied, skipped}` gains `kept`, the number of skipped operations kept for a turned-off extension. A window that switches to a named layout whose user layer it holds in memory restores it in `layout-restore{layout}`. `reset_layout` logs `debug` `kept operations dropped` with their number.
 
 ## Parts
 
@@ -65,7 +66,7 @@ This slice has no dev part of its own. The extensions are loaded by the producti
   - a change of the section while running logs `applies at the next start` and changes nothing;
   - `Extension::new(cx, "extensions")` is refused;
   - in their own files, the groups, fields, and levels above.
-- **Test extension** `examples/toggle_tour`, named in `review.rs` while the change is under review. Without `TOGGLE_TOUR` it does nothing. With `TOGGLE_TOUR=on` it places a card in the window with a slot, binds a key to an action that counts on the card, and handles `<scheme>://toggle_tour/...`. The README walks through: run it and move the card or put another node in its slot; quit; add `"toggle_tour": false` and start again (no card, no `ERROR`, the key does nothing, the URL is refused, the trace says `turned off`); quit; remove the entry and start again (the card is back where the user left it). Also: a misspelled name, a change of the section while running, and turning off `command_palette`.
+- **Test extension** `examples/toggle_tour`, named in `review.rs` while the change is under review. Without `TOGGLE_TOUR` it does nothing. The crate has two extensions, so the window keeps nodes that are not the turned-off one's: `toggle_host` places a note and an aside with a button that hides it, and `toggle_tour` places a card with a slot, binds a key to an action that counts on the card, and handles `<scheme>://toggle_tour/...`; with `TOGGLE_TOUR=on` both place their nodes. The README walks through: drag the note into the card; quit; add `"toggle_tour": false` and start again (no card, the note back at its startup place since its move cannot apply, no `ERROR`, the key does nothing, the trace says `turned off`), hide the aside; quit; the saved layer holds the move, then the hide; remove the entry and start again (the card is back with the note inside, the aside hidden). Also: a misspelled name, a change of the section while running, and turning off `command_palette`.
 - **Run by the lead on macOS** with `cargo run dev` and every case. The Linux and Windows runners run the same cases from YARD-testing's `features/extension-toggle/`, since they need only the settings file and the trace.
 
 ## Not in this slice

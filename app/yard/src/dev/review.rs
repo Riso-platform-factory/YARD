@@ -1,5 +1,5 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &[];
+pub(crate) const UNDER_REVIEW: &[&str] = &["yard_app/startup", "yard_shell/shell"];
 
 pub fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -19,7 +19,11 @@ pub fn run() -> bool {
         // SAFETY: the logger and GPUI have not started any threads yet.
         unsafe { std::env::set_var(variable, filter) };
     }
-    let mut extensions: Vec<(&'static str, yard_app::Init)> = vec![("review", announce)];
+    let mut extensions: Vec<(&'static str, yard_app::Init)> = vec![
+        ("review", announce),
+        ("toggle_host", toggle_tour::host),
+        ("toggle_tour", toggle_tour::init),
+    ];
     extensions.extend_from_slice(crate::startup::EXTENSIONS);
     yard_app::run(app, &extensions, crate::menus::menus);
     true

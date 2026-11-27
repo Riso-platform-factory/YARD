@@ -1073,6 +1073,7 @@ struct Registry {
     layout_observers: LayoutObservers,
     next_layout_observer: u64,
     extensions: BTreeSet<String>,
+    extensions_off: bool,
     urls: UrlRouting,
     components: BTreeMap<ComponentId, Component>,
     action_handlers: Vec<ActionHandler>,
@@ -1130,6 +1131,9 @@ struct WindowState {
     extension_root: Option<NodeId>,
     zoomed: Option<NodeId>,
     shown_layout: SharedString,
+    unavailable_layout: Option<String>,
+    // Each skipped operation follows this many applied operations.
+    kept_operations: Vec<(usize, Operation)>,
     saved_layers: BTreeMap<String, Vec<Operation>>,
     /// The session file of a window opened from the session, and the named
     /// layouts whose user layers the session gave it: a switch to one of
@@ -1382,6 +1386,7 @@ impl Default for Registry {
             layout_observers: Rc::default(),
             next_layout_observer: 0,
             extensions: BTreeSet::new(),
+            extensions_off: false,
             urls: UrlRouting::default(),
             components,
             action_handlers: Vec::new(),
@@ -1414,6 +1419,20 @@ impl Default for Registry {
 impl Global for Registry {}
 
 impl WindowState {
+    fn saved_user_layer(&self) -> Vec<Operation> {
+        let layers = self.tree.borrow();
+        let applied = layers.user_layer();
+        let mut operations = Vec::with_capacity(applied.len() + self.kept_operations.len());
+        let mut start = 0;
+        for (end, operation) in &self.kept_operations {
+            operations.extend_from_slice(&applied[start..*end]);
+            operations.push(operation.clone());
+            start = *end;
+        }
+        operations.extend_from_slice(&applied[start..]);
+        operations
+    }
+
     fn new(tree: Tree) -> Self {
         Self {
             pending_states: WindowStates::new(),
@@ -1444,6 +1463,8 @@ impl WindowState {
             extension_root: None,
             zoomed: None,
             shown_layout: "yard.default".into(),
+            unavailable_layout: None,
+            kept_operations: Vec::new(),
             saved_layers: BTreeMap::new(),
             session_layers: None,
             startup_tree: Tree::default(),
@@ -1795,7 +1816,12 @@ fn split_on_drop(
         let free = |prefix| {
             (1..)
                 .map(|number| NodeId::parse(&format!("{prefix}-{number}")).unwrap())
-                .find(|id| node_of(tree, id).is_none())
+                .find(|id| {
+                    node_of(tree, id).is_none()
+                        && !layout_state.kept_operations.iter().any(|(_, operation)| {
+                            matches!(operation, Operation::Add { node, .. } if &node.id == id)
+                        })
+                })
                 .unwrap()
         };
         (
@@ -3625,10 +3651,8 @@ fn save(cx: &App) {
             return None;
         }
         let path = layout_path(registry, &layout_state)?;
-        let tree_handle = layout_state.tree.clone();
-        let layers = tree_handle.borrow();
-        let ops = layers.user_layer();
-        Some((path, ops.len(), encode(ops)))
+        let ops = layout_state.saved_user_layer();
+        Some((path, ops.len(), encode(&ops)))
     }) else {
         return;
     };
@@ -5233,6 +5257,10 @@ impl Extension {
             log::error!("yard is the shell's own namespace");
             return None;
         }
+        if name == "extensions" {
+            log::error!("extensions is reserved for the application settings");
+            return None;
+        }
         // An extension name follows the same slug rule as a node ID.
         if let Err(error) = NodeId::parse(name) {
             log::error!("invalid extension name {name:?}: {error}");
@@ -5341,7 +5369,13 @@ impl Extension {
             return;
         }
         if from.as_str() == name {
-            tracing::debug!("already shown");
+            let unavailable = window_state(cx).borrow_mut().unavailable_layout.take();
+            if let Some(unavailable) = unavailable {
+                tracing::debug!(unavailable, "selected the default layout");
+                super::session::layout_changed(cx);
+            } else {
+                tracing::debug!("already shown");
+            }
             return;
         }
         let named = cx
@@ -5382,9 +5416,10 @@ impl Extension {
                 .collect::<BTreeMap<_, _>>();
             // The main window reads its layers from its files; the copy
             // kept here is what the session saves for it.
+            let operations = layout_state.saved_user_layer();
             layout_state
                 .saved_layers
-                .insert(from.to_string(), layers.user_layer().to_vec());
+                .insert(from.to_string(), operations);
             (before, props, components)
         };
         let zoom_cleared;
@@ -5395,6 +5430,8 @@ impl Extension {
             layout_state.failed_views.clear();
             zoom_cleared = layout_state.zoomed.take().is_some();
             layout_state.shown_layout = name.to_string().into();
+            layout_state.unavailable_layout = None;
+            layout_state.kept_operations.clear();
             layout_state.named_nodes.clear();
             *layout_state.tree.borrow_mut() = Layers::new(layout_state.startup_tree.clone());
             if name != "yard.default" && registry.named_layout_files.is_none() {
@@ -5450,13 +5487,8 @@ impl Extension {
                 .get(name)
                 .cloned()
                 .unwrap_or_default();
-            for operation in saved {
-                let extension = match &operation {
-                    Operation::Add { node, .. } => node.extension.clone(),
-                    _ => "yard".into(),
-                };
-                replay_operation(cx, &extension, operation);
-            }
+            let _group = tracing::info_span!("layout-restore", layout = name).entered();
+            apply_restored(cx, saved);
         }
         let (root, removed) = {
             let state_handle = window_state(cx);
@@ -5823,8 +5855,24 @@ impl Extension {
                 .collect();
             (added, before_props)
         };
-        if window_state(cx).borrow().tree.borrow_mut().reset() == 0 {
-            return;
+        {
+            let state_handle = window_state(cx);
+            let mut state = state_handle.borrow_mut();
+            let has_applied = !state.tree.borrow().user_layer().is_empty();
+            if !has_applied && state.kept_operations.is_empty() {
+                state.tree.borrow_mut().reset();
+                return;
+            }
+            if has_applied {
+                state.tree.borrow_mut().reset();
+            }
+            if !state.kept_operations.is_empty() {
+                tracing::debug!(
+                    dropped = state.kept_operations.len(),
+                    "kept operations dropped"
+                );
+                state.kept_operations.clear();
+            }
         }
         let (root, kept, dropped) = {
             let state_handle = window_state(cx);
@@ -7241,12 +7289,20 @@ fn restore(cx: &mut App) -> bool {
     apply_restored(cx, operations)
 }
 
+/// Keeps operations skipped on restore when startup leaves extensions off.
+pub fn set_extensions_off(cx: &mut App, off: bool) {
+    cx.default_global::<Registry>().extensions_off = off;
+}
+
 /// Applies saved operations to the window's layout, each checked by the
 /// rules of a live one; a refused one is skipped with an `INFO`.
 fn apply_restored(cx: &mut App, operations: Vec<Operation>) -> bool {
-    window_state(cx).borrow_mut().failed_views.clear();
+    let state = window_state(cx);
+    state.borrow_mut().failed_views.clear();
+    let extensions_off = cx.global::<Registry>().extensions_off;
     let mut applied = 0usize;
     let mut skipped = 0usize;
+    let mut kept = 0usize;
     for operation in operations {
         let (op, node) = match &operation {
             Operation::Add { node, .. } => ("add", node.id.clone()),
@@ -7263,36 +7319,29 @@ fn apply_restored(cx: &mut App, operations: Vec<Operation>) -> bool {
             Operation::Add { node, .. } => node.extension.as_str(),
             _ => "yard",
         };
-        if let Err(reason) = shell_rule_error(extension, cx, &operation) {
-            tracing::info!(
-                op,
-                node = node.as_str(),
-                reason = reason.as_str(),
-                "skipped"
-            );
-            skipped += 1;
-            continue;
-        }
-        let result = {
-            let tree = window_state(cx).borrow().tree.clone();
-            let mut tree = tree.borrow_mut();
-            tree.apply(operation)
-        };
+        let result = shell_rule_error(extension, cx, &operation).and_then(|()| {
+            state
+                .borrow()
+                .tree
+                .borrow_mut()
+                .apply(operation.clone())
+                .map_err(|error| error.to_string())
+        });
         match result {
             Ok(_) => applied += 1,
-            Err(error) => {
-                let reason = error.to_string();
-                tracing::info!(
-                    op,
-                    node = node.as_str(),
-                    reason = reason.as_str(),
-                    "skipped"
-                );
+            Err(reason) => {
+                tracing::info!(op, node = node.as_str(), reason, "skipped");
                 skipped += 1;
+                if extensions_off {
+                    let mut state = state.borrow_mut();
+                    let index = state.tree.borrow().user_layer().len();
+                    state.kept_operations.push((index, operation));
+                    kept += 1;
+                }
             }
         }
     }
-    tracing::debug!(applied, skipped, "restored");
+    tracing::debug!(applied, skipped, kept, "restored");
     applied > 0
 }
 
@@ -7325,6 +7374,9 @@ fn restore_session(cx: &mut App, saved: &SessionWindow) -> bool {
             .map(|(layout, operations)| (layout.clone(), operations.clone()))
             .collect();
         layout_state.shown_layout = shown.to_string().into();
+        if shown != name && cx.global::<Registry>().extensions_off {
+            layout_state.unavailable_layout = Some(name.to_string());
+        }
         let mut given = saved.layers.keys().cloned().collect::<BTreeSet<_>>();
         given.insert(shown.to_string());
         layout_state.session_layers = Some((saved.file.clone(), given));
@@ -8103,8 +8155,8 @@ pub(super) fn session_layers(
         let state = state_handle.borrow();
         let layout = state.shown_layout.to_string();
         let mut layers = state.saved_layers.clone();
-        layers.insert(layout.clone(), state.tree.borrow().user_layer().to_vec());
-        (layout, layers)
+        layers.insert(layout.clone(), state.saved_user_layer());
+        (state.unavailable_layout.clone().unwrap_or(layout), layers)
     };
     // During the close callback the session asks for layers only if it is keeping this window.
     capture_kept_window(cx, id, &state_handle);
@@ -8407,4 +8459,201 @@ pub fn set_menus(cx: &mut App, menus: Vec<gpui::Menu>) {
 /// Gives the shell the composition root's operation for opening another window.
 pub fn set_window_opener(cx: &mut App, open: impl Fn(&mut App) + 'static) {
     cx.default_global::<Registry>().window_opener = Some(Rc::new(open));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn open_test_session(
+        app: &mut gpui::TestAppContext,
+        file: &Path,
+        off: bool,
+    ) -> (Extension, gpui::WindowHandle<Shell>) {
+        let (host, window) = app.update(|cx| {
+            yard_ui::init(cx);
+            let host = Extension::new(cx, "host").unwrap();
+            host.place_root(cx, "root", "yard.row");
+            host.place(cx, "source", "yard.tabs", "root", "children");
+            host.place(cx, "target", "yard.column", "root", "children");
+            host.place(cx, "note", "yard.column", "source", "children");
+            set_extensions_off(cx, off);
+            if !off {
+                let tour = Extension::new(cx, "tour").unwrap();
+                tour.register(cx, "tour.card", &["body"], |_, _, _, cx| {
+                    cx.new(|_| EmptyCard).into()
+                });
+                tour.place(cx, "card", "tour.card", "root", "children");
+                tour.named_layout(cx, "tour.focus", |_| {});
+            }
+            let saved = crate::saved_session(cx, file);
+            crate::track_session(cx, file.to_path_buf());
+            let window = cx
+                .open_window(gpui::WindowOptions::default(), |window, cx| {
+                    if let Some(saved) = &saved {
+                        new_session_shell(window, cx, &saved[0])
+                    } else {
+                        new_shell(window, cx)
+                    }
+                })
+                .unwrap();
+            (host, window)
+        });
+        settle_session(app);
+        (host, window)
+    }
+
+    struct EmptyCard;
+
+    impl Render for EmptyCard {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+        }
+    }
+
+    fn settle_session(app: &mut gpui::TestAppContext) {
+        app.run_until_parked();
+        app.executor().advance_clock(Duration::from_millis(200));
+        app.run_until_parked();
+    }
+
+    fn assert_location(cx: &App, node: &str, parent: &str, slot: &str) {
+        let state = window_state(cx);
+        let state = state.borrow();
+        let tree = state.tree.borrow();
+        let location = current_location(tree.current(), &NodeId::parse(node).unwrap())
+            .map(|(parent, slot, _, _)| (parent.to_string(), slot.as_str().to_owned()));
+        assert_eq!(
+            location,
+            Some((parent.to_owned(), slot.to_owned())),
+            "{node}"
+        );
+    }
+
+    #[gpui::test]
+    fn split_uses_fresh_ids_when_a_restored_add_is_kept(cx: &mut gpui::TestAppContext) {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("session.json");
+
+        let mut app = cx.new_app();
+        let (host, window) = open_test_session(&mut app, &file, false);
+        window
+            .update(&mut app, |_, window, cx| {
+                host.add(window, cx, "split-1", "yard.row", "card", "body");
+                host.add(window, cx, "tabs-1", "yard.tabs", "split-1", "children");
+                assert_location(cx, "split-1", "card", "body");
+            })
+            .unwrap();
+        settle_session(&mut app);
+        app.quit();
+
+        let mut app = cx.new_app();
+        let (_, window) = open_test_session(&mut app, &file, true);
+        window
+            .update(&mut app, |_, window, cx| {
+                split_on_drop(
+                    cx,
+                    window,
+                    &NodeId::parse("note").unwrap(),
+                    &NodeId::parse("target").unwrap(),
+                    false,
+                    DropZone::Top,
+                );
+                assert_location(cx, "split-2", "root", "children");
+                assert_location(cx, "tabs-2", "split-2", "children");
+                assert_location(cx, "note", "tabs-2", "children");
+            })
+            .unwrap();
+        settle_session(&mut app);
+        app.quit();
+
+        let mut app = cx.new_app();
+        let (_, window) = open_test_session(&mut app, &file, false);
+        window
+            .update(&mut app, |_, _, cx| {
+                assert_location(cx, "split-1", "card", "body");
+                assert_location(cx, "tabs-1", "split-1", "children");
+                assert_location(cx, "split-2", "root", "children");
+                assert_location(cx, "tabs-2", "split-2", "children");
+                assert_location(cx, "note", "tabs-2", "children");
+                assert_location(cx, "target", "split-2", "children");
+            })
+            .unwrap();
+        app.quit();
+    }
+
+    #[gpui::test]
+    fn explicitly_showing_default_saves_it_instead_of_the_unavailable_layout(
+        cx: &mut gpui::TestAppContext,
+    ) {
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("session.json");
+
+        let mut app = cx.new_app();
+        let (host, window) = open_test_session(&mut app, &file, false);
+        window
+            .update(&mut app, |_, window, cx| {
+                host.show_layout(window, cx, "tour.focus")
+            })
+            .unwrap();
+        settle_session(&mut app);
+        app.quit();
+
+        let mut app = cx.new_app();
+        let (host, window) = open_test_session(&mut app, &file, true);
+        app.read(|cx| {
+            assert_eq!(
+                crate::saved_session(cx, &file).unwrap()[0].layout,
+                "tour.focus"
+            )
+        });
+        window
+            .update(&mut app, |_, window, cx| {
+                assert_eq!(shown_layout(cx, window), "yard.default");
+                host.show_layout(window, cx, "yard.default");
+            })
+            .unwrap();
+        settle_session(&mut app);
+        app.read(|cx| {
+            assert_eq!(
+                crate::saved_session(cx, &file).unwrap()[0].layout,
+                "yard.default"
+            )
+        });
+        app.quit();
+    }
+
+    #[test]
+    fn saved_layer_interleaves_kept_operations_before_new_edits() {
+        let root = Node {
+            id: NodeId::parse("root").unwrap(),
+            component: ComponentId::parse("yard.row").unwrap(),
+            extension: "yard".into(),
+            props: Props::new(),
+        };
+        let edit = |node: &str, hidden| Operation::SetHidden {
+            node: NodeId::parse(node).unwrap(),
+            hidden,
+        };
+        let add = Operation::Add {
+            node: Node {
+                id: NodeId::parse("child").unwrap(),
+                ..root.clone()
+            },
+            parent: root.id.clone(),
+            slot: SlotName::parse("children").unwrap(),
+            at: Position::Last,
+        };
+        let mut tree = Tree::default();
+        tree.place_root(root).unwrap();
+        let mut state = WindowState::new(tree);
+        let before = edit("missing-before", true);
+        let between = edit("missing-between", true);
+        let last = edit("child", true);
+        state.tree.borrow_mut().apply(add.clone()).unwrap();
+        state.tree.borrow_mut().apply(last.clone()).unwrap();
+        state.kept_operations = vec![(0, before.clone()), (1, between.clone())];
+
+        assert_eq!(state.saved_user_layer(), [before, add, between, last]);
+    }
 }

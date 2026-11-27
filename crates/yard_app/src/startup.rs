@@ -1,5 +1,5 @@
 use gpui::{App, AsyncApp, WindowOptions};
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc, sync::Arc};
 
 /// What an extension registers when the application starts.
 pub type Init = fn(&mut App, &yard_shell::Extension);
@@ -35,6 +35,20 @@ macro_rules! application {
             window_icon,
         }
     }};
+}
+
+#[derive(Default, serde::Deserialize)]
+#[serde(transparent)]
+struct ExtensionSettings(BTreeMap<String, serde_json::Value>);
+
+impl yard_settings::Settings for ExtensionSettings {
+    const KEY: &'static str = "extensions";
+}
+
+impl ExtensionSettings {
+    fn is_off(&self, name: &str) -> bool {
+        self.0.get(name).and_then(serde_json::Value::as_bool) == Some(false)
+    }
 }
 
 /// The URLs the system hands over, kept until the app can open them.
@@ -214,13 +228,47 @@ pub fn init(
         yard_shell::open_urls(cx, urls);
     }
     {
-        let _group = tracing::info_span!("extensions-load", count = extensions.len()).entered();
+        yard_settings::register::<ExtensionSettings>(cx);
+        let settings = yard_settings::get::<ExtensionSettings>(cx);
+        let (off, on): (Vec<_>, Vec<_>) = extensions
+            .iter()
+            .map(|&(name, _)| name)
+            .partition(|name| settings.is_off(name));
+        let _group =
+            tracing::info_span!("extensions-load", count = extensions.len(), off = off.len())
+                .entered();
+        for (name, value) in &settings.0 {
+            if !value.is_boolean() {
+                log::warn!("extension {name:?} in the extensions setting is not true or false");
+            } else if !extensions.iter().any(|(known, _)| known == name) {
+                log::warn!("unknown extension {name:?} in the extensions setting");
+            }
+        }
+        yard_shell::set_extensions_off(cx, !off.is_empty());
         for &(name, init) in extensions {
             let _group = tracing::info_span!("extension-init", extension = name).entered();
+            if off.contains(&name) {
+                tracing::info!("turned off");
+                continue;
+            }
             if let Some(extension) = yard_shell::Extension::new(cx, name) {
                 init(cx, &extension);
             }
         }
+        yard_settings::observe::<ExtensionSettings>(cx, move |cx| {
+            let settings = yard_settings::get::<ExtensionSettings>(cx);
+            let names = on
+                .iter()
+                .copied()
+                .filter(|name| settings.is_off(name))
+                .chain(off.iter().copied().filter(|name| !settings.is_off(name)))
+                .collect::<Vec<_>>();
+            if !names.is_empty() {
+                let _group = tracing::info_span!("extensions-setting-changed", ?names).entered();
+                tracing::info!("applies at the next start");
+            }
+        })
+        .detach();
     }
     // Hand over any URLs that arrived during extension initialization.
     // GPUI queues subsequent deliveries on the main thread in callback order.

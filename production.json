@@ -20,9 +20,9 @@
   },
   "yard_app/startup": {
     "files": {
-      "crates/yard_app/src/startup.rs": "72116492079bb179"
+      "crates/yard_app/src/startup.rs": "35d92579216eadb3"
     },
-    "promoted": "2026-11-26"
+    "promoted": "2026-11-27"
   },
   "yard_build_config/build_script": {
     "files": {
@@ -211,9 +211,9 @@
   },
   "yard_shell/shell": {
     "files": {
-      "crates/yard_shell/src/shell.rs": "a4dad859c5f3f9a6"
+      "crates/yard_shell/src/shell.rs": "eee8cf1c2691b83a"
     },
-    "promoted": "2026-11-21"
+    "promoted": "2026-11-27"
   },
   "yard_shell/window_bounds": {
     "files": {

@@ -419,7 +419,7 @@ fn the_title_bar_logs_its_frame_title_refusals_and_draws(cx: &mut TestAppContext
     assert!(
         captured.lines.iter().any(|line| {
             line.as_str()
-                == "layout-restore file=layout.json: DEBUG message=restored applied=0 skipped=3"
+                == "layout-restore file=layout.json: DEBUG message=restored applied=0 skipped=3 kept=0"
         }),
         "missing the restore summary in {:#?}",
         captured.lines

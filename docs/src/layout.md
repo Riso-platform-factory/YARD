@@ -92,7 +92,7 @@ Layout files use version `1` JSON with an `"operations"` array:
 - `"add"` records `"node"`, `"component"`, the originating `"extension"`, `"parent"`, `"slot"`, optional `"props"`, and an optional position.
 - Position on `"add"` and `"move"` uses at most one of four mutually exclusive fields: `"index"`, `"first"`, `"before"`, or `"after"`. Omitting them places the node last.
 - If a file is unreadable, malformed JSON, or has an unsupported version, YARD logs a `WARN` and falls back to the default layout.
-- On restore, each well-formed operation is validated against current shell rules; any refused operation (for example, a missing node or a newly required node) is skipped with an `INFO` reason and drops out on the next save while the remaining operations still apply.
+- On restore, each well-formed operation is validated against current shell rules; any refused operation (for example, a missing node or a newly required node) is skipped with an `INFO` reason and drops out on the next save while the remaining operations still apply. While an extension is turned off in the settings (see [Settings](./settings.md#turning-extensions-off)), skipped operations are kept in their place instead and written back, so turning the extension on again restores the layout; the `restored` line counts them as `kept`.
 
 ## Reference
 
@@ -101,7 +101,7 @@ Layout files use version `1` JSON with an `"operations"` array:
 | Group | Fields | When |
 |---|---|---|
 | `layout-save` | `operations` | Saving a window's user layer to disk |
-| `layout-restore` | `file` | Restoring a saved user layer |
+| `layout-restore` | `file`, or `layout` for a window that keeps its named layouts' user layers in memory | Restoring a saved user layer |
 | `layout-reset` | `extension` | Discarding the active layout's user layer |
 | `split-on-drop` | `node`, `target`, `edge` | Splitting a target on drag-and-drop |
 | `zoom` | `node`, `extension` | Zooming a node |

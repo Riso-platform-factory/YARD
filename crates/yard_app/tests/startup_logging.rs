@@ -313,8 +313,8 @@ fn init_opens_startup_groups_at_info_and_logs_no_error(cx: &mut TestAppContext) 
     );
     assert_eq!(
         fields_as_pairs(extensions_load_fields),
-        [("count", "1")],
-        "`extensions-load` records count=1"
+        [("count", "1"), ("off", "0")],
+        "`extensions-load` records count=1 and off=0"
     );
     assert!(
         extensions_load_index > app_init_index,

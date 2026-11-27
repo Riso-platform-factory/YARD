@@ -34,10 +34,12 @@ yard_shell = { workspace = true, default-features = false }
 yard_update = { workspace = true, default-features = false }
 reqwest_client.workspace = true
 tracing.workspace = true
+log = { workspace = true }
+serde = { workspace = true }
+serde_json.workspace = true
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 image.workspace = true
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }
-log.workspace = true

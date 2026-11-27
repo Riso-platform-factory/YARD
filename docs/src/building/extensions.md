@@ -21,7 +21,8 @@ pub fn init(cx: &mut gpui::App, ext: &yard_shell::Extension) {
 The composition root creates a handle per extension with `yard_shell::Extension::new(cx, name)` and passes it to `init`. The handle enforces namespace ownership and load order:
 
 - Component IDs, named layout IDs, window-wide action handlers, settings sections, URL handlers, and extension stores are all scoped to the extension's own `name`.
-- The namespace `yard` belongs to the shell.
+- The namespace `yard` belongs to the shell, and the name `extensions` to the settings section that turns extensions off.
+- The user can turn an extension off in `settings.json` (see [Settings](../settings.md#turning-extensions-off)); its `init` then does not run at that start. YARD does not know that one extension depends on another: an extension that places nodes in another one's slots, needs its context, or reads its settings section meets what it would meet if that extension were not in the list, and reading the section of an extension that is off panics. An application whose extensions depend on each other says in its own documentation which ones cannot be turned off alone.
 - When one extension places a node into another extension's slot, it places its own component (or an allowed shell component) and the parent node must already exist—so the contributing extension must be listed after the parent extension in the composition root.
 - Violating namespace rules, registering the same resource twice, or passing a malformed identifier is refused with an `ERROR` log.
 
@@ -213,8 +214,9 @@ Extensions can handle custom-scheme URLs addressed to them with `ext.on_open_url
 
 | Group | Fields | When |
 |---|---|---|
-| `extensions-load` | `count` | Loading all extensions in startup |
-| `extension-init` | `extension` | Running one extension's `init` |
+| `extensions-load` | `count`, `off` | Loading all extensions in startup; `off` counts those turned off in the settings |
+| `extension-init` | `extension` | Running one extension's `init`, or logging `turned off` (`INFO`) instead |
+| `extensions-setting-changed` | `names` | The `extensions` section changed while running in a way that changes an extension; logs `applies at the next start` (`INFO`) |
 | `extension-action` | `action`, `extension` | Running a window-wide extension action handler |
 | `state-register` | `component` | Registering `NodeState` for a component |
 | `state-restore` | `file` | Reading `state.json` on startup |

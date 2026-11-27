@@ -23,7 +23,7 @@ The lead agent is Claude. It coordinates all workers through **Orca orchestratio
 |---|---|---|
 | **Claude (Opus)** | `orca orchestration worker-start --environment local --worktree current --agent claude --spec-file <prompt>` (select the Opus model with `--model` if not the default) | code, in its turn; reviews |
 | **Codex** | `orca orchestration worker-start --environment local --worktree current --agent codex --spec-file <prompt>`; 3 logins inside Orca, listed with `orca account list`: bin.ngoctu@gmail.com (a46c23cd) and yenngan167@gmail.com (05872387, 226d3c4c); switched with `orca account select --agent codex --account <full id>` (applies to launches after it) | code, in its turn; mechanical work: promotions, small fixes from a review; reviews |
-| **Antigravity** | `orca orchestration worker-start --environment local --worktree current --agent antigravity --spec-file <prompt>`; accounts are kept by `account-pool` (provider `agy`), not by Orca: `account-pool list` shows them (yenngan167@gmail.com, tu.nguyen@risotech.vn, bin.ngoctu@gmail.com) and `account-pool use <id>` sets the active one (`worker-start` follows Orca's Chat \| CLI setting, or target a surface via `orca agent launch --agent antigravity --surface chat\|terminal` then `worker-start --task <task_id> --terminal <handle>`) | acceptance tests; reviews; research: reading and summing up documents, code, Zed |
+| **Antigravity** | Not through `--agent antigravity`, which starts `agy` with the real HOME, where no account is signed in. Accounts are kept by `account-pool` (provider `agy`), each with its own HOME: `account-pool list` shows them (agy-yn yenngan167@gmail.com, agy-tn tu.nguyen@risotech.vn, agy-bn bin.ngoctu@gmail.com). Start one with the shell function of the same name, with permissions bypassed: `orca terminal create --title <name> --command "agy-yn --dangerously-skip-permissions" --json`. Then `orca orchestration worker-start --environment local --terminal <handle> --spec-file <prompt>`. Orca recognizes the agent only once its tab has been shown in Orca. While `worker-start` says `agent_unconfigured`, ask the user to open the tab. In the spec, say that cargo needs `RUSTUP_HOME=$HOME/.rustup CARGO_HOME=$HOME/.cargo` with the real HOME, since its HOME is the profile's | acceptance tests; reviews; research: reading and summing up documents, code, Zed |
 
 How work is given out:
 
@@ -103,6 +103,13 @@ A prompt has, in this order: the goal; the context, with the files to read and t
 - `production.json` holds a fingerprint of every file of every production part. `cargo test -p yard` fails when a part outside `dev/` is not listed, a listed file differs, or a listed part is gone. When a change needs a production part to change, show the user what changes and why, and stamp the part again only when the user approves.
 - To promote a part, after the user approves it: move its module out of `dev/`, then stamp it with `YARD_PROMOTE=<crate>/<part>[,<crate>/<part>…] cargo test -p yard --test stages what_is_outside_dev_is_in_production`.
 - Test files have no stage: `tests.rs`, `*_tests.rs`, `testing.rs`, and everything in `tests/`.
+
+## Disk
+
+- Cargo builds into `CARGO_TARGET_DIR` (`~/crew/target`), shared by every checkout.
+- After each piece of work, and before starting workers, the lead checks `du -sh "$CARGO_TARGET_DIR"` and `df -h /`.
+- When the target folder is over 30 GB, or the disk has less than 15 GB free, the lead first runs `cargo sweep --time 3`, which removes what has not been used for three days. If the limits are still passed, it runs `cargo clean` once. It does either only while no worker is building, and says so in its report.
+- `~/.zprofile` keeps builds small for every checkout: `CARGO_PROFILE_DEV_DEBUG=line-tables-only` and `CARGO_INCREMENTAL=0`.
 
 ## Running
 

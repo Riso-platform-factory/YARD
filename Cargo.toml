@@ -18,6 +18,7 @@ theme = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f2
 http_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 reqwest_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 zlog = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
+yard_data = { path = "crates/yard_data", default-features = false }
 yard_layout = { path = "crates/yard_layout", default-features = false }
 yard_state = { path = "crates/yard_state", default-features = false }
 yard_shell = { path = "crates/yard_shell", default-features = false }
@@ -38,6 +39,7 @@ embed-resource = "3.0"
 futures = "0.3"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
 log = "0.4.35"
+rusqlite = { version = "0.43.0", features = ["bundled", "hooks"] }
 tracing = "0.1.44"
 tracing-log = { version = "0.2", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "registry", "env-filter"] }

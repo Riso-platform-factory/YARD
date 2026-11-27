@@ -11,6 +11,7 @@ mod support;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
+use std::sync::OnceLock;
 use support::{TempDir, new_app_manifest, new_app_workspace_targets, tempdir};
 use xtask::{Made, NewAppArgs, new_app};
 
@@ -33,10 +34,23 @@ yard_ui = { path = \"crates/yard_ui\", default-features = false }
 ";
 
 /// Builds a small temporary workspace containing the sample app (copied from
-/// the real `app/yard/product.toml` and its icon) and two workspace crates
-/// (`yard_ui` and `alpha`) to check glob expansion and package-name collisions.
+/// the real `app/yard/product.toml` and its icon), two workspace crates
+/// (`yard_ui` and `alpha`), and a matching `Cargo.lock` (listing `gpui`, `log`,
+/// and the other stub dependencies) to check glob expansion and package-name
+/// collisions.
 fn workspace() -> TempDir {
-    workspace_with_manifest(WORKSPACE_TOML)
+    let temp = workspace_with_manifest(WORKSPACE_TOML);
+    fs::write(temp.path().join("Cargo.lock"), workspace_lockfile()).unwrap();
+    temp
+}
+
+fn workspace_lockfile() -> &'static [u8] {
+    static LOCK: OnceLock<Vec<u8>> = OnceLock::new();
+    LOCK.get_or_init(|| {
+        let seed = workspace_with_manifest(WORKSPACE_TOML);
+        support::update::cargo_generate_lockfile(seed.path(), true);
+        fs::read(seed.path().join("Cargo.lock")).unwrap()
+    })
 }
 
 fn workspace_with_manifest(manifest: &str) -> TempDir {
@@ -256,6 +270,9 @@ fn toml_section<'a>(text: &'a str, header: &str) -> Vec<&'a str> {
 }
 
 fn assert_application_cargo_toml(text: &str, expected_package: &str) {
+    let manifest: toml::Table =
+        toml::from_str(text).unwrap_or_else(|error| panic!("invalid Cargo.toml: {error}\n{text}"));
+
     let package = toml_section(text, "[package]");
     assert!(
         package
@@ -275,11 +292,23 @@ fn assert_application_cargo_toml(text: &str, expected_package: &str) {
         "[[bin]] should name {expected_package:?}:\n{text}"
     );
 
-    let features = toml_section(text, "[features]");
-    assert!(
-        !features.iter().any(|line| line.starts_with("dev")),
-        "generated application must have no `dev` feature:\n{text}"
-    );
+    if let Some(features) = manifest.get("features").and_then(toml::Value::as_table) {
+        assert!(
+            !features.contains_key("dev"),
+            "generated application must have no `dev` feature:\n{text}"
+        );
+        for (feature_name, enabled) in features {
+            if let Some(enabled) = enabled.as_array() {
+                assert!(
+                    !enabled.iter().any(|item| {
+                        item.as_str()
+                            .is_some_and(|value| value == "dev" || value.ends_with("/dev"))
+                    }),
+                    "feature `{feature_name}` must not turn on a `dev` feature:\n{text}"
+                );
+            }
+        }
+    }
 
     let deps = toml_section(text, "[dependencies]");
     assert!(
@@ -299,14 +328,47 @@ fn assert_application_cargo_toml(text: &str, expected_package: &str) {
             "`{required}` must have default-features = false: {line}"
         );
     }
-    for line in &deps {
-        if line.starts_with("yard_") || line.starts_with("command_palette") {
-            assert!(
-                line.contains("default-features = false"),
-                "every YARD crate dependency must set default-features = false: {line}"
-            );
-        }
-    }
+
+    let dev_deps = manifest
+        .get("dev-dependencies")
+        .and_then(toml::Value::as_table)
+        .unwrap_or_else(|| panic!("missing [dev-dependencies]:\n{text}"));
+    let gpui_dev = dev_deps
+        .get("gpui")
+        .and_then(toml::Value::as_table)
+        .unwrap_or_else(|| panic!("missing `gpui` in [dev-dependencies]:\n{text}"));
+    assert_eq!(
+        gpui_dev.get("workspace").and_then(toml::Value::as_bool),
+        Some(true),
+        "`gpui` in [dev-dependencies] must set workspace = true:\n{text}"
+    );
+    let gpui_features: Vec<&str> = gpui_dev
+        .get("features")
+        .and_then(toml::Value::as_array)
+        .unwrap_or_else(|| panic!("`gpui` in [dev-dependencies] must set features:\n{text}"))
+        .iter()
+        .map(|value| value.as_str().expect("feature name must be a string"))
+        .collect();
+    assert!(
+        gpui_features.contains(&"test-support"),
+        "`gpui` in [dev-dependencies] must include `test-support` in features, got {gpui_features:?}:\n{text}"
+    );
+    let yard_test = dev_deps
+        .get("yard_test")
+        .and_then(toml::Value::as_table)
+        .unwrap_or_else(|| panic!("missing `yard_test` in [dev-dependencies]:\n{text}"));
+    assert_eq!(
+        yard_test.get("workspace").and_then(toml::Value::as_bool),
+        Some(true),
+        "`yard_test` in [dev-dependencies] must set workspace = true:\n{text}"
+    );
+    assert_eq!(
+        yard_test
+            .get("default-features")
+            .and_then(toml::Value::as_bool),
+        Some(false),
+        "`yard_test` in [dev-dependencies] must set default-features = false:\n{text}"
+    );
 
     let build_deps = toml_section(text, "[build-dependencies]");
     let build_config = build_deps
@@ -317,6 +379,141 @@ fn assert_application_cargo_toml(text: &str, expected_package: &str) {
         build_config.contains("default-features = false"),
         "`yard_build_config` build-dependency must set default-features = false: {build_config}"
     );
+
+    let mut dep_tables: Vec<(&str, &toml::Table)> = Vec::new();
+    for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
+        if let Some(table) = manifest.get(section).and_then(toml::Value::as_table) {
+            dep_tables.push((section, table));
+        }
+    }
+    if let Some(targets) = manifest.get("target").and_then(toml::Value::as_table) {
+        for target in targets.values().filter_map(toml::Value::as_table) {
+            for section in ["dependencies", "dev-dependencies", "build-dependencies"] {
+                if let Some(table) = target.get(section).and_then(toml::Value::as_table) {
+                    dep_tables.push((section, table));
+                }
+            }
+        }
+    }
+    for (section, table) in dep_tables {
+        for (name, spec) in table {
+            let spec_table = spec.as_table();
+            if name.starts_with("yard_") || name == "command_palette" {
+                assert_eq!(
+                    spec_table
+                        .and_then(|table| table.get("default-features"))
+                        .and_then(toml::Value::as_bool),
+                    Some(false),
+                    "every YARD crate dependency in [{section}] must set default-features = false: `{name}`\n{text}"
+                );
+            }
+            if let Some(features) = spec_table
+                .and_then(|table| table.get("features"))
+                .and_then(toml::Value::as_array)
+            {
+                assert!(
+                    !features
+                        .iter()
+                        .any(|feature| feature.as_str() == Some("dev")),
+                    "dependency `{name}` in [{section}] must not enable `dev`:\n{text}"
+                );
+            }
+        }
+    }
+}
+
+/// Returns the body of the closure passed to `capture_logs(...)` in Rust source.
+fn capture_logs_body(text: &str) -> &str {
+    let bytes = text.as_bytes();
+    let mut index = 0;
+    let mut call_open = None;
+    while index < bytes.len() {
+        if bytes[index..].starts_with(b"//") {
+            while index < bytes.len() && bytes[index] != b'\n' {
+                index += 1;
+            }
+            continue;
+        }
+        if bytes[index] == b'"' {
+            index += 1;
+            while index < bytes.len() {
+                if bytes[index] == b'\\' {
+                    index = (index + 2).min(bytes.len());
+                } else if bytes[index] == b'"' {
+                    index += 1;
+                    break;
+                } else {
+                    index += 1;
+                }
+            }
+            continue;
+        }
+        let prev_is_ident =
+            index > 0 && (bytes[index - 1].is_ascii_alphanumeric() || bytes[index - 1] == b'_');
+        if !prev_is_ident && text[index..].starts_with("capture_logs") {
+            let mut after = index + "capture_logs".len();
+            while after < bytes.len() && bytes[after].is_ascii_whitespace() {
+                after += 1;
+            }
+            if after < bytes.len() && bytes[after] == b'(' {
+                call_open = Some(after);
+                break;
+            }
+        }
+        index += 1;
+    }
+    let open =
+        call_open.unwrap_or_else(|| panic!("expected a `capture_logs(...)` call in:\n{text}"));
+    let mut depth = 1usize;
+    let mut cursor = open + 1;
+    let mut call_close = None;
+    while cursor < bytes.len() {
+        if bytes[cursor..].starts_with(b"//") {
+            while cursor < bytes.len() && bytes[cursor] != b'\n' {
+                cursor += 1;
+            }
+            continue;
+        }
+        if bytes[cursor] == b'"' {
+            cursor += 1;
+            while cursor < bytes.len() {
+                if bytes[cursor] == b'\\' {
+                    cursor = (cursor + 2).min(bytes.len());
+                } else if bytes[cursor] == b'"' {
+                    cursor += 1;
+                    break;
+                } else {
+                    cursor += 1;
+                }
+            }
+            continue;
+        }
+        match bytes[cursor] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    call_close = Some(cursor);
+                    break;
+                }
+            }
+            _ => {}
+        }
+        cursor += 1;
+    }
+    let close =
+        call_close.unwrap_or_else(|| panic!("unterminated `capture_logs(...)` call in:\n{text}"));
+    let args = &text[open + 1..close];
+    let first_bar = args
+        .find('|')
+        .unwrap_or_else(|| panic!("expected a closure inside `capture_logs(...)`:\n{text}"));
+    let second_bar = args[first_bar + 1..]
+        .find('|')
+        .map(|offset| first_bar + 1 + offset)
+        .unwrap_or_else(|| {
+            panic!("unterminated closure parameters in `capture_logs(...)`:\n{text}")
+        });
+    &args[second_bar + 1..]
 }
 
 #[test]
@@ -377,8 +574,11 @@ fn makes_the_application_and_updates_the_workspace() {
             "build.rs",
             "icon.png",
             "product.toml",
+            "src/lib.rs",
             "src/main.rs",
             "src/menus.rs",
+            "src/startup.rs",
+            "tests/startup.rs",
         ]
     );
 
@@ -419,23 +619,53 @@ fn makes_the_application_and_updates_the_workspace() {
         "build.rs must call yard_build_config::build_script::run():\n{build_rs}"
     );
 
+    // app/north-star/src/lib.rs
+    let lib_rs = fs::read_to_string(app.join("src/lib.rs")).unwrap();
+    assert!(
+        lib_rs.contains("pub mod menus;"),
+        "src/lib.rs must declare `pub mod menus;`:\n{lib_rs}"
+    );
+    assert!(
+        lib_rs.contains("pub mod startup;"),
+        "src/lib.rs must declare `pub mod startup;`:\n{lib_rs}"
+    );
+    assert!(
+        !lib_rs.contains("feature = \"dev\"") && !lib_rs.contains("mod dev"),
+        "src/lib.rs must have no dev/review mode:\n{lib_rs}"
+    );
+
+    // app/north-star/src/startup.rs
+    let startup_rs = fs::read_to_string(app.join("src/startup.rs")).unwrap();
+    assert!(
+        startup_rs.contains("pub const EXTENSIONS"),
+        "src/startup.rs must define `pub const EXTENSIONS`:\n{startup_rs}"
+    );
+    assert!(
+        startup_rs.contains("command_palette"),
+        "src/startup.rs must include command_palette:\n{startup_rs}"
+    );
+    assert!(
+        startup_rs.contains("pub fn application()"),
+        "src/startup.rs must define `pub fn application()`:\n{startup_rs}"
+    );
+    assert!(
+        startup_rs.contains("yard_app::application!()"),
+        "src/startup.rs must build the application with yard_app::application!():\n{startup_rs}"
+    );
+
     // app/north-star/src/main.rs
     let main_rs = fs::read_to_string(app.join("src/main.rs")).unwrap();
+    let compact_main: String = main_rs
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect();
     assert!(
-        main_rs.contains("yard_app::run"),
-        "src/main.rs must call yard_app::run:\n{main_rs}"
-    );
-    assert!(
-        main_rs.contains("yard_app::application!()"),
-        "src/main.rs must build the application with yard_app::application!():\n{main_rs}"
-    );
-    assert!(
-        main_rs.contains("command_palette"),
-        "src/main.rs must include command_palette:\n{main_rs}"
-    );
-    assert!(
-        main_rs.contains("menus"),
-        "src/main.rs must pass menus:\n{main_rs}"
+        compact_main.contains(
+            "yard_app::run(north_star::startup::application(),north_star::startup::EXTENSIONS,north_star::menus::menus)"
+        ) || compact_main.contains(
+            "yard_app::run(north_star::startup::application(),north_star::startup::EXTENSIONS,north_star::menus::menus,)"
+        ),
+        "src/main.rs must call yard_app::run with north_star::startup::application(), north_star::startup::EXTENSIONS, and north_star::menus::menus:\n{main_rs}"
     );
     assert!(
         !main_rs.contains("feature = \"dev\"") && !main_rs.contains("yard::dev"),
@@ -453,12 +683,66 @@ fn makes_the_application_and_updates_the_workspace() {
         "src/menus.rs must use product.name:\n{menus_rs}"
     );
 
+    // app/north-star/tests/startup.rs
+    let startup_test = fs::read_to_string(app.join("tests/startup.rs")).unwrap();
+    assert!(
+        startup_test.contains("yard_test::TestApp")
+            || (startup_test.contains("yard_test::{") && startup_test.contains("TestApp")),
+        "tests/startup.rs must use yard_test::TestApp:\n{startup_test}"
+    );
+    assert!(
+        startup_test.contains(".application("),
+        "tests/startup.rs must pass the application with `.application(`:\n{startup_test}"
+    );
+    assert!(
+        startup_test.contains(".menus("),
+        "tests/startup.rs must pass menus with `.menus(`:\n{startup_test}"
+    );
+    assert!(
+        startup_test.contains("capture_logs"),
+        "tests/startup.rs must use `capture_logs`:\n{startup_test}"
+    );
+    assert!(
+        !startup_test.contains("capture_trace"),
+        "tests/startup.rs must not use `capture_trace`:\n{startup_test}"
+    );
+    let capture_body = capture_logs_body(&startup_test);
+    assert!(
+        capture_body.contains("TestApp::builder()"),
+        "tests/startup.rs must call `TestApp::builder()` inside the `capture_logs` closure:\n{startup_test}"
+    );
+    assert!(
+        capture_body.contains(".boot("),
+        "tests/startup.rs must call `.boot(` inside the `capture_logs` closure:\n{startup_test}"
+    );
+    assert!(
+        startup_test.contains("assert_no_errors"),
+        "tests/startup.rs must call `assert_no_errors`:\n{startup_test}"
+    );
+    assert_eq!(
+        startup_test.matches("#[gpui::test]").count(),
+        1,
+        "tests/startup.rs must have one `#[gpui::test]`:\n{startup_test}"
+    );
+    assert!(
+        startup_test.contains("north_star"),
+        "tests/startup.rs must use the generated library crate `north_star`:\n{startup_test}"
+    );
+
     // app/north-star/README.md
     let readme = fs::read_to_string(app.join("README.md")).unwrap();
     assert!(!readme.trim().is_empty(), "README.md must not be empty");
     assert!(
         readme.contains("cargo run") && readme.contains("bundle"),
         "README.md should document running and bundling:\n{readme}"
+    );
+    assert!(
+        readme.contains("cargo test -p north-star"),
+        "README.md should document testing with `cargo test -p north-star`:\n{readme}"
+    );
+    assert!(
+        readme.contains("src/startup.rs"),
+        "README.md should tell the developer to register extensions in `src/startup.rs`:\n{readme}"
     );
 
     // Root Cargo.toml differs ONLY in default-members (`app/*` already covers `app/north-star`).
@@ -870,6 +1154,24 @@ fn refusals_name_their_flag_and_change_nothing() {
             flag: "--name",
             from_config_reader: false,
         },
+        RefusalCase {
+            label: "Rust library crate name std",
+            args: NewAppArgs {
+                name: "std".into(),
+                ..north_star()
+            },
+            flag: "--name",
+            from_config_reader: false,
+        },
+        RefusalCase {
+            label: "Rust library crate name test",
+            args: NewAppArgs {
+                name: "Test".into(),
+                ..north_star()
+            },
+            flag: "--name",
+            from_config_reader: false,
+        },
         // Collisions with the sample (case-insensitive).
         RefusalCase {
             label: "sample name case-insensitive",
@@ -934,6 +1236,34 @@ fn refusals_name_their_flag_and_change_nothing() {
             label: "workspace crate collision across dash and underscore",
             args: NewAppArgs {
                 name: "Yard UI".into(),
+                ..north_star()
+            },
+            flag: "--name",
+            from_config_reader: false,
+        },
+        // Collisions with package names already in the workspace's Cargo.lock.
+        RefusalCase {
+            label: "Cargo.lock package collision gpui",
+            args: NewAppArgs {
+                name: "GPUI".into(),
+                ..north_star()
+            },
+            flag: "--name",
+            from_config_reader: false,
+        },
+        RefusalCase {
+            label: "Cargo.lock package collision log",
+            args: NewAppArgs {
+                name: "Log".into(),
+                ..north_star()
+            },
+            flag: "--name",
+            from_config_reader: false,
+        },
+        RefusalCase {
+            label: "Cargo.lock package collision across dash and underscore",
+            args: NewAppArgs {
+                name: "Yard Test".into(),
                 ..north_star()
             },
             flag: "--name",
@@ -1480,6 +1810,7 @@ fn sample_linux_name_collision_comes_from_sample_config() {
         "name = \"Sample App\"\nversion = \"0.1.0\"\nidentifier = \"com.example.sample\"\nurl_scheme = \"sample\"\nicon = \"icon.png\"\n",
     )
     .unwrap();
+    support::update::cargo_generate_lockfile(root, true);
 
     let before = snapshot(root);
     let colliding = NewAppArgs {

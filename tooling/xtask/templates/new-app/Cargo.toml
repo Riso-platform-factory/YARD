@@ -16,5 +16,9 @@ yard_product = { workspace = true, default-features = false }
 yard_shell = { workspace = true, default-features = false }
 command_palette = { workspace = true, default-features = false }
 
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
+yard_test = { workspace = true, default-features = false }
+
 [build-dependencies]
 yard_build_config = { workspace = true, default-features = false }

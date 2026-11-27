@@ -128,7 +128,7 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
     if folder_exists {
         return Err(refusal(format!("`{member}/` already exists")));
     }
-    let wanted = package.replace('-', "_");
+    let crate_name = package.replace('-', "_");
     let excluded = expanded(root, workspace.exclude.iter().map(String::as_str))?;
     let members = workspace
         .members
@@ -161,13 +161,14 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
             .get("package")
             .and_then(|table| table.get("name"))
             .and_then(toml::Value::as_str)
-            && name.to_ascii_lowercase().replace('-', "_") == wanted
+            && name.to_ascii_lowercase().replace('-', "_") == crate_name
         {
             return Err(refusal(format!(
                 "--name would use the existing workspace package name {name:?}"
             )));
         }
     }
+    check_locked_package_names(root, &crate_name)?;
     tracing::debug!("checked");
 
     let stale = root.join(STAGING_FOLDER);
@@ -199,10 +200,11 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
         .prefix(STAGING_PREFIX)
         .tempdir_in(root)
         .map_err(|error| filesystem(root, error))?;
-    let source = staging.path().join("src");
-    fs::create_dir(&source).map_err(|error| filesystem(&source, error))?;
-    let extensions = staging.path().join("extensions");
-    fs::create_dir(&extensions).map_err(|error| filesystem(&extensions, error))?;
+    for directory in ["src", "extensions", "tests"] {
+        let path = staging.path().join(directory);
+        fs::create_dir(&path).map_err(|error| filesystem(&path, error))?;
+    }
+    let rust_values = [("crate", crate_name.as_str())];
     for (file, contents) in [
         ("Cargo.toml", render(MANIFEST, &[("package", &package)])),
         ("product.toml", product),
@@ -215,12 +217,30 @@ fn make(root: &Path, args: &NewAppArgs) -> Result<Made, Failure> {
             include_str!("../../templates/new-app/build.rs").into(),
         ),
         (
+            "src/lib.rs",
+            include_str!("../../templates/new-app/src/lib.rs").into(),
+        ),
+        (
             "src/main.rs",
-            include_str!("../../templates/new-app/src/main.rs").into(),
+            render(
+                include_str!("../../templates/new-app/src/main.rs"),
+                &rust_values,
+            ),
         ),
         (
             "src/menus.rs",
             include_str!("../../templates/new-app/src/menus.rs").into(),
+        ),
+        (
+            "src/startup.rs",
+            include_str!("../../templates/new-app/src/startup.rs").into(),
+        ),
+        (
+            "tests/startup.rs",
+            render(
+                include_str!("../../templates/new-app/tests/startup.rs"),
+                &rust_values,
+            ),
         ),
     ] {
         write(&staging.path().join(file), contents)?;
@@ -388,11 +408,48 @@ fn use_display_path(reason: String, staged: &Path, display: &Path) -> String {
     )
 }
 
+fn check_locked_package_names(root: &Path, crate_name: &str) -> Result<(), Failure> {
+    #[derive(Deserialize)]
+    struct Lockfile {
+        #[serde(default, rename = "package")]
+        packages: Vec<LockedPackage>,
+    }
+
+    #[derive(Deserialize)]
+    struct LockedPackage {
+        name: String,
+    }
+
+    let path = root.join("Cargo.lock");
+    let text = match fs::read_to_string(&path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(filesystem(&path, error)),
+    };
+    let lockfile: Lockfile = toml::from_str(&text).map_err(|error| filesystem(&path, error))?;
+    if let Some(package) = lockfile
+        .packages
+        .iter()
+        .find(|package| package.name.to_ascii_lowercase().replace('-', "_") == crate_name)
+    {
+        return Err(refusal(format!(
+            "--name would use the existing Cargo.lock package name {:?}",
+            package.name
+        )));
+    }
+    Ok(())
+}
+
 fn check_package_name(package: &str) -> Result<(), Failure> {
     if package.starts_with(|character: char| character.is_ascii_digit()) {
         return Err(refusal(
             "--name must give a Cargo package name that starts with a letter",
         ));
+    }
+    if matches!(package, "std" | "test") {
+        return Err(refusal(format!(
+            "--name would use the Rust library crate name {package:?}"
+        )));
     }
     if matches!(
         package,

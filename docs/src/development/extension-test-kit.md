@@ -112,9 +112,26 @@ fn saving_logs_its_group() {
 - **`yard_test` is a dev-dependency only**, of extensions (`extensions/*`, `app/*/extensions/*`) and applications (`app/*`), with `default-features = false` and its `dev` forwarded as `AGENTS.md` requires. It depends on `yard_app`, so no crate below `yard_app` can use it: their tests keep their own helpers.
 - **In the application:** the command palette (`extensions/command_palette`), the extension YARD ships, gets its first test written with the kit. The test boots with the palette, opens it with its key, and checks its group. That test is the slice's use in place.
 - **`cargo xtask new-app`** writes a starter test into a new application, after `yard_test` is promoted. A generated application uses `default-features = false` and has no `dev` feature, so it cannot reach a dev part. The steps:
-  1. The template gains `src/lib.rs`, with `pub mod startup; pub mod menus;`, as `app/yard/src/lib.rs` has, so a test can reach the application's real extensions and menus.
-  2. It gains `tests/startup.rs`. That test boots the application's own extensions through `yard_test`, checks that the window opened, and checks that nothing logged an error.
-  3. `tooling/xtask/tests/new_app_builds.rs` also runs `cargo test -p <app>`.
+  1. **The template gains a library**, as `app/yard` has one:
+     - `src/lib.rs` declares `pub mod menus; pub mod startup;`;
+     - `src/startup.rs` holds `pub const EXTENSIONS` (moved from `main.rs`) and `pub fn application() -> yard_app::Application`, which returns `yard_app::application!()`;
+     - `src/main.rs` keeps only `main`, calling `yard_app::run(<crate>::startup::application(), <crate>::startup::EXTENSIONS, <crate>::menus::menus)`, where `<crate>` is the package name with `-` turned into `_`.
+
+     So a test reaches the application's real product, extensions, and menus.
+  2. **It gains `tests/startup.rs`**, one `#[gpui::test]`. Inside one `capture_logs`, so it sees errors from both logs and from every extension's `init`:
+     - it boots `TestApp` with the application's product, each of its `EXTENSIONS` in order, and its menus;
+     - it checks that one window opened;
+     - it calls `draw` and checks `assert_no_errors`.
+
+     Checking startup as a whole is the one case where the boot goes inside the capture.
+
+     The test is the developer's to change: a starting point, commented as such.
+  3. **`Cargo.toml` gains `[dev-dependencies]`:** `gpui` with `test-support`, and `yard_test` with `default-features = false`, as every other YARD dependency of a generated application.
+  4. **The template's `README.md`** says that `cargo test -p <package>` runs it.
+     `new-app` now refuses a name whose crate name would be `std` or `test`, since the application's library would shadow Rust's own. It also refuses a name that matches, ignoring case and `-`/`_`, a package already in `Cargo.lock` (such as `gpui` or `log`), since `cargo test -p <package>` would then be ambiguous.
+  5. **`tooling/xtask/tests/`:**
+     - the file list, the `Cargo.toml` sections, and the dependency list (`NEW_APP_DEPENDENCIES`) include the new files and `yard_test`;
+     - `new_app_builds.rs` (ignored, run by hand and on the runners) also runs `cargo test -p <app>`. It checks that `opens_one_window_without_errors` ran and passed, and that it fails once the scratch application registers an extension that logs an error in its `init`.
 
   This is the second commit of the slice, reviewed like the first.
 

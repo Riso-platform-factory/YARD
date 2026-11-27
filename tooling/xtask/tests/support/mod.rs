@@ -697,6 +697,7 @@ const NEW_APP_DEPENDENCIES: &[&str] = &[
     "yard_shell",
     "command_palette",
     "yard_build_config",
+    "yard_test",
 ];
 
 pub fn new_app_workspace_targets(root: &Path) {
@@ -718,10 +719,22 @@ pub fn new_app_workspace_targets(root: &Path) {
         let folder = root.join("platform").join(dependency);
         std::fs::create_dir_all(folder.join("src")).unwrap();
         std::fs::write(folder.join("src/lib.rs"), "").unwrap();
-        std::fs::write(
-            folder.join("Cargo.toml"),
-            format!("[package]\nname = {dependency:?}\nversion = \"0.1.0\"\nedition = \"2024\"\n"),
-        )
-        .unwrap();
+        let mut manifest =
+            format!("[package]\nname = {dependency:?}\nversion = \"0.1.0\"\nedition = \"2024\"\n");
+        if *dependency == "gpui" {
+            manifest.push_str("\n[features]\ntest-support = []\n");
+        }
+        if *dependency == "yard_app" {
+            manifest.push_str("\n[dependencies]\nlog = { path = \"../log\" }\n");
+        }
+        std::fs::write(folder.join("Cargo.toml"), manifest).unwrap();
     }
+    let log = root.join("platform/log");
+    std::fs::create_dir_all(log.join("src")).unwrap();
+    std::fs::write(log.join("src/lib.rs"), "").unwrap();
+    std::fs::write(
+        log.join("Cargo.toml"),
+        "[package]\nname = \"log\"\nversion = \"0.1.0\"\nedition = \"2024\"\n",
+    )
+    .unwrap();
 }

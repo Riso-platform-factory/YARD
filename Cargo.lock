@@ -1004,6 +1004,7 @@ dependencies = [
  "log",
  "tracing",
  "yard_shell",
+ "yard_test",
  "yard_ui",
 ]
 
@@ -8184,6 +8185,24 @@ dependencies = [
  "serde_json",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "yard_test"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "log",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "tracing-core",
+ "yard_app",
+ "yard_paths",
+ "yard_product",
+ "yard_settings",
+ "yard_shell",
 ]
 
 [[package]]

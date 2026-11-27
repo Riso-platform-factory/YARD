@@ -10,7 +10,7 @@ path = "src/command_palette.rs"
 
 [features]
 default = ["dev"]
-dev = ["yard_shell/dev", "yard_ui/dev"]
+dev = ["yard_shell/dev", "yard_ui/dev", "yard_test/dev"]
 
 [dependencies]
 gpui.workspace = true
@@ -21,3 +21,4 @@ tracing.workspace = true
 [dev-dependencies]
 log.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
+yard_test = { workspace = true, default-features = false }

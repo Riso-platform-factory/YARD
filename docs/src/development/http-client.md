@@ -34,22 +34,29 @@ let task = cx.background_spawn(async move {
 
 - **Certificates** come from the system's store through `rustls-platform-verifier`, as Zed's `http_client_tls` does: Security framework on macOS, CryptoAPI on Windows, the system bundle on Linux. A corporate root the user's system trusts is trusted.
 - **Proxy:**
-  - The new settings section `network` holds `proxy`, a URL (`http://`, `https://`, `socks5://`), as Zed's `proxy` setting does.
+  - The new settings section `network` holds `proxy`, a URL (`http://`, `https://`, `socks5://`, `socks5h://`), as Zed's `proxy` setting does. A missing value, `null`, or an empty string means no proxy is set.
+  - A proxy set in `network.proxy` carries every request: `NO_PROXY` does not apply to it.
   - Without it, the standard variables apply as `reqwest` reads them: `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY`.
+  - Without those, the operating system's HTTP and HTTPS proxy applies on macOS and Windows, which Zed's `reqwest` reads. An OS SOCKS proxy is not read.
   - A change to the section rebuilds the client for the next requests.
-  - **An invalid `proxy` value fails closed:** requests fail with a proxy error until it is fixed, and a `WARN` names the problem. Nothing goes out unproxied by mistake.
+  - **An invalid `proxy` value fails closed:** an unparsable URL, another scheme, or a value that is not a string. Requests fail with a proxy error until it is fixed, and a `WARN` names the problem. Nothing goes out unproxied by mistake.
+  - A SOCKS proxy's host name, set or from the environment, is resolved off the UI thread, at the request. Each resolved address is tried in order, and the first that accepts a connection is used. A failure fails that request, never sends it direct, and is tried again at the next one.
+  - A request's time limit covers building the connection too. Requests that arrive while one is being built for the same setting wait for it.
 - **The user agent** is `<Name>/<version> (<os>; <arch>)`, from the product. The engine hardcodes no name.
 - `network` is a section name an extension cannot take, like `yard` and `extensions`.
 
 ## Who uses it
 
+- **`yard_log/diagnostic_log`** (production, changed): drops the HTTP stack's records below `WARN`.
 - **The startup** builds the client from the product and the `network` section, and gives it to the shell and to GPUI (`cx.set_http_client`).
 - **`yard_update`** gets the same client tagged `update`, instead of building its own. Its rules do not change: no redirect, HTTPS only (loopback allowed in tests), and its size and time limits.
 
 ## Logging
 
-- **`http-configure{proxy, tls}`:** on start and on every change. `proxy` gives only the scheme, host, and port, never the username or password. `tls` is `platform`, or `bundled` when the platform verifier failed to start, in which case it is a `WARN`.
+- **`http-configure{proxy}`:** on start and on every change. `proxy` gives only the scheme, host, and port, never the username or password. If the platform verifier fails to start, Zed's `http_client_tls` logs that itself and falls back to bundled roots.
 - **`http-request{caller, method, host}`:** around each request, with `status` and `elapsed_ms` at `debug`.
+  - A failure is logged once, through `log` (the trace receives it through the bridge). An error returned to the caller, including one while reading the body, carries a fixed text and never the URL.
+  - `yard_log` drops records and `tracing` events and spans below `WARN` from the HTTP stack's own crates (`reqwest`, `zed_reqwest`, `hyper`, `hyper_util`, `hyper_rustls`, `h2`, `rustls`; matched by crate name), in both logs, since their debug lines carry URLs. Their `WARN` and `ERROR` lines are kept with a fixed text, `HTTP stack warning` or `HTTP stack error`, since even those can carry a path.
   - It never logs the path, query, headers, or body.
   - An HTTP error status is not a failure of the client: `debug`.
   - A transport, TLS, timeout, proxy, or size failure: `WARN`.
@@ -66,8 +73,8 @@ let task = cx.background_spawn(async move {
   - `read_limited`;
   - the logging.
 
-  It depends on Zed's `http_client`, `reqwest_client`, and `http_client_tls`, all Apache-2.0; no GPUI.
-- **`yard_shell/http`** (`crates/yard_shell/src/dev/http.rs`): `set_http_client`, and `Extension::http_client`. Until a client is set, it returns a client that refuses every request, with one `ERROR`, as `yard_shell/data` does.
+  It depends on Zed's `http_client` and `reqwest_client`, both Apache-2.0, and on `yard_settings` for the section type, which brings GPUI in.
+- **`yard_shell/http`** (`crates/yard_shell/src/dev/http.rs`): `set_http_client`, which is called once (a second call is refused with an `ERROR`), and `Extension::http_client`. A handle looks up the shared client at each request, so a handle taken before `set_http_client` works once it is set. Until a client is set, it returns a client that refuses every request, with one `ERROR`, as `yard_shell/data` does.
 - **The startup and `yard_update`:**
   - The startup is production, so while the parts are under review, the review extension in `review.rs` builds the client, sets it, and gives it to GPUI.
   - `yard_update` keeps the startup's client until promotion.
@@ -94,9 +101,15 @@ let task = cx.background_spawn(async move {
   - changing `proxy` while running;
   - `HTTPS_PROXY` set in the environment.
 
+## Known limits
+
+- **On Windows, a SOCKS proxy from the environment ignores the Internet Options exclusion list (`ProxyOverride`).** `NO_PROXY` applies.
+- **Native `WARN` and `ERROR` events of the HTTP stack (`hyper`, `h2`) reach the diagnostic log only while the lifecycle trace is on**, as before this slice. Their `log` records reach it always.
+- **The SOCKS address-order and slow-build tests use the system resolver** (`localhost`, an unresolvable `.local` name), so they prove the behaviour on macOS. Elsewhere they may pass without exercising it.
+
 ## Not in this slice
 
-- Reading the macOS and Windows system proxy settings, and PAC files. Only the setting and the environment are read. `TODO(http-client-system-proxy)`.
+- Reading the Linux desktop's proxy settings, an OS SOCKS proxy, and PAC files: only the setting, the environment, and the macOS and Windows HTTP(S) proxy are read. `TODO(http-client-system-proxy)`, [YARD#18](https://github.com/Riso-platform-factory/YARD/issues/18).
 - Proxy authentication prompts. Credentials can be put in the proxy URL.
 - A per-extension allow-list of hosts, as Tauri's scope has.
 - Moving `yard_update`'s own rules into the client.

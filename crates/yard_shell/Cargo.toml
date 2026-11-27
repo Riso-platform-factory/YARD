@@ -10,11 +10,12 @@ path = "src/yard_shell.rs"
 
 [features]
 default = ["dev"]
-dev = ["yard_data/dev", "yard_layout/dev", "yard_paths/dev", "yard_product/dev", "yard_settings/dev", "yard_state/dev", "yard_ui/dev"]
+dev = ["yard_data/dev", "dep:yard_http", "yard_http/dev", "yard_layout/dev", "yard_paths/dev", "yard_product/dev", "yard_settings/dev", "yard_state/dev", "yard_ui/dev"]
 
 [dependencies]
 gpui.workspace = true
 yard_data = { workspace = true, default-features = false }
+yard_http = { workspace = true, default-features = false, optional = true }
 yard_layout = { workspace = true, default-features = false }
 yard_paths = { workspace = true, default-features = false }
 yard_product = { workspace = true, default-features = false }

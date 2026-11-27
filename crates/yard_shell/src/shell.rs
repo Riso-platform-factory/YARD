@@ -25,8 +25,8 @@ use gpui::{
     ScrollHandle, SharedString, Size, Styled, Subscription, WeakEntity, Window, canvas, div,
 };
 use std::{
-    any::{TypeId, type_name},
-    cell::{Cell, RefCell},
+    any::{Any, TypeId, type_name},
+    cell::{Cell, OnceCell, RefCell},
     collections::{BTreeMap, BTreeSet, VecDeque, btree_map::Entry},
     path::{Path, PathBuf},
     rc::{Rc, Weak},
@@ -1080,6 +1080,8 @@ struct Registry {
     layout_observers: LayoutObservers,
     next_layout_observer: u64,
     extensions: BTreeMap<String, usize>,
+    #[allow(dead_code, reason = "used by the dev HTTP part")]
+    http_client_slot: OnceCell<Box<dyn Any>>,
     extensions_off: bool,
     urls: UrlRouting,
     components: BTreeMap<ComponentId, Component>,
@@ -1393,6 +1395,7 @@ impl Default for Registry {
             layout_observers: Rc::default(),
             next_layout_observer: 0,
             extensions: BTreeMap::new(),
+            http_client_slot: OnceCell::new(),
             extensions_off: false,
             urls: UrlRouting::default(),
             components,
@@ -1483,6 +1486,14 @@ impl WindowState {
             given_zoom: None,
         }
     }
+}
+
+// The extension registry exists before an extension can ask for a client. Its
+// slot is type-erased while the HTTP part is under review.
+#[allow(dead_code, reason = "used by the dev HTTP part")]
+pub(crate) fn http_client_slot(cx: &App) -> Option<&OnceCell<Box<dyn Any>>> {
+    cx.try_global::<Registry>()
+        .map(|registry| &registry.http_client_slot)
 }
 
 struct WindowScope {
@@ -5264,8 +5275,8 @@ impl Extension {
             log::error!("yard is the shell's own namespace");
             return None;
         }
-        if name == "extensions" {
-            log::error!("extensions is reserved for the application settings");
+        if matches!(name, "extensions" | "network") {
+            log::error!("{name} is reserved for the application settings");
             return None;
         }
         // An extension name follows the same slug rule as a node ID.

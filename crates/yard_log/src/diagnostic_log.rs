@@ -43,22 +43,56 @@ static OPENED: AtomicBool = AtomicBool::new(false);
 
 struct Logger;
 
+pub(crate) fn is_http_stack(target: &str) -> bool {
+    let name = target.split_once("::").map_or(target, |(name, _)| name);
+    matches!(
+        name,
+        "reqwest" | "zed_reqwest" | "hyper" | "hyper_util" | "hyper_rustls" | "h2" | "rustls"
+    )
+}
+
+pub(crate) fn http_stack_message(error: bool) -> &'static str {
+    if error {
+        "HTTP stack error"
+    } else {
+        "HTTP stack warning"
+    }
+}
+
+pub(crate) fn write_diagnostic(record: &log::Record<'_>) {
+    if !keep(record) {
+        log::Log::log(&zlog::Zlog {}, record);
+    }
+}
+
 impl log::Log for Logger {
     fn enabled(&self, metadata: &log::Metadata<'_>) -> bool {
-        zlog::Zlog {}.enabled(metadata) || LIFECYCLE.get().is_some()
+        !(metadata.level() > log::Level::Warn && is_http_stack(metadata.target()))
+            && (zlog::Zlog {}.enabled(metadata) || LIFECYCLE.get().is_some())
     }
 
     fn log(&self, record: &log::Record<'_>) {
-        if !keep(record) {
-            zlog::Zlog {}.log(record);
+        if is_http_stack(record.target()) {
+            if record.level() <= log::Level::Warn {
+                let message = http_stack_message(record.level() == log::Level::Error);
+                self.write(&record.to_builder().args(format_args!("{message}")).build());
+            }
+            return;
         }
-        if LIFECYCLE.get().is_some() {
-            let _ = tracing_log::format_trace(record);
-        }
+        self.write(record);
     }
 
     fn flush(&self) {
         zlog::flush();
+    }
+}
+
+impl Logger {
+    fn write(&self, record: &log::Record<'_>) {
+        write_diagnostic(record);
+        if LIFECYCLE.get().is_some() {
+            let _ = tracing_log::format_trace(record);
+        }
     }
 }
 
@@ -135,11 +169,13 @@ pub fn start(product: Product) {
             .set(lifecycle.clone())
             .unwrap_or_else(|_| panic!("{name} logger initialized twice"));
         lifecycle.start_run(product.name, app_version, identifier);
-        tracing::subscriber::set_global_default(
-            tracing_subscriber::registry()
-                .with(filter)
-                .with(LifecycleLayer(lifecycle)),
-        )
+        tracing::subscriber::set_global_default(tracing_subscriber::registry().with(filter).with(
+            LifecycleLayer(lifecycle).with_filter(tracing_subscriber::filter::filter_fn(
+                |metadata| {
+                    *metadata.level() <= tracing::Level::WARN || !is_http_stack(metadata.target())
+                },
+            )),
+        ))
         .expect("could not install lifecycle subscriber");
         // SAFETY: `at_exit` only reads statics that live as long as the
         // process.

@@ -16,9 +16,12 @@ gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e
 ui = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 theme = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 http_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
+http_client_tls = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 reqwest_client = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
+zed-reqwest = { git = "https://github.com/zed-industries/reqwest.git", rev = "33bc764aa15ff7b200bf7c93bd96e24878d53e14", version = "0.12.15-zed", default-features = false }
 zlog = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 yard_data = { path = "crates/yard_data", default-features = false }
+yard_http = { path = "crates/yard_http", default-features = false }
 yard_layout = { path = "crates/yard_layout", default-features = false }
 yard_state = { path = "crates/yard_state", default-features = false }
 yard_shell = { path = "crates/yard_shell", default-features = false }

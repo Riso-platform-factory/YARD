@@ -3,6 +3,7 @@ use super::{
     known_errors::{self, KnownError},
     writer::Message,
 };
+use crate::diagnostic_log::{http_stack_message, is_http_stack, write_diagnostic};
 use serde_json::{Map, Value};
 use std::{
     collections::BTreeSet,
@@ -188,13 +189,23 @@ where
     S: Subscriber + for<'a> LookupSpan<'a>,
 {
     fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+        let metadata = attrs.metadata();
+        let http_stack = is_http_stack(metadata.target());
+        if http_stack && *metadata.level() > tracing::Level::WARN {
+            return;
+        }
         let span = ctx.span(id).expect("new span exists");
         let parent = span
             .parent()
             .and_then(|parent| parent.extensions().get::<GroupData>().map(|data| data.id));
         let id = self.0.id();
         let mut visitor = Fields::default();
-        attrs.record(&mut visitor);
+        let name = if http_stack {
+            http_stack_message(*metadata.level() == tracing::Level::ERROR)
+        } else {
+            attrs.record(&mut visitor);
+            metadata.name()
+        };
         let _recording = self.0.recording.lock().unwrap();
         if self.0.finished.load(Ordering::Acquire) {
             return;
@@ -203,7 +214,7 @@ where
             t: self.0.t(),
             id,
             parent: Some(parent),
-            name: attrs.metadata().name().into(),
+            name: name.into(),
             fields: visitor.fields,
             thread: thread_name(),
         };
@@ -232,7 +243,32 @@ where
             event: true,
             ..Fields::default()
         };
-        event.record(&mut visitor);
+        if is_http_stack(metadata.target()) {
+            if *metadata.level() > tracing::Level::WARN {
+                return;
+            }
+            let error = *metadata.level() == tracing::Level::ERROR;
+            let message = http_stack_message(error);
+            visitor.message = message.into();
+            if normalized.is_none() {
+                write_diagnostic(
+                    &log::Record::builder()
+                        .target(metadata.target())
+                        .module_path(metadata.module_path().or(Some(metadata.target())))
+                        .file(metadata.file())
+                        .line(metadata.line())
+                        .level(if error {
+                            log::Level::Error
+                        } else {
+                            log::Level::Warn
+                        })
+                        .args(format_args!("{message}"))
+                        .build(),
+                );
+            }
+        } else {
+            event.record(&mut visitor);
+        }
         let _recording = self.0.recording.lock().unwrap();
         if self.0.finished.load(Ordering::Acquire) {
             return;

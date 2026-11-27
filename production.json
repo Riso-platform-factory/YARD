@@ -75,19 +75,19 @@
   },
   "yard_log/diagnostic_log": {
     "files": {
-      "crates/yard_log/src/diagnostic_log.rs": "6bd0a1324c402ebd"
+      "crates/yard_log/src/diagnostic_log.rs": "6ffb99f0aa9a7bb3"
     },
-    "promoted": "2026-11-21"
+    "promoted": "2026-11-27"
   },
   "yard_log/lifecycle_trace": {
     "files": {
       "crates/yard_log/src/lifecycle_trace.rs": "b4c19d1735171ed0",
       "crates/yard_log/src/lifecycle_trace/known_errors.rs": "dcb86aaa2538fa72",
-      "crates/yard_log/src/lifecycle_trace/lifecycle.rs": "df02d9a3d5fbc80e",
+      "crates/yard_log/src/lifecycle_trace/lifecycle.rs": "fd94b58730096137",
       "crates/yard_log/src/lifecycle_trace/record.rs": "ea754fdee914644c",
       "crates/yard_log/src/lifecycle_trace/writer.rs": "436e091b6110dd08"
     },
-    "promoted": "2026-11-26"
+    "promoted": "2026-11-27"
   },
   "yard_paths/data_file": {
     "files": {
@@ -235,7 +235,7 @@
   },
   "yard_shell/shell": {
     "files": {
-      "crates/yard_shell/src/shell.rs": "df52bcd13c34f14d"
+      "crates/yard_shell/src/shell.rs": "558333f046a28105"
     },
     "promoted": "2026-11-27"
   },

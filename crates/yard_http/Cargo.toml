@@ -1,0 +1,39 @@
+[package]
+name = "yard_http"
+version = "0.1.0"
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/yard_http.rs"
+
+[features]
+default = ["dev"]
+dev = [
+    "dep:anyhow",
+    "dep:futures",
+    "dep:http_client",
+    "dep:http_client_tls",
+    "dep:log",
+    "dep:reqwest_client",
+    "dep:serde",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:yard_settings",
+    "yard_settings/dev",
+    "dep:zed-reqwest",
+]
+
+[dependencies]
+anyhow = { version = "1", optional = true }
+futures = { workspace = true, optional = true }
+http_client = { workspace = true, optional = true }
+http_client_tls = { workspace = true, optional = true }
+log = { workspace = true, optional = true }
+reqwest_client = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+tokio = { version = "1.54.1", default-features = false, features = ["time"], optional = true }
+tracing = { workspace = true, optional = true }
+yard_settings = { workspace = true, default-features = false, optional = true }
+zed-reqwest = { workspace = true, optional = true }

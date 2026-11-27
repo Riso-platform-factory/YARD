@@ -2657,6 +2657,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "http_tour"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "tracing",
+ "yard_shell",
+ "yard_ui",
+]
+
+[[package]]
 name = "httparse"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7992,12 +8002,15 @@ version = "0.1.0"
 dependencies = [
  "command_palette",
  "gpui",
+ "http_tour",
+ "log",
  "serde_json",
  "toggle_tour",
  "tracing",
  "yard_app",
  "yard_build_config",
  "yard_product",
+ "yard_settings",
  "yard_shell",
 ]
 
@@ -8044,6 +8057,23 @@ dependencies = [
  "rusqlite",
  "tempfile",
  "tracing",
+]
+
+[[package]]
+name = "yard_http"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "http_client",
+ "http_client_tls",
+ "log",
+ "reqwest_client",
+ "serde",
+ "tokio",
+ "tracing",
+ "yard_settings",
+ "zed-reqwest",
 ]
 
 [[package]]
@@ -8129,6 +8159,7 @@ dependencies = [
  "tracing",
  "windows 0.62.2",
  "yard_data",
+ "yard_http",
  "yard_layout",
  "yard_paths",
  "yard_product",

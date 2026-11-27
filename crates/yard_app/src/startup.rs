@@ -211,6 +211,7 @@ pub fn init(
         yard_shell::set_layout_file(cx, paths.layout_file());
         yard_shell::set_state_file(cx, paths.state_file());
         yard_shell::set_store_dir(cx, paths.store_dir());
+        yard_shell::set_data_file(cx, paths.data_file());
         let named_paths = paths.clone();
         yard_shell::set_named_layout_files(cx, move |name| named_paths.named_layout_file(name));
         yard_shell::bind_default_keys(cx);

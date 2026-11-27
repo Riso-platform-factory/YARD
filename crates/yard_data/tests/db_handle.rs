@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Schema rewriting is refused and closures receive `&yard_data::Db`, not `rusqlite`'s
 //! `Connection` or `Transaction`.
 

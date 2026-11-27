@@ -7,13 +7,12 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["yard_app/dev", "yard_paths/dev", "yard_product/dev", "yard_shell/dev", "command_palette/dev", "yard_build_config/dev", "dep:toggle_tour", "data_tour/dev"]
+dev = ["yard_app/dev", "yard_product/dev", "yard_shell/dev", "command_palette/dev", "yard_build_config/dev", "dep:toggle_tour"]
 
 [dependencies]
 gpui.workspace = true
 
 yard_app = { workspace = true, default-features = false }
-yard_paths = { workspace = true, default-features = false }
 yard_shell = { workspace = true, default-features = false }
 yard_product = { workspace = true, default-features = false }
 tracing = { workspace = true }
@@ -21,7 +20,6 @@ tracing = { workspace = true }
 command_palette = { workspace = true, default-features = false }
 
 toggle_tour = { path = "../../examples/toggle_tour", optional = true }
-data_tour = { path = "../../examples/data_tour", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true

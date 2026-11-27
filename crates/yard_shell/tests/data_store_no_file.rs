@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Calling `read_data` or `write_data` when no data file was set returns `DataError::Unavailable`
 //! and logs one diagnostic `ERROR`.
 //!

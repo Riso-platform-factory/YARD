@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Neither the lifecycle trace nor the diagnostic log may record SQL text or bound values.
 //!
 //! Installs a process-wide `log` logger and a process-wide `tracing` subscriber; alone in its binary.

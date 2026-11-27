@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! A panicking closure must not leak SQL text or values through the process-wide
 //! panic hook's log output.
 //!

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::fs;
 use yard_data::{DataError, Database, rusqlite};
 

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Trace groups for `yard_data`: `data-open{file}`, `data-migrate{extension, from, to}`,
 //! and `data-request{extension, kind}` at `trace`.
 //!

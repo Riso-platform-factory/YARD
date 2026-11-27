@@ -1,9 +1,7 @@
 //! The window shell and extension component registry.
 
-#[cfg(feature = "dev")]
-mod dev;
-#[cfg(feature = "dev")]
-pub use dev::*;
+mod data;
+pub use data::*;
 
 mod file_dialog;
 mod notification;

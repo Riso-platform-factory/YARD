@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Diagnostic and trace levels for every failure row in `docs/src/development/data-store.md`.
 //!
 //! Installs a process-wide `log` logger and a process-wide `tracing` subscriber; alone in its binary.

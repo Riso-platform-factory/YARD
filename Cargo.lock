@@ -7981,14 +7981,12 @@ name = "yard"
 version = "0.1.0"
 dependencies = [
  "command_palette",
- "data_tour",
  "gpui",
  "serde_json",
  "toggle_tour",
  "tracing",
  "yard_app",
  "yard_build_config",
- "yard_paths",
  "yard_product",
  "yard_shell",
 ]

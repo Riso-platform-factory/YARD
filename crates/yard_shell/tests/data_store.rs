@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use std::{thread, time::Duration};
 use yard_shell::{self as shell, DataError, Db, rusqlite};

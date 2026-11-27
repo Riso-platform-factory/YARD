@@ -20,7 +20,7 @@
   },
   "yard_app/startup": {
     "files": {
-      "crates/yard_app/src/startup.rs": "35d92579216eadb3"
+      "crates/yard_app/src/startup.rs": "49e50766ef2a06d1"
     },
     "promoted": "2026-11-27"
   },
@@ -36,6 +36,12 @@
       "crates/yard_build_config/src/config/release.rs": "0005422873355742"
     },
     "promoted": "2026-11-20"
+  },
+  "yard_data/database": {
+    "files": {
+      "crates/yard_data/src/database.rs": "1bb155ea7dc0f0ae"
+    },
+    "promoted": "2026-11-27"
   },
   "yard_keymap/keymap_reload": {
     "files": {
@@ -82,6 +88,12 @@
       "crates/yard_log/src/lifecycle_trace/writer.rs": "436e091b6110dd08"
     },
     "promoted": "2026-11-26"
+  },
+  "yard_paths/data_file": {
+    "files": {
+      "crates/yard_paths/src/data_file.rs": "563eadaeb8da9365"
+    },
+    "promoted": "2026-11-27"
   },
   "yard_paths/directories": {
     "files": {
@@ -178,6 +190,12 @@
       "crates/yard_settings/src/write.rs": "916aea9aced5694e"
     },
     "promoted": "2026-11-19"
+  },
+  "yard_shell/data": {
+    "files": {
+      "crates/yard_shell/src/data.rs": "47b822d0249dd765"
+    },
+    "promoted": "2026-11-27"
   },
   "yard_shell/file_dialog": {
     "files": {

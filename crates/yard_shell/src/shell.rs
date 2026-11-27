@@ -66,6 +66,13 @@ pub enum Origin {
 type WindowOpener = Rc<dyn Fn(&mut App)>;
 type UrlHandler = Rc<dyn Fn(&str, &mut App)>;
 
+pub(crate) struct CloseRequestHook {
+    pub(crate) close_window: fn(gpui::AnyWindowHandle, &mut App),
+    pub(crate) quit: fn(&mut App),
+}
+
+impl Global for CloseRequestHook {}
+
 type LayoutObserver = Rc<dyn Fn(&mut App)>;
 type LayoutObservers = Rc<RefCell<BTreeMap<u64, LayoutObserver>>>;
 
@@ -1072,7 +1079,7 @@ type WindowOwner = Rc<Cell<Option<gpui::WindowId>>>;
 struct Registry {
     layout_observers: LayoutObservers,
     next_layout_observer: u64,
-    extensions: BTreeSet<String>,
+    extensions: BTreeMap<String, usize>,
     extensions_off: bool,
     urls: UrlRouting,
     components: BTreeMap<ComponentId, Component>,
@@ -1385,7 +1392,7 @@ impl Default for Registry {
         Self {
             layout_observers: Rc::default(),
             next_layout_observer: 0,
-            extensions: BTreeSet::new(),
+            extensions: BTreeMap::new(),
             extensions_off: false,
             urls: UrlRouting::default(),
             components,
@@ -5145,7 +5152,7 @@ fn url_handler(cx: &App, parts: Option<(&str, &str)>) -> Result<UrlHandler, Stri
         return Err("no host".into());
     }
     let name = host.to_ascii_lowercase();
-    if !registry.extensions.contains(&name) {
+    if !registry.extensions.contains_key(&name) {
         // A host that names no extension may be anything, a secret too.
         return Err("no such extension".into());
     }
@@ -5163,7 +5170,7 @@ fn url_span(cx: &App, parts: Option<(&str, &str)>) -> tracing::Span {
     let (scheme, host) = parts.unwrap_or_default();
     let known = cx
         .try_global::<Registry>()
-        .is_some_and(|registry| registry.extensions.contains(&host.to_ascii_lowercase()));
+        .is_some_and(|registry| registry.extensions.contains_key(&host.to_ascii_lowercase()));
     if known {
         tracing::info_span!("url-open", scheme, host)
     } else {
@@ -5266,15 +5273,19 @@ impl Extension {
             log::error!("invalid extension name {name:?}: {error}");
             return None;
         }
-        if !cx
-            .default_global::<Registry>()
-            .extensions
-            .insert(name.into())
-        {
+        let extensions = &mut cx.default_global::<Registry>().extensions;
+        let order = extensions.len();
+        let Entry::Vacant(entry) = extensions.entry(name.into()) else {
             log::error!("extension {name} is already initialized");
             return None;
-        }
+        };
+        entry.insert(order);
         Some(Self { name: name.into() })
+    }
+
+    #[allow(dead_code, reason = "used by the close guard while it is under review")]
+    pub(crate) fn registration_order(&self, cx: &App) -> usize {
+        cx.global::<Registry>().extensions[&self.name]
     }
 
     /// Reads a value from this extension's store.
@@ -7084,6 +7095,32 @@ pub fn new_shell(window: &mut Window, cx: &mut App) -> Entity<Shell> {
     create_shell(window, cx, None)
 }
 
+fn request_window_close(window: &mut Window, cx: &mut App) {
+    let handle = window.window_handle();
+    if let Some(hook) = cx.try_global::<CloseRequestHook>() {
+        (hook.close_window)(handle, cx);
+        return;
+    }
+
+    let group = tracing::info_span!("window-close-request", window = handle.window_id().as_u64());
+    group.in_scope(|| tracing::debug!("close requested"));
+    window
+        .spawn(cx, async move |cx| {
+            async move {
+                let removed = cx.update(|window, _| {
+                    tracing::debug!("removing the window");
+                    window.remove_window();
+                });
+                if removed.is_err() {
+                    tracing::debug!("already closed");
+                }
+            }
+            .instrument(group)
+            .await
+        })
+        .detach();
+}
+
 /// The shell of a window recreated from the session: as `new_shell`, but
 /// showing the window's named layout with its user layers.
 pub fn new_session_shell(
@@ -7126,25 +7163,8 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
     // destroyed only after GPUI has let go of it, so nothing reads a window
     // that is gone.
     // Zed removes it once the request has returned, and so does YARD.
-    window.on_window_should_close(cx, move |window, cx| {
-        let group = tracing::info_span!("window-close-request", window = id.as_u64());
-        let _group = group.enter();
-        tracing::debug!("close requested");
-        let group = group.clone();
-        window
-            .spawn(cx, async move |cx| {
-                let _group = group.enter();
-                // A request queued before an earlier one removed the window,
-                // or the Linux close button did, finds it gone.
-                let removed = cx.update(|window, _| {
-                    tracing::debug!("removing the window");
-                    window.remove_window();
-                });
-                if removed.is_err() {
-                    tracing::debug!("already closed");
-                }
-            })
-            .detach();
+    window.on_window_should_close(cx, |window, cx| {
+        request_window_close(window, cx);
         false
     });
     let pending_states = state_window_opened(
@@ -8358,6 +8378,7 @@ impl Render for Shell {
             .id("shell")
             .key_context("Shell")
             .track_focus(&self.handle)
+            .on_action(|_: &yard_ui::CloseWindow, window, cx| request_window_close(window, cx))
             .on_action(|_: &NewWindow, _, cx| {
                 let group = tracing::info_span!("window-new");
                 let _group = group.enter();
@@ -8439,10 +8460,16 @@ impl Render for Shell {
     }
 }
 
-/// Handles `yard::Quit` for the whole application: it quits.
+/// Handles `yard::Quit` for the whole application.
 pub fn handle_quit(cx: &mut App) {
+    // TODO(close-guard-session-end): the Dock's Quit, logout, and shutdown end the application without running the close guards. Unblocked by a GPUI hook on each system (applicationShouldTerminate:, WM_QUERYENDSESSION, a session-end hook on Linux). See https://github.com/Riso-platform-factory/YARD/issues/17.
     cx.on_action(|_: &Quit, cx| {
-        let _group = tracing::info_span!("app-quit").entered();
+        if let Some(hook) = cx.try_global::<CloseRequestHook>() {
+            (hook.quit)(cx);
+            return;
+        }
+        let _group = tracing::info_span!("app-quit", windows = cx.windows().len()).entered();
+        tracing::debug!("quitting");
         cx.quit();
     });
 }

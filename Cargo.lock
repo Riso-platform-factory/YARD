@@ -941,6 +941,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
+name = "close_tour"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "tracing",
+ "yard_shell",
+ "yard_ui",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7980,10 +7990,10 @@ checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
 name = "yard"
 version = "0.1.0"
 dependencies = [
+ "close_tour",
  "command_palette",
  "gpui",
  "serde_json",
- "toggle_tour",
  "tracing",
  "yard_app",
  "yard_build_config",

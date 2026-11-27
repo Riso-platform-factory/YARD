@@ -57,15 +57,17 @@ ext.set_window_edited(window, true, cx);
   - `Wait` waits for its task, with no time limit, as Zed does.
   - The window closes only when every guard allowed.
 - **Every way to close a window goes through the guards:**
-  - the system's close (the red button, Cmd+W, the Windows caption button, WM_CLOSE, Wayland and X11 close);
+  - the system's close (the red button, the Windows caption button, WM_CLOSE, Wayland and X11 close);
   - the `yard::CloseWindow` action;
   - **the Linux drawn close button**, which today calls `remove_window` directly and skips them. It will dispatch `yard::CloseWindow`, as Zed's does.
 - **Quit** (`yard::Quit`, Cmd+Q / Ctrl+Q, the app menu):
   - Guards run with `Quit` on every open window, the active window first. A window is brought to the front before its prompt.
   - If any guard on any window cancels, the quit stops and every window stays open.
+  - A window closed during the pass is skipped, not counted as a cancel. A guard's `Wait` task still runs to its end first, so a save is never cut off. A prompt whose window goes away stops waiting for its answer, and the window counts as gone: a native prompt (the macOS sheet) is never answered once its window is closed.
+  - A window opened during the pass gets its guards too: the pass checks the open windows again until none is left unchecked, at most 8 rounds. After that the quit is cancelled with an `info` `windows keep opening`.
   - Only when every window allowed does YARD call `cx.quit()`, and the session keeps every window as today.
 - **The last window.** Closing it runs the guards once with `CloseWindow`. When they allow, the application quits as today, without asking again.
-- **One at a time.** A second close request for a window whose guards are still running is ignored with an `info`, and so is a second quit. Nothing stacks two prompts.
+- **One at a time.** A second close request for a window whose guards are still running is ignored with an `info`, and so is a second quit. A quit while a window's close guards run is ignored with an `info` `a close is in progress`. Nothing stacks two prompts.
 - **An extension turned off** in the settings (extension-toggle) registers no guard.
 
 ## What cannot be guarded (GPUI limits)
@@ -81,7 +83,7 @@ Extensions keep data safe there by saving as they go: the store and node state a
 
 ## Logging
 
-- `close-guard-register{extension}`: `debug` registered; `ERROR` for a second guard of the same extension.
+- `close-guard-register{extension}`: `debug` registered; an `ERROR` in the diagnostic log (`log::error!`, which the lifecycle trace receives once) for a second guard of the same extension.
 - `window-edited{window, extension, edited}`: `debug` when the window's combined state changes, `trace` otherwise.
 - `window-close-request{window}`, already there:
   - gains `intent`;
@@ -109,7 +111,7 @@ The change goes through production parts, as `extension-toggle` did: the close r
   - the groups, fields, and levels above, in their own files.
 - **Test extension** `examples/close_tour`, named in `review.rs`. Without `CLOSE_TOUR` it does nothing. With `CLOSE_TOUR=on` it places a card with an **Edit** button (marks the window edited) and a **Save** button (clears it). Its guard asks "Save changes?" with Save, Don't Save, and Cancel; Save waits one second, then allows. The README walks through:
   - the edited dot;
-  - each button, with the red button, Cmd+W, Cmd+Q, and the menu's Quit;
+  - each button, with the red button, Cmd+Q, and the menu's Quit;
   - two windows on Cmd+Q;
   - the last window;
   - `CLOSE_TOUR=cancel`, which always cancels;

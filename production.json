@@ -229,7 +229,7 @@
   },
   "yard_shell/shell": {
     "files": {
-      "crates/yard_shell/src/shell.rs": "eee8cf1c2691b83a"
+      "crates/yard_shell/src/shell.rs": "e797ec9caa3e40bb"
     },
     "promoted": "2026-11-27"
   },
@@ -394,9 +394,9 @@
   },
   "yard_ui/window_controls": {
     "files": {
-      "crates/yard_ui/src/window_controls.rs": "175c898aafc4293c"
+      "crates/yard_ui/src/window_controls.rs": "13015a91276c573f"
     },
-    "promoted": "2026-11-21"
+    "promoted": "2026-11-27"
   },
   "yard_update/check": {
     "files": {

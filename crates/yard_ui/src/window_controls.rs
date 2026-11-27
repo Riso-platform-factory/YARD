@@ -17,6 +17,8 @@ use gpui::{
 };
 use theme::ActiveTheme;
 
+gpui::actions!(yard, [CloseWindow]);
+
 /// The buttons of one side of a title bar, in their order.
 pub type ButtonSide = [Option<WindowButton>; MAX_BUTTONS_PER_SIDE];
 
@@ -390,7 +392,16 @@ impl RenderOnce for WindowButtons {
                     .on_click(move |_, window, cx| {
                         cx.stop_propagation();
                         if enabled {
-                            kind.action().perform(window);
+                            let action = kind.action();
+                            if action == WindowControlAction::Close {
+                                let _group =
+                                    tracing::info_span!("window-control", action = action.name())
+                                        .entered();
+                                tracing::debug!("closing");
+                                window.dispatch_action(Box::new(CloseWindow), cx);
+                            } else {
+                                action.perform(window);
+                            }
                         }
                     })
             })

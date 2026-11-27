@@ -37,6 +37,7 @@ Status is one of: planned, deferred (its turn is skipped until the user takes it
 | 21 | `i18n` | A string catalog, and the UI kit and menus taking keys instead of literal strings | Flutter, Dioxus, Project Fluent | M–L | none | planned |
 | 22 | `universal-binary` | `cargo xtask bundle macos` builds arm64 and x86_64 and joins them with `lipo` | Tauri, Electron | S | none | planned |
 | 23 | `mac-app-store` | A sandboxed build with entitlements and a `.pkg`, without the updater | Tauri, Electron | L | packaging | planned |
+| 24 | `data-store` | A queryable store for an application's own data (records, lists, history), beside the node state and the key-value store: one database per application in the data directory, each extension in its own tables, migrations declared by each extension, work off the UI thread, logged as every engine; on a permissively licensed crate (Zed's `db` and `sqlez` are GPL, so only their design is followed; [contract](./data-store.md)) | Zed's `db` (reference only), Tauri SQL plugin, Electron apps with SQLite | M–L | none | planned: contract written, waiting for approval |
 
 ## Not planned
 

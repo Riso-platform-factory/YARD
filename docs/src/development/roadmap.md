@@ -62,5 +62,5 @@ Items noted across engine roadmaps that are not yet scheduled:
 - **Theme:** per-color `theme_overrides` in settings; live reload for user theme files; additional bundled theme families (Ayu, Gruvbox); named syntax colors; file-type icon themes.
 - **Keymap:** base keymaps for other editors and Vim modes; keymap editor UI; key-chord continuation popup; non-US keyboard layouts; keyboard commands to resize splits and move nodes.
 - **Window:** prompting components before closing a window with unsaved work; a shell toggle-fullscreen action and menu item (title bar chrome already adapts to fullscreen and saved bounds restore fullscreen state); macOS window tabs; dragging nodes between windows; background progress indicators in the status bar.
-- **State:** migrating older state file versions; a permissively licensed queryable database when an application needs one.
+- **State:** migrating older state file versions. A queryable database for an application's data is now [Platform Roadmap](./platform-roadmap.md) `data-store`.
 - **Packaging and platform:** command-line launcher opening files or folders in the running instance; interface localization/translations; see [Platform Roadmap](./platform-roadmap.md) for upstream updates, CI, multi-platform updates, release channels, file dialogs, OS notifications, crash reports, and toggling compiled-in extensions.

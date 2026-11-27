@@ -35,5 +35,6 @@
   - [File Dialogs](./development/file-dialogs.md)
   - [OS Notifications](./development/os-notifications.md)
   - [Extension Toggle](./development/extension-toggle.md)
+  - [Data Store](./development/data-store.md)
   - [Packaging](./development/packaging.md)
   - [Release System](./development/release-system.md)

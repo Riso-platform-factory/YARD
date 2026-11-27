@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Acceptance tests for `yard_http/client`: user agent, GET requests, redirect limits,
 //! scheme validation, `read_limited`, proxy routing and reconfiguration, invalid proxy
 //! fail-closed behavior, and request cancellation.

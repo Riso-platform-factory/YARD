@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! An `Extension::http_client` handle taken before `set_http_client` refuses requests until
 //! the client is installed, then succeeds and keeps the extension's caller tag in
 //! `http-request{caller, method, host}`.

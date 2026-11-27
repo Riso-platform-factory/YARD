@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! A non-string `network.proxy` (`8080`, `true`, `[]`, `{}`) fails closed at start
 //! and after a settings reload: requests fail with a proxy error and a `WARN`, and
 //! nothing goes direct. `""` and `null` mean no proxy is set: requests go direct.

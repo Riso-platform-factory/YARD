@@ -1080,7 +1080,6 @@ struct Registry {
     layout_observers: LayoutObservers,
     next_layout_observer: u64,
     extensions: BTreeMap<String, usize>,
-    #[allow(dead_code, reason = "used by the dev HTTP part")]
     http_client_slot: OnceCell<Box<dyn Any>>,
     extensions_off: bool,
     urls: UrlRouting,
@@ -1490,7 +1489,6 @@ impl WindowState {
 
 // The extension registry exists before an extension can ask for a client. Its
 // slot is type-erased while the HTTP part is under review.
-#[allow(dead_code, reason = "used by the dev HTTP part")]
 pub(crate) fn http_client_slot(cx: &App) -> Option<&OnceCell<Box<dyn Any>>> {
     cx.try_global::<Registry>()
         .map(|registry| &registry.http_client_slot)

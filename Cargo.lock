@@ -8002,15 +8002,12 @@ version = "0.1.0"
 dependencies = [
  "command_palette",
  "gpui",
- "http_tour",
- "log",
  "serde_json",
  "toggle_tour",
  "tracing",
  "yard_app",
  "yard_build_config",
  "yard_product",
- "yard_settings",
  "yard_shell",
 ]
 
@@ -8022,7 +8019,6 @@ dependencies = [
  "gpui_platform",
  "image",
  "log",
- "reqwest_client",
  "serde",
  "serde_json",
  "tracing",

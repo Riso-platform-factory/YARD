@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Calling `set_http_client` a second time is refused with one `ERROR`, and the
 //! first client stays active.
 //!

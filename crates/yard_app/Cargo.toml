@@ -32,7 +32,6 @@ yard_settings = { workspace = true, default-features = false }
 yard_keymap = { workspace = true, default-features = false }
 yard_shell = { workspace = true, default-features = false }
 yard_update = { workspace = true, default-features = false }
-reqwest_client.workspace = true
 tracing.workspace = true
 log = { workspace = true }
 serde = { workspace = true }

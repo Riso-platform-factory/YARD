@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! After a streamed response body returns an error, polling it again continues to
 //! return a sanitized error (never EOF) and logs no second `WARN`.
 //!

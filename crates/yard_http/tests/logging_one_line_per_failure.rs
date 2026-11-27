@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! A failure is logged once through `log` (and reaches the lifecycle trace through the
 //! bridge): a refused connection produces exactly one `WARN` in the captured trace, not two.
 //!

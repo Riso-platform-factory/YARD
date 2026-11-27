@@ -10,30 +10,17 @@ path = "src/yard_http.rs"
 
 [features]
 default = ["dev"]
-dev = [
-    "dep:anyhow",
-    "dep:futures",
-    "dep:http_client",
-    "dep:http_client_tls",
-    "dep:log",
-    "dep:reqwest_client",
-    "dep:serde",
-    "dep:tokio",
-    "dep:tracing",
-    "dep:yard_settings",
-    "yard_settings/dev",
-    "dep:zed-reqwest",
-]
+dev = ["yard_settings/dev"]
 
 [dependencies]
-anyhow = { version = "1", optional = true }
-futures = { workspace = true, optional = true }
-http_client = { workspace = true, optional = true }
-http_client_tls = { workspace = true, optional = true }
-log = { workspace = true, optional = true }
-reqwest_client = { workspace = true, optional = true }
-serde = { workspace = true, optional = true }
-tokio = { version = "1.54.1", default-features = false, features = ["time"], optional = true }
-tracing = { workspace = true, optional = true }
-yard_settings = { workspace = true, default-features = false, optional = true }
-zed-reqwest = { workspace = true, optional = true }
+anyhow = "1"
+futures.workspace = true
+http_client.workspace = true
+http_client_tls.workspace = true
+log.workspace = true
+reqwest_client.workspace = true
+serde.workspace = true
+tokio = { version = "1.54.1", default-features = false, features = ["time"] }
+tracing.workspace = true
+yard_settings = { workspace = true, default-features = false }
+zed-reqwest.workspace = true

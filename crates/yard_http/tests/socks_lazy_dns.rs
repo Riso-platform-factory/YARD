@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! A SOCKS proxy host name is not resolved at configuration:
 //! - `HttpClient::new` and `reconfigure` with `socks5://no-such-host.invalid:1080` return
 //!   without a DNS failure;

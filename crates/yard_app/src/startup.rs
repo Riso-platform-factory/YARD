@@ -1,5 +1,6 @@
 use gpui::{App, AsyncApp, WindowOptions};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc, sync::Arc};
+use yard_shell::yard_http::{self, HttpClient, NetworkSettings};
 
 /// What an extension registers when the application starts.
 pub type Init = fn(&mut App, &yard_shell::Extension);
@@ -102,7 +103,7 @@ pub fn run(
         if let Some(listener) = instance {
             yard_shell::serve_instance_requests(cx, listener, app.url_scheme);
         }
-        init(cx, app, &paths, &extensions, menus, &open_urls);
+        let client = init_app(cx, app, &paths, &extensions, menus, &open_urls);
         let session = yard_shell::saved_session(cx, &paths.session_file());
         yard_shell::track_session(cx, paths.session_file());
         match session {
@@ -116,7 +117,7 @@ pub fn run(
                 open_window(cx, app, Some(paths.window_file()), None);
             }
         }
-        start_update_check(cx, app);
+        start_update_check(cx, app, client);
         yard_log::startup_finished();
     });
 }
@@ -197,7 +198,18 @@ pub fn init(
     menus: fn(&Product) -> Vec<gpui::Menu>,
     open_urls: &RefCell<OpenUrls>,
 ) {
-    {
+    init_app(cx, app, paths, extensions, menus, open_urls);
+}
+
+fn init_app(
+    cx: &mut App,
+    app: Application,
+    paths: &yard_paths::Paths,
+    extensions: &[(&'static str, Init)],
+    menus: fn(&Product) -> Vec<gpui::Menu>,
+    open_urls: &RefCell<OpenUrls>,
+) -> Option<HttpClient> {
+    let client = {
         let _group = tracing::info_span!("app-init").entered();
         yard_log::init_app(cx);
         yard_settings::init(cx);
@@ -212,6 +224,19 @@ pub fn init(
         yard_shell::set_state_file(cx, paths.state_file());
         yard_shell::set_store_dir(cx, paths.store_dir());
         yard_shell::set_data_file(cx, paths.data_file());
+        yard_settings::register::<NetworkSettings>(cx);
+        let product = app.product;
+        let agent = yard_http::user_agent(product.name, product.version);
+        let client = HttpClient::new(&agent, yard_settings::get::<NetworkSettings>(cx))
+            .inspect_err(|error| log::error!("HTTP client failed to start: {error}"))
+            .ok();
+        let shell_client = client.clone().unwrap_or_else(HttpClient::unavailable);
+        yard_shell::set_http_client(cx, shell_client.clone());
+        cx.set_http_client(Arc::new(shell_client.for_caller("gpui")));
+        yard_settings::observe::<NetworkSettings>(cx, move |cx| {
+            shell_client.reconfigure(yard_settings::get::<NetworkSettings>(cx));
+        })
+        .detach();
         let named_paths = paths.clone();
         yard_shell::set_named_layout_files(cx, move |name| named_paths.named_layout_file(name));
         yard_shell::bind_default_keys(cx);
@@ -223,7 +248,8 @@ pub fn init(
             }
         })
         .detach();
-    }
+        client
+    };
     let early_urls = std::mem::take(&mut open_urls.borrow_mut().early);
     for urls in early_urls {
         yard_shell::open_urls(cx, urls);
@@ -288,26 +314,32 @@ pub fn init(
     yard_shell::set_window_opener(cx, move |cx| {
         open_window(cx, app, None, None);
     });
+    client
 }
 
 /// Starts checking the product's update address, when it names one, and
 /// installing what it finds, through an extension handle named `update` for
 /// the toasts.
-fn start_update_check(cx: &mut App, app: Application) {
+fn start_update_check(cx: &mut App, app: Application, client: Option<HttpClient>) {
     let product = app.product;
     let url = app.update_url;
     if url.is_empty() {
         tracing::debug!("no update address");
         return;
     }
+    let Some(client) = client else {
+        return;
+    };
     let Some(extension) = yard_shell::Extension::new(cx, "update") else {
         return;
     };
-    let user_agent = format!("{}/{}", product.name, product.version);
-    match reqwest_client::ReqwestClient::user_agent(&user_agent) {
-        Ok(client) => yard_update::start(cx, &extension, product, url, Arc::new(client)),
-        Err(error) => tracing::warn!("no update check: the HTTP client failed to start: {error:#}"),
-    }
+    yard_update::start(
+        cx,
+        &extension,
+        product,
+        url,
+        Arc::new(client.for_caller("update")),
+    );
 }
 
 /// The options every window of the product starts from: its title bar, its

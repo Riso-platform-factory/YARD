@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! `socks5h://` is accepted as a `network.proxy` scheme: the proxy URL parses,
 //! the client is configured without warnings, credentials are stripped from
 //! `http-configure{proxy}`, and requests connect to the configured proxy endpoint.

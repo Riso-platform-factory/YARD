@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! `Extension::new(cx, "network")` returns `None` and logs an `ERROR`, because `network`
 //! is reserved for application settings.
 //!

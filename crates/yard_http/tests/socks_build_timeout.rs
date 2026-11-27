@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! A request's time limit covers building the connection (including slow SOCKS proxy
 //! host resolution): a request with a 1 s timeout ends within about 1 s with a timeout
 //! error, both on its own and when two requests start together.

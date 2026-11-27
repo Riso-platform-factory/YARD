@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Calling `Extension::http_client` before `set_http_client` returns a client that refuses
 //! every request and logs one diagnostic `ERROR`.
 //!

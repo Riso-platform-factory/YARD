@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! An environment SOCKS proxy (`ALL_PROXY=socks5://no-such-host.invalid:1080`) that
 //! cannot be resolved fails the request with a proxy error and sends nothing to the
 //! origin. After the environment proxy is fixed and the client is reconfigured, the

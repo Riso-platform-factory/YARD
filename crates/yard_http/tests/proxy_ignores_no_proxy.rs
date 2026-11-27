@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! An explicit `network.proxy` carries every request and ignores `NO_PROXY`.
 //!
 //! Mutates `NO_PROXY` in this process, so this test runs alone in its own binary.

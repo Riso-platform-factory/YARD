@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! A SOCKS proxy host that resolves to `::1` first and `127.0.0.1` second
 //! (`socks5://localhost:<port>` on macOS), with a local SOCKS5 server listening
 //! on `127.0.0.1` only, tries resolved addresses in order and carries the request.

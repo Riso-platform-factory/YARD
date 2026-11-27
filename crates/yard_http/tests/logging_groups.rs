@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Lifecycle trace groups for `yard_http`:
 //! - `http-configure{proxy}` on start and reconfigure, with proxy credentials stripped;
 //! - `http-request{caller, method, host}` with `status` and `elapsed_ms` at `debug`.

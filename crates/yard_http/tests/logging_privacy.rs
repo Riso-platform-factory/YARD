@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Neither the lifecycle trace nor the diagnostic log may record request paths, queries,
 //! headers, bodies, or proxy credentials.
 //!

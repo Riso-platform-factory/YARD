@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Body read errors are sanitized: when a server sends headers and closes mid-body,
 //! both `read_limited` and a caller streaming the body directly get an error with no
 //! URL, path, or query, and exactly one `WARN` is logged (in diagnostics and in the

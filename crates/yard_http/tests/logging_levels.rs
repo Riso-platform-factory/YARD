@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Diagnostic and lifecycle trace levels for `yard_http`:
 //! - 404 response -> `debug`, NOT `WARN` or `ERROR`;
 //! - refused connection -> `WARN`, NOT `ERROR`;

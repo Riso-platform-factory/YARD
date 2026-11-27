@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! After `set_http_client`, `Extension::http_client` performs requests through the shared
 //! client and tags each request with the extension's name in `http-request{caller, method, host}`.
 //!

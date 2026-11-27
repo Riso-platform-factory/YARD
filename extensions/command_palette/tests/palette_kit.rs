@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use yard_test::{TestApp, capture_trace};
 

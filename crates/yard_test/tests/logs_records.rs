@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use yard_test::capture_logs;
 

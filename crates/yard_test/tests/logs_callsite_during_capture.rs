@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::{sync::mpsc, thread};
 use yard_test::capture_trace;
 

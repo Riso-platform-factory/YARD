@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::sync::Once;
 use yard_test::capture_trace;
 

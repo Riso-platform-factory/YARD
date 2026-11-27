@@ -275,6 +275,18 @@
     },
     "promoted": "2026-11-18"
   },
+  "yard_test/harness": {
+    "files": {
+      "crates/yard_test/src/harness.rs": "952d647aae311555"
+    },
+    "promoted": "2026-11-27"
+  },
+  "yard_test/logs": {
+    "files": {
+      "crates/yard_test/src/logs.rs": "12752775c7c84c8f"
+    },
+    "promoted": "2026-11-27"
+  },
   "yard_ui/axis": {
     "files": {
       "crates/yard_ui/src/axis.rs": "19bd540110386317"

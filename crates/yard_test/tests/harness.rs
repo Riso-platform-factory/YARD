@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{App, AppContext as _, Global, Menu, SystemNotification, TestAppContext};
 use serde_json::{Value, json};
 use std::{

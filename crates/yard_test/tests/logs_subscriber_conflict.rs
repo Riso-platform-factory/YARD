@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::{any::Any, panic::catch_unwind};
 use yard_test::capture_trace;
 

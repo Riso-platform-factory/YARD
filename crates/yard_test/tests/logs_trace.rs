@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::{
     collections::HashSet,
     panic::{AssertUnwindSafe, catch_unwind},

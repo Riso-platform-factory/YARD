@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use std::{
     any::Any,
     panic::{AssertUnwindSafe, catch_unwind, resume_unwind},

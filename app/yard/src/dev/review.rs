@@ -1,5 +1,6 @@
 /// Names the parts under review, as `<crate>/<part>`.
-pub(crate) const UNDER_REVIEW: &[&str] = &["yard_app/startup", "yard_shell/shell"];
+pub(crate) const UNDER_REVIEW: &[&str] =
+    &["yard_app/startup", "yard_shell/secrets", "yard_shell/shell"];
 
 pub fn run() -> bool {
     if std::env::args().nth(1).as_deref() != Some("dev") {
@@ -23,17 +24,25 @@ pub fn run() -> bool {
         ("review", announce),
         ("toggle_host", toggle_tour::host),
         ("toggle_tour", toggle_tour::init),
+        ("secrets_tour", secrets_tour::init),
     ];
     extensions.extend_from_slice(crate::startup::EXTENSIONS);
     yard_app::run(app, &extensions, crate::menus::menus);
     true
 }
 
-fn announce(_: &mut gpui::App, _: &yard_shell::Extension) {
+fn announce(cx: &mut gpui::App, _: &yard_shell::Extension) {
     let under_review = if UNDER_REVIEW.is_empty() {
         String::from("nothing")
     } else {
         UNDER_REVIEW.join(", ")
     };
     tracing::info!(under_review, "dev build");
+
+    let product = crate::startup::application().product;
+    yard_shell::set_secret_store(
+        cx,
+        yard_shell::SecretStore::system(product.identifier, product.name),
+    );
+    tracing::debug!("set the system secret store");
 }

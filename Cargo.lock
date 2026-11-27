@@ -8012,7 +8012,6 @@ name = "yard"
 version = "0.1.0"
 dependencies = [
  "command_palette",
- "external_open_tour",
  "gpui",
  "serde_json",
  "toggle_tour",

@@ -209,6 +209,12 @@
     },
     "promoted": "2026-11-27"
   },
+  "yard_shell/external_open": {
+    "files": {
+      "crates/yard_shell/src/external_open.rs": "de3237ca40061733"
+    },
+    "promoted": "2026-11-27"
+  },
   "yard_shell/file_dialog": {
     "files": {
       "crates/yard_shell/src/file_dialog.rs": "f01c54b233bde6e2"

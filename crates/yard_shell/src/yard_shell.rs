@@ -1,15 +1,13 @@
 //! The window shell and extension component registry.
 
-#[cfg(feature = "dev")]
-mod dev;
-#[cfg(feature = "dev")]
-pub use dev::*;
-
 mod close_guard;
 pub use close_guard::*;
 
 mod data;
 pub use data::*;
+
+mod external_open;
+pub use external_open::*;
 
 mod file_dialog;
 mod notification;

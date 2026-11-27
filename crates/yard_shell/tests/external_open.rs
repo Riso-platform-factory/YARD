@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use std::fs;
 use std::path::{Path, PathBuf};

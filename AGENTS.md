@@ -22,13 +22,13 @@ The lead agent is Claude. It coordinates all workers through **Orca orchestratio
 | Worker | How it runs in Orca | What it is given |
 |---|---|---|
 | **Claude (Opus)** | `orca orchestration worker-start --environment local --worktree current --agent claude --spec-file <prompt>` (select the Opus model with `--model` if not the default) | code, in its turn; reviews |
-| **Codex** | `orca orchestration worker-start --environment local --worktree current --agent codex --spec-file <prompt>`; 3 logins inside Orca, listed with `orca account list`: bin.ngoctu@gmail.com (b27e305f) and yenngan167@gmail.com (b3eb26bf, faa960ed); switched with `orca account select --agent codex --account <full id>` (applies to launches after it) | code, in its turn; mechanical work: promotions, small fixes from a review; reviews |
+| **Codex** | `orca orchestration worker-start --environment local --worktree current --agent codex --spec-file <prompt>`; 3 logins inside Orca, listed with `orca account list`: bin.ngoctu@gmail.com (a46c23cd) and yenngan167@gmail.com (05872387, 226d3c4c); switched with `orca account select --agent codex --account <full id>` (applies to launches after it) | code, in its turn; mechanical work: promotions, small fixes from a review; reviews |
 | **Antigravity** | `orca orchestration worker-start --environment local --worktree current --agent antigravity --spec-file <prompt>`; accounts are kept by `account-pool` (provider `agy`), not by Orca: `account-pool list` shows them (yenngan167@gmail.com, tu.nguyen@risotech.vn, bin.ngoctu@gmail.com) and `account-pool use <id>` sets the active one (`worker-start` follows Orca's Chat \| CLI setting, or target a surface via `orca agent launch --agent antigravity --surface chat\|terminal` then `worker-start --task <task_id> --terminal <handle>`) | acceptance tests; reviews; research: reading and summing up documents, code, Zed |
 
 How work is given out:
 
-1. **Code goes round in turn:** the 3 Codex logins one after another (b27e305f, b3eb26bf, faa960ed), then Claude (Opus), then round again, one part each. When a login is at its usage limit or cannot use its model, pass the turn to the next login (or to Claude after the last), and the lead says so in its report.
-   - Reports name every account by its email and short id (for example `bin.ngoctu@gmail.com` (b27e305f)), never by a number: check `orca account list` or `account-pool list` before a dispatch.
+1. **Code goes round in turn:** the 3 Codex logins one after another (a46c23cd, 05872387, 226d3c4c), then Claude (Opus), then round again, one part each. When a login is at its usage limit or cannot use its model, pass the turn to the next login (or to Claude after the last), and the lead says so in its report.
+   - Reports name every account by its email and short id (for example `bin.ngoctu@gmail.com` (a46c23cd)), never by a number: check `orca account list` or `account-pool list` before a dispatch.
 2. **Tests and code of one part come from two workers.** Antigravity writes the acceptance tests from the part's contract before the code. The worker whose turn it is writes the code and makes them pass. A worker never writes both.
 3. **The reviewer did not write the code:** another Codex login than the writer's, Antigravity, or Claude (Opus). A large change, such as a new design or anything that holds a secret, also gets a second review from a worker of another model, Antigravity or Claude (Opus).
 4. **Research that is long but not hard goes to Antigravity:** reading documentation, finding how Zed or a library does something, comparing options. Each answer comes with its source.
@@ -45,19 +45,22 @@ How work is given out:
 
 ### The steps of one piece of work
 
-1. **Foundation.** The coding agent builds the part in `src/dev/`, with its tests and its logging. Nothing is committed.
-2. **In the application.** The real application uses the part, in the place where it belongs in production, not in a harness beside the application.
-3. **Test extension.** A crate in `examples/` exercises the part through the running application, with a `README.md` that gives each case, its command, and what to look for.
+1. **Proposal.** Before any code, the lead agent writes `.temp/<slug>-proposal.html`: what the work adds and why, the design with its sources (Zed first), the parts, how each is checked, and what is left out. Nothing is built until the user approves it.
+2. **Foundation.** The coding agent builds the part in `src/dev/`, with its tests and its logging. Nothing is committed.
+3. **In the application.** The real application uses the part, in the place where it belongs in production, not in a harness beside the application.
+4. **Test extension.** A crate in `examples/` exercises the part through the running application, with a `README.md` that gives each case, its command, and what to look for.
    - Cases are chosen by the extension's own parameters. Without a parameter it does nothing, so a plain `cargo run dev` shows what the application really does.
    - Nothing is staged to look like something else. Every group surrounds work that runs, and every error is one that really happens.
-4. **The lead agent's review.** It does not rely on the coding agent's report. Passing tests do not show that the code does the right thing.
+5. **The lead agent's review.** It does not rely on the coding agent's report. Passing tests do not show that the code does the right thing.
    - It reads the whole diff.
    - It runs every check itself: the tests with and without `dev`, the build without `dev`, clippy, the formatter, and new logging tests repeatedly.
    - It runs the application itself, with every case of the test extension, and reads what the application logs and shows.
    - It tries to break what the change must guarantee.
    - It sends every finding to the coding agent in a new prompt, and reviews the result again.
-5. **The user's review.** The lead agent reports what changed, how to run each case, what it saw when it ran them, what differs from what was asked, what it did not verify, and what is deferred. Then it waits.
-6. **Commit**, only after the user approves. A commit holds one concern; a concern the user names for a commit of its own gets one. Never push unless the user asks.
+6. **The user's review.** The lead agent reports what changed, how to run each case, what it saw when it ran them, what differs from what was asked, what it did not verify, and what is deferred.
+   - The report is `.temp/<slug>-acceptance.html`, every claim with its evidence: screenshots, logs and lifecycle traces, saved files, and the output of each check, kept in `.temp/<slug>-acceptance/` and linked from the page.
+   - Then it waits.
+7. **Commit**, only after the user approves. A commit holds one concern; a concern the user names for a commit of its own gets one. Never push unless the user asks.
    - **Hand tests on the other systems.** The lead runs the application on one system. Right after the commit, the lead records what it could not run in [YARD-testing](https://github.com/Riso-platform-factory/YARD-testing) (macOS when it ran elsewhere).
      - Each other system gets one issue, from the repository's template, titled `<System>: <slug> (#<n>)`. The issue names the commit where the test extension is under review and lists every case of the extension's README with what that system should show.
      - Each issue gets a row in that repository's README.
@@ -66,14 +69,14 @@ How work is given out:
      - A change with nothing a person must see on those systems, already covered by the runner checks, needs none; the report says so.
      - A failure recorded there is a finding: it becomes an issue in YARD and goes to the workers like a review finding.
      - The roadmap says a system was run only when its issue is closed. Promotion does not wait for these tests.
-7. **Promotion**, only when the user says to promote that part, in this order:
+8. **Promotion**, only when the user says to promote that part, in this order:
    - move the part out of `dev/`, and drop the `dev` line from its tests;
    - leave nothing under review, and take the test extension out of `review.rs`;
    - run the tests once before stamping, to see them refuse the part, then stamp it;
    - check that the moved files are byte for byte what the user approved;
    - run `cargo run` and `cargo run dev`;
    - commit the promotion on its own.
-8. **What is deferred** gets a comment at its place: `// TODO(<slug>): <what is missing>. <what unblocks it>.` The slug names the work.
+9. **What is deferred** gets a comment at its place: `// TODO(<slug>): <what is missing>. <what unblocks it>.` The slug names the work.
 
 ### A prompt for the coding agent
 

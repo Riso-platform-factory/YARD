@@ -5283,7 +5283,6 @@ impl Extension {
         Some(Self { name: name.into() })
     }
 
-    #[allow(dead_code, reason = "used by the close guard while it is under review")]
     pub(crate) fn registration_order(&self, cx: &App) -> usize {
         cx.global::<Registry>().extensions[&self.name]
     }

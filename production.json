@@ -191,6 +191,12 @@
     },
     "promoted": "2026-11-19"
   },
+  "yard_shell/close_guard": {
+    "files": {
+      "crates/yard_shell/src/close_guard.rs": "a356d3bf1865f395"
+    },
+    "promoted": "2026-11-27"
+  },
   "yard_shell/data": {
     "files": {
       "crates/yard_shell/src/data.rs": "47b822d0249dd765"
@@ -229,7 +235,7 @@
   },
   "yard_shell/shell": {
     "files": {
-      "crates/yard_shell/src/shell.rs": "e797ec9caa3e40bb"
+      "crates/yard_shell/src/shell.rs": "df52bcd13c34f14d"
     },
     "promoted": "2026-11-27"
   },

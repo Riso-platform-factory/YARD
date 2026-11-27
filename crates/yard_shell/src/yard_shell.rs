@@ -1,5 +1,8 @@
 //! The window shell and extension component registry.
 
+mod close_guard;
+pub use close_guard::*;
+
 mod data;
 pub use data::*;
 
@@ -18,8 +21,3 @@ pub use session::*;
 
 mod window_bounds;
 pub use window_bounds::*;
-
-#[cfg(feature = "dev")]
-mod dev;
-#[cfg(feature = "dev")]
-pub use dev::*;

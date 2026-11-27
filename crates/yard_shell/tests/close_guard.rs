@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use futures::channel::oneshot;
 use gpui::{
     AnyWindowHandle, App, PromptLevel, TestAppContext, VisualTestContext, Window, WindowHandle,

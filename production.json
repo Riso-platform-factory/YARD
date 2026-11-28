@@ -20,7 +20,7 @@
   },
   "yard_app/startup": {
     "files": {
-      "crates/yard_app/src/startup.rs": "23a92cc77badba78"
+      "crates/yard_app/src/startup.rs": "7bb74858e7f6a22d"
     },
     "promoted": "2026-11-27"
   },
@@ -245,6 +245,12 @@
     },
     "promoted": "2026-11-14"
   },
+  "yard_shell/secrets": {
+    "files": {
+      "crates/yard_shell/src/secrets.rs": "39554d5761b6e7f7"
+    },
+    "promoted": "2026-11-27"
+  },
   "yard_shell/session": {
     "files": {
       "crates/yard_shell/src/session.rs": "3c400e9077c47b59"
@@ -277,7 +283,7 @@
   },
   "yard_test/harness": {
     "files": {
-      "crates/yard_test/src/harness.rs": "952d647aae311555"
+      "crates/yard_test/src/harness.rs": "a9bcb52cba0ee663"
     },
     "promoted": "2026-11-27"
   },

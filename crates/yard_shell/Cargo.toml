@@ -11,11 +11,6 @@ path = "src/yard_shell.rs"
 [features]
 default = ["dev"]
 dev = [
-    "dep:objc2-core-foundation",
-    "dep:objc2-security",
-    "dep:oo7",
-    "dep:zeroize",
-    "windows/Win32_Security_Credentials",
     "yard_data/dev",
     "yard_http/dev",
     "yard_layout/dev",
@@ -42,13 +37,13 @@ serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 url.workspace = true
-zeroize = { workspace = true, optional = true }
+zeroize.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-core-foundation = { workspace = true, optional = true, features = [
+objc2-core-foundation = { workspace = true, features = [
     "std",
     "CFData",
     "CFDictionary",
@@ -57,16 +52,17 @@ objc2-core-foundation = { workspace = true, optional = true, features = [
     "CFBase",
     "CFCGTypes",
 ] }
-objc2-security = { workspace = true, optional = true }
+objc2-security.workspace = true
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
-oo7 = { workspace = true, optional = true, features = ["async-std", "native_crypto"] }
+oo7 = { workspace = true, features = ["async-std", "native_crypto"] }
 
 [target.'cfg(windows)'.dependencies]
 windows = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_Authorization",
+    "Win32_Security_Credentials",
     "Win32_Storage_FileSystem",
     "Win32_System_IO",
     "Win32_System_Pipes",

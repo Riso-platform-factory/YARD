@@ -83,7 +83,7 @@ ext.delete_secret("api-token", cx).detach(); // a missing entry is not an error;
 - **`SecretStore::memory()`** is an in-memory store for tests. It holds what is set, per extension and key, honours every rule above, and can be told to fail the next call with a chosen `SecretError` (`fail_next`). `SecretStore` is `Clone`, and clones share one store, so a test keeps a handle after giving one to `set_secret_store`.
 - **While the part is under review**, `review.rs` sets the system store. **At promotion:**
   - `yard_app/startup` sets the system store from the product;
-  - `yard_test/harness` sets a memory store in `TestApp::boot`, so an extension's tests never touch the real store.
+  - `yard_test/harness` sets a memory store in `TestApp::boot`, so an extension's tests never touch the real store. It does so through `yard_app::init_with_secret_store`, which is `init` with a store given in place of the system store, set before any extension starts.
 
   Both are production parts, shown and stamped again then.
 

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-//! Calling `set_secret`, `get_secret`, or `delete_secret` before `set_secret_store`
 //! returns `SecretError::Unavailable` and logs one diagnostic `ERROR` per application.
 //!
 //! Installs a process-wide diagnostic logger; alone in its binary.

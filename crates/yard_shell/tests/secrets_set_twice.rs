@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-//! Calling `set_secret_store` a second time is refused with one `ERROR`, and the
 //! first store stays active.
 //!
 //! Installs a process-wide diagnostic logger; alone in its binary.

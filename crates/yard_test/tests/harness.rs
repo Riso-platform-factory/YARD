@@ -1,4 +1,4 @@
-use gpui::{App, AppContext as _, Global, Menu, SystemNotification, TestAppContext};
+use gpui::{App, AppContext as _, Global, Menu, SystemNotification, Task, TestAppContext};
 use serde_json::{Value, json};
 use std::{
     any::Any,
@@ -11,7 +11,7 @@ use yard_app::Application;
 use yard_paths::{Origin, Paths};
 use yard_product::Product;
 use yard_settings::Settings;
-use yard_shell::Extension;
+use yard_shell::{Extension, SecretError};
 use yard_test::TestApp;
 
 #[derive(Default)]
@@ -154,6 +154,47 @@ fn boot_runs_extensions_in_order_and_opens_one_window(cx: &mut TestAppContext) {
         visual.debug_bounds("WINDOW-TITLE-Redrawn Title").is_some(),
         "app.draw(cx) redraws the window"
     );
+}
+
+#[gpui::test]
+async fn boot_gives_extensions_an_in_memory_secret_store(cx: &mut TestAppContext) {
+    struct PendingSecretWrite {
+        extension: Extension,
+        task: Task<Result<(), SecretError>>,
+    }
+    impl Global for PendingSecretWrite {}
+
+    cx.executor().allow_parking();
+    let application = Application {
+        product: Product {
+            name: "Secret Tests",
+            version: "0.0.0",
+            // A slash prevents the system backend from accessing real credentials.
+            identifier: "test.yard.app/secret-round-trip",
+        },
+        url_scheme: "yardtest",
+        update_url: "",
+        window_icon: None,
+    };
+    let _app = TestApp::builder()
+        .application(application)
+        .extension("secrets", |cx, extension| {
+            let task = extension.set_secret("token", b"test value", cx);
+            cx.set_global(PendingSecretWrite {
+                extension: extension.clone(),
+                task,
+            });
+        })
+        .boot(cx);
+    let PendingSecretWrite { extension, task } = cx.update(|cx| cx.remove_global());
+
+    task.await.expect("store the test secret in memory");
+    let secret = cx
+        .read(|cx| extension.get_secret("token", cx))
+        .await
+        .expect("read the test secret from memory")
+        .expect("the stored secret exists");
+    assert_eq!(secret.expose(), b"test value");
 }
 
 #[gpui::test]

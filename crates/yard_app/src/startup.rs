@@ -1,5 +1,6 @@
 use gpui::{App, AsyncApp, WindowOptions};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc, sync::Arc};
+use yard_shell::SecretStore;
 use yard_shell::yard_http::{self, HttpClient, NetworkSettings};
 
 /// What an extension registers when the application starts.
@@ -103,7 +104,7 @@ pub fn run(
         if let Some(listener) = instance {
             yard_shell::serve_instance_requests(cx, listener, app.url_scheme);
         }
-        let client = init_app(cx, app, &paths, &extensions, menus, &open_urls);
+        let client = init_app(cx, app, &paths, &extensions, menus, &open_urls, None);
         let session = yard_shell::saved_session(cx, &paths.session_file());
         yard_shell::track_session(cx, paths.session_file());
         match session {
@@ -198,7 +199,28 @@ pub fn init(
     menus: fn(&Product) -> Vec<gpui::Menu>,
     open_urls: &RefCell<OpenUrls>,
 ) {
-    init_app(cx, app, paths, extensions, menus, open_urls);
+    init_app(cx, app, paths, extensions, menus, open_urls, None);
+}
+
+/// Initializes the app with a supplied secret store available before extensions load.
+pub fn init_with_secret_store(
+    cx: &mut App,
+    app: Application,
+    paths: &yard_paths::Paths,
+    extensions: &[(&'static str, Init)],
+    menus: fn(&Product) -> Vec<gpui::Menu>,
+    open_urls: &RefCell<OpenUrls>,
+    secret_store: SecretStore,
+) {
+    init_app(
+        cx,
+        app,
+        paths,
+        extensions,
+        menus,
+        open_urls,
+        Some(secret_store),
+    );
 }
 
 fn init_app(
@@ -208,6 +230,7 @@ fn init_app(
     extensions: &[(&'static str, Init)],
     menus: fn(&Product) -> Vec<gpui::Menu>,
     open_urls: &RefCell<OpenUrls>,
+    secret_store: Option<SecretStore>,
 ) -> Option<HttpClient> {
     let client = {
         let _group = tracing::info_span!("app-init").entered();
@@ -224,8 +247,21 @@ fn init_app(
         yard_shell::set_state_file(cx, paths.state_file());
         yard_shell::set_store_dir(cx, paths.store_dir());
         yard_shell::set_data_file(cx, paths.data_file());
-        yard_settings::register::<NetworkSettings>(cx);
         let product = app.product;
+        match secret_store {
+            Some(store) => {
+                yard_shell::set_secret_store(cx, store);
+                tracing::debug!("set the supplied secret store");
+            }
+            None => {
+                yard_shell::set_secret_store(
+                    cx,
+                    SecretStore::system(product.identifier, product.name),
+                );
+                tracing::debug!("set the system secret store");
+            }
+        }
+        yard_settings::register::<NetworkSettings>(cx);
         let agent = yard_http::user_agent(product.name, product.version);
         let client = HttpClient::new(&agent, yard_settings::get::<NetworkSettings>(cx))
             .inspect_err(|error| log::error!("HTTP client failed to start: {error}"))

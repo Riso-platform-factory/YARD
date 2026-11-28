@@ -5,7 +5,7 @@ use tempfile::TempDir;
 use yard_app::{Application, Init, OpenUrls};
 use yard_paths::Paths;
 use yard_product::Product;
-use yard_shell::Shell;
+use yard_shell::{SecretStore, Shell};
 
 const DEFAULT_APPLICATION: Application = Application {
     product: Product {
@@ -74,13 +74,14 @@ impl TestAppBuilder {
                 name = product.name,
                 "app identity set"
             );
-            yard_app::init(
+            yard_app::init_with_secret_store(
                 cx,
                 self.application,
                 &paths,
                 &self.extensions,
                 self.menus,
                 &RefCell::new(OpenUrls::default()),
+                SecretStore::memory(),
             );
             let window = yard_app::open_window(cx, self.application, None, None)
                 .downcast::<Shell>()

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-//! Trace groups, levels, diagnostic warnings, and privacy for `yard_shell/secrets`.
 //!
 //! Secret store operations run on GPUI's background executor (which may run on
 //! other threads), so this file installs one process-wide tracing subscriber and

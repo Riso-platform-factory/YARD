@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-//! `SecretStore::system` with an invalid identifier or product name returns a store
 //! whose every call returns `SecretError::Unavailable`, with one diagnostic `ERROR`,
 //! without touching the real system credential store.
 //!

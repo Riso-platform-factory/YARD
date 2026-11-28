@@ -1,6 +1,7 @@
 use gpui::{App, Global, Subscription};
 use serde_json::{Map, Value};
 use std::{
+    collections::BTreeSet,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -89,11 +90,11 @@ fn read_file(path: &Path) -> Result<Option<Map<String, Value>>, String> {
     }
 }
 
-fn parse_content(bytes: &[u8]) -> Result<Map<String, Value>, String> {
+pub(crate) fn parse_content(bytes: &[u8]) -> Result<Map<String, Value>, String> {
     match serde_json::from_slice(bytes) {
         Ok(Value::Object(content)) => Ok(content),
         Ok(_) => Err("the file is not a JSON object".into()),
-        Err(error) => Err(error.to_string()),
+        Err(_) => Err("the file is not valid JSON".into()),
     }
 }
 
@@ -118,7 +119,7 @@ fn decode_section<T: Settings>(content: &Map<String, Value>) -> Result<Option<T>
     match content.get(T::KEY) {
         Some(value @ Value::Object(_)) => T::deserialize(value)
             .map(Some)
-            .map_err(|error| error.to_string()),
+            .map_err(|_| "section fields do not match their expected types".into()),
         Some(_) => Err("the section is not a JSON object".into()),
         None => Ok(None),
     }
@@ -191,6 +192,10 @@ fn reload(cx: &mut App, path: &Path, state: FileState) {
     apply_content(cx, content);
 }
 
+pub(crate) fn content_matches(cx: &App, content: &Map<String, Value>) -> bool {
+    &cx.global::<Store>().content == content
+}
+
 pub(crate) fn apply_content(cx: &mut App, content: Map<String, Value>) {
     let applied: Vec<_> = cx
         .global::<Store>()
@@ -209,13 +214,33 @@ pub(crate) fn apply_content(cx: &mut App, content: Map<String, Value>) {
             .unwrap();
         let apply = cx.global::<Store>().entries[index].apply;
         let result = apply(&content, cx);
-        cx.global_mut::<Store>().entries[index].applied = value;
+        let previous =
+            std::mem::replace(&mut cx.global_mut::<Store>().entries[index].applied, value);
         match result {
             Ok(()) => {
                 changed += 1;
                 tracing::debug!(section = key, "changed");
             }
-            Err(reason) => log::warn!("section {key} cannot be read: {reason}"),
+            Err(reason) => {
+                let old = previous.as_ref().and_then(Value::as_object);
+                let new = content.get(key).and_then(Value::as_object);
+                let fields = old
+                    .into_iter()
+                    .chain(new)
+                    .flat_map(Map::keys)
+                    .filter(|name| {
+                        old.and_then(|map| map.get(*name)) != new.and_then(|map| map.get(*name))
+                    })
+                    .map(String::as_str)
+                    .collect::<BTreeSet<_>>();
+                if fields.is_empty() {
+                    log::warn!("section {key} cannot be read: {reason}");
+                } else {
+                    log::warn!(
+                        "section {key} cannot be read: {reason} (changed fields: {fields:?})"
+                    );
+                }
+            }
         }
     }
     cx.global_mut::<Store>().content = content;
@@ -232,6 +257,10 @@ pub(crate) fn file_path(cx: &App) -> Option<PathBuf> {
 pub(crate) fn is_registered(cx: &App, key: &str) -> bool {
     cx.try_global::<Store>()
         .is_some_and(|store| store.entries.iter().any(|entry| entry.key == key))
+}
+
+pub(crate) fn is_registered_type<T: Settings>(cx: &App) -> bool {
+    cx.has_global::<Section<T>>()
 }
 
 /// Checks the loaded settings file once a second for the lifetime of the app.

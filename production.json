@@ -45,9 +45,9 @@
   },
   "yard_http/client": {
     "files": {
-      "crates/yard_http/src/client.rs": "7400782625e95648"
+      "crates/yard_http/src/client.rs": "08664010cc7272af"
     },
-    "promoted": "2026-11-27"
+    "promoted": "2026-11-28"
   },
   "yard_keymap/keymap_reload": {
     "files": {
@@ -175,9 +175,9 @@
   },
   "yard_paths/write_atomic": {
     "files": {
-      "crates/yard_paths/src/write_atomic.rs": "a375b358f2293f9c"
+      "crates/yard_paths/src/write_atomic.rs": "3894ab7c53e86380"
     },
-    "promoted": "2026-11-21"
+    "promoted": "2026-11-28"
   },
   "yard_product/product": {
     "files": {
@@ -187,15 +187,15 @@
   },
   "yard_settings/sections": {
     "files": {
-      "crates/yard_settings/src/sections.rs": "e8902f4843410e5e"
+      "crates/yard_settings/src/sections.rs": "5009597b2fb22260"
     },
-    "promoted": "2026-11-19"
+    "promoted": "2026-11-28"
   },
   "yard_settings/write": {
     "files": {
-      "crates/yard_settings/src/write.rs": "916aea9aced5694e"
+      "crates/yard_settings/src/write.rs": "2ab279361367e86e"
     },
-    "promoted": "2026-11-19"
+    "promoted": "2026-11-28"
   },
   "yard_shell/autostart": {
     "files": {
@@ -417,16 +417,16 @@
   },
   "yard_ui/theme_setting": {
     "files": {
-      "crates/yard_ui/src/theme_setting.rs": "6ca20c69a02b88cf"
+      "crates/yard_ui/src/theme_setting.rs": "9c3559436b777e2e"
     },
-    "promoted": "2026-11-19"
+    "promoted": "2026-11-28"
   },
   "yard_ui/theming": {
     "files": {
-      "crates/yard_ui/src/theming.rs": "a6260fb6ad613af3",
+      "crates/yard_ui/src/theming.rs": "de35d4a5b03c1219",
       "crates/yard_ui/src/theming/themes.rs": "0ab36c6557c592d2"
     },
-    "promoted": "2026-11-19"
+    "promoted": "2026-11-28"
   },
   "yard_ui/title_bar": {
     "files": {

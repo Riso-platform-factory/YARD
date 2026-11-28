@@ -20,6 +20,7 @@ http_client_tls.workspace = true
 log.workspace = true
 reqwest_client.workspace = true
 serde.workspace = true
+schemars.workspace = true
 tokio = { version = "1.54.1", default-features = false, features = ["time"] }
 tracing.workspace = true
 yard_settings = { workspace = true, default-features = false }

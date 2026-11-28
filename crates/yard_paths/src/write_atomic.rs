@@ -16,7 +16,18 @@ use std::{
 /// the error; the caller decides what the failure means.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let _span = tracing::info_span!("file-write", path = %path.display()).entered();
-    let result = write_in_one_step(path, bytes);
+    let result = write_in_one_step(
+        path,
+        bytes,
+        || Ok(true),
+        |path, error| {
+            log::warn!(
+                "could not remove the temporary file {}: {error}",
+                path.display()
+            )
+        },
+    )
+    .map(|_| ());
     match &result {
         Ok(()) => tracing::debug!(bytes = bytes.len(), "written"),
         Err(error) => log::warn!("could not write {}: {error}", path.display()),
@@ -24,7 +35,33 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
     result
 }
 
-fn write_in_one_step(path: &Path, bytes: &[u8]) -> io::Result<()> {
+/// Replaces a file only if the check succeeds immediately before its rename.
+/// Returns whether the file was replaced. The caller logs any returned error.
+pub fn write_atomic_if(
+    path: &Path,
+    bytes: &[u8],
+    check: impl FnOnce() -> io::Result<bool>,
+) -> io::Result<bool> {
+    let _span = tracing::info_span!("file-write", path = %path.display()).entered();
+    let result = write_in_one_step(path, bytes, check, |path, error| {
+        tracing::warn!(path = %path.display(), %error, "could not remove the temporary file");
+    });
+    if let Ok(replaced) = result {
+        if replaced {
+            tracing::debug!(bytes = bytes.len(), "written");
+        } else {
+            tracing::debug!("replacement skipped");
+        }
+    }
+    result
+}
+
+fn write_in_one_step(
+    path: &Path,
+    bytes: &[u8],
+    check: impl FnOnce() -> io::Result<bool>,
+    cleanup_failed: impl FnOnce(&Path, &io::Error),
+) -> io::Result<bool> {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let parent = path
         .parent()
@@ -53,8 +90,15 @@ fn write_in_one_step(path: &Path, bytes: &[u8]) -> io::Result<()> {
     // Windows with `MoveFileExW(MOVEFILE_REPLACE_EXISTING)`; it fails when
     // another process holds `path` open.
     drop(file);
-    match written.and_then(|()| fs::rename(&temporary, path)) {
-        Ok(()) => {
+    match written.and_then(|()| {
+        if check()? {
+            fs::rename(&temporary, path)?;
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }) {
+        Ok(true) => {
             // So that the new name survives a power failure. Not every Unix
             // can sync a directory, and the content is safe anyway. Windows
             // cannot open a folder as a file, and NTFS journals the rename.
@@ -62,18 +106,15 @@ fn write_in_one_step(path: &Path, bytes: &[u8]) -> io::Result<()> {
             if let Err(error) = fs::File::open(parent).and_then(|directory| directory.sync_all()) {
                 tracing::debug!(%error, "folder not synced");
             }
-            Ok(())
+            Ok(true)
         }
-        Err(error) => {
+        result => {
             if let Err(cleanup) = fs::remove_file(&temporary)
                 && cleanup.kind() != io::ErrorKind::NotFound
             {
-                log::warn!(
-                    "could not remove the temporary file {}: {cleanup}",
-                    temporary.display()
-                );
+                cleanup_failed(&temporary, &cleanup);
             }
-            Err(error)
+            result
         }
     }
 }
@@ -81,6 +122,23 @@ fn write_in_one_step(path: &Path, bytes: &[u8]) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rejected_replacement_keeps_the_intervening_edit_and_cleans_up() {
+        let root = tempfile::tempdir().unwrap();
+        let target = root.path().join("settings.json");
+        fs::write(&target, b"original").unwrap();
+
+        let replaced = write_atomic_if(&target, b"yard edit", || {
+            fs::write(&target, b"editor edit")?;
+            Ok(false)
+        })
+        .unwrap();
+
+        assert!(!replaced);
+        assert_eq!(fs::read(&target).unwrap(), b"editor edit");
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 1);
+    }
 
     #[test]
     fn write_atomic_creates_parents_replaces_content_and_leaves_no_temporary_file() {

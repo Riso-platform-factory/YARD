@@ -44,5 +44,6 @@
   - [Tray](./development/tray.md)
   - [Autostart](./development/autostart.md)
   - [Accessibility](./development/accessibility.md)
+  - [Settings UI](./development/settings-ui.md)
   - [Packaging](./development/packaging.md)
   - [Release System](./development/release-system.md)

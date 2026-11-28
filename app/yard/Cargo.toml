@@ -7,7 +7,20 @@ license.workspace = true
 
 [features]
 default = ["dev"]
-dev = ["yard_app/dev", "yard_product/dev", "yard_shell/dev", "command_palette/dev", "yard_build_config/dev", "dep:toggle_tour"]
+dev = [
+    "yard_app/dev",
+    "yard_product/dev",
+    "yard_settings/dev",
+    "yard_shell/dev",
+    "yard_ui/dev",
+    "command_palette/dev",
+    "yard_build_config/dev",
+    "dep:settings_editor",
+    "settings_editor/dev",
+    "dep:settings_editor_tour",
+    "settings_editor_tour/dev",
+    "dep:toggle_tour",
+]
 
 [dependencies]
 gpui.workspace = true
@@ -15,10 +28,14 @@ gpui.workspace = true
 yard_app = { workspace = true, default-features = false }
 yard_shell = { workspace = true, default-features = false }
 yard_product = { workspace = true, default-features = false }
+yard_settings = { workspace = true, default-features = false, optional = true }
+yard_ui = { workspace = true, default-features = false, optional = true }
 tracing = { workspace = true }
 
 command_palette = { workspace = true, default-features = false }
+settings_editor = { workspace = true, default-features = false, optional = true }
 
+settings_editor_tour = { path = "../../examples/settings_editor_tour", default-features = false, optional = true }
 toggle_tour = { path = "../../examples/toggle_tour", optional = true }
 
 [dev-dependencies]

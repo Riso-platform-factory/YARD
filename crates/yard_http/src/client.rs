@@ -786,8 +786,10 @@ pub async fn read_limited(response: Response<AsyncBody>, max: usize) -> Result<V
     }
 }
 
-#[derive(Clone, Default, serde::Deserialize)]
+/// Network
+#[derive(Clone, Default, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 pub struct NetworkSettings {
+    /// The proxy URL to use for network requests.
     #[serde(default, deserialize_with = "deserialize_proxy")]
     pub proxy: Option<String>,
 }

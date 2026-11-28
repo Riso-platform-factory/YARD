@@ -7,8 +7,10 @@
 
 pub(crate) mod themes;
 
-use gpui::{App, Font, Global, Hsla, Pixels, SharedString, font, px};
-use std::borrow::Cow;
+use gpui::{
+    App, Font, Global, Hsla, KeyBinding, KeyBindingContextPredicate, Pixels, SharedString, font, px,
+};
+use std::{borrow::Cow, rc::Rc};
 use theme::ActiveTheme;
 
 pub(crate) const DEFAULT_UI_FONT_FAMILY: &str = "IBM Plex Sans";
@@ -90,6 +92,25 @@ pub fn init(cx: &mut App) {
     });
     theme::set_theme_settings_provider(Box::new(Provider), cx);
     tracing::debug!("theme settings provider installed");
+    bind_menu_keys(cx);
+}
+
+fn bind_menu_keys(cx: &mut App) {
+    let context = Rc::new(KeyBindingContextPredicate::parse("menu").expect("menu context"));
+    let bindings = [
+        ("escape", "menu::Cancel"),
+        ("down", "menu::SelectNext"),
+        ("up", "menu::SelectPrevious"),
+        ("enter", "menu::Confirm"),
+    ]
+    .map(|(key, name)| {
+        let action = cx
+            .build_action(name, None)
+            .expect("Zed context menu action");
+        KeyBinding::load(key, action, Some(context.clone()), false, None, cx)
+            .expect("valid context menu key")
+    });
+    cx.bind_keys(bindings);
 }
 
 pub(crate) fn set_ui_font(cx: &mut App, family: impl Into<SharedString>, size: Pixels) {

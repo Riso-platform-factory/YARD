@@ -36,6 +36,7 @@ yard_app = { path = "crates/yard_app", default-features = false }
 yard_test = { path = "crates/yard_test", default-features = false }
 yard_build_config = { path = "crates/yard_build_config", default-features = false }
 command_palette = { path = "extensions/command_palette", default-features = false }
+settings_editor = { path = "extensions/settings_editor", default-features = false }
 clap = { version = "4.6.7", default-features = false, features = ["std", "derive", "help", "usage", "error-context"] }
 ctrlc = { version = "3.5.3", features = ["termination"] }
 dirs = "6"

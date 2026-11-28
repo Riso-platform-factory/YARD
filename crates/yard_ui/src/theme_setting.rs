@@ -17,7 +17,7 @@ struct ConfiguredUiFont {
 
 impl Global for ConfiguredUiFont {}
 
-#[derive(Clone, Copy, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Copy, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum Mode {
     System,
@@ -35,7 +35,7 @@ impl std::fmt::Display for Mode {
     }
 }
 
-#[derive(Clone, Copy, Default, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Copy, Default, serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "lowercase")]
 enum Density {
     Compact,
@@ -64,14 +64,21 @@ impl From<Density> for theme::UiDensity {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+/// Theme
+#[derive(serde::Deserialize, serde::Serialize, schemars::JsonSchema)]
 #[serde(default)]
 pub(crate) struct ThemeSettings {
+    /// Follow the system appearance or always use the dark or light theme.
     pub(crate) mode: Mode,
+    /// The theme used in dark mode.
     dark: String,
+    /// The theme used in light mode.
     light: String,
+    /// The font family used for the interface.
     ui_font_family: Option<String>,
+    /// The font size used for the interface.
     ui_font_size: Option<f32>,
+    /// The spacing used for the interface.
     ui_density: Option<Density>,
 }
 

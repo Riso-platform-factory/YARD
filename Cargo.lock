@@ -8124,15 +8124,12 @@ dependencies = [
  "gpui",
  "serde_json",
  "settings_editor",
- "settings_editor_tour",
  "toggle_tour",
  "tracing",
  "yard_app",
  "yard_build_config",
  "yard_product",
- "yard_settings",
  "yard_shell",
- "yard_ui",
 ]
 
 [[package]]

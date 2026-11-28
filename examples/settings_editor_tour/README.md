@@ -1,6 +1,6 @@
 # Settings editor tour
 
-Use a separate YARD home and start the review build.
+The settings editor and its schema are in production (promoted after `0796fb6`), so `cargo run -p yard` opens the editor with cmd-, on the built-in **Theme** and **Network** sections. This tour adds a section with one field of each kind. It is not in `app/yard/src/dev/review.rs` any more: to run it, add `("settings_editor_tour", settings_editor_tour::init)` to the extension list there and `settings_editor_tour` to `app/yard/Cargo.toml`, as at `0796fb6`, then use a separate YARD home and start the review build.
 
 ```sh
 YARD_HOME=/tmp/yard-settings-editor SETTINGS_EDITOR_TOUR=1 cargo run -p yard -- dev

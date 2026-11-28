@@ -4,4 +4,7 @@ pub fn application() -> yard_app::Application {
 }
 
 /// The extensions that come with the application.
-pub const EXTENSIONS: &[(&str, yard_app::Init)] = &[("command_palette", command_palette::init)];
+pub const EXTENSIONS: &[(&str, yard_app::Init)] = &[
+    ("command_palette", command_palette::init),
+    ("settings_editor", settings_editor::init),
+];

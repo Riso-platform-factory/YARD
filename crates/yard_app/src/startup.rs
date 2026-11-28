@@ -372,6 +372,11 @@ fn init_app(
         })
         .detach();
     }
+    yard_ui::describe_theme_settings(cx);
+    yard_settings::describe::<NetworkSettings>(cx);
+    if let Some(path) = yard_settings::settings_path(cx) {
+        let _ = yard_settings::write_schema_file(cx, &path.with_file_name("settings.schema.json"));
+    }
     // Hand over any URLs that arrived during extension initialization.
     // GPUI queues subsequent deliveries on the main thread in callback order.
     let early_urls = {

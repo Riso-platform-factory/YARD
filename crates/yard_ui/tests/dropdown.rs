@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AppContext, FocusHandle, InteractiveElement, IntoElement, KeyBinding, KeyDownEvent, KeyUpEvent,
     Keystroke, Modifiers, ParentElement, PlatformInput, StatefulInteractiveElement, Styled,

@@ -6,6 +6,13 @@
     },
     "promoted": "2026-11-28"
   },
+  "settings_editor/editor": {
+    "files": {
+      "extensions/settings_editor/src/editor.rs": "8047240b29f6e982",
+      "extensions/settings_editor/src/editor/fields.rs": "8478785272dbd83d"
+    },
+    "promoted": "2026-11-28"
+  },
   "yard/menus": {
     "files": {
       "app/yard/src/menus.rs": "c3d9a289eb2bc0dc"
@@ -14,13 +21,13 @@
   },
   "yard/startup": {
     "files": {
-      "app/yard/src/startup.rs": "c84a5d7520b62d3e"
+      "app/yard/src/startup.rs": "bc0cbd1db0364d31"
     },
-    "promoted": "2026-11-23"
+    "promoted": "2026-11-28"
   },
   "yard_app/startup": {
     "files": {
-      "crates/yard_app/src/startup.rs": "9328e6aeffc2a5ec"
+      "crates/yard_app/src/startup.rs": "70ae99e12e0c1e87"
     },
     "promoted": "2026-11-28"
   },
@@ -185,6 +192,12 @@
     },
     "promoted": "2026-11-21"
   },
+  "yard_settings/schema": {
+    "files": {
+      "crates/yard_settings/src/schema.rs": "beab4bd48f9678ff"
+    },
+    "promoted": "2026-11-28"
+  },
   "yard_settings/sections": {
     "files": {
       "crates/yard_settings/src/sections.rs": "5009597b2fb22260"
@@ -217,6 +230,12 @@
       "crates/yard_shell/src/data.rs": "47b822d0249dd765"
     },
     "promoted": "2026-11-27"
+  },
+  "yard_shell/editable_settings": {
+    "files": {
+      "crates/yard_shell/src/editable_settings.rs": "3f272ff7ace265d8"
+    },
+    "promoted": "2026-11-28"
   },
   "yard_shell/external_open": {
     "files": {
@@ -335,6 +354,12 @@
     },
     "promoted": "2026-11-13"
   },
+  "yard_ui/dropdown": {
+    "files": {
+      "crates/yard_ui/src/dropdown.rs": "f7e0ecb739d108b0"
+    },
+    "promoted": "2026-11-28"
+  },
   "yard_ui/icon": {
     "files": {
       "crates/yard_ui/src/icon.rs": "e2c8bd17359d3ad7"
@@ -389,6 +414,12 @@
     },
     "promoted": "2026-11-28"
   },
+  "yard_ui/switch": {
+    "files": {
+      "crates/yard_ui/src/switch.rs": "83cdfe17e098ad84"
+    },
+    "promoted": "2026-11-28"
+  },
   "yard_ui/tabs": {
     "files": {
       "crates/yard_ui/src/tabs.rs": "f6936fedd735b69d"
@@ -406,6 +437,12 @@
       "crates/yard_ui/src/text_input.rs": "0f9c530460563215",
       "crates/yard_ui/src/text_input/editing.rs": "e2b5311acf788493",
       "crates/yard_ui/src/text_input/failure.rs": "ac76ae1ac650aa0d"
+    },
+    "promoted": "2026-11-28"
+  },
+  "yard_ui/theme_description": {
+    "files": {
+      "crates/yard_ui/src/theme_description.rs": "37e41f3282432db0"
     },
     "promoted": "2026-11-28"
   },

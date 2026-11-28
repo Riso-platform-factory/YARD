@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{AppContext, IntoElement, Styled, TestAppContext, VisualTestContext};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

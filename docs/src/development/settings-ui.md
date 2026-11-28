@@ -1,5 +1,7 @@
 # settings-ui: a settings editor and a schema for settings.json
 
+In production. The sample application starts the editor with the command palette; `settings_editor` is a platform extension in `extensions/`.
+
 An application made with YARD keeps its settings in one `settings.json`, with one section per extension (`docs/src/settings.md`). A user changes them today by editing that file, without help.
 
 This slice adds two things:
@@ -49,7 +51,7 @@ ext.register_editable_settings::<MySettings>(cx);
   - other keys allowed, because sections that are not described must not be marked as errors.
 - **`yard_settings::write_schema_file(cx, path)`** writes it with `yard_paths::write_atomic`, and skips the write when the bytes have not changed.
   - The file is `<config dir>/settings.schema.json`, beside `settings.json`.
-  - It is written once the extensions have registered: by the review extension while this is under review, and at promotion by `yard_app/startup`.
+  - `yard_app/startup` writes it once the extensions have registered, and also describes the built-in `theme` and `network` sections. A failed write logs a warning and does not stop the start.
 - **A user points their editor at it** by adding `"$schema": "./settings.schema.json"` to `settings.json`. YARD ignores that key when it reads, and keeps it when it writes. YARD never adds it to the user's file itself.
 
 ## Changing a field
@@ -110,7 +112,7 @@ ext.register_editable_settings::<MySettings>(cx);
     - a dismissal within the same frame the menu opens can leave focus on the closed menu;
     - in a menu longer than its height, keyboard selection does not scroll the chosen row into view. Settings choices are short lists.
     - an open menu keeps its place and width until it is reopened: it does not follow its trigger when the layout moves it, or shrink when the window does.
-- **Both are new dev parts.**
+- **Both are production parts** (promoted with the rest of the slice).
 - **The built-in sections become editable.** These are production parts, changed and stamped again:
   - `ThemeSettings` (`yard_ui/theme_setting`) derives `Serialize` and `JsonSchema`. Theme names are plain strings in this slice;
   - `NetworkSettings` (`yard_http`) derives the same.

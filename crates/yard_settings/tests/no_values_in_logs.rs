@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

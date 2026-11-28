@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AppContext, ClipboardItem, IntoElement, Pixels, Styled, TestAppContext, VisualTestContext,
 };

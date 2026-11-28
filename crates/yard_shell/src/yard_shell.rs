@@ -9,6 +9,8 @@ pub use close_guard::*;
 mod data;
 pub use data::*;
 
+mod editable_settings;
+
 mod external_open;
 pub use external_open::*;
 
@@ -38,6 +40,3 @@ pub use tray::*;
 
 mod window_bounds;
 pub use window_bounds::*;
-
-#[cfg(feature = "dev")]
-mod dev;

@@ -10,12 +10,12 @@ path = "src/yard_settings.rs"
 
 [features]
 default = ["dev"]
-dev = ["yard_paths/dev", "dep:schemars"]
+dev = ["yard_paths/dev"]
 
 [dependencies]
 yard_paths = { workspace = true, default-features = false }
 gpui.workspace = true
-schemars = { workspace = true, optional = true }
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 log.workspace = true

@@ -53,7 +53,7 @@ ext.bind_keys(
 
 ### Handling Actions
 
-- **Component-scoped actions:** Track the node's focus handle (`yard_shell::focus_handle(cx, node)`), attach `.key_context("my_ext")`, and handle the action with GPUI's `.on_action(...)` on the component's element. The action runs only while that component has focus.
+- **Component-scoped actions:** Take the node's focus handle (`yard_shell::focus_handle(cx, node)`) and track it on the component's element, giving that element an id and a role (`Group` will do), so a screen reader sees the focus there. Attach `.key_context("my_ext")`, and handle the action with GPUI's `.on_action(...)` on the same element. The action runs only while that component has focus. Once the component has taken the handle, the shell no longer tracks it on its own wrapper. Take it when the component is created or in its own render, not first inside a cached child view. To ask whether a node has focus, or to focus it from code, without taking it, use `yard_shell::node_focus_handle(cx, node)`. See [accessibility](../development/accessibility.md).
 - **Window-wide actions:** Register a handler on the shell root with `ext.on_action::<Ping>(cx, |action, window, cx| { ... })`. The action must belong to the extension's own namespace. The handler runs inside an `extension-action` trace group regardless of which node has focus.
 
 ## Overlays: Toasts, Modals, Prompts, and File Dialogs

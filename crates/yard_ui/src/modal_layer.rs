@@ -4,9 +4,9 @@
 
 use crate::{h_flex, v_flex};
 use gpui::{
-    AnyView, App, AppContext, Context, DismissEvent, Entity, FocusHandle, InteractiveElement,
-    IntoElement, ManagedView, MouseButton, ParentElement, Render, Styled, Subscription, Window,
-    div, prelude::FluentBuilder, px,
+    AnyView, App, AppContext, Context, DismissEvent, ElementId, Entity, FocusHandle,
+    InteractiveElement, IntoElement, ManagedView, MouseButton, ParentElement, Render, Role,
+    StatefulInteractiveElement, Styled, Subscription, Window, div, prelude::FluentBuilder, px,
 };
 use theme::ActiveTheme;
 
@@ -207,6 +207,8 @@ impl Render for ModalLayer {
                     .h(px(0.0))
                     .top_20()
                     .items_center()
+                    .id(ElementId::View(cx.entity_id()))
+                    .role(Role::Group)
                     .key_context("ModalLayer")
                     .track_focus(&active_modal.focus_handle)
                     .child(

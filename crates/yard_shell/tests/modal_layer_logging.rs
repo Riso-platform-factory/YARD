@@ -1,4 +1,7 @@
-use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
+use gpui::{
+    AppContext, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
+    TestAppContext,
+};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex},
@@ -98,8 +101,11 @@ fn surface<V: gpui::EventEmitter<gpui::DismissEvent> + 'static>(
     selector: &'static str,
     focus: &gpui::FocusHandle,
     view: gpui::Entity<V>,
-) -> gpui::Div {
+) -> gpui::Stateful<gpui::Div> {
     gpui::div()
+        .id(selector)
+        .role(gpui::Role::Dialog)
+        .aria_label(selector)
         .debug_selector(move || selector.to_string())
         .track_focus(focus)
         .w(gpui::px(240.))

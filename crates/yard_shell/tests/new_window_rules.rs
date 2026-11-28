@@ -113,7 +113,9 @@ fn new_window_bubbles_from_a_node_deep_in_the_tree(cx: &mut TestAppContext) {
     let (_, opened) = setup(&mut app);
     let main = open(&mut app);
     main.update(&mut app, |_, window, cx| {
-        shell::focus_handle(cx, "leaf").unwrap().focus(window, cx);
+        shell::node_focus_handle(cx, "leaf")
+            .unwrap()
+            .focus(window, cx);
     })
     .unwrap();
     draw(main, &mut app);

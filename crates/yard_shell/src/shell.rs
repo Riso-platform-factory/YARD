@@ -19,10 +19,12 @@ gpui::actions!(
 gpui::actions!(yard, [Dismiss]);
 gpui::actions!(yard, [Quit]);
 use gpui::{
-    Action, Along, AnyEntity, AnyView, App, AppContext, Axis, Bounds, Context, DefiniteLength, Div,
-    Entity, FocusHandle, Global, InteractiveElement, IntoElement, KeyBinding,
-    KeyBindingContextPredicate, ParentElement, Pixels, Point, Rems, Render, ScrollEvent,
-    ScrollHandle, SharedString, Size, Styled, Subscription, WeakEntity, Window, canvas, div,
+    A11ySubtreeBuilder, AccessibleAction, Action, Along, AnyEntity, AnyView, App, AppContext, Axis,
+    Bounds, Context, DefiniteLength, Div, Element, ElementId, Entity, FocusHandle, Global,
+    GlobalElementId, InspectorElementId, InteractiveElement, IntoElement, KeyBinding,
+    KeyBindingContextPredicate, LayoutId, ParentElement, Pixels, Point, Rems, Render, Role,
+    ScrollEvent, ScrollHandle, SharedString, Size, Stateful, StatefulInteractiveElement, Styled,
+    Subscription, WeakEntity, Window, canvas, div,
 };
 use std::{
     any::{Any, TypeId, type_name},
@@ -544,7 +546,7 @@ impl Render for TitleBarFrame {
         );
         let window_title = cx
             .try_global::<Registry>()
-            .map(|registry| registry.window_title.clone())
+            .and_then(|registry| registry.window_title.clone())
             .unwrap_or_default();
         let mut bar = yard_ui::TitleBar::new(SharedString::from(self.node.to_string()));
         if title_shown {
@@ -774,6 +776,7 @@ impl Render for Toggle {
         );
         let toggle = self.node.clone();
         yard_ui::IconButton::new(SharedString::from(format!("toggle:{}", self.node)), icon)
+            .aria_label(tooltip.clone())
             .icon_size(yard_ui::IconSize::Small)
             .toggle_state(toggled)
             .disabled(state.is_err())
@@ -856,9 +859,14 @@ fn click_toggle(cx: &mut App, toggle: &NodeId) {
     });
 }
 
+struct NodeFocus {
+    handle: FocusHandle,
+    taken: Cell<bool>,
+}
+
 struct NodeView {
     node: NodeId,
-    handle: Option<FocusHandle>,
+    focus: Option<Rc<NodeFocus>>,
     view: AnyView,
     zone: Option<DropZone>,
 }
@@ -884,10 +892,10 @@ impl Render for NodeView {
                 .grid()
                 .grid_cols(1)
                 .grid_rows(1)
-        };
-        let container = if let Some(handle) = &self.handle {
+        }
+        .id(SharedString::from(format!("drop:{}", self.node)));
+        let container = if self.focus.is_some() {
             container
-                .track_focus(handle)
                 .on_action(cx.listener(|view, _: &ToggleZoom, window, cx| {
                     let _window_scope = window_scope(window, cx);
                     layout_action(LayoutAction::ToggleZoom, Some(&view.node), window, cx);
@@ -931,9 +939,7 @@ impl Render for NodeView {
         if !cx.has_active_drag() {
             self.zone = None;
         }
-        let mut container = container
-            .id(SharedString::from(format!("drop:{}", self.node)))
-            .on_drag_move::<DraggedNode>(cx.listener(|view, event: &gpui::DragMoveEvent<DraggedNode>, window, cx| {
+        let mut container = container.on_drag_move::<DraggedNode>(cx.listener(|view, event: &gpui::DragMoveEvent<DraggedNode>, window, cx| {
                 let _window_scope = window_context(window, cx);
                 let next = drop_target_at(cx, event.event.position)
                     .filter(|target| target == &view.node)
@@ -955,7 +961,7 @@ impl Render for NodeView {
                 },
             ));
         }
-        container
+        let container = container
             .child(self.view.clone())
             .child(
                 canvas(
@@ -976,7 +982,117 @@ impl Render for NodeView {
             .children(
                 self.zone
                     .map(|zone| zone_overlay(zone, yard_ui::palette(cx).drop_target)),
-            )
+            );
+        NodeElement {
+            container: Some(container),
+            focus: self.focus.clone(),
+        }
+    }
+}
+
+// A component can take its handle during its first render, while this div is
+// laying out its children. Decide which element tracks focus before prepaint.
+struct NodeElement {
+    container: Option<Stateful<Div>>,
+    focus: Option<Rc<NodeFocus>>,
+}
+
+impl IntoElement for NodeElement {
+    type Element = Self;
+
+    fn into_element(self) -> Self {
+        self
+    }
+}
+
+impl Element for NodeElement {
+    type RequestLayoutState = <Stateful<Div> as Element>::RequestLayoutState;
+    type PrepaintState = <Stateful<Div> as Element>::PrepaintState;
+
+    fn id(&self) -> Option<ElementId> {
+        self.container.as_ref().unwrap().id()
+    }
+
+    fn source_location(&self) -> Option<&'static std::panic::Location<'static>> {
+        self.container.as_ref().unwrap().source_location()
+    }
+
+    fn a11y_role(&self) -> Option<Role> {
+        self.container.as_ref().unwrap().a11y_role()
+    }
+
+    fn a11y_synthetic_children(
+        &mut self,
+        _: &mut Self::PrepaintState,
+        builder: &mut A11ySubtreeBuilder,
+    ) {
+        builder.parent_node().add_action(AccessibleAction::Focus);
+    }
+
+    fn request_layout(
+        &mut self,
+        id: Option<&GlobalElementId>,
+        inspector_id: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, Self::RequestLayoutState) {
+        let mut container = self.container.take().unwrap();
+        let layout = container.request_layout(id, inspector_id, window, cx);
+        if let Some(focus) = &self.focus {
+            if focus.taken.get() {
+                // Clicking the wrapper's padding still focuses the component.
+                // Let child elements consume the mouse-down first.
+                let handle = focus.handle.clone();
+                container
+                    .interactivity()
+                    .on_any_mouse_down(move |_, window, cx| {
+                        if !window.default_prevented() {
+                            handle.focus(window, cx);
+                            window.prevent_default();
+                        }
+                    });
+            } else {
+                container = container.role(Role::Group).track_focus(&focus.handle);
+            }
+        }
+        self.container = Some(container);
+        layout
+    }
+
+    fn prepaint(
+        &mut self,
+        id: Option<&GlobalElementId>,
+        inspector_id: Option<&InspectorElementId>,
+        bounds: Bounds<Pixels>,
+        layout: &mut Self::RequestLayoutState,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> Self::PrepaintState {
+        self.container
+            .as_mut()
+            .unwrap()
+            .prepaint(id, inspector_id, bounds, layout, window, cx)
+    }
+
+    fn paint(
+        &mut self,
+        id: Option<&GlobalElementId>,
+        inspector_id: Option<&InspectorElementId>,
+        bounds: Bounds<Pixels>,
+        layout: &mut Self::RequestLayoutState,
+        prepaint: &mut Self::PrepaintState,
+        window: &mut Window,
+        cx: &mut App,
+    ) {
+        self.container.as_mut().unwrap().paint(
+            id,
+            inspector_id,
+            bounds,
+            layout,
+            prepaint,
+            window,
+            cx,
+        );
     }
 }
 
@@ -1095,7 +1211,9 @@ struct Registry {
     window_contexts: BTreeMap<TypeId, AnyEntity>,
     requirements: BTreeMap<ComponentId, Vec<(TypeId, &'static str)>>,
     empties: BTreeMap<ComponentId, EmptyReader>,
-    window_title: SharedString,
+    window_title: Option<SharedString>,
+    // While an update is pending, remember the title each new shell started with.
+    window_title_pending: Option<BTreeMap<gpui::WindowId, SharedString>>,
     layout_file: Option<PathBuf>,
     named_layout_files: Option<NamedLayoutFiles>,
     named_layouts: BTreeMap<String, NamedLayout>,
@@ -1131,7 +1249,7 @@ struct WindowState {
     tree: Rc<RefCell<Layers>>,
     views: Rc<RefCell<ViewMap>>,
     tellers: BTreeMap<NodeId, Teller>,
-    focus_handles: BTreeMap<NodeId, FocusHandle>,
+    focus_handles: BTreeMap<NodeId, Rc<NodeFocus>>,
     bounds: BTreeMap<NodeId, Bounds<Pixels>>,
     root_focus_handle: Option<FocusHandle>,
     splits: Vec<WeakEntity<Split>>,
@@ -1409,7 +1527,8 @@ impl Default for Registry {
             window_contexts: BTreeMap::new(),
             requirements: BTreeMap::new(),
             empties: BTreeMap::new(),
-            window_title: SharedString::default(),
+            window_title: None,
+            window_title_pending: None,
             layout_file: None,
             named_layout_files: None,
             named_layouts: BTreeMap::new(),
@@ -2675,6 +2794,7 @@ impl Render for Tabs {
                     .debug_selector(move || format!("NEW-{selector}"))
                     .child(
                         yard_ui::IconButton::new("new item", yard_ui::IconName::Plus)
+                            .aria_label("New Item")
                             .icon_size(yard_ui::IconSize::Small)
                             .tooltip(yard_ui::Tooltip::text("New Item"))
                             .on_click(move |window, cx| new_item_clicked(&new_node, window, cx)),
@@ -3119,13 +3239,40 @@ pub fn set_layout_file(cx: &mut App, path: PathBuf) {
     cx.default_global::<Registry>().layout_file = Some(path);
 }
 
-/// Sets the title shown in the title bar when its `left` slot has no shown item.
+/// Sets the system title and the title shown in the title bar when its `left` slot is empty.
 pub fn set_window_title(cx: &mut App, title: impl Into<SharedString>) {
     let title = title.into();
 
+    if cx
+        .try_global::<Registry>()
+        .and_then(|registry| registry.window_title.as_ref())
+        == Some(&title)
+    {
+        return;
+    }
+
     tracing::debug!(title = %title, "window title");
-    cx.default_global::<Registry>().window_title = title;
-    cx.refresh_windows();
+    let registry = cx.default_global::<Registry>();
+    registry.window_title = Some(title);
+    if registry.window_title_pending.is_some() {
+        return;
+    }
+    registry.window_title_pending = Some(BTreeMap::new());
+
+    // Wait until GPUI can lend out every window, then apply the latest title.
+    cx.defer(|cx| {
+        let registry = cx.global_mut::<Registry>();
+        let titled_windows = registry.window_title_pending.take().unwrap_or_default();
+        if let Some(title) = registry.window_title.clone() {
+            for handle in cx.windows() {
+                if titled_windows.get(&handle.window_id()) != Some(&title) {
+                    let _ =
+                        cx.update_window(handle, |_, window, _| window.set_window_title(&title));
+                }
+            }
+            cx.refresh_windows();
+        }
+    });
 }
 
 /// Binds the shell's default keys, including the application-wide quit key.
@@ -3387,9 +3534,9 @@ fn focus_by_direction(action: LayoutAction, node: &NodeId, window: &mut Window, 
         }
     };
     if let Some(target) = target
-        && let Some(handle) = layout_state.focus_handles.get(&target).cloned()
+        && let Some(focus) = layout_state.focus_handles.get(&target)
     {
-        handle.focus(window, cx);
+        focus.handle.focus(window, cx);
         tracing::debug!(target = %target, "done");
         return;
     }
@@ -3483,7 +3630,12 @@ fn select_adjacent_tab(
         Some(tabs.node.clone())
     });
     if let Some(node) = selected {
-        if let Some(handle) = window_state(cx).borrow().focus_handles.get(&node).cloned() {
+        let handle = window_state(cx)
+            .borrow()
+            .focus_handles
+            .get(&node)
+            .map(|focus| focus.handle.clone());
+        if let Some(handle) = handle {
             handle.focus(window, cx);
         }
         true
@@ -3508,7 +3660,7 @@ pub fn focused_node(window: &Window, cx: &App) -> Option<NodeId> {
             && layout_state
                 .focus_handles
                 .get(node)
-                .is_some_and(|handle| handle.contains_focused(window, cx)))
+                .is_some_and(|focus| focus.handle.contains_focused(window, cx)))
         .then(|| node.clone())
     })
 }
@@ -3530,8 +3682,21 @@ pub fn node_bounds(cx: &App, node: &str) -> Option<Bounds<Pixels>> {
     })
 }
 
-/// Returns a shown node's focus handle.
+/// Takes a shown node's focus handle from its shell wrapper. Track it on a
+/// component element with an ID and an accessibility role.
 pub fn focus_handle(cx: &App, node: &str) -> Option<FocusHandle> {
+    let focus = shown_node_focus(cx, node)?;
+    focus.taken.set(true);
+    Some(focus.handle.clone())
+}
+
+/// Returns a shown node's focus handle for queries or programmatic focus,
+/// leaving focus tracking with its current owner.
+pub fn node_focus_handle(cx: &App, node: &str) -> Option<FocusHandle> {
+    shown_node_focus(cx, node).map(|focus| focus.handle.clone())
+}
+
+fn shown_node_focus(cx: &App, node: &str) -> Option<Rc<NodeFocus>> {
     if no_window(cx) {
         tracing::info!("no window");
         return None;
@@ -7160,6 +7325,12 @@ fn create_shell(window: &mut Window, cx: &mut App, saved: Option<&SessionWindow>
     };
     {
         let registry = cx.default_global::<Registry>();
+        if let Some(title) = &registry.window_title {
+            window.set_window_title(title);
+            if let Some(titled_windows) = &mut registry.window_title_pending {
+                titled_windows.insert(id, title.clone());
+            }
+        }
         registry.windows.insert(id, Rc::downgrade(&owned_state));
         registry.ever_opened = true;
         remember_active(registry, id);
@@ -8270,13 +8441,16 @@ fn create_view(
     };
     let created = kept.is_none();
     let view = kept.unwrap_or_else(|| {
-        let handle = (!is_frame_node(&node.id)).then(|| {
-            let handle = cx.focus_handle();
+        let focus = (!is_frame_node(&node.id)).then(|| {
+            let focus = Rc::new(NodeFocus {
+                handle: cx.focus_handle(),
+                taken: Cell::new(false),
+            });
             window_state(cx)
                 .borrow_mut()
                 .focus_handles
-                .insert(node.id.clone(), handle.clone());
-            handle
+                .insert(node.id.clone(), focus.clone());
+            focus
         });
         let providers = cx
             .default_global::<Registry>()
@@ -8299,7 +8473,7 @@ fn create_view(
         let wrapped: AnyView = cx
             .new(|_| NodeView {
                 node: node.id.clone(),
-                handle,
+                focus,
                 view,
                 zone: None,
             })
@@ -8384,6 +8558,7 @@ impl Render for Shell {
         }
         let root = root
             .id("shell")
+            .role(Role::Group)
             .key_context("Shell")
             .track_focus(&self.handle)
             .on_action(|_: &yard_ui::CloseWindow, window, cx| request_window_close(window, cx))

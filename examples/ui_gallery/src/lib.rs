@@ -5,7 +5,8 @@ mod tooltip;
 mod window_controls;
 
 use gpui::{
-    App, AppContext, Context, Div, IntoElement, ParentElement, Render, Styled, Window, div, rems,
+    App, AppContext, Context, Div, IntoElement, ParentElement, Render, Role, Styled, Window, div,
+    rems,
 };
 use yard_ui::{
     Button, ButtonSize, ButtonStyle, Divider, DividerColor, ElevationIndex, Headline, HeadlineSize,
@@ -310,8 +311,16 @@ impl Render for ButtonPage {
                             .start_icon(IconName::Check)
                             .end_icon(IconName::ChevronDown),
                     )
-                    .child(IconButton::new("square", IconName::Plus).shape(IconButtonShape::Square))
-                    .child(IconButton::new("wide", IconName::Plus).shape(IconButtonShape::Wide)),
+                    .child(
+                        IconButton::new("square", IconName::Plus)
+                            .aria_label("Square plus")
+                            .shape(IconButtonShape::Square),
+                    )
+                    .child(
+                        IconButton::new("wide", IconName::Plus)
+                            .aria_label("Wide plus")
+                            .shape(IconButtonShape::Wide),
+                    ),
             ))
             .child(group(
                 "State",
@@ -319,9 +328,17 @@ impl Render for ButtonPage {
                     .flex_wrap()
                     .gap(rems(0.5))
                     .child(Button::new("disabled", "Disabled").disabled(true))
-                    .child(IconButton::new("disabled-icon", IconName::Close).disabled(true))
+                    .child(
+                        IconButton::new("disabled-icon", IconName::Close)
+                            .aria_label("Close")
+                            .disabled(true),
+                    )
                     .child(Button::new("toggled", "Toggled").toggle_state(true))
-                    .child(IconButton::new("toggled-icon", IconName::Check).toggle_state(true)),
+                    .child(
+                        IconButton::new("toggled-icon", IconName::Check)
+                            .aria_label("Checkmark sample")
+                            .toggle_state(true),
+                    ),
             ))
             .child(group(
                 "Click",
@@ -339,6 +356,7 @@ impl Render for ButtonPage {
                     )
                     .child(
                         IconButton::new("toggle-clicks", IconName::Check)
+                            .aria_label("Toggle checkmark")
                             .toggle_state(self.toggled)
                             .on_click(move |_, cx| {
                                 let _ = toggle.update(cx, |this, cx| {
@@ -452,6 +470,7 @@ impl Render for ModalPage {
             .child(group(
                 "Sections",
                 Modal::new("sections")
+                    .aria_label("Sections")
                     .section(Section::new().child(Label::new("A section without a header")))
                     .section(
                         Section::new()
@@ -471,36 +490,41 @@ impl Render for ModalPage {
                     .flex_wrap()
                     .gap(rems(0.75))
                     .child(
-                        Modal::new("end-only").footer(
-                            ModalFooter::new().end_slot(
-                                h_flex()
-                                    .gap(rems(0.5))
-                                    .child(Button::new("end-cancel", "Cancel"))
-                                    .child(
-                                        Button::new("end-confirm", "Confirm")
-                                            .style(ButtonStyle::Filled)
-                                            .layer(ElevationIndex::ModalSurface),
-                                    ),
-                            ),
-                        ),
-                    )
-                    .child(
-                        Modal::new("both-slots").footer(
-                            ModalFooter::new()
-                                .start_slot(
-                                    Label::new("Additional information").color(TextColor::Muted),
-                                )
-                                .end_slot(
+                        Modal::new("end-only")
+                            .aria_label("Footer with actions")
+                            .footer(
+                                ModalFooter::new().end_slot(
                                     h_flex()
                                         .gap(rems(0.5))
-                                        .child(Button::new("both-cancel", "Cancel"))
+                                        .child(Button::new("end-cancel", "Cancel"))
                                         .child(
-                                            Button::new("both-confirm", "Confirm")
+                                            Button::new("end-confirm", "Confirm")
                                                 .style(ButtonStyle::Filled)
                                                 .layer(ElevationIndex::ModalSurface),
                                         ),
                                 ),
-                        ),
+                            ),
+                    )
+                    .child(
+                        Modal::new("both-slots")
+                            .aria_label("Footer with additional information")
+                            .footer(
+                                ModalFooter::new()
+                                    .start_slot(
+                                        Label::new("Additional information")
+                                            .color(TextColor::Muted),
+                                    )
+                                    .end_slot(
+                                        h_flex()
+                                            .gap(rems(0.5))
+                                            .child(Button::new("both-cancel", "Cancel"))
+                                            .child(
+                                                Button::new("both-confirm", "Confirm")
+                                                    .style(ButtonStyle::Filled)
+                                                    .layer(ElevationIndex::ModalSurface),
+                                            ),
+                                    ),
+                            ),
                     ),
             ))
             .child(group(
@@ -624,8 +648,10 @@ impl Render for ListPage {
         let sparse_page = cx.weak_entity();
         let indent_page = cx.weak_entity();
 
-        let themes = List::new().header(ListHeader::new("Themes")).children(
-            THEME_ROWS.into_iter().enumerate().map(|(index, row)| {
+        let themes = List::new()
+            .id("gallery-themes")
+            .header(ListHeader::new("Themes"))
+            .children(THEME_ROWS.into_iter().enumerate().map(|(index, row)| {
                 let page = page.clone();
                 let icon_color = if row.disabled {
                     TextColor::Disabled
@@ -638,7 +664,9 @@ impl Render for ListPage {
                     TextColor::Default
                 };
                 let mut item = ListItem::new(row.id)
-                    .toggle_state(selected == index)
+                    .aria_role(Role::ListItem)
+                    .aria_label(row.label)
+                    .aria_selected(selected == index)
                     .disabled(row.disabled)
                     .start_slot(Icon::new(row.icon).size(IconSize::Small).color(icon_color))
                     .child(Label::new(row.label).color(label_color))
@@ -657,41 +685,52 @@ impl Render for ListPage {
                     );
                 }
                 item
-            }),
-        );
+            }));
 
-        let sparse = List::new().children(SPARSE_ROWS.into_iter().enumerate().map(
-            |(index, (id, label))| {
-                let sparse_page = sparse_page.clone();
+        let sparse =
+            List::new()
+                .id("gallery-sparse")
+                .children(
+                    SPARSE_ROWS
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, (id, label))| {
+                            let sparse_page = sparse_page.clone();
+                            ListItem::new(id)
+                                .spacing(ListItemSpacing::Sparse)
+                                .inset(true)
+                                .aria_role(Role::ListItem)
+                                .aria_label(label)
+                                .aria_selected(sparse_selected == index)
+                                .child(Label::new(label))
+                                .on_click(move |_, cx| {
+                                    let _ = sparse_page.update(cx, |this, cx| {
+                                        this.sparse_selected = index;
+                                        tracing::info!(id, index, "sparse list item selected");
+                                        cx.notify();
+                                    });
+                                })
+                        }),
+                );
+
+        let indented = List::new()
+            .id("gallery-indented")
+            .children(INDENT_ROWS.into_iter().map(|(level, id, label)| {
+                let indent_page = indent_page.clone();
                 ListItem::new(id)
-                    .spacing(ListItemSpacing::Sparse)
-                    .inset(true)
-                    .toggle_state(sparse_selected == index)
+                    .indent_level(level)
+                    .aria_role(Role::ListItem)
+                    .aria_label(label)
+                    .aria_selected(indent_selected == Some(level))
                     .child(Label::new(label))
                     .on_click(move |_, cx| {
-                        let _ = sparse_page.update(cx, |this, cx| {
-                            this.sparse_selected = index;
-                            tracing::info!(id, index, "sparse list item selected");
+                        let _ = indent_page.update(cx, |this, cx| {
+                            this.indent_selected = Some(level);
+                            tracing::info!(id, level, "indented list item selected");
                             cx.notify();
                         });
                     })
-            },
-        ));
-
-        let indented = List::new().children(INDENT_ROWS.into_iter().map(|(level, id, label)| {
-            let indent_page = indent_page.clone();
-            ListItem::new(id)
-                .indent_level(level)
-                .toggle_state(indent_selected == Some(level))
-                .child(Label::new(label))
-                .on_click(move |_, cx| {
-                    let _ = indent_page.update(cx, |this, cx| {
-                        this.indent_selected = Some(level);
-                        tracing::info!(id, level, "indented list item selected");
-                        cx.notify();
-                    });
-                })
-        }));
+            }));
 
         v_flex()
             .size_full()
@@ -702,6 +741,6 @@ impl Render for ListPage {
             .child(group("Separator", ListSeparator))
             .child(group("Sparse", sparse))
             .child(group("Indent", indented))
-            .child(group("Empty", List::new()))
+            .child(group("Empty", List::new().id("gallery-empty")))
     }
 }

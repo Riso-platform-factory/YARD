@@ -18,7 +18,11 @@ fn draw(window: gpui::WindowHandle<shell::Shell>, cx: &mut TestAppContext) {
 }
 
 fn focus(visual: &mut gpui::VisualTestContext, node: &str) {
-    visual.update(|window, cx| shell::focus_handle(cx, node).unwrap().focus(window, cx));
+    visual.update(|window, cx| {
+        shell::node_focus_handle(cx, node)
+            .unwrap()
+            .focus(window, cx)
+    });
 }
 
 fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {

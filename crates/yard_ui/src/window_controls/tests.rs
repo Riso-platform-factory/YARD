@@ -354,3 +354,14 @@ fn every_state_draws_in_a_window_with_assets() {
     })
     .unwrap();
 }
+
+#[test]
+fn window_button_a11y_label_names_each_button_and_switches_maximize_to_restore() {
+    let minimize: &'static str = super::window_button_a11y_label(Minimize, false);
+    assert_eq!(minimize, "Minimize");
+    assert_eq!(super::window_button_a11y_label(Minimize, true), "Minimize");
+    assert_eq!(super::window_button_a11y_label(Maximize, false), "Maximize");
+    assert_eq!(super::window_button_a11y_label(Maximize, true), "Restore");
+    assert_eq!(super::window_button_a11y_label(Close, false), "Close");
+    assert_eq!(super::window_button_a11y_label(Close, true), "Close");
+}

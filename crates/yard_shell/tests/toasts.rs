@@ -1,4 +1,7 @@
-use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
+use gpui::{
+    AppContext, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
+    TestAppContext,
+};
 use std::{cell::Cell, rc::Rc, time::Duration};
 use yard_shell::Extension;
 use yard_ui::{Toast, ToastKind};
@@ -113,6 +116,9 @@ impl yard_ui::ModalView for TestModal {}
 impl gpui::Render for TestModal {
     fn render(&mut self, _: &mut gpui::Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
         gpui::div()
+            .id("MODAL-TEST")
+            .role(gpui::Role::Dialog)
+            .aria_label("Test modal")
             .debug_selector(|| "MODAL-TEST".to_string())
             .track_focus(&self.focus)
             .w(gpui::px(240.))

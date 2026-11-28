@@ -4,8 +4,8 @@
 //! Copyright Zed Industries, Inc.
 
 use gpui::{
-    App, Context, InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
-    SharedString, StatefulInteractiveElement, Styled, Task, Window, div, px,
+    App, Context, InteractiveElement, IntoElement, MouseButton, ParentElement, Render, Role,
+    SharedString, StatefulInteractiveElement, Styled, Task, Window, accesskit::Live, div, px,
 };
 use std::{
     rc::Rc,
@@ -26,6 +26,13 @@ pub enum ToastKind {
     Error,
 }
 impl ToastKind {
+    fn a11y_role(self) -> Role {
+        match self {
+            Self::Info => Role::Status,
+            Self::Warning | Self::Error => Role::Alert,
+        }
+    }
+
     fn as_str(self) -> &'static str {
         match self {
             Self::Info => "info",
@@ -196,6 +203,22 @@ impl Render for ToastLayer {
         tracing::trace!(kind = kind.as_str(), "rendering toast layer");
         let (icon, color) = kind.icon();
         let id = self.id;
+        let message = h_flex()
+            .id("toast-message")
+            .role(kind.a11y_role())
+            .aria_label(toast.text.clone())
+            .aria_value(toast.text.clone())
+            .a11y_synthetic_children(move |builder| {
+                // GPUI's Div has no aria_live builder. Set the live state on
+                // the message so platform adapters can announce its value.
+                builder.parent_node().set_live(match kind {
+                    ToastKind::Info => Live::Polite,
+                    ToastKind::Warning | ToastKind::Error => Live::Assertive,
+                });
+            })
+            .gap_2()
+            .child(Icon::new(icon).size(IconSize::Small).color(color))
+            .child(Label::new(toast.text.clone()).color(Color::Default));
         let mut row = h_flex()
             .id("toast")
             .debug_selector(|| "TOAST".into())
@@ -207,8 +230,7 @@ impl Render for ToastLayer {
             .flex_none()
             .bg(cx.theme().colors().surface_background)
             .shadow_lg()
-            .child(Icon::new(icon).size(IconSize::Small).color(color))
-            .child(Label::new(toast.text.clone()).color(Color::Default));
+            .child(message);
         if let Some((label, handler)) = &toast.action {
             let label = label.clone();
             let handler = handler.clone();
@@ -247,6 +269,7 @@ impl Render for ToastLayer {
         row = row.child(
             div().debug_selector(|| "TOAST-DISMISS".into()).child(
                 IconButton::new("toast-dismiss", IconName::Close)
+                    .aria_label("Dismiss")
                     .shape(ui::IconButtonShape::Square)
                     .icon_size(IconSize::Small)
                     .icon_color(Color::Muted)
@@ -293,3 +316,6 @@ impl Render for ToastLayer {
             .into_any_element()
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -3,7 +3,8 @@
 //! Copyright Zed Industries, Inc.
 
 use gpui::{
-    AnyElement, App, ElementId, IntoElement, ParentElement, RenderOnce, SharedString, Window,
+    AnyElement, App, ElementId, InteractiveElement, IntoElement, ParentElement, RenderOnce, Role,
+    SharedString, StatefulInteractiveElement, Styled, Window,
 };
 use ui::{Disableable, Toggleable};
 
@@ -31,6 +32,7 @@ impl ListItemSpacing {
 /// A vertical list of items with an optional header and empty message.
 #[derive(IntoElement)]
 pub struct List {
+    id: Option<ElementId>,
     inner: ui::List,
 }
 
@@ -43,9 +45,16 @@ impl Default for List {
 impl List {
     pub fn new() -> Self {
         Self {
+            id: None,
             inner: ui::List::new()
                 .empty_message(ui::EmptyMessage::Text(SharedString::new_static("No items"))),
         }
+    }
+
+    /// Gives this list a stable ID and exposes it to assistive technology.
+    pub fn id(mut self, id: impl Into<ElementId>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 
     pub fn header(mut self, header: ListHeader) -> Self {
@@ -69,7 +78,15 @@ impl ParentElement for List {
 
 impl RenderOnce for List {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        self.inner
+        match self.id {
+            Some(id) => crate::v_flex()
+                .id(id)
+                .role(Role::List)
+                .w_full()
+                .child(self.inner)
+                .into_any_element(),
+            None => self.inner.into_any_element(),
+        }
     }
 }
 
@@ -91,6 +108,21 @@ impl ListItem {
             disabled: false,
             on_click: None,
         }
+    }
+
+    pub fn aria_role(mut self, role: Role) -> Self {
+        self.inner = self.inner.aria_role(role);
+        self
+    }
+
+    pub fn aria_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.inner = self.inner.aria_label(label);
+        self
+    }
+
+    /// Sets selection. Zed exposes the same state visually and to assistive technology.
+    pub fn aria_selected(self, selected: bool) -> Self {
+        self.toggle_state(selected)
     }
 
     pub fn toggle_state(mut self, selected: bool) -> Self {

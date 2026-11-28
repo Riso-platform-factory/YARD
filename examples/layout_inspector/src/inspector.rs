@@ -60,6 +60,7 @@ impl Render for Panel {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         tracing::trace!(nodes = self.nodes.len(), "rendering inspector");
         let list = List::new()
+            .id("layout-inspector-list")
             .header(
                 ListHeader::new("Layout").inset(true).end_slot(
                     div().debug_selector(|| "INSPECTOR-COUNT".into()).child(

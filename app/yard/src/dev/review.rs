@@ -23,6 +23,10 @@ pub fn run() -> bool {
         ("review", announce),
         ("toggle_host", toggle_tour::host),
         ("toggle_tour", toggle_tour::init),
+        ("ui_gallery", ui_gallery::init),
+        ("a11y_tour", |cx, ext| {
+            a11y_tour::init(cx, ext, crate::startup::application().product);
+        }),
     ];
     extensions.extend_from_slice(crate::startup::EXTENSIONS);
     yard_app::run(app, &extensions, crate::menus::menus);

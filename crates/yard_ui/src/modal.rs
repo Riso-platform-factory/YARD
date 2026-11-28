@@ -4,8 +4,9 @@
 
 use crate::{IconButton, IconName, IconSize, h_flex, v_flex};
 use gpui::{
-    AnyElement, App, Div, ElementId, InteractiveElement, IntoElement, ParentElement, Rems,
-    RenderOnce, SharedString, Styled, Window, prelude::FluentBuilder, rems,
+    AnyElement, App, Div, ElementId, FocusHandle, InteractiveElement, IntoElement, ParentElement,
+    Rems, RenderOnce, Role, SharedString, StatefulInteractiveElement, Styled, Window,
+    prelude::FluentBuilder, rems,
 };
 use ui::{DynamicSpacing, LabelCommon, StyledExt};
 
@@ -16,6 +17,8 @@ type Dismiss = Box<dyn Fn(&mut Window, &mut App)>;
 pub struct Modal {
     id: ElementId,
     width: Rems,
+    aria_label: Option<SharedString>,
+    focus: Option<FocusHandle>,
     header: Option<ModalHeader>,
     sections: Vec<Section>,
     footer: Option<ModalFooter>,
@@ -26,6 +29,8 @@ impl Modal {
         Self {
             id: id.into(),
             width: rems(30.),
+            aria_label: None,
+            focus: None,
             header: None,
             sections: Vec::new(),
             footer: None,
@@ -34,6 +39,18 @@ impl Modal {
 
     pub fn width(mut self, width: Rems) -> Self {
         self.width = width;
+        self
+    }
+
+    /// Names a dialog whose header has no headline.
+    pub fn aria_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.aria_label = Some(label.into());
+        self
+    }
+
+    /// Tracks keyboard focus on the dialog itself.
+    pub fn track_focus(mut self, focus: &FocusHandle) -> Self {
+        self.focus = Some(focus.clone());
         self
     }
 
@@ -68,8 +85,12 @@ impl RenderOnce for Modal {
         let has_header = header.headline.is_some()
             || header.description.is_some()
             || header.on_dismiss.is_some();
+        let name = header.headline.clone().or(self.aria_label);
         v_flex()
             .id(self.id.clone())
+            .role(Role::Dialog)
+            .when_some(name, |dialog, name| dialog.aria_label(name))
+            .when_some(self.focus, |dialog, focus| dialog.track_focus(&focus))
             .elevation_3(cx)
             .w(self.width)
             .overflow_hidden()
@@ -156,6 +177,7 @@ impl ModalHeader {
                                         SharedString::from(format!("{modal_id}-dismiss")),
                                         IconName::Close,
                                     )
+                                    .aria_label("Close")
                                     .icon_size(IconSize::Small)
                                     .on_click(callback),
                                 )

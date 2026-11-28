@@ -199,6 +199,22 @@ impl Button {
         self
     }
 
+    pub fn aria_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.inner = self.inner.aria_label(label);
+        self
+    }
+
+    pub fn aria_description(mut self, description: impl Into<SharedString>) -> Self {
+        self.inner = self.inner.aria_description(description);
+        self
+    }
+
+    pub fn aria_expanded(mut self, expanded: bool) -> Self {
+        self.inner = self.inner.aria_expanded(expanded);
+        self
+    }
+
+    // TODO(accessibility): Expose disabled buttons as disabled. Update GPUI once it provides aria_disabled.
     pub fn disabled(mut self, value: bool) -> Self {
         self.disabled = value;
         self.inner = self.inner.disabled(value);
@@ -260,6 +276,7 @@ impl RenderOnce for Button {
 #[derive(IntoElement)]
 pub struct IconButton {
     inner: ui::IconButton,
+    aria_description: Option<SharedString>,
     id: ElementId,
     style: ButtonStyle,
     size: ButtonSize,
@@ -273,6 +290,7 @@ impl IconButton {
         let id = id.into();
         Self {
             inner: ui::IconButton::new(id.clone(), zed_icon_name(icon)),
+            aria_description: None,
             id,
             style: ButtonStyle::default(),
             size: ButtonSize::default(),
@@ -317,6 +335,21 @@ impl IconButton {
         self
     }
 
+    pub fn aria_label(mut self, label: impl Into<SharedString>) -> Self {
+        self.inner = self.inner.aria_label(label);
+        self
+    }
+
+    pub fn aria_description(mut self, description: impl Into<SharedString>) -> Self {
+        self.aria_description = Some(description.into());
+        self
+    }
+
+    pub fn aria_expanded(mut self, expanded: bool) -> Self {
+        self.inner = self.inner.aria_expanded(expanded);
+        self
+    }
+
     pub fn icon_size(mut self, value: IconSize) -> Self {
         self.inner = self.inner.icon_size(zed_icon_size(value));
         self
@@ -348,7 +381,7 @@ impl IconButton {
 }
 
 impl RenderOnce for IconButton {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         tracing::trace!(
             id = %self.id,
             style = ?self.style,
@@ -358,7 +391,11 @@ impl RenderOnce for IconButton {
             toggled = self.toggled,
             "rendering icon button",
         );
-        self.inner
+        let button = self.inner.render(window, cx);
+        match self.aria_description {
+            Some(description) => button.aria_description(description),
+            None => button,
+        }
     }
 }
 

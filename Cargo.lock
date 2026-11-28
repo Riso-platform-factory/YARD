@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "a11y_tour"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "tracing",
+ "yard_paths",
+ "yard_product",
+ "yard_shell",
+ "yard_ui",
+]
+
+[[package]]
 name = "accesskit"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8081,11 +8093,13 @@ checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
 name = "yard"
 version = "0.1.0"
 dependencies = [
+ "a11y_tour",
  "command_palette",
  "gpui",
  "serde_json",
  "toggle_tour",
  "tracing",
+ "ui_gallery",
  "yard_app",
  "yard_build_config",
  "yard_product",

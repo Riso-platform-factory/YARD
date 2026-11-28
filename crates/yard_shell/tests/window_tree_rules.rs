@@ -165,13 +165,13 @@ fn dragging_in_the_second_window_keeps_the_first_tree_and_focus(cx: &mut TestApp
     activate(first, &mut app);
     first
         .update(&mut app, |_, window, cx| {
-            shell::focus_handle(cx, "a").unwrap().focus(window, cx)
+            shell::node_focus_handle(cx, "a").unwrap().focus(window, cx)
         })
         .unwrap();
     activate(second, &mut app);
     second
         .update(&mut app, |_, window, cx| {
-            shell::focus_handle(cx, "b").unwrap().focus(window, cx)
+            shell::node_focus_handle(cx, "b").unwrap().focus(window, cx)
         })
         .unwrap();
     assert_eq!(

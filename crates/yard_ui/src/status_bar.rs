@@ -5,7 +5,7 @@
 use crate::h_flex;
 use gpui::{
     AnyElement, App, Decorations, ElementId, InteractiveElement, IntoElement, ParentElement,
-    RenderOnce, Styled, Window, prelude::FluentBuilder, px,
+    RenderOnce, Role, StatefulInteractiveElement, Styled, Window, prelude::FluentBuilder, px,
 };
 use theme::{ActiveTheme, CLIENT_SIDE_DECORATION_ROUNDING};
 use ui::DynamicSpacing;
@@ -43,6 +43,7 @@ impl RenderOnce for StatusBar {
         let background = cx.theme().colors().status_bar_background;
         h_flex()
             .id(self.id)
+            .role(Role::Status)
             .w_full()
             .flex_none()
             .justify_between()

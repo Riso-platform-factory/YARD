@@ -10,10 +10,10 @@
 
 use crate::{IconName, h_flex};
 use gpui::{
-    App, ClickEvent, Decorations, ElementId, Hsla, InteractiveElement, IntoElement,
-    MAX_BUTTONS_PER_SIDE, MouseButton, ParentElement, Pixels, Point, RenderOnce, ResizeEdge, Rgba,
-    StatefulInteractiveElement, Styled, Window, WindowButton, WindowButtonLayout,
-    WindowControlArea, WindowControls, div, prelude::FluentBuilder, px, svg,
+    AccessibleAction, App, ClickEvent, Decorations, ElementId, Hsla, InteractiveElement,
+    IntoElement, MAX_BUTTONS_PER_SIDE, MouseButton, ParentElement, Pixels, Point, RenderOnce,
+    ResizeEdge, Rgba, Role, StatefulInteractiveElement, Styled, Window, WindowButton,
+    WindowButtonLayout, WindowControlArea, WindowControls, div, prelude::FluentBuilder, px, svg,
 };
 use theme::ActiveTheme;
 
@@ -21,6 +21,16 @@ gpui::actions!(yard, [CloseWindow]);
 
 /// The buttons of one side of a title bar, in their order.
 pub type ButtonSide = [Option<WindowButton>; MAX_BUTTONS_PER_SIDE];
+
+/// The name announced for a window caption button.
+fn window_button_a11y_label(button: WindowButton, maximized: bool) -> &'static str {
+    match button {
+        WindowButton::Minimize => "Minimize",
+        WindowButton::Maximize if maximized => "Restore",
+        WindowButton::Maximize => "Maximize",
+        WindowButton::Close => "Close",
+    }
+}
 
 /// The layout drawn when the desktop names none: minimize, maximize, and
 /// close on the right, as GPUI's Linux default.
@@ -143,16 +153,26 @@ pub(crate) fn draws_windows_buttons(platform: Platform, fullscreen: bool) -> boo
 
 /// The buttons of `side` that the platform supports, in order. Close is
 /// always supported.
-pub(crate) fn shown_buttons(side: &ButtonSide, supported: WindowControls) -> Vec<WindowButton> {
-    side.iter()
-        .flatten()
-        .copied()
-        .filter(|button| match button {
+#[cfg(test)]
+fn shown_buttons(side: &ButtonSide, supported: WindowControls) -> Vec<WindowButton> {
+    shown_button_slots(side, supported)
+        .map(|(_, button)| button)
+        .collect()
+}
+
+fn shown_button_slots(
+    side: &ButtonSide,
+    supported: WindowControls,
+) -> impl Iterator<Item = (usize, WindowButton)> + '_ {
+    side.iter().enumerate().filter_map(move |(slot, button)| {
+        let button = (*button)?;
+        let shown = match button {
             WindowButton::Minimize => supported.minimize,
             WindowButton::Maximize => supported.maximize,
             WindowButton::Close => true,
-        })
-        .collect()
+        };
+        shown.then_some((slot, button))
+    })
 }
 
 /// What the title bar asks of the window. Each one runs in its own
@@ -250,6 +270,17 @@ impl Kind {
         }
     }
 
+    fn activate(self, window: &mut Window, cx: &mut App) {
+        let action = self.action();
+        if action == WindowControlAction::Close {
+            let _group = tracing::info_span!("window-control", action = action.name()).entered();
+            tracing::debug!("closing");
+            window.dispatch_action(Box::new(CloseWindow), cx);
+        } else {
+            action.perform(window);
+        }
+    }
+
     /// The element ID of the Windows caption button.
     fn windows_id(self) -> &'static str {
         match self {
@@ -337,8 +368,7 @@ impl RenderOnce for WindowButtons {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let maximized = self.maximized.unwrap_or_else(|| window.is_maximized());
         let supported = self.supported.unwrap_or_else(|| window.window_controls());
-        let shown = shown_buttons(&self.buttons, supported);
-        tracing::trace!(buttons = shown.len(), maximized, "rendering window buttons");
+        let shown = shown_button_slots(&self.buttons, supported);
         let colors = cx.theme().colors();
         let (icon, icon_hover, icon_disabled, background_hover) = (
             colors.icon,
@@ -347,8 +377,7 @@ impl RenderOnce for WindowButtons {
             colors.ghost_element_hover,
         );
         let elements: Vec<_> = shown
-            .into_iter()
-            .map(|button| {
+            .map(|(slot, button)| {
                 let kind = match button {
                     WindowButton::Minimize => Kind::Minimize,
                     WindowButton::Maximize if maximized => Kind::Restore,
@@ -374,7 +403,9 @@ impl RenderOnce for WindowButtons {
                         svg.group_hover("window-button", |svg| svg.text_color(icon_hover))
                     });
                 h_flex()
-                    .id(button.id())
+                    .id((button.id(), slot))
+                    .role(Role::Button)
+                    .aria_label(window_button_a11y_label(button, maximized))
                     .group("window-button")
                     .justify_center()
                     .content_center()
@@ -392,21 +423,17 @@ impl RenderOnce for WindowButtons {
                     .on_click(move |_, window, cx| {
                         cx.stop_propagation();
                         if enabled {
-                            let action = kind.action();
-                            if action == WindowControlAction::Close {
-                                let _group =
-                                    tracing::info_span!("window-control", action = action.name())
-                                        .entered();
-                                tracing::debug!("closing");
-                                window.dispatch_action(Box::new(CloseWindow), cx);
-                            } else {
-                                action.perform(window);
-                            }
+                            kind.activate(window, cx);
                         }
                     })
             })
             .collect();
 
+        tracing::trace!(
+            buttons = elements.len(),
+            maximized,
+            "rendering window buttons"
+        );
         h_flex().id(self.id).when(!elements.is_empty(), |this| {
             this.gap_3()
                 .px_3()
@@ -554,62 +581,72 @@ impl RenderOnce for WindowsWindowButtons {
             a: 1.0,
         }
         .into();
-        let buttons = windows_buttons(maximized).map(|kind| {
-            let enabled = match kind {
-                Kind::Minimize => window.is_minimizable(),
-                Kind::Restore | Kind::Maximize => window.is_resizable(),
-                Kind::Close => true,
-            };
-            let (hover_bg, hover_fg, active_bg, active_fg) = match kind {
-                Kind::Close => (
-                    close_red,
-                    gpui::white(),
-                    close_red.opacity(0.8),
-                    gpui::white().opacity(0.8),
-                ),
-                _ => (
-                    colors.ghost_element_hover,
-                    colors.text,
-                    colors.ghost_element_active,
-                    colors.text,
-                ),
-            };
-            let button = match kind {
-                Kind::Minimize => WindowButton::Minimize,
-                Kind::Restore | Kind::Maximize => WindowButton::Maximize,
-                Kind::Close => WindowButton::Close,
-            };
-            let hovered = enabled && self.hovered == Some(button);
-            h_flex()
-                .id(kind.windows_id())
-                .justify_center()
-                .content_center()
-                .occlude()
-                .w(px(36.))
-                .h_full()
-                .text_size(px(10.0))
-                .when(!enabled, |style| style.text_color(colors.text_disabled))
-                .when(hovered, |style| style.bg(hover_bg).text_color(hover_fg))
-                .when(enabled, |style| {
-                    style
-                        .hover(|style| style.bg(hover_bg).text_color(hover_fg))
-                        .active(|style| style.bg(active_bg).text_color(active_fg))
-                })
-                .when(enabled && !preview, |style| {
-                    // Windows still sends the press and the release here,
-                    // and acts after them unless an element stops them, so
-                    // this only logs.
-                    style.on_click(move |event, _, _| {
-                        if windows_acts_on(event) {
-                            kind.action().leave_to_system();
-                        }
+        let buttons = windows_buttons(maximized)
+            .into_iter()
+            .enumerate()
+            .map(|(slot, kind)| {
+                let enabled = match kind {
+                    Kind::Minimize => window.is_minimizable(),
+                    Kind::Restore | Kind::Maximize => window.is_resizable(),
+                    Kind::Close => true,
+                };
+                let (hover_bg, hover_fg, active_bg, active_fg) = match kind {
+                    Kind::Close => (
+                        close_red,
+                        gpui::white(),
+                        close_red.opacity(0.8),
+                        gpui::white().opacity(0.8),
+                    ),
+                    _ => (
+                        colors.ghost_element_hover,
+                        colors.text,
+                        colors.ghost_element_active,
+                        colors.text,
+                    ),
+                };
+                let button = match kind {
+                    Kind::Minimize => WindowButton::Minimize,
+                    Kind::Restore | Kind::Maximize => WindowButton::Maximize,
+                    Kind::Close => WindowButton::Close,
+                };
+                let hovered = enabled && self.hovered == Some(button);
+                h_flex()
+                    .id((kind.windows_id(), slot))
+                    .role(Role::Button)
+                    .aria_label(window_button_a11y_label(button, maximized))
+                    .justify_center()
+                    .content_center()
+                    .occlude()
+                    .w(px(36.))
+                    .h_full()
+                    .text_size(px(10.0))
+                    .when(!enabled, |style| style.text_color(colors.text_disabled))
+                    .when(hovered, |style| style.bg(hover_bg).text_color(hover_fg))
+                    .when(enabled, |style| {
+                        style
+                            .hover(|style| style.bg(hover_bg).text_color(hover_fg))
+                            .active(|style| style.bg(active_bg).text_color(active_fg))
                     })
-                })
-                .when_some(caption_control_area(kind, preview), |style, area| {
-                    style.window_control_area(area)
-                })
-                .child(kind.glyph())
-        });
+                    .when(enabled && !preview, |style| {
+                        // Windows still sends the press and the release here,
+                        // and acts after them unless an element stops them, so
+                        // this only logs.
+                        style
+                            .on_click(move |event, _, _| {
+                                if windows_acts_on(event) {
+                                    kind.action().leave_to_system();
+                                }
+                            })
+                            // AccessKit actions bypass the native caption hit test.
+                            .on_a11y_action(AccessibleAction::Click, move |_, window, cx| {
+                                kind.activate(window, cx);
+                            })
+                    })
+                    .when_some(caption_control_area(kind, preview), |style, area| {
+                        style.window_control_area(area)
+                    })
+                    .child(kind.glyph())
+            });
 
         div()
             .id(self.id)

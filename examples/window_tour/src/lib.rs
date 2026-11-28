@@ -140,35 +140,34 @@ impl Render for TourModal {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let dismiss_header = cx.entity().downgrade();
         let dismiss_done = cx.entity().downgrade();
-        div().track_focus(&self.focus).child(
-            Modal::new("window-tour-modal")
-                .header(
-                    ModalHeader::new()
-                        .headline("window_tour")
-                        .on_dismiss(move |_, cx| {
-                            let _ = dismiss_header.update(cx, |_, cx| {
-                                tracing::info!("modal closed");
-                                cx.emit(DismissEvent);
-                            });
-                        }),
-                )
-                .section(Section::new().child(Label::new("Modal opened from window_tour.")))
-                .footer(
-                    ModalFooter::new().end_slot(
-                        div().debug_selector(|| "MODAL-DONE".into()).child(
-                            Button::new("done", "Done")
-                                .style(ButtonStyle::Filled)
-                                .layer(ElevationIndex::ModalSurface)
-                                .on_click(move |_, cx| {
-                                    let _ = dismiss_done.update(cx, |_, cx| {
-                                        tracing::info!("modal closed");
-                                        cx.emit(DismissEvent);
-                                    });
-                                }),
-                        ),
+        Modal::new("window-tour-modal")
+            .track_focus(&self.focus)
+            .header(
+                ModalHeader::new()
+                    .headline("window_tour")
+                    .on_dismiss(move |_, cx| {
+                        let _ = dismiss_header.update(cx, |_, cx| {
+                            tracing::info!("modal closed");
+                            cx.emit(DismissEvent);
+                        });
+                    }),
+            )
+            .section(Section::new().child(Label::new("Modal opened from window_tour.")))
+            .footer(
+                ModalFooter::new().end_slot(
+                    div().debug_selector(|| "MODAL-DONE".into()).child(
+                        Button::new("done", "Done")
+                            .style(ButtonStyle::Filled)
+                            .layer(ElevationIndex::ModalSurface)
+                            .on_click(move |_, cx| {
+                                let _ = dismiss_done.update(cx, |_, cx| {
+                                    tracing::info!("modal closed");
+                                    cx.emit(DismissEvent);
+                                });
+                            }),
                     ),
                 ),
-        )
+            )
     }
 }
 
@@ -202,35 +201,34 @@ impl Render for DimmedTourModal {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let dismiss_header = cx.entity().downgrade();
         let dismiss_done = cx.entity().downgrade();
-        div().track_focus(&self.focus).child(
-            Modal::new("window-tour-dimmed-modal")
-                .header(
-                    ModalHeader::new()
-                        .headline("window_tour")
-                        .on_dismiss(move |_, cx| {
-                            let _ = dismiss_header.update(cx, |_, cx| {
-                                tracing::info!("modal closed");
-                                cx.emit(DismissEvent);
-                            });
-                        }),
-                )
-                .section(Section::new().child(Label::new("Dimmed modal opened from window_tour.")))
-                .footer(
-                    ModalFooter::new().end_slot(
-                        div().debug_selector(|| "MODAL-DONE".into()).child(
-                            Button::new("done", "Done")
-                                .style(ButtonStyle::Filled)
-                                .layer(ElevationIndex::ModalSurface)
-                                .on_click(move |_, cx| {
-                                    let _ = dismiss_done.update(cx, |_, cx| {
-                                        tracing::info!("modal closed");
-                                        cx.emit(DismissEvent);
-                                    });
-                                }),
-                        ),
+        Modal::new("window-tour-dimmed-modal")
+            .track_focus(&self.focus)
+            .header(
+                ModalHeader::new()
+                    .headline("window_tour")
+                    .on_dismiss(move |_, cx| {
+                        let _ = dismiss_header.update(cx, |_, cx| {
+                            tracing::info!("modal closed");
+                            cx.emit(DismissEvent);
+                        });
+                    }),
+            )
+            .section(Section::new().child(Label::new("Dimmed modal opened from window_tour.")))
+            .footer(
+                ModalFooter::new().end_slot(
+                    div().debug_selector(|| "MODAL-DONE".into()).child(
+                        Button::new("done", "Done")
+                            .style(ButtonStyle::Filled)
+                            .layer(ElevationIndex::ModalSurface)
+                            .on_click(move |_, cx| {
+                                let _ = dismiss_done.update(cx, |_, cx| {
+                                    tracing::info!("modal closed");
+                                    cx.emit(DismissEvent);
+                                });
+                            }),
                     ),
                 ),
-        )
+            )
     }
 }
 
@@ -288,7 +286,7 @@ impl Render for Card {
         tracing::trace!(node = %self.node, size = %size, "rendering card");
         let palette = palette(cx);
         let entity = cx.entity().downgrade();
-        let focused = yard_shell::focus_handle(cx, &self.node)
+        let focused = yard_shell::node_focus_handle(cx, &self.node)
             .is_some_and(|handle| handle.is_focused(window));
         let mut card = v_flex();
         if self.status {

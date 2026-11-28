@@ -463,7 +463,7 @@ pub fn init(cx: &mut App, ext: &shell::Extension) {
                 else {
                     return;
                 };
-                if let Some(handle) = shell::focus_handle(cx, &selected.to_string()) {
+                if let Some(handle) = shell::node_focus_handle(cx, &selected.to_string()) {
                     handle.focus(window, cx);
                 }
                 let (steps, action): (usize, fn() -> Box<dyn gpui::Action>) = if index == 0 {
@@ -1060,7 +1060,7 @@ impl Render for Card {
         let palette = yard_ui::palette(cx);
         let entity = cx.entity().downgrade();
         let zoomed = shell::zoomed(cx).as_deref() == Some(self.node.as_str());
-        let focus = shell::focus_handle(cx, &self.node).and_then(|handle| {
+        let focus = shell::node_focus_handle(cx, &self.node).and_then(|handle| {
             if handle.is_focused(window) {
                 Some("focused")
             } else if handle.contains_focused(window, cx) {

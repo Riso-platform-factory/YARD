@@ -142,6 +142,7 @@ impl Label {
 }
 
 impl RenderOnce for Label {
+    // TODO(accessibility): Expose plain text to screen readers. Give labels stable ids that do not collide in loops.
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         tracing::trace!(size = ?self.size, color = ?self.color, "rendering label");
         self.inner

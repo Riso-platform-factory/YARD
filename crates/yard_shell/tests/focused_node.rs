@@ -1,5 +1,11 @@
-use gpui::{AppContext, InteractiveElement, IntoElement, ParentElement, Styled, TestAppContext};
-use std::{cell::RefCell, rc::Rc};
+use gpui::{
+    AppContext, InteractiveElement, IntoElement, ParentElement, StatefulInteractiveElement, Styled,
+    TestAppContext,
+};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 struct Card {
     node: String,
@@ -82,7 +88,7 @@ fn focused(visual: &mut gpui::VisualTestContext) -> Option<String> {
 /// `(is_focused, contains_focused)` for `node`, or `None` when it has no handle.
 fn focus_flags(visual: &mut gpui::VisualTestContext, node: &str) -> Option<(bool, bool)> {
     visual.update(|window, cx| {
-        yard_shell::focus_handle(cx, node).map(|handle| {
+        yard_shell::node_focus_handle(cx, node).map(|handle| {
             (
                 handle.is_focused(window),
                 handle.contains_focused(window, cx),
@@ -274,4 +280,84 @@ fn a_control_inside_a_card_keeps_the_focus(cx: &mut TestAppContext) {
     });
     assert_eq!(focused(&mut visual).as_deref(), Some("a"));
     assert_eq!(focus_flags(&mut visual, "a"), Some((false, true)));
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FocusOwner {
+    Shell,
+    Taken,
+    Component,
+}
+
+struct FocusOwnerCard {
+    node: String,
+    owner: Rc<Cell<FocusOwner>>,
+    control: gpui::FocusHandle,
+}
+
+impl gpui::Render for FocusOwnerCard {
+    fn render(&mut self, _: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        let control = gpui::div()
+            .id("separate-control")
+            .role(gpui::Role::Group)
+            .track_focus(&self.control)
+            .debug_selector(|| "OWNERSHIP-CONTROL".into())
+            .size(gpui::px(32.));
+        let mut target = gpui::div()
+            .id("component-focus")
+            .role(gpui::Role::Group)
+            .size(gpui::px(32.));
+        if self.owner.get() != FocusOwner::Shell {
+            let handle = yard_shell::focus_handle(cx, &self.node).unwrap();
+            if self.owner.get() == FocusOwner::Component {
+                target = target.track_focus(&handle);
+            }
+        }
+        gpui::div()
+            .debug_selector(|| "OWNERSHIP-CARD".into())
+            .size_full()
+            .flex()
+            .child(control)
+            .child(target)
+    }
+}
+
+#[gpui::test]
+fn taking_focus_releases_the_wrapper_in_the_same_frame(cx: &mut TestAppContext) {
+    cx.update(yard_ui::init);
+    let owner = Rc::new(Cell::new(FocusOwner::Shell));
+    let card_owner = owner.clone();
+    let (_, window) = open_cards_app(cx, move |cx, ext| {
+        ext.register(cx, "tour.focus_owner", &[], move |node, _, _, cx| {
+            cx.new(|cx| FocusOwnerCard {
+                node: node.to_string(),
+                owner: card_owner.clone(),
+                control: cx.focus_handle(),
+            })
+            .into()
+        });
+        ext.place_root(cx, "root", "yard.row");
+        ext.place(cx, "a", "tour.focus_owner", "root", "children");
+        ext.place(cx, "b", "tour.card", "root", "children");
+    });
+    let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
+    click(&mut visual, "OWNERSHIP-CONTROL");
+    draw(window, cx);
+    let handle = visual.update(|_, cx| yard_shell::node_focus_handle(cx, "a").unwrap());
+    assert!(visual.update(|window, cx| handle.contains_focused(window, cx)));
+
+    // Leave the taken handle untracked for this frame to detect any residual
+    // wrapper registration in the keyboard dispatch tree.
+    owner.set(FocusOwner::Taken);
+    draw(window, cx);
+    assert!(!visual.update(|window, cx| handle.contains_focused(window, cx)));
+
+    owner.set(FocusOwner::Component);
+    draw(window, cx);
+    click(&mut visual, "OWNERSHIP-CARD");
+    draw(window, cx);
+    assert!(visual.update(|window, _| handle.is_focused(window)));
+    assert!(visual.update(|window, cx| window.is_action_available(&yard_shell::Hide, cx)));
+    visual.dispatch_action(yard_shell::Hide);
+    assert!(visual.update(|_, cx| yard_shell::is_hidden(cx, "a")));
 }

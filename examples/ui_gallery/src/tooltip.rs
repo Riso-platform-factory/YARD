@@ -27,6 +27,7 @@ impl Render for TooltipPage {
             "Keep a copy in the current folder",
         ));
         let icon = IconButton::new("tooltip-icon", IconName::Info)
+            .aria_label("More information")
             .tooltip(Tooltip::text("More information"));
         let disabled = Button::new("tooltip-disabled", "Disabled")
             .disabled(true)

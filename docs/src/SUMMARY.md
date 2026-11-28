@@ -43,5 +43,6 @@
   - [Secrets](./development/secrets.md)
   - [Tray](./development/tray.md)
   - [Autostart](./development/autostart.md)
+  - [Accessibility](./development/accessibility.md)
   - [Packaging](./development/packaging.md)
   - [Release System](./development/release-system.md)

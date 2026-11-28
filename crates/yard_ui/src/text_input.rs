@@ -10,12 +10,12 @@ mod failure;
 use editing::{Edit, Editing};
 use failure::Failure;
 use gpui::{
-    App, Bounds, ClipboardItem, ContentMask, Context, CursorStyle, Element, ElementId,
-    ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle, Focusable, Font,
-    GlobalElementId, Hsla, InspectorElementId, KeyBinding, LayoutId, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, SharedString, Style, Subscription,
-    Task, TextAlign, TextRun, UTF16Selection, UnderlineStyle, Window, WrappedLine, div, fill,
-    point, prelude::*, px, relative, size,
+    AccessibleAction, App, Bounds, ClipboardItem, ContentMask, Context, CursorStyle, Element,
+    ElementId, ElementInputHandler, Entity, EntityInputHandler, EventEmitter, FocusHandle,
+    Focusable, Font, GlobalElementId, Hsla, InspectorElementId, KeyBinding, LayoutId, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, Role, SharedString,
+    Style, Subscription, Task, TextAlign, TextRun, UTF16Selection, UnderlineStyle, Window,
+    WrappedLine, accesskit::ActionData, div, fill, point, prelude::*, px, relative, size,
 };
 use std::{ops::Range, rc::Rc, time::Duration};
 use theme::ActiveTheme;
@@ -228,6 +228,7 @@ impl Layout {
 pub struct TextInput {
     focus: FocusHandle,
     editing: Editing,
+    label: Option<SharedString>,
     placeholder: SharedString,
     layout: Option<Rc<Layout>>,
     scroll: Pixels,
@@ -281,6 +282,7 @@ impl TextInput {
         Self {
             focus,
             editing: Editing::new(),
+            label: None,
             placeholder: SharedString::default(),
             layout: None,
             scroll: Pixels::ZERO,
@@ -292,6 +294,18 @@ impl TextInput {
             _blink: blink,
             _subscriptions: subscriptions,
         }
+    }
+
+    /// Sets the name announced by assistive technology.
+    pub fn label(mut self, label: impl Into<SharedString>) -> Self {
+        self.label = Some(label.into());
+        self
+    }
+
+    fn accessible_name(&self) -> SharedString {
+        self.label
+            .clone()
+            .unwrap_or_else(|| self.placeholder.clone())
     }
 
     /// The text shown, muted, while the input is empty.
@@ -315,6 +329,24 @@ impl TextInput {
         } else {
             self.show_cursor(cx);
         }
+    }
+
+    /// Replaces the value as an edit and moves the caret to the end.
+    fn set_value_from_assistive_technology(
+        &mut self,
+        value: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let _group = tracing::info_span!("text-input-set-value", length = value.len()).entered();
+        let value = single_line(&value);
+        if value == self.text() {
+            return;
+        }
+
+        self.edit(Some(0..self.text().len()), &value, Edit::Other, cx);
+        window.notify_text_input_changed(&self.focus);
+        tracing::debug!("set");
     }
 
     fn show_cursor(&mut self, cx: &mut Context<Self>) {
@@ -839,9 +871,24 @@ impl Render for TextInput {
                 })))+
             };
         }
+        let view = cx.weak_entity();
         let input = div()
+            .id(ElementId::View(cx.entity_id()))
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus)
+            .role(Role::TextInput)
+            .aria_label(self.accessible_name())
+            .when(!self.placeholder.is_empty(), |input| {
+                input.aria_placeholder(self.placeholder.clone())
+            })
+            .aria_value(SharedString::from(self.text().to_owned()))
+            .on_a11y_action(AccessibleAction::SetValue, move |data, window, cx| {
+                if let Some(ActionData::Value(value)) = data {
+                    let _ = view.update(cx, |input, cx| {
+                        input.set_value_from_assistive_technology(value.to_string(), window, cx);
+                    });
+                }
+            })
             .cursor(CursorStyle::IBeam)
             .w_full()
             .font(font)
@@ -921,3 +968,6 @@ fn single_line(text: &str) -> String {
     text.replace("\r\n", " ")
         .replace(['\r', '\n', '\u{0085}', '\u{2028}', '\u{2029}'], " ")
 }
+
+#[cfg(test)]
+mod tests;

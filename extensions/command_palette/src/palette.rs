@@ -6,8 +6,8 @@ pub use matching::humanize_action_name;
 
 use gpui::{
     Action, App, AppContext, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, ParentElement, Render, ScrollStrategy, SharedString, Styled,
-    Subscription, UniformListScrollHandle, Window, div, rems,
+    InteractiveElement, IntoElement, ParentElement, Render, Role, ScrollStrategy, SharedString,
+    StatefulInteractiveElement, Styled, Subscription, UniformListScrollHandle, Window, div, rems,
 };
 use matching::rank_candidates;
 use std::{cell::RefCell, collections::BTreeSet, rc::Rc};
@@ -101,7 +101,11 @@ impl CommandPalette {
         let commands = collect_commands(window, cx);
         tracing::debug!(count = commands.len(), "commands listed");
         let matches: Vec<usize> = (0..commands.len()).collect();
-        let input = cx.new(|cx| TextInput::new(window, cx).placeholder("Execute a command..."));
+        let input = cx.new(|cx| {
+            TextInput::new(window, cx)
+                .label("Command")
+                .placeholder("Execute a command...")
+        });
         let subscription =
             cx.subscribe_in(
                 &input,
@@ -244,23 +248,32 @@ impl Render for CommandPalette {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let count = self.matches.len();
         let body = if count == 0 {
-            List::new().empty_message("No matches").into_any_element()
+            List::new()
+                .id("command-palette-empty")
+                .empty_message("No matches")
+                .into_any_element()
         } else {
+            // TODO(accessibility): Announce the highlighted command while typing.
+            // Restructure the palette so the list is a descendant of the focused element.
             let selected = self.selected;
             let previous_focus = self.previous_focus.clone();
-            let rows_data: Vec<(SharedString, Box<dyn Action>)> = self
+            let rows_data: Vec<(usize, SharedString, Box<dyn Action>)> = self
                 .matches
                 .iter()
                 .map(|&command_index| {
                     let entry = &self.commands[command_index];
-                    (entry.readable.clone(), entry.action.boxed_clone())
+                    (
+                        command_index,
+                        entry.readable.clone(),
+                        entry.action.boxed_clone(),
+                    )
                 })
                 .collect();
             let palette = cx.weak_entity();
             let rem = window.rem_size();
             let max_height = (window.viewport_size().height - rem * 10.).max(gpui::px(0.)) * 0.95;
             let list_height = (rem * 24.).min(max_height);
-            let (readable, action) = &rows_data[0];
+            let (_, readable, action) = &rows_data[0];
             let hint = match &previous_focus {
                 Some(focus) => KeyHint::for_action_in(action.as_ref(), focus, cx),
                 None => KeyHint::for_action(action.as_ref(), cx),
@@ -282,6 +295,8 @@ impl Render for CommandPalette {
             let height =
                 (row_height * count as f32).min((list_height - rem * 0.5).max(gpui::px(0.)));
             div()
+                .id("command-palette-results")
+                .role(Role::ListBox)
                 .w_full()
                 .py_1()
                 .child(
@@ -292,7 +307,7 @@ impl Render for CommandPalette {
                         move |range, _, cx| {
                             range
                                 .map(|index| {
-                                    let (readable, action) = &rows_data[index];
+                                    let (command_index, readable, action) = &rows_data[index];
                                     let hint = match &previous_focus {
                                         Some(focus) => {
                                             KeyHint::for_action_in(action.as_ref(), focus, cx)
@@ -304,10 +319,12 @@ impl Render for CommandPalette {
                                         .w_full()
                                         .debug_selector(move || format!("PALETTE-ROW-{index}"))
                                         .child(
-                                            ListItem::new(("palette-row", index))
+                                            ListItem::new(("palette-row", *command_index))
+                                                .aria_role(Role::ListBoxOption)
+                                                .aria_label(readable.clone())
+                                                .aria_selected(index == selected)
                                                 .inset(true)
                                                 .spacing(ListItemSpacing::Sparse)
-                                                .toggle_state(index == selected)
                                                 .on_click(move |window, cx| {
                                                     let _ = palette.update(cx, |this, cx| {
                                                         this.run_match(index, window, cx);
@@ -327,6 +344,9 @@ impl Render for CommandPalette {
         };
 
         div()
+            .id("command-palette")
+            .role(Role::Dialog)
+            .aria_label("Command palette")
             .key_context(KEY_CONTEXT)
             .on_action(cx.listener(Self::select_next))
             .on_action(cx.listener(Self::select_previous))

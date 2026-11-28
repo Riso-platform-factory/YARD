@@ -3,7 +3,8 @@
 //! Copyright Zed Industries, Inc.
 
 use gpui::{
-    AnyElement, App, Div, IntoElement, ParentElement, RenderOnce, StyleRefinement, Styled, Window,
+    AnyElement, App, Div, ElementId, InteractiveElement, IntoElement, ParentElement, RenderOnce,
+    Role, StatefulInteractiveElement, StyleRefinement, Styled, Window,
 };
 use ui::StyledExt;
 
@@ -11,6 +12,7 @@ use ui::StyledExt;
 #[derive(IntoElement)]
 pub struct ModalSurface {
     base: Div,
+    id: Option<ElementId>,
 }
 
 impl Default for ModalSurface {
@@ -23,7 +25,14 @@ impl ModalSurface {
     pub fn new() -> Self {
         Self {
             base: crate::v_flex(),
+            id: None,
         }
+    }
+
+    /// Gives this surface a stable ID and exposes it as a dialog.
+    pub fn id(mut self, id: impl Into<ElementId>) -> Self {
+        self.id = Some(id.into());
+        self
     }
 }
 
@@ -42,6 +51,10 @@ impl Styled for ModalSurface {
 impl RenderOnce for ModalSurface {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         tracing::trace!("rendering modal surface");
-        self.base.elevation_3(cx)
+        let base = self.base.elevation_3(cx);
+        match self.id {
+            Some(id) => base.id(id).role(Role::Dialog).into_any_element(),
+            None => base.into_any_element(),
+        }
     }
 }

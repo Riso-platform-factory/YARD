@@ -4,7 +4,7 @@
 
 use gpui::{
     AnyElement, AnyView, App, AppContext, Context, Div, ElementId, InteractiveElement, IntoElement,
-    ParentElement, Pixels, Render, RenderOnce, ScrollHandle, SharedString, Stateful,
+    ParentElement, Pixels, Render, RenderOnce, Role, ScrollHandle, SharedString, Stateful,
     StatefulInteractiveElement, Styled, Window, div,
 };
 use std::rc::Rc;
@@ -13,6 +13,11 @@ use ui::{ButtonCommon, Clickable, LabelCommon, Toggleable, VisibleOnHover};
 /// The height a tab bar gives itself, as Zed's `TabBar` does.
 pub fn tab_bar_height(cx: &App) -> Pixels {
     ui::Tab::container_height(cx)
+}
+
+/// The accessible name of a tab's close button.
+fn tab_close_label(label: &str) -> SharedString {
+    format!("Close {label}").into()
 }
 
 type OnClick = Box<dyn Fn(&mut Window, &mut App)>;
@@ -98,7 +103,13 @@ impl Tab {
         self
     }
 
-    fn element(self, position: ui::TabPosition) -> ui::Tab {
+    fn element(
+        self,
+        position: ui::TabPosition,
+        index: usize,
+        count: usize,
+        accessibility_active: bool,
+    ) -> ui::Tab {
         let icon_id = self.id.clone();
         let content = ui::h_flex()
             .gap_1()
@@ -112,7 +123,7 @@ impl Tab {
                     )
             }))
             .child(
-                ui::Label::new(self.label)
+                ui::Label::new(self.label.clone())
                     .single_line()
                     .color(if self.selected {
                         ui::Color::Default
@@ -122,6 +133,11 @@ impl Tab {
             );
         let close_id = self.id.clone();
         let tab = ui::Tab::new(self.id)
+            .role(Role::Tab)
+            .aria_label(self.label.clone())
+            .aria_selected(self.selected)
+            .aria_position_in_set(index)
+            .aria_size_of_set(count)
             .position(position)
             .toggle_state(self.selected)
             .child(content);
@@ -132,6 +148,7 @@ impl Tab {
         if let Some(on_close) = self.on_close {
             let close = on_close.clone();
             let button = ui::IconButton::new("close tab", ui::IconName::Close)
+                .aria_label(tab_close_label(&self.label))
                 .shape(ui::IconButtonShape::Square)
                 .icon_color(ui::Color::Muted)
                 .size(ui::ButtonSize::None)
@@ -140,8 +157,13 @@ impl Tab {
                 .on_click(move |_, window, cx| {
                     cx.stop_propagation();
                     close(window, cx);
-                })
-                .visible_on_hover("");
+                });
+            // GPUI dispatches accessibility clicks through the button hitbox.
+            let button = if accessibility_active {
+                button
+            } else {
+                button.visible_on_hover("")
+            };
             tab = tab
                 .end_slot(
                     div()
@@ -163,8 +185,8 @@ impl Tab {
 }
 
 impl RenderOnce for Tab {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-        self.element(ui::TabPosition::First)
+    fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
+        self.element(ui::TabPosition::First, 0, 1, window.is_a11y_active())
     }
 }
 
@@ -220,11 +242,12 @@ impl TabBar {
 }
 
 impl RenderOnce for TabBar {
-    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let accessibility_active = window.is_a11y_active();
         let selected_index = self.tabs.iter().position(|tab| tab.selected).unwrap_or(0);
         let count = self.tabs.len();
         let bar_id = self.id.clone();
-        let bar = ui::TabBar::new(self.id).children(self.tabs.into_iter().enumerate().map(
+        let bar = ui::TabBar::new("tabs").children(self.tabs.into_iter().enumerate().map(
             |(index, tab)| {
                 let position = if index == 0 {
                     ui::TabPosition::First
@@ -233,7 +256,7 @@ impl RenderOnce for TabBar {
                 } else {
                     ui::TabPosition::Middle(index.cmp(&selected_index))
                 };
-                tab.element(position)
+                tab.element(position, index, count, accessibility_active)
             },
         ));
         let bar = match &self.scroll_handle {
@@ -241,7 +264,7 @@ impl RenderOnce for TabBar {
             None => bar,
         };
         let bar = bar.end_children(self.end_children);
-        if self.drop_handlers.is_empty() {
+        let bar = if self.drop_handlers.is_empty() {
             bar
         } else {
             let mut target = div()
@@ -255,6 +278,16 @@ impl RenderOnce for TabBar {
                 target = modify(target);
             }
             bar.child(target)
-        }
+        };
+        div()
+            .id(self.id)
+            .role(Role::TabList)
+            .flex()
+            .flex_none()
+            .w_full()
+            .child(bar)
     }
 }
+
+#[cfg(test)]
+mod tests;

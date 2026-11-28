@@ -1,10 +1,10 @@
 {
   "command_palette/palette": {
     "files": {
-      "extensions/command_palette/src/palette.rs": "e667d56e10cc3838",
+      "extensions/command_palette/src/palette.rs": "5a457b2aa30ffed7",
       "extensions/command_palette/src/palette/matching.rs": "0dcb0101b9b3eb6d"
     },
-    "promoted": "2026-11-19"
+    "promoted": "2026-11-28"
   },
   "yard/menus": {
     "files": {
@@ -268,9 +268,9 @@
   },
   "yard_shell/shell": {
     "files": {
-      "crates/yard_shell/src/shell.rs": "e2a98781c7a92567"
+      "crates/yard_shell/src/shell.rs": "cae9bdfe207bc9cc"
     },
-    "promoted": "2026-11-27"
+    "promoted": "2026-11-28"
   },
   "yard_shell/tray": {
     "files": {
@@ -319,9 +319,9 @@
   },
   "yard_ui/button": {
     "files": {
-      "crates/yard_ui/src/button.rs": "d846da7e68a476ea"
+      "crates/yard_ui/src/button.rs": "87490ec90e4e9d85"
     },
-    "promoted": "2026-11-20"
+    "promoted": "2026-11-28"
   },
   "yard_ui/client_decorations": {
     "files": {
@@ -349,27 +349,27 @@
   },
   "yard_ui/list": {
     "files": {
-      "crates/yard_ui/src/list.rs": "59b8e5a1a3e6c5d8"
+      "crates/yard_ui/src/list.rs": "08c2e199ac76de36"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-28"
   },
   "yard_ui/modal": {
     "files": {
-      "crates/yard_ui/src/modal.rs": "b1f2126591c74361"
+      "crates/yard_ui/src/modal.rs": "78f2e6fdbc7bf503"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-28"
   },
   "yard_ui/modal_layer": {
     "files": {
-      "crates/yard_ui/src/modal_layer.rs": "56fc8ecfd2981307"
+      "crates/yard_ui/src/modal_layer.rs": "9eb3daf358ac735e"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-28"
   },
   "yard_ui/modal_surface": {
     "files": {
-      "crates/yard_ui/src/modal_surface.rs": "02bd9e65be1bf385"
+      "crates/yard_ui/src/modal_surface.rs": "6a5d0af3e8db0d89"
     },
-    "promoted": "2026-11-15"
+    "promoted": "2026-11-28"
   },
   "yard_ui/scroll": {
     "files": {
@@ -385,29 +385,29 @@
   },
   "yard_ui/status_bar": {
     "files": {
-      "crates/yard_ui/src/status_bar.rs": "07b173b53f1616cd"
+      "crates/yard_ui/src/status_bar.rs": "a0336b96d69d88cc"
     },
-    "promoted": "2026-11-20"
+    "promoted": "2026-11-28"
   },
   "yard_ui/tabs": {
     "files": {
-      "crates/yard_ui/src/tabs.rs": "2921ccc9e2381c08"
+      "crates/yard_ui/src/tabs.rs": "bb86992f504de3cc"
     },
-    "promoted": "2026-11-16"
+    "promoted": "2026-11-28"
   },
   "yard_ui/text": {
     "files": {
-      "crates/yard_ui/src/text.rs": "433e112c4caa28a2"
+      "crates/yard_ui/src/text.rs": "fea11f957383de11"
     },
-    "promoted": "2026-11-13"
+    "promoted": "2026-11-28"
   },
   "yard_ui/text_input": {
     "files": {
-      "crates/yard_ui/src/text_input.rs": "bbdfaac6411a8d1d",
+      "crates/yard_ui/src/text_input.rs": "0f9c530460563215",
       "crates/yard_ui/src/text_input/editing.rs": "e2b5311acf788493",
       "crates/yard_ui/src/text_input/failure.rs": "ac76ae1ac650aa0d"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-28"
   },
   "yard_ui/theme_list": {
     "files": {
@@ -436,9 +436,9 @@
   },
   "yard_ui/toast_layer": {
     "files": {
-      "crates/yard_ui/src/toast_layer.rs": "7c68b1efabd73a51"
+      "crates/yard_ui/src/toast_layer.rs": "34674518133beb7c"
     },
-    "promoted": "2026-11-14"
+    "promoted": "2026-11-28"
   },
   "yard_ui/tooltip": {
     "files": {
@@ -454,9 +454,9 @@
   },
   "yard_ui/window_controls": {
     "files": {
-      "crates/yard_ui/src/window_controls.rs": "13015a91276c573f"
+      "crates/yard_ui/src/window_controls.rs": "3cc5e9839f5cbc23"
     },
-    "promoted": "2026-11-27"
+    "promoted": "2026-11-28"
   },
   "yard_update/check": {
     "files": {

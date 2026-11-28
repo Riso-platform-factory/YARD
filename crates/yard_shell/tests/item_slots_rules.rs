@@ -1086,7 +1086,11 @@ fn drawn_walk_uses_tree_slot_order_instead_of_sorting_slot_names(cx: &mut TestAp
         cx.simulate_window_resize(window.into(), gpui::size(px(900.), px(600.)));
         draw(window, cx);
         let mut visual = gpui::VisualTestContext::from_window(window.into(), cx);
-        visual.update(|window, cx| shell::focus_handle(cx, "source").unwrap().focus(window, cx));
+        visual.update(|window, cx| {
+            shell::node_focus_handle(cx, "source")
+                .unwrap()
+                .focus(window, cx)
+        });
         visual.dispatch_action(shell::FocusRight);
         assert_eq!(
             visual.update(|window, cx| shell::focused_node(window, cx).unwrap().to_string()),

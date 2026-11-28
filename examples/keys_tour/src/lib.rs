@@ -1,6 +1,6 @@
 use gpui::{
-    App, AppContext, Context, Global, InteractiveElement, IntoElement, ParentElement, Render,
-    Styled, Subscription, Window, rems,
+    App, AppContext, Context, Global, InteractiveElement, IntoElement, ParentElement, Render, Role,
+    StatefulInteractiveElement, Styled, Subscription, Window, rems,
 };
 use yard_ui::{Label, palette, v_flex};
 
@@ -79,7 +79,9 @@ impl Render for Card {
                     cx.notify();
                 }));
         }
-        card.child(Label::new(self.node.clone()))
+        card.id("keys-tour-card")
+            .role(Role::Group)
+            .child(Label::new(self.node.clone()))
             .child(Label::new(format!("count: {}", self.count)))
             .child(Label::new(format!("pings: {pings}")))
             .children(focused.then(|| Label::new("focused")))

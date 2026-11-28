@@ -30,10 +30,15 @@ The lead agent is Claude, and Claude is only the lead: it coordinates and is nev
 
 How work is given out:
 
-1. **Code goes round in turn:** the 3 Codex logins one after another (a46c23cd, 05872387, 226d3c4c), then round again, one part each. When a login is at its usage limit or cannot use its model, pass the turn to the next login, and the lead says so in its report.
+1. **Codex logins go by priority, not in turn** (user, 2026-11-28):
+   1. bin.ngoctu@gmail.com (a46c23cd) first: it has twice the quota.
+   2. yenngan167@gmail.com Personal (05872387) next.
+   3. yenngan167@gmail.com Team (226d3c4c) last, only when the other two are at their limit or cannot use their model. It is a team workspace.
+
+   `orca account list --json` shows each login's `workspaceLabel`. When a login is skipped, the lead says so in its report.
    - Reports name every account by its email and short id (for example `bin.ngoctu@gmail.com` (a46c23cd)), never by a number: check `orca account list` or `account-pool list` before a dispatch.
 2. **Tests and code of one part come from two workers.** Antigravity writes the acceptance tests from the part's contract before the code. The worker whose turn it is writes the code and makes them pass. A worker never writes both.
-3. **The reviewer did not write the code:** another Codex login than the writer's, or Antigravity. A large change, such as a new design or anything that holds a secret, also gets a second review from the other of the two (Antigravity when Codex reviewed first).
+3. **The reviewer did not write the code:** another Codex login than the writer's (the first of the priority order that is not the writer's), or Antigravity. A large change, such as a new design or anything that holds a secret, also gets a second review from the other of the two (Antigravity when Codex reviewed first).
 4. **Research that is long but not hard goes to Antigravity:** reading documentation, finding how Zed or a library does something, comparing options. Each answer comes with its source.
 5. **Fixes from a review go to the worker that wrote the code,** or to Codex when they are mechanical. Continue a settled worker with `orca orchestration send --to dispatch:<dispatch_id>`, or start a fresh worker when switching workers.
 6. **One worker writes a tree at a time.** Reviews and research are read-only (state the read-only rule in their spec) and may run in parallel in `--worktree current`. Use `--worktree new-child` when parallel workers need isolated edits.

@@ -529,6 +529,9 @@ pub fn inno_script(product: &BuildConfig, dev: bool, signed: bool, arch: &str) -
          Root: HKCU; Subkey: {command_key}; ValueType: none; Flags: uninsdeletekeyifempty\n\
          Root: HKCU; Subkey: {command_key}; ValueType: string; ValueName: \"\"; ValueData: {command}; Flags: uninsdeletevalue\n\
          \n\
+         ; Remove the login entry if the app created it after installation.\n\
+         Root: HKCU; Subkey: \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\"; ValueType: none; ValueName: {model}; Flags: dontcreatekey uninsdeletevalue\n\
+         \n\
          [Run]\n\
          Filename: {target}; {run_parameters}Description: {launch}; Flags: nowait postinstall skipifsilent\n",
         setup = setup_base_name(product, arch),

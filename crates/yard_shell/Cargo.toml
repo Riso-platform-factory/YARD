@@ -11,6 +11,9 @@ path = "src/yard_shell.rs"
 [features]
 default = ["dev"]
 dev = [
+    "objc2-foundation/NSError",
+    "objc2-foundation/NSProcessInfo",
+    "windows/Win32_System_Registry",
     "yard_data/dev",
     "yard_http/dev",
     "yard_layout/dev",

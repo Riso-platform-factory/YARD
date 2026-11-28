@@ -42,5 +42,6 @@
   - [Extension Test Kit](./development/extension-test-kit.md)
   - [Secrets](./development/secrets.md)
   - [Tray](./development/tray.md)
+  - [Autostart](./development/autostart.md)
   - [Packaging](./development/packaging.md)
   - [Release System](./development/release-system.md)

@@ -222,6 +222,9 @@ fn expected_lines(
         format!(
             "Root: HKCU; Subkey: \"Software\\Classes\\{scheme}\\shell\\open\\command\"; ValueType: string; ValueName: \"\"; ValueData: \"\"\"{{app}}\\{name}.exe\"\" {argument}\"\"%1\"\"\"; Flags: uninsdeletevalue"
         ),
+        format!(
+            "Root: HKCU; Subkey: \"Software\\Microsoft\\Windows\\CurrentVersion\\Run\"; ValueType: none; ValueName: \"{identifier}\"; Flags: dontcreatekey uninsdeletevalue"
+        ),
         "[Run]".to_owned(),
         format!(
             "Filename: \"{{app}}\\{name}.exe\"; {run_parameters}Description: \"Launch {name}\"; Flags: nowait postinstall skipifsilent"

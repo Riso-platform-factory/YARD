@@ -489,6 +489,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "autostart_tour"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "tracing",
+ "yard_shell",
+ "yard_ui",
+]
+
+[[package]]
 name = "av-scenechange"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8071,6 +8081,7 @@ checksum = "7a5a4b21e1a62b67a2970e6831bc091d7b87e119e7f9791aef9702e3bef04448"
 name = "yard"
 version = "0.1.0"
 dependencies = [
+ "autostart_tour",
  "command_palette",
  "gpui",
  "serde_json",

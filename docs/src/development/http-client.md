@@ -105,7 +105,7 @@ let task = cx.background_spawn(async move {
 
 - **On Windows, a SOCKS proxy from the environment ignores the Internet Options exclusion list (`ProxyOverride`).** `NO_PROXY` applies.
 - **Native `WARN` and `ERROR` events of the HTTP stack (`hyper`, `h2`) reach the diagnostic log only while the lifecycle trace is on**, as before this slice. Their `log` records reach it always.
-- **The SOCKS address-order and slow-build tests use the system resolver** (`localhost`, an unresolvable `.local` name), so they prove the behaviour on macOS. Elsewhere they may pass without exercising it.
+- **The SOCKS slow-build test uses the system resolver** (an unresolvable `.local` name), so it proves the behaviour on macOS, and elsewhere may pass without exercising it. The address-order test follows whatever order the resolver gives `localhost`, and says SKIP when it gives one address ([YARD#23](https://github.com/Riso-platform-factory/YARD/issues/23)).
 
 ## Not in this slice
 

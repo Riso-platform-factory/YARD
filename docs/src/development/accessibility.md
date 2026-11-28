@@ -97,7 +97,7 @@ GPUI's test window does not build the tree at `ddb90e5`, so a `TestAppContext` t
   - `set_window_title` reaching every open window's title, on the test platform.
 - **The real tree, on each system:**
   - The test extension `examples/a11y_tour` (`A11Y_TOUR=1`) shows one of each component, and places a status bar item.
-  - `examples/ui_gallery` (`UI_GALLERY=all`) is back in `review.rs`, as its README asks while a UI kit feature is under review.
+  - `examples/ui_gallery` (`UI_GALLERY=all`) was back in `review.rs` while the UI kit was under review, as its README asks. Both left `review.rs` when the review closed; add them back to check again.
   - Its **Dump tree** button writes `Window::debug_a11y_tree_json()` to `<logs>/a11y-tree.json` once a screen reader or an inspector has activated the tree.
   - On macOS, the lead also reads the tree through the Accessibility API, and sets the text field's value through it, as a screen reader does.
   - On the runners, YARD-testing reads it through UI Automation on Windows and AT-SPI on Linux, and compares the roles and names.

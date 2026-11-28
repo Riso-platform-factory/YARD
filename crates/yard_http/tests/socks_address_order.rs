@@ -1,11 +1,10 @@
-//! A SOCKS proxy host that resolves to `::1` first and `127.0.0.1` second
-//! (`socks5://localhost:<port>` on macOS), with a local SOCKS5 server listening
-//! on `127.0.0.1` only, tries resolved addresses in order and carries the request.
+//! A SOCKS proxy at `localhost` prefers the first address returned by the resolver
+//! and falls back to the second within one request timeout if the first refuses.
 
 use std::{
     future::Future,
     io::{self, Read, Write},
-    net::{Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream, ToSocketAddrs as _},
+    net::{Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr, TcpListener, TcpStream},
     sync::{
         Arc,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -16,7 +15,7 @@ use std::{
 };
 use yard_http::{
     HttpClient, NetworkSettings,
-    http_client::{AsyncBody, HttpClient as _, StatusCode},
+    http_client::{AsyncBody, HttpClient as _, HttpRequestExt as _, Request, StatusCode, Url},
     read_limited,
 };
 
@@ -117,7 +116,7 @@ impl Drop for OriginServer {
     }
 }
 
-/// Minimal SOCKS5 server (no auth, CONNECT only) listening on `127.0.0.1` only.
+/// Minimal SOCKS5 server (no auth, CONNECT only) listening on one address.
 struct Socks5Server {
     addr: SocketAddr,
     connects: Arc<AtomicUsize>,
@@ -126,8 +125,8 @@ struct Socks5Server {
 }
 
 impl Socks5Server {
-    fn start() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    fn start(bind_addr: SocketAddr) -> Self {
+        let listener = TcpListener::bind(bind_addr).unwrap();
         let addr = listener.local_addr().unwrap();
         let connects = Arc::new(AtomicUsize::new(0));
         let connects_thread = Arc::clone(&connects);
@@ -247,58 +246,68 @@ fn handle_socks5(mut client: TcpStream, connects: Arc<AtomicUsize>) -> io::Resul
 }
 
 #[test]
-fn socks_proxy_tries_resolved_addresses_in_order_from_ipv6_to_ipv4() {
+fn socks_proxy_tries_resolved_addresses_in_order() {
+    let mut proxy = Url::parse("socks5://localhost:0").unwrap();
+    let resolved = proxy.socket_addrs(|| Some(1080)).unwrap();
+    if let [only] = resolved.as_slice() {
+        // libtest has no dynamic skip. This binary contains only this test, so exit
+        // before the harness records a pass and write directly to stderr.
+        writeln!(
+            io::stderr().lock(),
+            "SKIP socks_proxy_tries_resolved_addresses_in_order: localhost resolved to only {}",
+            only.ip()
+        )
+        .unwrap();
+        std::process::exit(0);
+    }
+    let [first, second, ..] = resolved.as_slice() else {
+        panic!("localhost resolved to no addresses");
+    };
+    assert_ne!(first, second, "the first two addresses must be distinct");
+
     let origin = OriginServer::start();
-    let socks = Socks5Server::start();
-    let port = socks.addr.port();
+    let second_socks = Socks5Server::start(*second);
+    let port = second_socks.addr.port();
+    let mut first_addr = *first;
+    first_addr.set_port(port);
+    let first_socks = Socks5Server::start(first_addr);
+    proxy.set_port(Some(port)).unwrap();
 
-    // Confirm the host resolves to `::1` first and `127.0.0.1` second, and nothing
-    // is listening on `[::1]:<port>`.
-    let resolved: Vec<SocketAddr> = ("localhost", port).to_socket_addrs().unwrap().collect();
-    assert!(
-        resolved.len() >= 2
-            && resolved[0].ip() == Ipv6Addr::LOCALHOST
-            && resolved[1].ip() == Ipv4Addr::LOCALHOST,
-        "test requires `localhost` to resolve to `::1` first and `127.0.0.1` second, got: {resolved:?}"
-    );
-    assert!(
-        TcpStream::connect((Ipv6Addr::LOCALHOST, port)).is_err(),
-        "nothing should listen on [::1]:{port}"
-    );
+    let request_through = |path| {
+        let client = HttpClient::new(
+            "SocksOrderTest/1.0",
+            &NetworkSettings {
+                proxy: Some(proxy.to_string()),
+            },
+        )
+        .unwrap();
+        let request = Request::builder()
+            .uri(origin.url(path))
+            .timeout(Duration::from_secs(5))
+            .body(AsyncBody::empty())
+            .unwrap();
+        let response = block_on(client.send(request))
+            .unwrap_or_else(|err| panic!("SOCKS request to {path} failed: {err}"));
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(block_on(read_limited(response, 1024)).unwrap(), b"ok");
+    };
 
-    // Sanity check: the minimal SOCKS5 server carries a request when addressed directly on 127.0.0.1.
-    let direct_socks = HttpClient::new(
-        "SocksOrderSanity/1.0",
-        &NetworkSettings {
-            proxy: Some(format!("socks5://127.0.0.1:{port}")),
-        },
-    )
-    .unwrap();
-    let sanity = block_on(direct_socks.get(&origin.url("/sanity"), AsyncBody::empty(), true))
-        .expect("minimal SOCKS5 server must work on 127.0.0.1");
-    assert_eq!(sanity.status(), StatusCode::OK);
-    assert_eq!(block_on(read_limited(sanity, 1024)).unwrap(), b"ok");
-    let connects_after_sanity = socks.connects.load(Ordering::SeqCst);
-    assert!(connects_after_sanity >= 1);
+    // With both listeners available, the first must carry the request.
+    request_through("/first");
+    assert_eq!(first_socks.connects.load(Ordering::SeqCst), 1);
+    assert_eq!(second_socks.connects.load(Ordering::SeqCst), 0);
     assert_eq!(origin.hits.load(Ordering::SeqCst), 1);
 
-    // Now configure `socks5://localhost:<port>`: `::1` refuses, so the client must fall
-    // through to `127.0.0.1` and carry the request.
-    let localhost_socks = HttpClient::new(
-        "SocksOrderTest/1.0",
-        &NetworkSettings {
-            proxy: Some(format!("socks5://localhost:{port}")),
-        },
-    )
-    .unwrap();
-    let response = block_on(localhost_socks.get(&origin.url("/ordered"), AsyncBody::empty(), true))
-        .expect("socks5://localhost:<port> must try 127.0.0.1 after ::1 refuses");
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = block_on(read_limited(response, 1024)).unwrap();
-    assert_eq!(body, b"ok");
-    assert!(
-        socks.connects.load(Ordering::SeqCst) > connects_after_sanity,
-        "request through socks5://localhost:{port} must reach the 127.0.0.1 SOCKS5 server"
+    // Close the first listener and use a fresh client so it resolves the proxy again.
+    drop(first_socks);
+    assert_eq!(
+        TcpStream::connect_timeout(&first_addr, Duration::from_secs(1))
+            .unwrap_err()
+            .kind(),
+        io::ErrorKind::ConnectionRefused,
+        "the first address {first_addr} must refuse connections"
     );
+    request_through("/fallback");
+    assert_eq!(second_socks.connects.load(Ordering::SeqCst), 1);
     assert_eq!(origin.hits.load(Ordering::SeqCst), 2);
 }

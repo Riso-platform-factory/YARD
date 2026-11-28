@@ -85,6 +85,10 @@ How work is given out:
    - run `cargo run` and `cargo run dev`;
    - commit the promotion on its own.
 9. **What is deferred** gets a comment at its place: `// TODO(<slug>): <what is missing>. <what unblocks it>.` The slug names the work.
+10. **When a feature is done** (committed, and again when promoted), the lead syncs three places in the same session:
+    - **The docs:** the contract under `docs/src/development/`, its entry in `docs/src/SUMMARY.md`, and the row in `platform-roadmap.md`.
+    - **The wiki:** the [YARD wiki](https://github.com/Riso-platform-factory/YARD/wiki) (`YARD.wiki.git`). Update the pages an application developer reads for the feature, such as `Extension-API`, `Test`, or `Create-an-App`, and `Roadmap`.
+    - **`.temp/roadmap.html`:** the row's status, as in `platform-roadmap.md`. This file is not committed.
 
 ### A prompt for the coding agent
 

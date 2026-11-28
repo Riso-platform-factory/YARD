@@ -1,5 +1,8 @@
 //! The window shell and extension component registry.
 
+#[cfg(feature = "dev")]
+mod dev;
+
 mod autostart;
 pub use autostart::*;
 

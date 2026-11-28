@@ -22,6 +22,7 @@ zed-reqwest = { git = "https://github.com/zed-industries/reqwest.git", rev = "33
 zlog = { git = "https://github.com/zed-industries/zed", rev = "ddb90e5e89d346f21847281727e1644b8bb2cc37" }
 yard_data = { path = "crates/yard_data", default-features = false }
 yard_http = { path = "crates/yard_http", default-features = false }
+yard_i18n = { path = "crates/yard_i18n", default-features = false }
 yard_layout = { path = "crates/yard_layout", default-features = false }
 yard_state = { path = "crates/yard_state", default-features = false }
 yard_shell = { path = "crates/yard_shell", default-features = false }
@@ -43,6 +44,8 @@ dirs = "6"
 embed-resource = "3.0"
 futures = "0.3"
 image = { version = "0.25.1", default-features = false, features = ["png"] }
+icu_locale_core = "2.4.0"
+icu_plurals = "2.4.0"
 ksni = { version = "0.3", default-features = false, features = ["async-io"] }
 log = "0.4.35"
 objc2 = "0.6.5"
@@ -61,6 +64,7 @@ schemars = "1.2.3"
 semver = "1"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
+sys-locale = "0.3.2"
 sha2 = "0.10"
 libc = "0.2"
 tempfile = "3"

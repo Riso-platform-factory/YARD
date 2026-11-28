@@ -56,6 +56,12 @@
     },
     "promoted": "2026-11-28"
   },
+  "yard_i18n/catalog": {
+    "files": {
+      "crates/yard_i18n/src/catalog.rs": "135cafe2bfc883f6"
+    },
+    "promoted": "2026-11-29"
+  },
   "yard_keymap/keymap_reload": {
     "files": {
       "crates/yard_keymap/src/keymap_reload.rs": "8730e21a3b67c0f7"
@@ -272,6 +278,12 @@
       "crates/yard_shell/src/prompt.rs": "14d4cba5ee0573e7"
     },
     "promoted": "2026-11-14"
+  },
+  "yard_shell/register_strings": {
+    "files": {
+      "crates/yard_shell/src/register_strings.rs": "3a7f9fbbaeca3e80"
+    },
+    "promoted": "2026-11-29"
   },
   "yard_shell/secrets": {
     "files": {

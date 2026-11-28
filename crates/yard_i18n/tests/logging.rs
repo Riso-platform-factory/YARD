@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Lifecycle trace and diagnostic log tests for `yard_i18n/catalog`.
 //!
 //! Alone in this binary: installs the process-wide diagnostic logger and captures

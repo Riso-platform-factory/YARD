@@ -1,8 +1,5 @@
 //! The window shell and extension component registry.
 
-#[cfg(feature = "dev")]
-mod dev;
-
 mod autostart;
 pub use autostart::*;
 
@@ -28,6 +25,8 @@ mod instance;
 pub use instance::*;
 mod prompt;
 pub use prompt::*;
+
+mod register_strings;
 
 mod secrets;
 pub use secrets::*;

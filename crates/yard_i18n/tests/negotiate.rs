@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use yard_i18n::negotiate;
 
 #[test]

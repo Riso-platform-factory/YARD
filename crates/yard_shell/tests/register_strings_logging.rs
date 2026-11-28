@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Logging tests for `Extension::register_strings` reserved-namespace refusals.
 //!
 //! Alone in this binary: installs the process-wide diagnostic logger and captures

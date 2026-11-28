@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{App, TestAppContext};
 use serde_json::json;
 use std::{

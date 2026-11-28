@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use icu_locale_core::Locale;
 use icu_plurals::{PluralCategory, PluralRules};

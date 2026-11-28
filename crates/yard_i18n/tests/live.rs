@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AppContext as _, Context, Entity, IntoElement, ParentElement, Render, SharedString,
     StyleRefinement, Styled, TestAppContext, Window, div,

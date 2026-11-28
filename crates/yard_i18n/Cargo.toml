@@ -10,30 +10,19 @@ path = "src/yard_i18n.rs"
 
 [features]
 default = ["dev"]
-dev = [
-    "dep:gpui",
-    "dep:icu_locale_core",
-    "dep:icu_plurals",
-    "dep:log",
-    "dep:schemars",
-    "dep:serde",
-    "dep:serde_json",
-    "dep:sys-locale",
-    "dep:tracing",
-    "yard_settings/dev",
-]
+dev = ["yard_settings/dev"]
 
 [dependencies]
-gpui = { workspace = true, optional = true }
-icu_locale_core = { workspace = true, optional = true }
-icu_plurals = { workspace = true, optional = true }
-log = { workspace = true, optional = true }
-schemars = { workspace = true, optional = true }
-serde = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
-sys-locale = { workspace = true, optional = true }
-tracing = { workspace = true, optional = true }
-yard_settings = { workspace = true, default-features = false, optional = true }
+gpui.workspace = true
+icu_locale_core.workspace = true
+icu_plurals.workspace = true
+log.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sys-locale.workspace = true
+tracing.workspace = true
+yard_settings = { workspace = true, default-features = false }
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }

@@ -391,7 +391,7 @@
   },
   "yard_ui/tabs": {
     "files": {
-      "crates/yard_ui/src/tabs.rs": "bb86992f504de3cc"
+      "crates/yard_ui/src/tabs.rs": "f6936fedd735b69d"
     },
     "promoted": "2026-11-28"
   },

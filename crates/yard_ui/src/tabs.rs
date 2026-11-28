@@ -107,7 +107,6 @@ impl Tab {
         self,
         position: ui::TabPosition,
         index: usize,
-        count: usize,
         accessibility_active: bool,
     ) -> ui::Tab {
         let icon_id = self.id.clone();
@@ -137,7 +136,6 @@ impl Tab {
             .aria_label(self.label.clone())
             .aria_selected(self.selected)
             .aria_position_in_set(index)
-            .aria_size_of_set(count)
             .position(position)
             .toggle_state(self.selected)
             .child(content);
@@ -186,7 +184,7 @@ impl Tab {
 
 impl RenderOnce for Tab {
     fn render(self, window: &mut Window, _: &mut App) -> impl IntoElement {
-        self.element(ui::TabPosition::First, 0, 1, window.is_a11y_active())
+        self.element(ui::TabPosition::First, 0, window.is_a11y_active())
     }
 }
 
@@ -239,11 +237,8 @@ impl TabBar {
         }));
         self
     }
-}
 
-impl RenderOnce for TabBar {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let accessibility_active = window.is_a11y_active();
+    fn element(self, accessibility_active: bool, cx: &App) -> Stateful<Div> {
         let selected_index = self.tabs.iter().position(|tab| tab.selected).unwrap_or(0);
         let count = self.tabs.len();
         let bar_id = self.id.clone();
@@ -256,7 +251,7 @@ impl RenderOnce for TabBar {
                 } else {
                     ui::TabPosition::Middle(index.cmp(&selected_index))
                 };
-                tab.element(position, index, count, accessibility_active)
+                tab.element(position, index, accessibility_active)
             },
         ));
         let bar = match &self.scroll_handle {
@@ -282,10 +277,18 @@ impl RenderOnce for TabBar {
         div()
             .id(self.id)
             .role(Role::TabList)
+            // The AT-SPI and UI Automation adapters look up the count on ancestors.
+            .aria_size_of_set(count)
             .flex()
             .flex_none()
             .w_full()
             .child(bar)
+    }
+}
+
+impl RenderOnce for TabBar {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        self.element(window.is_a11y_active(), cx)
     }
 }
 

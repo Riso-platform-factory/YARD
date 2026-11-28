@@ -49,7 +49,7 @@ Each change below is to a production part, as `close-guard` did. It is shown in 
   - A screen reader's "set value" replaces the text as typing would: it emits `TextInputEvent::Changed` and moves the caret to the end. It runs inside a lifecycle group `text-input-set-value`. The same value again changes nothing, the caret included.
 - **`yard_ui/tabs`:**
   - `TabBar` has the role `TabList`.
-  - Each `Tab` has the role `Tab`, its label as its name, `selected`, and its position and count in the bar. The position is given to GPUI zero-based, since AccessKit's adapters add one; a screen reader says "1 of 2".
+  - Each `Tab` has the role `Tab`, its label as its name, `selected`, and its position and count in the bar. The position is given to GPUI zero-based, since AccessKit's adapters add one; a screen reader says "1 of 2". The count is set where the adapters read it ([YARD#24](https://github.com/Riso-platform-factory/YARD/issues/24)).
   - The close button is named "Close <label>".
 - **`yard_ui/list`:**
   - `List` has the role `List` when it is given an id with `.id(..)`. Without one it is a plain container, and its items are still in the tree. This keeps two lists drawn from one call site from colliding. A list without an id adds no id scope, so its rows share the enclosing one: a view that draws two lists with the same row ids gives the lists, or their parents, ids.
@@ -106,7 +106,7 @@ GPUI's test window does not build the tree at `ddb90e5`, so a `TestAppContext` t
 
 - **Disabled state:** GPUI's elements have no `aria_disabled` at `ddb90e5`, so a disabled button is announced as enabled. `TODO(accessibility)`, unblocked by a GPUI update that adds it.
 - **The palette's highlighted command is not announced while typing.** Focus stays in the input, which is not an ancestor of the list, and GPUI's `aria_active_descendant` needs that. `TODO(accessibility)`, unblocked by restructuring the palette.
-- **The text inside an input** (caret, selection, words) is not exposed. Zed has not done it for its editor either.
+- **The text inside an input** (caret, selection, words) is not exposed. Zed has not done it for its editor either. On Linux this also means a text input has no AT-SPI text interface, so a screen reader cannot read or set its text there; macOS and Windows expose its value ([YARD#25](https://github.com/Riso-platform-factory/YARD/issues/25)).
 - **Plain text.** A `Label` or `Headline` has no id and no role, so text drawn with it is not in the tree: a screen reader reads a control's name, but not a paragraph beside it or a status bar's text. Zed's `ui` labels have the same gap at `ddb90e5`. `TODO(accessibility)`, unblocked by giving labels stable ids without colliding in loops.
 - **Headings, live regions other than toasts, and tooltips.**
 - **A check that every focusable element has a role,** as a debug assertion. GPUI already logs it once per element.

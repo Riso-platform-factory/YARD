@@ -7,10 +7,13 @@ use std::{
 };
 
 use futures::{StreamExt as _, channel::mpsc};
-use gpui::{Action, App, Global, MenuItem, SharedString};
+use gpui::{
+    Action, AnyWindowHandle, App, Context, Global, MenuItem, SharedString, Subscription, Window,
+    WindowId,
+};
 use image::{ImageFormat, ImageReader, Limits};
 
-use crate::Extension;
+use crate::{Extension, Shell};
 
 #[cfg(target_os = "macos")]
 #[path = "tray/macos.rs"]
@@ -217,6 +220,8 @@ struct TrayState {
     revision: u64,
     shown: Option<Shown>,
     handlers: BTreeMap<String, Handler>,
+    window_observers: BTreeMap<WindowId, Subscription>,
+    activation_history: Vec<AnyWindowHandle>,
     #[cfg(any(target_os = "macos", target_os = "linux", windows))]
     native: Option<platform::NativeTray>,
 }
@@ -328,6 +333,29 @@ impl Drop for TrayState {
     }
 }
 
+fn remember_active_window(window: &Window, cx: &mut App) {
+    if window.is_window_active() {
+        let handle = window.window_handle();
+        let history = &mut cx.global_mut::<TrayState>().activation_history;
+        history.retain(|known| *known != handle);
+        history.push(handle);
+    }
+}
+
+fn observe_shell_window(window: &mut Window, cx: &mut Context<Shell>) {
+    let id = window.window_handle().window_id();
+    if cx.global::<TrayState>().window_observers.contains_key(&id) {
+        return;
+    }
+    remember_active_window(window, cx);
+    let observer = cx.observe_window_activation(window, |_, window, cx| {
+        remember_active_window(window, cx);
+    });
+    cx.global_mut::<TrayState>()
+        .window_observers
+        .insert(id, observer);
+}
+
 pub fn set_tray_backend(cx: &mut App, backend: TrayBackend) {
     let state = cx.default_global::<TrayState>();
     if state.backend.is_some() {
@@ -337,6 +365,30 @@ pub fn set_tray_backend(cx: &mut App, backend: TrayBackend) {
     let (sender, mut receiver) = mpsc::unbounded();
     state.backend = Some(backend);
     state.sender = Some(sender);
+    cx.observe_new::<Shell>(|_, window, cx| {
+        if let Some(window) = window {
+            observe_shell_window(window, cx);
+        }
+    })
+    .detach();
+    cx.on_window_closed(|cx, id| {
+        let state = cx.global_mut::<TrayState>();
+        state.window_observers.remove(&id);
+        state
+            .activation_history
+            .retain(|window| window.window_id() != id);
+    })
+    .detach();
+    // Include shells that already exist, after any current window update has finished.
+    cx.defer(|cx| {
+        for window in cx
+            .windows()
+            .iter()
+            .filter_map(|window| window.downcast::<Shell>())
+        {
+            let _ = window.update(cx, |_, window, cx| observe_shell_window(window, cx));
+        }
+    });
     cx.spawn(async move |cx| {
         while let Some((revision, event)) = receiver.next().await {
             #[cfg(windows)]
@@ -492,13 +544,21 @@ fn deliver(revision: u64, event: Event, cx: &mut App) {
                 action = action.name()
             )
             .entered();
+            let windows = cx.windows();
             let (window, target) = if let Some(window) = preferred_window
-                .filter(|window| cx.windows().contains(window))
-                .or_else(|| cx.active_window())
+                .filter(|window| windows.contains(window))
+                .or_else(|| cx.active_window().filter(|window| windows.contains(window)))
             {
                 (Some(window), "window")
+            } else if let Some(&window) = state
+                .activation_history
+                .iter()
+                .rev()
+                .find(|window| windows.contains(window))
+            {
+                (Some(window), "last active window")
             } else {
-                (cx.windows().into_iter().next(), "first window")
+                (windows.first().copied(), "first window")
             };
             if let Some(window) = window
                 && window

@@ -33,12 +33,24 @@ fn png_bytes(width: u32, height: u32) -> Vec<u8> {
     bytes
 }
 
-fn open_active_shell_window(cx: &mut TestAppContext) -> gpui::WindowHandle<shell::Shell> {
+fn open_shell_window(cx: &mut TestAppContext) -> gpui::WindowHandle<shell::Shell> {
     let window = cx.update(|cx| {
         cx.open_window(gpui::WindowOptions::default(), shell::new_shell)
             .unwrap()
     });
     cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
+    gpui::AnyWindowHandle::from(window)
+        .update(cx, |_, window, cx| {
+            window.refresh();
+            let _ = window.draw(cx);
+        })
+        .unwrap();
+    cx.run_until_parked();
+    window
+}
+
+fn open_active_shell_window(cx: &mut TestAppContext) -> gpui::WindowHandle<shell::Shell> {
+    let window = open_shell_window(cx);
     gpui::AnyWindowHandle::from(window)
         .update(cx, |_, window, cx| {
             window.activate_window();
@@ -558,21 +570,37 @@ fn routing_prefers_active_window_then_first_window_then_application(cx: &mut Tes
     })
     .unwrap();
 
-    let first_window = open_active_shell_window(cx);
-    let second_window = open_active_shell_window(cx);
+    let first_window = open_shell_window(cx);
+    let second_window = open_shell_window(cx);
     let first_handle: AnyWindowHandle = first_window.into();
     let second_handle: AnyWindowHandle = second_window.into();
     assert_ne!(first_handle, second_handle);
-    assert_eq!(cx.update(|cx| cx.active_window()), Some(second_handle));
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
     assert_eq!(
         cx.update(|cx| cx.windows()),
         vec![first_handle, second_handle]
     );
 
-    // Active window (the second one) receives the action, not the first.
+    // With no window ever activated, the first open window receives the action.
     backend.simulate_menu(&[0]);
     cx.run_until_parked();
-    assert_eq!(*window_hits.borrow(), vec![second_handle]);
+    assert_eq!(
+        *window_hits.borrow(),
+        vec![first_handle],
+        "with no window ever activated, the first open window must receive the action"
+    );
+    assert_eq!(app_hits.get(), 0);
+
+    // Active window (the second one) receives the action, not the first.
+    second_handle
+        .update(cx, |_, window, _| window.activate_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), Some(second_handle));
+
+    backend.simulate_menu(&[0]);
+    cx.run_until_parked();
+    assert_eq!(*window_hits.borrow(), vec![first_handle, second_handle]);
     assert_eq!(app_hits.get(), 0);
 
     // Switching active window to the first routes there.
@@ -584,34 +612,16 @@ fn routing_prefers_active_window_then_first_window_then_application(cx: &mut Tes
 
     backend.simulate_menu(&[0]);
     cx.run_until_parked();
-    assert_eq!(*window_hits.borrow(), vec![second_handle, first_handle]);
-    assert_eq!(app_hits.get(), 0);
-
-    // Activate the second window, then deactivate it so no window is active.
-    second_handle
-        .update(cx, |_, window, _| window.activate_window())
-        .unwrap();
-    cx.run_until_parked();
-    let mut second_visual = VisualTestContext::from_window(second_handle, cx);
-    second_visual.deactivate_window();
-    drop(second_visual);
-    assert_eq!(cx.update(|cx| cx.active_window()), None);
-    assert_eq!(
-        cx.update(|cx| cx.windows()),
-        vec![first_handle, second_handle]
-    );
-
-    // With no active window, the first open window receives the action.
-    backend.simulate_menu(&[0]);
-    cx.run_until_parked();
     assert_eq!(
         *window_hits.borrow(),
-        vec![second_handle, first_handle, first_handle],
-        "with no active window, the first open window must receive the action"
+        vec![first_handle, second_handle, first_handle]
     );
     assert_eq!(app_hits.get(), 0);
 
-    // Close both windows; with no window open, the application receives it.
+    // Deactivate and close both windows; with no window open, the application receives it.
+    let mut first_visual = VisualTestContext::from_window(first_handle, cx);
+    first_visual.deactivate_window();
+    drop(first_visual);
     first_handle
         .update(cx, |_, window, _| window.remove_window())
         .unwrap();
@@ -619,18 +629,189 @@ fn routing_prefers_active_window_then_first_window_then_application(cx: &mut Tes
         .update(cx, |_, window, _| window.remove_window())
         .unwrap();
     cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
     assert!(cx.update(|cx| cx.windows().is_empty()));
 
     backend.simulate_menu(&[0]);
     cx.run_until_parked();
     assert_eq!(
         *window_hits.borrow(),
-        vec![second_handle, first_handle, first_handle]
+        vec![first_handle, second_handle, first_handle]
     );
     assert_eq!(
         app_hits.get(),
         1,
         "with no window open, the application must receive the action"
+    );
+}
+
+#[gpui::test]
+fn routing_uses_most_recently_active_window_and_falls_back_on_close(cx: &mut TestAppContext) {
+    cx.update(yard_ui::init);
+    let backend = TrayBackend::memory();
+    let window_hits: Rc<RefCell<Vec<AnyWindowHandle>>> = Rc::new(RefCell::new(Vec::new()));
+    let app_hits = Rc::new(Cell::new(0usize));
+
+    let ext = cx.update(|cx| {
+        shell::set_tray_backend(cx, backend.clone());
+        let app_hits = app_hits.clone();
+        cx.on_action(move |_: &NewNote, _| {
+            app_hits.set(app_hits.get() + 1);
+        });
+        let ext = Extension::new(cx, "notes").unwrap();
+        let window_hits = window_hits.clone();
+        ext.on_action::<NewNote>(cx, move |_, window, _| {
+            window_hits.borrow_mut().push(window.window_handle());
+        });
+        ext
+    });
+
+    let icon = png_bytes(16, 16);
+    cx.update(|cx| {
+        ext.set_tray(
+            Tray::new(TrayIcon::png(&icon)).menu(vec![MenuItem::action("New Note", NewNote)]),
+            cx,
+        )
+    })
+    .unwrap();
+
+    let window_a = open_shell_window(cx);
+    let window_b = open_shell_window(cx);
+    let handle_a: AnyWindowHandle = window_a.into();
+    let handle_b: AnyWindowHandle = window_b.into();
+    assert_ne!(handle_a, handle_b);
+
+    // Activate A, then B, then leave no window active.
+    handle_a
+        .update(cx, |_, window, _| window.activate_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), Some(handle_a));
+
+    handle_b
+        .update(cx, |_, window, _| window.activate_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), Some(handle_b));
+
+    let mut visual_b = VisualTestContext::from_window(handle_b, cx);
+    visual_b.deactivate_window();
+    drop(visual_b);
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(cx.update(|cx| cx.windows()), vec![handle_a, handle_b]);
+
+    // With no active window, B (most recently active) receives the action, not A (first open).
+    backend.simulate_menu(&[0]);
+    cx.run_until_parked();
+    assert_eq!(
+        *window_hits.borrow(),
+        vec![handle_b],
+        "with no active window, the most recently active window (B) must receive the action"
+    );
+    assert_eq!(app_hits.get(), 0);
+
+    // Close B; with no active window, A receives the next menu action as the last active window still open.
+    handle_b
+        .update(cx, |_, window, _| window.remove_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(cx.update(|cx| cx.windows()), vec![handle_a]);
+
+    backend.simulate_menu(&[0]);
+    cx.run_until_parked();
+    assert_eq!(
+        *window_hits.borrow(),
+        vec![handle_b, handle_a],
+        "after closing B, A must receive the action as the last active window still open"
+    );
+    assert_eq!(app_hits.get(), 0);
+}
+
+#[gpui::test]
+fn closing_last_active_window_falls_back_to_prior_active_before_first_window(
+    cx: &mut TestAppContext,
+) {
+    cx.update(yard_ui::init);
+    let backend = TrayBackend::memory();
+    let window_hits: Rc<RefCell<Vec<AnyWindowHandle>>> = Rc::new(RefCell::new(Vec::new()));
+
+    let ext = cx.update(|cx| {
+        shell::set_tray_backend(cx, backend.clone());
+        let ext = Extension::new(cx, "notes").unwrap();
+        let window_hits = window_hits.clone();
+        ext.on_action::<NewNote>(cx, move |_, window, _| {
+            window_hits.borrow_mut().push(window.window_handle());
+        });
+        ext
+    });
+
+    let icon = png_bytes(16, 16);
+    cx.update(|cx| {
+        ext.set_tray(
+            Tray::new(TrayIcon::png(&icon)).menu(vec![MenuItem::action("New Note", NewNote)]),
+            cx,
+        )
+    })
+    .unwrap();
+
+    // Open an unactivated first window, then A and B.
+    let idle_handle: AnyWindowHandle = open_shell_window(cx).into();
+    let handle_a: AnyWindowHandle = open_shell_window(cx).into();
+    let handle_b: AnyWindowHandle = open_shell_window(cx).into();
+
+    handle_a
+        .update(cx, |_, window, _| window.activate_window())
+        .unwrap();
+    cx.run_until_parked();
+    handle_b
+        .update(cx, |_, window, _| window.activate_window())
+        .unwrap();
+    cx.run_until_parked();
+
+    let mut visual_b = VisualTestContext::from_window(handle_b, cx);
+    visual_b.deactivate_window();
+    drop(visual_b);
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(
+        cx.update(|cx| cx.windows()),
+        vec![idle_handle, handle_a, handle_b]
+    );
+
+    backend.simulate_menu(&[0]);
+    cx.run_until_parked();
+    assert_eq!(*window_hits.borrow(), vec![handle_b]);
+
+    // Closing B must route to A (prior active), not idle_handle (first open).
+    handle_b
+        .update(cx, |_, window, _| window.remove_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(cx.update(|cx| cx.windows()), vec![idle_handle, handle_a]);
+
+    backend.simulate_menu(&[0]);
+    cx.run_until_parked();
+    assert_eq!(
+        *window_hits.borrow(),
+        vec![handle_b, handle_a],
+        "after closing B, the previously active window A must take precedence over the unactivated first window"
+    );
+
+    // Closing A leaves only the never-activated first window, so routing falls back to it.
+    handle_a
+        .update(cx, |_, window, _| window.remove_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(cx.update(|cx| cx.windows()), vec![idle_handle]);
+
+    backend.simulate_menu(&[0]);
+    cx.run_until_parked();
+    assert_eq!(
+        *window_hits.borrow(),
+        vec![handle_b, handle_a, idle_handle],
+        "once every previously active window is closed, routing must fall back to the first open window"
     );
 }
 

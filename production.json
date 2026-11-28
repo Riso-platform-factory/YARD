@@ -265,7 +265,7 @@
   },
   "yard_shell/tray": {
     "files": {
-      "crates/yard_shell/src/tray.rs": "a9862f2f6fdf1042",
+      "crates/yard_shell/src/tray.rs": "08ebddd2e300ef6b",
       "crates/yard_shell/src/tray/linux.rs": "25e5ec5111a45f54",
       "crates/yard_shell/src/tray/macos.rs": "e0e58311bdd5bc45",
       "crates/yard_shell/src/tray/windows.rs": "e93b64098b722341"

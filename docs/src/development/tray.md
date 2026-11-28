@@ -51,6 +51,7 @@ ext.on_tray_activate(cx, |cx| show_main_window(cx));
 - **The menu** takes `MenuItem::action`, `separator`, and `submenu`. An action item's checked and disabled states are shown when `gpui::MenuItem` carries them. An action item with an `os_action` is still an action, and is dispatched like the others. Any other kind of item, such as a system menu (`MenuItem::os_submenu`, the macOS Services menu), is left out, with an `info` line.
 - **Choosing a menu item dispatches its action**, as the application menu does:
   - to the active window if there is one;
+  - otherwise to the open window that was active most recently, since clicking the tray often takes activation away from every YARD window (the taskbar on Windows);
   - otherwise to the first open window;
   - otherwise to the application.
 
@@ -61,7 +62,7 @@ ext.on_tray_activate(cx, |cx| show_main_window(cx));
   - On macOS, a click opens the menu when there is one, as the system does. With an empty menu, a click activates.
 - **At quit** the icon is removed, and from then on `set_tray` returns `Unavailable`, so nothing that runs later at quit can put it back. On Windows the icon is put back when Explorer restarts (the `TaskbarCreated` message), redrawn at the current DPI.
 - **A stale menu never runs a newer action.** Each `set_tray` gives every item a new identity on every system, so a menu that was open before an update, or an event still queued from it, is ignored.
-- **On Windows**, the menu's action goes to the YARD window that was active when the icon was clicked, even though showing the popup moves focus away from it.
+- **The shell tracks the most recently active window** for this: each YARD window, when it becomes active, becomes the most recent one, and a closed window is forgotten. On Windows the window active at the click is used first when there was one.
 - **Labels render the same on every system:** `&` is escaped on Windows, and `_` on Linux, where both mark a keyboard accelerator. A non-square icon keeps its aspect ratio.
 - **Linux without a tray:** with no StatusNotifierWatcher on the session bus (GNOME without the AppIndicator extension, most CI), `set_tray` returns `Unavailable`. Nothing is shown, and the application goes on.
 - **Before the tray backend is set up** (`yard_shell::set_tray_backend`), `set_tray` returns `Unavailable` with one `ERROR` per application.
@@ -81,7 +82,7 @@ ext.on_tray_activate(cx, |cx| show_main_window(cx));
 - **`tray-set{extension, items}`** surrounds `set_tray`: `debug` "shown" or "updated"; `info` "refused" with `reason` for `AlreadyOwned` and `InvalidIcon`; `warn` plus one `log::warn!` for `Unavailable` and `Failed`.
 - **`tray-remove{extension}`**, `debug` "removed".
 - **`tray-activate{extension}`** around a delivered activation: `debug` "handled", or "no handler".
-- **`tray-menu-action{extension, action}`** around scheduling a chosen item's action: `debug` "dispatched" with `target` = `window`, `first window`, or `application`. GPUI runs a window's action just after, in the window's own `extension-action` group.
+- **`tray-menu-action{extension, action}`** around scheduling a chosen item's action: `debug` "dispatched" with `target` = `window`, `last active window`, `first window`, or `application`. GPUI runs a window's action just after, in the window's own `extension-action` group.
 - Menu labels and the tooltip are the extension's own text and may be logged. Nothing else of the user's data passes through.
 
 ## Parts
@@ -121,7 +122,7 @@ ext.on_tray_activate(cx, |cx| show_main_window(cx));
 - **GNOME shows no tray** without the AppIndicator extension. `set_tray` then returns `Unavailable`, and an extension should not rely on the icon to bring the application back.
 - **macOS has no separate activation when there is a menu**: the click opens the menu, as for every status item.
 - **The legacy X11 system tray (XEmbed)** is not supported, only StatusNotifierItem.
-- **On Windows, the click-time window is resolved on the UI thread just before the popup opens.** If focus moves to another window in that moment, the action follows the usual order (active window, first window, application).
+- **On Windows, the click-time window is resolved on the UI thread just before the popup opens.** If focus moves to another window in that moment, the action follows the usual order (active window, most recently active window, first window, application).
 
 ## Not in this slice
 

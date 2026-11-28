@@ -3,7 +3,7 @@
 //! Installs one process-wide tracing subscriber and diagnostic logger; its
 //! single test runs alone in this binary.
 
-use gpui::{MenuItem, SystemMenuType, TestAppContext, VisualTestContext};
+use gpui::{AnyWindowHandle, MenuItem, SystemMenuType, TestAppContext, VisualTestContext};
 use image::{ImageFormat, Rgba, RgbaImage};
 use std::{
     cell::{Cell, RefCell},
@@ -266,6 +266,22 @@ fn png_bytes(width: u32, height: u32) -> Vec<u8> {
     bytes
 }
 
+fn open_shell_window(cx: &mut TestAppContext) -> gpui::WindowHandle<shell::Shell> {
+    let window = cx.update(|cx| {
+        cx.open_window(gpui::WindowOptions::default(), shell::new_shell)
+            .unwrap()
+    });
+    cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
+    AnyWindowHandle::from(window)
+        .update(cx, |_, window, cx| {
+            window.refresh();
+            let _ = window.draw(cx);
+        })
+        .unwrap();
+    cx.run_until_parked();
+    window
+}
+
 #[gpui::test]
 fn tray_operations_log_groups_fields_and_levels(cx: &mut TestAppContext) {
     log::set_logger(&Diagnostics).unwrap();
@@ -275,7 +291,7 @@ fn tray_operations_log_groups_fields_and_levels(cx: &mut TestAppContext) {
     cx.update(yard_ui::init);
     let backend = TrayBackend::memory();
     let app_quits = Rc::new(Cell::new(0usize));
-    let window_notes = Rc::new(Cell::new(0usize));
+    let window_hits: Rc<RefCell<Vec<AnyWindowHandle>>> = Rc::new(RefCell::new(Vec::new()));
     let activations = Rc::new(Cell::new(0usize));
 
     let (notes, other) = cx.update(|cx| {
@@ -285,9 +301,9 @@ fn tray_operations_log_groups_fields_and_levels(cx: &mut TestAppContext) {
             app_quits.set(app_quits.get() + 1);
         });
         let notes = Extension::new(cx, "notes").unwrap();
-        let window_notes = window_notes.clone();
-        notes.on_action::<NewNote>(cx, move |_, _, _| {
-            window_notes.set(window_notes.get() + 1);
+        let window_hits = window_hits.clone();
+        notes.on_action::<NewNote>(cx, move |_, window, _| {
+            window_hits.borrow_mut().push(window.window_handle());
         });
         let other = Extension::new(cx, "other").unwrap();
         (notes, other)
@@ -527,26 +543,44 @@ fn tray_operations_log_groups_fields_and_levels(cx: &mut TestAppContext) {
     );
     assert_no_warn_or_error(&events, &diagnostics);
 
-    // 9. Menu action with an active window: tray-menu-action{extension="notes", action="notes::NewNote"}
-    //    with debug "dispatched" and target="window".
-    let window = cx.update(|cx| {
-        cx.open_window(gpui::WindowOptions::default(), shell::new_shell)
-            .unwrap()
-    });
-    cx.simulate_window_resize(window.into(), gpui::size(gpui::px(640.), gpui::px(480.)));
-    gpui::AnyWindowHandle::from(window)
-        .update(cx, |_, window, cx| {
-            window.activate_window();
-            window.refresh();
-            let _ = window.draw(cx);
-        })
-        .unwrap();
-    cx.run_until_parked();
+    // 9a. Menu action with open windows never activated: target="first window".
+    let handle_a: AnyWindowHandle = open_shell_window(cx).into();
+    let handle_b: AnyWindowHandle = open_shell_window(cx).into();
+    assert_ne!(handle_a, handle_b);
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(cx.update(|cx| cx.windows()), vec![handle_a, handle_b]);
     let _ = take_step();
 
     backend.simulate_menu(&[1]);
     cx.run_until_parked();
-    assert_eq!(window_notes.get(), 1);
+    assert_eq!(*window_hits.borrow(), vec![handle_a]);
+    let (spans, events, diagnostics) = take_step();
+    let span = assert_tray_span(&spans, "tray-menu-action", "notes");
+    assert_eq!(
+        span.fields.get("action").map(String::as_str),
+        Some("notes::NewNote"),
+        "expected action='notes::NewNote' on tray-menu-action span: {span:#?}"
+    );
+    let in_span = events_in_span(&events, span.id);
+    assert!(
+        in_span
+            .iter()
+            .any(|e| event_dispatched_to_target(e, "first window")),
+        "expected DEBUG `dispatched` with target=`first window` inside tray-menu-action, got {in_span:#?}"
+    );
+    assert_no_warn_or_error(&events, &diagnostics);
+
+    // 9b. Menu action with an active window: target="window".
+    handle_a
+        .update(cx, |_, window, _| window.activate_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), Some(handle_a));
+    let _ = take_step();
+
+    backend.simulate_menu(&[1]);
+    cx.run_until_parked();
+    assert_eq!(*window_hits.borrow(), vec![handle_a, handle_a]);
     let (spans, events, diagnostics) = take_step();
     let span = assert_tray_span(&spans, "tray-menu-action", "notes");
     assert_eq!(
@@ -563,16 +597,27 @@ fn tray_operations_log_groups_fields_and_levels(cx: &mut TestAppContext) {
     );
     assert_no_warn_or_error(&events, &diagnostics);
 
-    // 9b. Menu action with no active window but a window open: target="first window".
-    let mut visual = VisualTestContext::from_window(window.into(), cx);
-    visual.deactivate_window();
-    drop(visual);
+    // 9c. Activate B after A, then deactivate so no window is active: B receives it with
+    //     target="last active window".
+    handle_b
+        .update(cx, |_, window, _| window.activate_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), Some(handle_b));
+    let mut visual_b = VisualTestContext::from_window(handle_b, cx);
+    visual_b.deactivate_window();
+    drop(visual_b);
     assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(cx.update(|cx| cx.windows()), vec![handle_a, handle_b]);
     let _ = take_step();
 
     backend.simulate_menu(&[1]);
     cx.run_until_parked();
-    assert_eq!(window_notes.get(), 2);
+    assert_eq!(
+        *window_hits.borrow(),
+        vec![handle_a, handle_a, handle_b],
+        "with no active window, the most recently active window (B) must receive the action"
+    );
     let (spans, events, diagnostics) = take_step();
     let span = assert_tray_span(&spans, "tray-menu-action", "notes");
     assert_eq!(
@@ -584,8 +629,41 @@ fn tray_operations_log_groups_fields_and_levels(cx: &mut TestAppContext) {
     assert!(
         in_span
             .iter()
-            .any(|e| event_dispatched_to_target(e, "first window")),
-        "expected DEBUG `dispatched` with target=`first window` inside tray-menu-action, got {in_span:#?}"
+            .any(|e| event_dispatched_to_target(e, "last active window")),
+        "expected DEBUG `dispatched` with target=`last active window` inside tray-menu-action, got {in_span:#?}"
+    );
+    assert_no_warn_or_error(&events, &diagnostics);
+
+    // 9d. Close B; with no window active, A receives the action as the last active window
+    //     still open, with target="last active window".
+    handle_b
+        .update(cx, |_, window, _| window.remove_window())
+        .unwrap();
+    cx.run_until_parked();
+    assert_eq!(cx.update(|cx| cx.active_window()), None);
+    assert_eq!(cx.update(|cx| cx.windows()), vec![handle_a]);
+    let _ = take_step();
+
+    backend.simulate_menu(&[1]);
+    cx.run_until_parked();
+    assert_eq!(
+        *window_hits.borrow(),
+        vec![handle_a, handle_a, handle_b, handle_a],
+        "after closing B, A must receive the action as the last active window still open"
+    );
+    let (spans, events, diagnostics) = take_step();
+    let span = assert_tray_span(&spans, "tray-menu-action", "notes");
+    assert_eq!(
+        span.fields.get("action").map(String::as_str),
+        Some("notes::NewNote"),
+        "expected action='notes::NewNote' on tray-menu-action span: {span:#?}"
+    );
+    let in_span = events_in_span(&events, span.id);
+    assert!(
+        in_span
+            .iter()
+            .any(|e| event_dispatched_to_target(e, "last active window")),
+        "expected DEBUG `dispatched` with target=`last active window` after closing B, got {in_span:#?}"
     );
     assert_no_warn_or_error(&events, &diagnostics);
 

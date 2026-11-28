@@ -1,7 +1,7 @@
 use gpui::{App, AsyncApp, WindowOptions};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc, sync::Arc};
 use yard_shell::yard_http::{self, HttpClient, NetworkSettings};
-use yard_shell::{SecretStore, TrayBackend};
+use yard_shell::{AutostartBackend, SecretStore, TrayBackend};
 
 /// What an extension registers when the application starts.
 pub type Init = fn(&mut App, &yard_shell::Extension);
@@ -223,6 +223,7 @@ pub fn init(
 pub struct Backends {
     pub secret_store: Option<SecretStore>,
     pub tray_backend: Option<TrayBackend>,
+    pub autostart_backend: Option<AutostartBackend>,
 }
 
 /// Initializes the app with the given backend overrides.
@@ -284,6 +285,19 @@ fn init_app(
             None => {
                 yard_shell::set_tray_backend(cx, TrayBackend::system(product.name));
                 tracing::debug!("set the system tray backend");
+            }
+        }
+        match backends.autostart_backend {
+            Some(backend) => {
+                yard_shell::set_autostart_backend(cx, backend);
+                tracing::debug!("set the supplied autostart backend");
+            }
+            None => {
+                yard_shell::set_autostart_backend(
+                    cx,
+                    AutostartBackend::system(product.identifier, product.name),
+                );
+                tracing::debug!("set the system autostart backend");
             }
         }
         yard_settings::register::<NetworkSettings>(cx);

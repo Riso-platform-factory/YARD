@@ -20,7 +20,7 @@
   },
   "yard_app/startup": {
     "files": {
-      "crates/yard_app/src/startup.rs": "a08bd718085b9549"
+      "crates/yard_app/src/startup.rs": "9328e6aeffc2a5ec"
     },
     "promoted": "2026-11-28"
   },
@@ -197,6 +197,15 @@
     },
     "promoted": "2026-11-19"
   },
+  "yard_shell/autostart": {
+    "files": {
+      "crates/yard_shell/src/autostart.rs": "8a21c8a1ece78c17",
+      "crates/yard_shell/src/autostart/linux.rs": "fa8573fb05c44bb2",
+      "crates/yard_shell/src/autostart/macos.rs": "96bcd6a7eda11973",
+      "crates/yard_shell/src/autostart/windows.rs": "e80c57ed3e5d722c"
+    },
+    "promoted": "2026-11-28"
+  },
   "yard_shell/close_guard": {
     "files": {
       "crates/yard_shell/src/close_guard.rs": "a356d3bf1865f395"
@@ -292,7 +301,7 @@
   },
   "yard_test/harness": {
     "files": {
-      "crates/yard_test/src/harness.rs": "4d95c00681c8b819"
+      "crates/yard_test/src/harness.rs": "54d1cc03e3f0d0d4"
     },
     "promoted": "2026-11-28"
   },

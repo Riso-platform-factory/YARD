@@ -63,9 +63,9 @@ ext.set_launch_at_login(true, cx)?; // returns the status after the change
 
 - **`yard_shell::set_autostart_backend(cx, AutostartBackend::system(identifier, product_name))`** is called once at startup. Before it, both calls return `Err(Failed)` with one `ERROR` per application.
 - **`AutostartBackend::memory()`** is for tests. It starts `Disabled`, follows `set_launch_at_login`, and offers `set_status(AutostartStatus)` and `fail_next(AutostartError)`. Clones share one state.
-- **While under review**, `review.rs` sets the system backend. **At promotion:**
-  - `yard_app/startup` sets it from the product;
-  - `yard_test/harness` sets a memory backend through `yard_app::Backends`, a new `autostart_backend` field.
+- **`yard_app/startup` sets the system backend from the product.** `yard_app::Backends` has an `autostart_backend` field: `None` means the system one.
+- **`yard_test`'s `TestApp` sets a memory backend**, so an extension's tests never touch the login items of the machine running them.
+- **Creating the system backend touches nothing.** Only a read or a change reaches the system, so an application that never calls either leaves the login items alone.
 
 ## Logging
 
@@ -92,7 +92,7 @@ ext.set_launch_at_login(true, cx)?; // returns the status after the change
     - the Linux file's content and parsing, and a round trip through a temporary folder: enable, read, disable, a hidden file left alone, a malformed file replaced, and a path with `=` refused;
     - Windows quoting, the 260-character limit, and the `StartupApproved` byte;
     - the macOS bundle-path check and the status mapping.
-- **Test extension `examples/autostart_tour`**, named in `review.rs`.
+- **Test extension `examples/autostart_tour`**, named in `review.rs` while the part was under review (until the promotion).
   - Without `AUTOSTART_TOUR` it does nothing.
   - With `AUTOSTART_TOUR=1`, it shows a card with the status and **Enable**, **Disable**, and **Refresh**.
   - It disables at quit if it enabled during the run.

@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::TestAppContext;
 use yard_shell::{self as shell, AutostartBackend, AutostartError, AutostartStatus, Extension};
 

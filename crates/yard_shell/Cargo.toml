@@ -11,9 +11,6 @@ path = "src/yard_shell.rs"
 [features]
 default = ["dev"]
 dev = [
-    "objc2-foundation/NSError",
-    "objc2-foundation/NSProcessInfo",
-    "windows/Win32_System_Registry",
     "yard_data/dev",
     "yard_http/dev",
     "yard_layout/dev",
@@ -73,7 +70,7 @@ objc2-core-foundation = { workspace = true, features = [
     "CFCGTypes",
 ] }
 objc2-security.workspace = true
-objc2-foundation = { workspace = true, features = ["std", "NSData", "NSString"] }
+objc2-foundation = { workspace = true, features = ["std", "NSData", "NSError", "NSProcessInfo", "NSString"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 ksni.workspace = true
@@ -90,6 +87,7 @@ windows = { workspace = true, features = [
     "Win32_Storage_FileSystem",
     "Win32_System_IO",
     "Win32_System_Pipes",
+    "Win32_System_Registry",
     "Win32_System_RemoteDesktop",
     "Win32_System_Threading",
     "Win32_Graphics_Gdi",

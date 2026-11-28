@@ -214,6 +214,7 @@ fn init_runs_the_extension_once_sets_menus_and_uses_the_applications_url_scheme(
             &open_urls,
             yard_app::Backends {
                 tray_backend: Some(yard_shell::TrayBackend::memory()),
+                autostart_backend: Some(yard_shell::AutostartBackend::memory()),
                 ..Default::default()
             },
         );

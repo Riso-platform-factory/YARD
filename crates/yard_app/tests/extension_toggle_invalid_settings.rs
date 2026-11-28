@@ -93,6 +93,7 @@ fn invalid_extension_settings_warn_once_and_preserve_valid_entries(cx: &mut Test
                 &RefCell::new(OpenUrls::default()),
                 yard_app::Backends {
                     tray_backend: Some(yard_shell::TrayBackend::memory()),
+                    autostart_backend: Some(yard_shell::AutostartBackend::memory()),
                     ..Default::default()
                 },
             );

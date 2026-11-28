@@ -1,9 +1,7 @@
 //! The window shell and extension component registry.
 
-#[cfg(feature = "dev")]
-mod dev;
-#[cfg(feature = "dev")]
-pub use dev::*;
+mod autostart;
+pub use autostart::*;
 
 mod close_guard;
 pub use close_guard::*;

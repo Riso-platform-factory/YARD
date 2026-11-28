@@ -404,6 +404,7 @@ fn start_run(app: &mut TestAppContext, paths: &Paths) -> gpui::WindowHandle<Shel
             &open_urls,
             yard_app::Backends {
                 tray_backend: Some(yard_shell::TrayBackend::memory()),
+                autostart_backend: Some(yard_shell::AutostartBackend::memory()),
                 ..Default::default()
             },
         );

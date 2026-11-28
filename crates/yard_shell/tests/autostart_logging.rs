@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Lifecycle trace and diagnostic log tests for `yard_shell/autostart`.
 //!
 //! Alone in this binary: captures tracing output under one scoped subscriber

@@ -11,7 +11,7 @@ use yard_app::Application;
 use yard_paths::{Origin, Paths};
 use yard_product::Product;
 use yard_settings::Settings;
-use yard_shell::{Extension, SecretError, Tray, TrayIcon};
+use yard_shell::{AutostartStatus, Extension, SecretError, Tray, TrayIcon};
 use yard_test::TestApp;
 
 #[derive(Default)]
@@ -215,6 +215,40 @@ fn boot_gives_extensions_an_in_memory_tray(cx: &mut TestAppContext) {
         app.tray_backend().tooltip().as_deref(),
         Some("Harness tray")
     );
+}
+
+#[gpui::test]
+fn boot_gives_extensions_an_in_memory_autostart_backend(cx: &mut TestAppContext) {
+    struct AutostartExtension(Extension);
+    impl Global for AutostartExtension {}
+
+    let application = Application {
+        product: Product {
+            name: "Autostart Tests",
+            version: "0.0.0",
+            // The per-product system backends reject this identifier before accessing login items.
+            identifier: "test.yard.app/autostart",
+        },
+        url_scheme: "yardtest",
+        update_url: "",
+        window_icon: None,
+    };
+    let _app = TestApp::builder()
+        .application(application)
+        .extension("autostart", |cx, extension| {
+            assert_eq!(extension.launch_at_login(cx), Ok(AutostartStatus::Disabled));
+            cx.set_global(AutostartExtension(extension.clone()));
+        })
+        .boot(cx);
+
+    cx.read(|cx| {
+        let extension = &cx.global::<AutostartExtension>().0;
+        assert_eq!(
+            extension.set_launch_at_login(true, cx),
+            Ok(AutostartStatus::Enabled)
+        );
+        assert_eq!(extension.launch_at_login(cx), Ok(AutostartStatus::Enabled));
+    });
 }
 
 #[gpui::test]

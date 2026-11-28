@@ -5,7 +5,7 @@ use tempfile::TempDir;
 use yard_app::{Application, Backends, Init, OpenUrls};
 use yard_paths::Paths;
 use yard_product::Product;
-use yard_shell::{SecretStore, Shell, TrayBackend};
+use yard_shell::{AutostartBackend, SecretStore, Shell, TrayBackend};
 
 const DEFAULT_APPLICATION: Application = Application {
     product: Product {
@@ -85,6 +85,7 @@ impl TestAppBuilder {
                 Backends {
                     secret_store: Some(SecretStore::memory()),
                     tray_backend: Some(tray_backend.clone()),
+                    autostart_backend: Some(AutostartBackend::memory()),
                 },
             );
             let window = yard_app::open_window(cx, self.application, None, None)

@@ -66,6 +66,7 @@ fn reload_without_an_effective_extension_change_has_no_next_start_group(cx: &mut
                 &RefCell::new(OpenUrls::default()),
                 yard_app::Backends {
                     tray_backend: Some(yard_shell::TrayBackend::memory()),
+                    autostart_backend: Some(yard_shell::AutostartBackend::memory()),
                     ..Default::default()
                 },
             );

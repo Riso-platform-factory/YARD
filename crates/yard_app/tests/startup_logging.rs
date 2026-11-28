@@ -216,6 +216,7 @@ fn init_opens_startup_groups_at_info_and_logs_no_error(cx: &mut TestAppContext) 
                 &open_urls,
                 yard_app::Backends {
                     tray_backend: Some(yard_shell::TrayBackend::memory()),
+                    autostart_backend: Some(yard_shell::AutostartBackend::memory()),
                     ..Default::default()
                 },
             );

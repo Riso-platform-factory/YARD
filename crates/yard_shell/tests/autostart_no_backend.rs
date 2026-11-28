@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 //! Before `set_autostart_backend` is called, both `launch_at_login` and
 //! `set_launch_at_login` return `Err(AutostartError::Failed)` and log one
 //! diagnostic `ERROR` per application.

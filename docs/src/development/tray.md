@@ -72,7 +72,7 @@ ext.on_tray_activate(cx, |cx| show_main_window(cx));
 - **`TrayBackend::memory()`** is for tests. It records the current icon (its size and template flag), tooltip, and menu (labels, action names, separators, submenus). `simulate_activate()` and `simulate_menu(path)` deliver events through the same path as the system backends, and `fail_next(TrayError)` injects a failure. It is `Clone`, and clones share one state.
 - **While the part is under review**, `review.rs` sets the system backend. **At promotion:**
   - `yard_app/startup` sets it from the product;
-  - `yard_test/harness` sets a memory backend in `TestApp::boot`, through an `init_with_*` entry like the secret store's.
+  - `yard_test/harness` sets a memory backend in `TestApp::boot`, through `yard_app::init_with_backends`, which replaced `init_with_secret_store`.
 
   Both are shown and stamped again then.
 

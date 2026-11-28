@@ -68,7 +68,7 @@ fn invalid_extension_settings_warn_once_and_preserve_valid_entries(cx: &mut Test
         fs::write(&settings, input).unwrap();
         let app = cx.new_app();
         app.update(|cx| {
-            yard_app::init(
+            yard_app::init_with_backends(
                 cx,
                 Application {
                     product: Product {
@@ -91,6 +91,10 @@ fn invalid_extension_settings_warn_once_and_preserve_valid_entries(cx: &mut Test
                 ],
                 |_| Vec::new(),
                 &RefCell::new(OpenUrls::default()),
+                yard_app::Backends {
+                    tray_backend: Some(yard_shell::TrayBackend::memory()),
+                    ..Default::default()
+                },
             );
             assert_eq!(cx.global::<Started>().0, started);
         });

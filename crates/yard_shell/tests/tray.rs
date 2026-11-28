@@ -1,5 +1,3 @@
-#![cfg(feature = "dev")]
-
 use gpui::{
     AnyWindowHandle, Menu, MenuItem, OsAction, SystemMenuType, TestAppContext, VisualTestContext,
 };

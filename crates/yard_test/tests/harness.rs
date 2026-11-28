@@ -11,7 +11,7 @@ use yard_app::Application;
 use yard_paths::{Origin, Paths};
 use yard_product::Product;
 use yard_settings::Settings;
-use yard_shell::{Extension, SecretError};
+use yard_shell::{Extension, SecretError, Tray, TrayIcon};
 use yard_test::TestApp;
 
 #[derive(Default)]
@@ -195,6 +195,26 @@ async fn boot_gives_extensions_an_in_memory_secret_store(cx: &mut TestAppContext
         .expect("read the test secret from memory")
         .expect("the stored secret exists");
     assert_eq!(secret.expose(), b"test value");
+}
+
+#[gpui::test]
+fn boot_gives_extensions_an_in_memory_tray(cx: &mut TestAppContext) {
+    let app = TestApp::builder()
+        .extension("tray", |cx, extension| {
+            let icon = TrayIcon::png(include_bytes!(
+                "../../yard_build_config/tests/configs/bad-icon-small/icon.png"
+            ));
+            extension
+                .set_tray(Tray::new(icon).tooltip("Harness tray"), cx)
+                .expect("show tray during extension initialization");
+        })
+        .boot(cx);
+
+    assert_eq!(app.tray_backend().icon_size(), Some((256, 256)));
+    assert_eq!(
+        app.tray_backend().tooltip().as_deref(),
+        Some("Harness tray")
+    );
 }
 
 #[gpui::test]

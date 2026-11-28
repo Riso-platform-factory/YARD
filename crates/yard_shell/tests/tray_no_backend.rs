@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 //! Before `set_tray_backend` is called, `set_tray` returns `TrayError::Unavailable`
 //! and logs one diagnostic `ERROR` per application.
 //!

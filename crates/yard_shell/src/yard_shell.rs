@@ -1,10 +1,5 @@
 //! The window shell and extension component registry.
 
-#[cfg(feature = "dev")]
-mod dev;
-#[cfg(feature = "dev")]
-pub use dev::*;
-
 mod close_guard;
 pub use close_guard::*;
 
@@ -34,6 +29,9 @@ pub use shell::*;
 
 mod session;
 pub use session::*;
+
+mod tray;
+pub use tray::*;
 
 mod window_bounds;
 pub use window_bounds::*;

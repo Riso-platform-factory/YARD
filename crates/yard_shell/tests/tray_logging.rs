@@ -1,4 +1,3 @@
-#![cfg(feature = "dev")]
 //! Lifecycle trace and diagnostic log tests for `yard_shell/tray`.
 //!
 //! Installs one process-wide tracing subscriber and diagnostic logger; its

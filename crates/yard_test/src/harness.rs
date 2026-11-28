@@ -2,10 +2,10 @@ use gpui::{AnyWindowHandle, Global, Menu, TestAppContext, VisualTestContext, Win
 use serde_json::Value;
 use std::{cell::RefCell, fs, path::PathBuf, rc::Rc, time::Duration};
 use tempfile::TempDir;
-use yard_app::{Application, Init, OpenUrls};
+use yard_app::{Application, Backends, Init, OpenUrls};
 use yard_paths::Paths;
 use yard_product::Product;
-use yard_shell::{SecretStore, Shell};
+use yard_shell::{SecretStore, Shell, TrayBackend};
 
 const DEFAULT_APPLICATION: Application = Application {
     product: Product {
@@ -66,6 +66,7 @@ impl TestAppBuilder {
         save_settings(&paths, &self.settings);
         tracing::debug!("settings written");
 
+        let tray_backend = TrayBackend::memory();
         let window = cx.update(|cx| {
             let product = self.application.product;
             cx.set_app_identity(product.identifier, product.name);
@@ -74,14 +75,17 @@ impl TestAppBuilder {
                 name = product.name,
                 "app identity set"
             );
-            yard_app::init_with_secret_store(
+            yard_app::init_with_backends(
                 cx,
                 self.application,
                 &paths,
                 &self.extensions,
                 self.menus,
                 &RefCell::new(OpenUrls::default()),
-                SecretStore::memory(),
+                Backends {
+                    secret_store: Some(SecretStore::memory()),
+                    tray_backend: Some(tray_backend.clone()),
+                },
             );
             let window = yard_app::open_window(cx, self.application, None, None)
                 .downcast::<Shell>()
@@ -102,6 +106,7 @@ impl TestAppBuilder {
         let app = TestApp {
             paths,
             window,
+            tray_backend,
             _home: home,
         };
         app.draw(cx);
@@ -120,6 +125,7 @@ impl TestAppBuilder {
 pub struct TestApp {
     paths: Paths,
     window: WindowHandle<Shell>,
+    tray_backend: TrayBackend,
     _home: TestHome,
 }
 
@@ -139,6 +145,10 @@ impl TestApp {
 
     pub fn window(&self) -> WindowHandle<Shell> {
         self.window
+    }
+
+    pub fn tray_backend(&self) -> &TrayBackend {
+        &self.tray_backend
     }
 
     pub fn visual(&self, cx: &TestAppContext) -> VisualTestContext {

@@ -205,7 +205,18 @@ fn init_runs_the_extension_once_sets_menus_and_uses_the_applications_url_scheme(
     let open_urls = RefCell::new(OpenUrls::default());
 
     cx.update(|cx| {
-        yard_app::init(cx, app, &paths, extensions, test_menus, &open_urls);
+        yard_app::init_with_backends(
+            cx,
+            app,
+            &paths,
+            extensions,
+            test_menus,
+            &open_urls,
+            yard_app::Backends {
+                tray_backend: Some(yard_shell::TrayBackend::memory()),
+                ..Default::default()
+            },
+        );
 
         assert_eq!(
             cx.global::<Probe>().init_calls,

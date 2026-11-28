@@ -395,7 +395,18 @@ fn start_run(app: &mut TestAppContext, paths: &Paths) -> gpui::WindowHandle<Shel
     let product_app = test_app();
     let open_urls = RefCell::new(OpenUrls::default());
     let window = app.update(|cx| {
-        yard_app::init(cx, product_app, paths, extensions(), test_menus, &open_urls);
+        yard_app::init_with_backends(
+            cx,
+            product_app,
+            paths,
+            extensions(),
+            test_menus,
+            &open_urls,
+            yard_app::Backends {
+                tray_backend: Some(yard_shell::TrayBackend::memory()),
+                ..Default::default()
+            },
+        );
         let session = yard_shell::saved_session(cx, &paths.session_file());
         yard_shell::track_session(cx, paths.session_file());
         match session {

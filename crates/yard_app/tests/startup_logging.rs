@@ -1,4 +1,4 @@
-//! `yard_app::init` opens `app-init`, `extensions-load{count=1}`, and
+//! `yard_app::init_with_backends` opens `app-init`, `extensions-load{count=1}`, and
 //! `extension-init{extension=…}` at `INFO`, and logs no `ERROR`.
 //!
 //! This test captures `tracing` output and installs a process-wide diagnostic
@@ -207,7 +207,18 @@ fn init_opens_startup_groups_at_info_and_logs_no_error(cx: &mut TestAppContext) 
     let trace = Trace::default();
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
-            yard_app::init(cx, app, &paths, extensions, test_menus, &open_urls);
+            yard_app::init_with_backends(
+                cx,
+                app,
+                &paths,
+                extensions,
+                test_menus,
+                &open_urls,
+                yard_app::Backends {
+                    tray_backend: Some(yard_shell::TrayBackend::memory()),
+                    ..Default::default()
+                },
+            );
         });
     });
 

@@ -1,7 +1,7 @@
 use gpui::{App, AsyncApp, WindowOptions};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc, sync::Arc};
-use yard_shell::SecretStore;
 use yard_shell::yard_http::{self, HttpClient, NetworkSettings};
+use yard_shell::{SecretStore, TrayBackend};
 
 /// What an extension registers when the application starts.
 pub type Init = fn(&mut App, &yard_shell::Extension);
@@ -104,7 +104,15 @@ pub fn run(
         if let Some(listener) = instance {
             yard_shell::serve_instance_requests(cx, listener, app.url_scheme);
         }
-        let client = init_app(cx, app, &paths, &extensions, menus, &open_urls, None);
+        let client = init_app(
+            cx,
+            app,
+            &paths,
+            &extensions,
+            menus,
+            &open_urls,
+            Backends::default(),
+        );
         let session = yard_shell::saved_session(cx, &paths.session_file());
         yard_shell::track_session(cx, paths.session_file());
         match session {
@@ -199,19 +207,6 @@ pub fn init(
     menus: fn(&Product) -> Vec<gpui::Menu>,
     open_urls: &RefCell<OpenUrls>,
 ) {
-    init_app(cx, app, paths, extensions, menus, open_urls, None);
-}
-
-/// Initializes the app with a supplied secret store available before extensions load.
-pub fn init_with_secret_store(
-    cx: &mut App,
-    app: Application,
-    paths: &yard_paths::Paths,
-    extensions: &[(&'static str, Init)],
-    menus: fn(&Product) -> Vec<gpui::Menu>,
-    open_urls: &RefCell<OpenUrls>,
-    secret_store: SecretStore,
-) {
     init_app(
         cx,
         app,
@@ -219,8 +214,28 @@ pub fn init_with_secret_store(
         extensions,
         menus,
         open_urls,
-        Some(secret_store),
+        Backends::default(),
     );
+}
+
+/// Backends to install before extensions load. Absent backends use the system.
+#[derive(Default)]
+pub struct Backends {
+    pub secret_store: Option<SecretStore>,
+    pub tray_backend: Option<TrayBackend>,
+}
+
+/// Initializes the app with the given backend overrides.
+pub fn init_with_backends(
+    cx: &mut App,
+    app: Application,
+    paths: &yard_paths::Paths,
+    extensions: &[(&'static str, Init)],
+    menus: fn(&Product) -> Vec<gpui::Menu>,
+    open_urls: &RefCell<OpenUrls>,
+    backends: Backends,
+) {
+    init_app(cx, app, paths, extensions, menus, open_urls, backends);
 }
 
 fn init_app(
@@ -230,7 +245,7 @@ fn init_app(
     extensions: &[(&'static str, Init)],
     menus: fn(&Product) -> Vec<gpui::Menu>,
     open_urls: &RefCell<OpenUrls>,
-    secret_store: Option<SecretStore>,
+    backends: Backends,
 ) -> Option<HttpClient> {
     let client = {
         let _group = tracing::info_span!("app-init").entered();
@@ -248,7 +263,7 @@ fn init_app(
         yard_shell::set_store_dir(cx, paths.store_dir());
         yard_shell::set_data_file(cx, paths.data_file());
         let product = app.product;
-        match secret_store {
+        match backends.secret_store {
             Some(store) => {
                 yard_shell::set_secret_store(cx, store);
                 tracing::debug!("set the supplied secret store");
@@ -259,6 +274,16 @@ fn init_app(
                     SecretStore::system(product.identifier, product.name),
                 );
                 tracing::debug!("set the system secret store");
+            }
+        }
+        match backends.tray_backend {
+            Some(backend) => {
+                yard_shell::set_tray_backend(cx, backend);
+                tracing::debug!("set the supplied tray backend");
+            }
+            None => {
+                yard_shell::set_tray_backend(cx, TrayBackend::system(product.name));
+                tracing::debug!("set the system tray backend");
             }
         }
         yard_settings::register::<NetworkSettings>(cx);

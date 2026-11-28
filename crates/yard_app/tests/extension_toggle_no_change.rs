@@ -48,7 +48,7 @@ fn reload_without_an_effective_extension_change_has_no_next_start_group(cx: &mut
 
     tracing::subscriber::with_default(trace.clone(), || {
         cx.update(|cx| {
-            yard_app::init(
+            yard_app::init_with_backends(
                 cx,
                 Application {
                     product: Product {
@@ -64,6 +64,10 @@ fn reload_without_an_effective_extension_change_has_no_next_start_group(cx: &mut
                 &[("known", |_, _| {})],
                 |_| Vec::new(),
                 &RefCell::new(OpenUrls::default()),
+                yard_app::Backends {
+                    tray_backend: Some(yard_shell::TrayBackend::memory()),
+                    ..Default::default()
+                },
             );
         });
         cx.run_until_parked();

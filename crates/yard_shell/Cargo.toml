@@ -11,6 +11,16 @@ path = "src/yard_shell.rs"
 [features]
 default = ["dev"]
 dev = [
+    "dep:image",
+    "dep:ksni",
+    "dep:objc2",
+    "dep:objc2-app-kit",
+    "dep:objc2-foundation",
+    "windows/Win32_Graphics_Gdi",
+    "windows/Win32_System_LibraryLoader",
+    "windows/Win32_UI_HiDpi",
+    "windows/Win32_UI_Input_KeyboardAndMouse",
+    "windows/Win32_UI_Shell",
     "yard_data/dev",
     "yard_http/dev",
     "yard_layout/dev",
@@ -32,6 +42,7 @@ yard_settings = { workspace = true, default-features = false }
 yard_state.workspace = true
 yard_ui = { workspace = true, default-features = false }
 futures.workspace = true
+image = { workspace = true, optional = true }
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -43,6 +54,22 @@ zeroize.workspace = true
 libc.workspace = true
 
 [target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true, optional = true }
+objc2-app-kit = { workspace = true, optional = true, features = [
+    "std",
+    "NSButton",
+    "NSCell",
+    "objc2-core-foundation",
+    "NSControl",
+    "NSImage",
+    "NSMenu",
+    "NSMenuItem",
+    "NSResponder",
+    "NSStatusBar",
+    "NSStatusBarButton",
+    "NSStatusItem",
+    "NSView",
+] }
 objc2-core-foundation = { workspace = true, features = [
     "std",
     "CFData",
@@ -53,6 +80,10 @@ objc2-core-foundation = { workspace = true, features = [
     "CFCGTypes",
 ] }
 objc2-security.workspace = true
+objc2-foundation = { workspace = true, optional = true, features = ["std", "NSData", "NSString"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ksni = { workspace = true, optional = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 oo7 = { workspace = true, features = ["async-std", "native_crypto"] }
